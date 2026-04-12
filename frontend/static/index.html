@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AllDebrid-Client</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #16161f;
+    --border: #1e1e2e;
+    --border2: #2a2a3e;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --accent3: #43e97b;
+    --text: #e8e8f0;
+    --text2: #8888aa;
+    --text3: #5555770;
+    --success: #43e97b;
+    --warning: #ffd166;
+    --error: #ef476f;
+    --info: #6c63ff;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font: 'Syne', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+  }
+
+  .logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-title {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .logo-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    margin-top: 3px;
+    letter-spacing: 0.08em;
+  }
+
+  nav {
+    flex: 1;
+    padding: 12px 0;
+  }
+
+  .nav-section {
+    padding: 6px 16px 2px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-top: 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+    margin: 1px 0;
+  }
+
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(108,99,255,0.08);
+  }
+
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--error);
+    margin-left: auto;
+    animation: pulse 2s infinite;
+  }
+  .status-dot.ok { background: var(--success); animation: none; }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── Main ── */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 58px;
+  }
+
+  #topbar h1 {
+    font-size: 16px;
+    font-weight: 700;
+    flex: 1;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #7c74ff; }
+  .btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+  .btn-danger { background: rgba(239,71,111,0.15); color: var(--error); border: 1px solid rgba(239,71,111,0.3); }
+  .btn-danger:hover { background: rgba(239,71,111,0.25); }
+  .btn-success { background: rgba(67,233,123,0.15); color: var(--success); border: 1px solid rgba(67,233,123,0.3); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  #content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  /* ── Views ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Stats Cards ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat-card.blue::before { background: var(--accent); }
+  .stat-card.green::before { background: var(--success); }
+  .stat-card.red::before { background: var(--error); }
+  .stat-card.yellow::before { background: var(--warning); }
+  .stat-card.purple::before { background: #c77dff; }
+
+  .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .stat-card.blue .stat-value { color: var(--accent); }
+  .stat-card.green .stat-value { color: var(--success); }
+  .stat-card.red .stat-value { color: var(--error); }
+  .stat-card.yellow .stat-value { color: var(--warning); }
+  .stat-card.purple .stat-value { color: #c77dff; }
+
+  /* ── Table ── */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .table-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .table-title { font-size: 13px; font-weight: 700; flex: 1; }
+
+  .filter-tabs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .filter-tab {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text2);
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+  .filter-tab.active {
+    background: rgba(108,99,255,0.15);
+    color: var(--accent);
+    border-color: rgba(108,99,255,0.3);
+  }
+  .filter-tab:hover:not(.active) { color: var(--text); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    padding: 10px 18px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  td { padding: 12px 18px; vertical-align: middle; }
+
+  .torrent-name {
+    font-weight: 600;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .torrent-hash {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    margin-top: 2px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .badge-pending { background: rgba(136,136,170,0.12); color: var(--text2); }
+  .badge-uploading { background: rgba(108,99,255,0.15); color: var(--accent); }
+  .badge-processing { background: rgba(108,99,255,0.15); color: #a89cf7; }
+  .badge-downloading { background: rgba(67,233,123,0.12); color: var(--success); }
+  .badge-ready { background: rgba(67,233,123,0.15); color: #86efac; }
+  .badge-completed { background: rgba(67,233,123,0.18); color: var(--success); }
+  .badge-error { background: rgba(239,71,111,0.15); color: var(--error); }
+  .badge-deleted { background: rgba(136,136,170,0.08); color: #555577; }
+  .badge-imported { background: rgba(255,213,102,0.12); color: var(--warning); }
+  .badge-partial { background: rgba(255,213,102,0.15); color: var(--warning); }
+
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    min-width: 80px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .progress-fill.done { background: linear-gradient(90deg, var(--success), #06d6a0); }
+
+  .actions-cell {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  /* ── Add Magnet ── */
+  .add-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .add-panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .input-field {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .input-field:focus { border-color: var(--accent); }
+  .input-field::placeholder { color: var(--text2); }
+
+  /* ── Settings ── */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+  }
+
+  .settings-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .settings-section-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .settings-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+
+  .form-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 0.04em;
+  }
+
+  .form-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--text2); opacity: 0.5; }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .toggle-label { font-size: 13px; font-weight: 600; }
+  .toggle-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  .toggle {
+    position: relative;
+    width: 40px; height: 22px;
+    flex-shrink: 0;
+  }
+
+  .toggle input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--border2);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    left: 3px; top: 3px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--text2);
+    transition: all 0.2s;
+  }
+
+  .toggle input:checked + .toggle-track { background: var(--accent); }
+  .toggle input:checked + .toggle-track::after {
+    left: 21px;
+    background: #fff;
+  }
+
+  .tags-input {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px;
+    min-height: 44px;
+    cursor: text;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(108,99,255,0.2);
+    color: var(--accent);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+
+  .tag-remove {
+    cursor: pointer;
+    opacity: 0.6;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .tag-remove:hover { opacity: 1; }
+
+  .tags-input-field {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    flex: 1;
+    min-width: 80px;
+  }
+
+  /* ── Events ── */
+  .event-list { display: flex; flex-direction: column; gap: 0; }
+
+  .event-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    align-items: flex-start;
+  }
+
+  .event-item:last-child { border-bottom: none; }
+
+  .event-level {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  .event-level.info { background: var(--accent); }
+  .event-level.error { background: var(--error); }
+  .event-level.warn { background: var(--warning); }
+
+  .event-msg { flex: 1; color: var(--text); }
+  .event-name { color: var(--text2); font-size: 11px; }
+  .event-time { color: var(--text2); font-family: var(--mono); font-size: 10px; white-space: nowrap; }
+
+  /* ── Toast ── */
+  #toast-container {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+  }
+
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideIn 0.2s ease;
+    max-width: 300px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .toast.success { border-color: rgba(67,233,123,0.4); }
+  .toast.error { border-color: rgba(239,71,111,0.4); }
+
+  @keyframes slideIn {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* ── Detail Modal ── */
+  #modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(4px);
+    z-index: 500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #modal-overlay.open { display: flex; }
+
+  #modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 90%;
+    max-width: 640px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .modal-title { flex: 1; font-size: 15px; font-weight: 700; }
+  .modal-close { cursor: pointer; color: var(--text2); font-size: 20px; }
+  .modal-close:hover { color: var(--text); }
+
+  .modal-body { padding: 20px; }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .detail-item { }
+  .detail-key { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2); margin-bottom: 3px; }
+  .detail-val { font-size: 13px; font-family: var(--mono); }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 10px;
+    margin-top: 16px;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  .empty-state {
+    padding: 40px;
+    text-align: center;
+    color: var(--text2);
+    font-size: 13px;
+  }
+
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+  .size-text { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+
+  .save-bar {
+    position: sticky;
+    bottom: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 -24px -24px;
+  }
+
+  .save-bar-hint { font-size: 12px; color: var(--text2); flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside id="sidebar">
+  <div class="logo">
+    <div class="logo-title">AllDebrid<br>Client</div>
+    <div class="logo-sub">v1.0.0 · automated debrid</div>
+  </div>
+  <nav>
+    <div class="nav-section">Queue</div>
+    <div class="nav-item active" data-view="dashboard" onclick="nav(this)">
+      <span class="nav-icon">⚡</span> Dashboard
+    </div>
+    <div class="nav-item" data-view="torrents" onclick="nav(this)">
+      <span class="nav-icon">🧲</span> Torrents
+    </div>
+    <div class="nav-section">Tools</div>
+    <div class="nav-item" data-view="events" onclick="nav(this)">
+      <span class="nav-icon">📋</span> Events
+    </div>
+    <div class="nav-section">System</div>
+    <div class="nav-item" data-view="settings" onclick="nav(this)">
+      <span class="nav-icon">⚙️</span> Settings
+    </div>
+  </nav>
+  <div style="padding:16px 20px; border-top:1px solid var(--border);">
+    <div style="font-size:10px;color:var(--text2);margin-bottom:6px;">API STATUS</div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;">
+      <div class="status-dot" id="api-status-dot"></div>
+      <span id="api-status-text">Checking…</span>
+    </div>
+  </div>
+</aside>
+
+<!-- Main -->
+<div id="main">
+  <div id="topbar">
+    <h1 id="page-title">Dashboard</h1>
+    <div id="topbar-actions"></div>
+  </div>
+  <div id="content">
+
+    <!-- Dashboard -->
+    <div class="view active" id="view-dashboard">
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card blue"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>
+        <div class="stat-card green"><div class="stat-label">Completed</div><div class="stat-value" id="s-completed">—</div></div>
+        <div class="stat-card blue"><div class="stat-label">Downloading</div><div class="stat-value" id="s-downloading">—</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Processing</div><div class="stat-value" id="s-processing">—</div></div>
+        <div class="stat-card red"><div class="stat-label">Errors</div><div class="stat-value" id="s-error">—</div></div>
+        <div class="stat-card purple"><div class="stat-label">Downloaded</div><div class="stat-value" id="s-size" style="font-size:20px;margin-top:4px">—</div></div>
+      </div>
+
+      <!-- Quick add -->
+      <div class="add-panel">
+        <div class="add-panel-title">🧲 Add Magnet Link</div>
+        <div class="input-row">
+          <input class="input-field" id="quick-magnet" placeholder="magnet:?xt=urn:btih:…" />
+          <button class="btn btn-primary" onclick="quickAdd()">Add</button>
+          <button class="btn btn-ghost" onclick="importExisting()" title="Import magnets already on AllDebrid">⬇ Import Existing</button>
+        </div>
+      </div>
+
+      <!-- Recent torrents mini -->
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">Recent Activity</span>
+          <button class="btn btn-ghost btn-sm" onclick="nav(document.querySelector('[data-view=torrents]'))">View All →</button>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Progress</th>
+            <th>Size</th>
+            <th>Added</th>
+          </tr></thead>
+          <tbody id="recent-tbody">
+            <tr><td colspan="5" class="empty-state">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Torrents -->
+    <div class="view" id="view-torrents">
+      <div class="add-panel">
+        <div class="add-panel-title">🧲 Add Magnet Link</div>
+        <div class="input-row">
+          <input class="input-field" id="magnet-input" placeholder="magnet:?xt=urn:btih:…" />
+          <button class="btn btn-primary" onclick="addMagnet()">Add Torrent</button>
+          <button class="btn btn-ghost" onclick="importExisting()">⬇ Import from AllDebrid</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">All Torrents</span>
+          <div class="filter-tabs">
+            <div class="filter-tab active" onclick="setFilter(this,'')">All</div>
+            <div class="filter-tab" onclick="setFilter(this,'downloading')">Downloading</div>
+            <div class="filter-tab" onclick="setFilter(this,'ready')">Ready</div>
+            <div class="filter-tab" onclick="setFilter(this,'completed')">Completed</div>
+            <div class="filter-tab" onclick="setFilter(this,'error')">Error</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="loadTorrents()" style="margin-left:8px">↻ Refresh</button>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Name / Hash</th>
+            <th>Source</th>
+            <th>Status</th>
+            <th>Progress</th>
+            <th>Size</th>
+            <th>Added</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="torrents-tbody">
+            <tr><td colspan="7" class="empty-state">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Events -->
+    <div class="view" id="view-events">
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">Event Log</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadEvents()">↻ Refresh</button>
+        </div>
+        <div class="event-list" id="event-list">
+          <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="view" id="view-settings">
+      <div class="settings-grid" id="settings-form">
+        <!-- Dynamically rendered -->
+      </div>
+      <div class="save-bar">
+        <span class="save-bar-hint">Changes are applied immediately after saving.</span>
+        <button class="btn btn-ghost" onclick="testDiscord()">🔔 Test Discord</button>
+        <button class="btn btn-ghost" onclick="testAllDebrid()">🔑 Test API Key</button>
+        <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay" onclick="closeModal(event)">
+  <div id="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Torrent Details</span>
+      <span class="modal-close" onclick="closeModal()">✕</span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container"></div>
+
+<script>
+const API = '/api';
+let currentFilter = '';
+let settingsData = {};
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+function nav(el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  const view = el.dataset.view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+
+  const titles = { dashboard: 'Dashboard', torrents: 'Torrents', events: 'Events', settings: 'Settings' };
+  document.getElementById('page-title').textContent = titles[view] || view;
+
+  if (view === 'dashboard') { loadStats(); loadRecent(); }
+  if (view === 'torrents') loadTorrents();
+  if (view === 'events') loadEvents();
+  if (view === 'settings') loadSettings();
+}
+
+// ── API Helpers ──────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ detail: r.statusText }));
+    throw new Error(err.detail || r.statusText);
+  }
+  return r.json();
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warn: '⚠️' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type]||'·'}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ── Formatters ───────────────────────────────────────────────────────────────
+function fmtSize(bytes) {
+  if (!bytes) return '—';
+  const units = ['B','KB','MB','GB','TB'];
+  let i = 0;
+  while (bytes >= 1024 && i < units.length - 1) { bytes /= 1024; i++; }
+  return bytes.toFixed(1) + ' ' + units[i];
+}
+
+function fmtDate(dt) {
+  if (!dt) return '—';
+  const d = new Date(dt);
+  return d.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit' }) + ' ' +
+         d.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' });
+}
+
+function statusBadge(s) {
+  const labels = {
+    pending: '⏳ Pending', uploading: '⬆ Uploading', processing: '⚙ Processing',
+    downloading: '⬇ Downloading', ready: '✓ Ready', completed: '✅ Done',
+    error: '❌ Error', deleted: '🗑 Deleted', imported: '📋 Imported', partial: '⚠ Partial'
+  };
+  return `<span class="badge badge-${s}">${labels[s]||s}</span>`;
+}
+
+function progressBar(pct, status) {
+  const done = status === 'completed';
+  return `<div class="progress-bar"><div class="progress-fill ${done?'done':''}" style="width:${Math.min(pct||0,100)}%"></div></div>
+          <span class="size-text" style="margin-top:3px;display:block">${(pct||0).toFixed(0)}%</span>`;
+}
+
+// ── Status Check ─────────────────────────────────────────────────────────────
+async function checkApiStatus() {
+  try {
+    await api('GET', '/stats');
+    document.getElementById('api-status-dot').classList.add('ok');
+    document.getElementById('api-status-text').textContent = 'Online';
+  } catch {
+    document.getElementById('api-status-text').textContent = 'Offline';
+  }
+}
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const s = await api('GET', '/stats');
+    const bs = s.by_status || {};
+    const total = Object.values(bs).reduce((a,b) => a+b, 0);
+    document.getElementById('s-total').textContent = total;
+    document.getElementById('s-completed').textContent = bs.completed || 0;
+    document.getElementById('s-downloading').textContent = bs.downloading || 0;
+    document.getElementById('s-processing').textContent = (bs.processing||0) + (bs.uploading||0);
+    document.getElementById('s-error').textContent = bs.error || 0;
+    document.getElementById('s-size').textContent = fmtSize(s.total_completed_bytes);
+  } catch(e) { toast('Stats error: ' + e.message, 'error'); }
+}
+
+async function loadRecent() {
+  try {
+    const { items } = await api('GET', '/torrents?limit=8');
+    const tbody = document.getElementById('recent-tbody');
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🧲</div>No torrents yet. Add a magnet link to get started.</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(t => `
+      <tr onclick="showDetail(${t.id})" style="cursor:pointer">
+        <td><div class="torrent-name">${t.name || '—'}</div></td>
+        <td>${statusBadge(t.status)}</td>
+        <td>${progressBar(t.progress, t.status)}</td>
+        <td class="size-text">${fmtSize(t.size_bytes)}</td>
+        <td class="size-text">${fmtDate(t.created_at)}</td>
+      </tr>`).join('');
+  } catch(e) { toast('Load error: ' + e.message, 'error'); }
+}
+
+async function quickAdd() {
+  const val = document.getElementById('quick-magnet').value.trim();
+  if (!val) return;
+  try {
+    await api('POST', '/torrents/add-magnet', { magnet: val });
+    toast('Magnet added!', 'success');
+    document.getElementById('quick-magnet').value = '';
+    await loadStats();
+    await loadRecent();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ── Torrents ─────────────────────────────────────────────────────────────────
+function setFilter(el, status) {
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter = status;
+  loadTorrents();
+}
+
+async function loadTorrents() {
+  try {
+    const qs = currentFilter ? `?status=${currentFilter}&limit=100` : '?limit=100';
+    const { items } = await api('GET', '/torrents' + qs);
+    const tbody = document.getElementById('torrents-tbody');
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🧲</div>No torrents found.</div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(t => `
+      <tr>
+        <td>
+          <div class="torrent-name">${t.name || '(unnamed)'}</div>
+          <div class="torrent-hash">${t.hash ? t.hash.substring(0,16)+'…' : ''}</div>
+        </td>
+        <td class="size-text">${t.source || '—'}</td>
+        <td>${statusBadge(t.status)}</td>
+        <td>${progressBar(t.progress, t.status)}</td>
+        <td class="size-text">${fmtSize(t.size_bytes)}</td>
+        <td class="size-text">${fmtDate(t.created_at)}</td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn-ghost btn-sm" onclick="showDetail(${t.id})">Details</button>
+            ${t.status==='error'?`<button class="btn btn-ghost btn-sm" onclick="retryTorrent(${t.id})">↻</button>`:''}
+            <button class="btn btn-danger btn-sm" onclick="deleteTorrent(${t.id},event)">✕</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  } catch(e) { toast('Load error: ' + e.message, 'error'); }
+}
+
+async function addMagnet() {
+  const val = document.getElementById('magnet-input').value.trim();
+  if (!val) return;
+  try {
+    await api('POST', '/torrents/add-magnet', { magnet: val });
+    toast('Magnet added!', 'success');
+    document.getElementById('magnet-input').value = '';
+    loadTorrents();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function importExisting() {
+  try {
+    const r = await api('POST', '/torrents/import-existing');
+    toast(`Imported ${r.imported} magnets from AllDebrid`, 'success');
+    loadStats();
+    loadRecent();
+    if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
+  } catch(e) { toast('Import error: ' + e.message, 'error'); }
+}
+
+async function deleteTorrent(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this torrent from AllDebrid?')) return;
+  try {
+    await api('DELETE', `/torrents/${id}?from_alldebrid=true`);
+    toast('Deleted', 'success');
+    loadTorrents();
+    loadStats();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function retryTorrent(id) {
+  try {
+    await api('POST', `/torrents/${id}/retry`);
+    toast('Queued for retry', 'success');
+    loadTorrents();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ── Detail Modal ──────────────────────────────────────────────────────────────
+async function showDetail(id) {
+  try {
+    const t = await api('GET', `/torrents/${id}`);
+    document.getElementById('modal-title').textContent = t.name || 'Torrent Details';
+    document.getElementById('modal-body').innerHTML = `
+      <div class="detail-grid">
+        <div class="detail-item"><div class="detail-key">Status</div><div class="detail-val">${statusBadge(t.status)}</div></div>
+        <div class="detail-item"><div class="detail-key">Progress</div><div class="detail-val">${(t.progress||0).toFixed(1)}%</div></div>
+        <div class="detail-item"><div class="detail-key">Size</div><div class="detail-val">${fmtSize(t.size_bytes)}</div></div>
+        <div class="detail-item"><div class="detail-key">Source</div><div class="detail-val">${t.source||'—'}</div></div>
+        <div class="detail-item"><div class="detail-key">Added</div><div class="detail-val">${fmtDate(t.created_at)}</div></div>
+        <div class="detail-item"><div class="detail-key">Completed</div><div class="detail-val">${fmtDate(t.completed_at)}</div></div>
+        <div class="detail-item" style="grid-column:1/-1"><div class="detail-key">AllDebrid ID</div><div class="detail-val">${t.alldebrid_id||'—'}</div></div>
+        <div class="detail-item" style="grid-column:1/-1"><div class="detail-key">Hash</div><div class="detail-val" style="font-size:11px;word-break:break-all">${t.hash||'—'}</div></div>
+        ${t.local_path ? `<div class="detail-item" style="grid-column:1/-1"><div class="detail-key">Local Path</div><div class="detail-val" style="font-size:11px">${t.local_path}</div></div>` : ''}
+        ${t.error_message ? `<div class="detail-item" style="grid-column:1/-1"><div class="detail-key">Error</div><div class="detail-val" style="color:var(--error)">${t.error_message}</div></div>` : ''}
+      </div>
+
+      ${t.files && t.files.length ? `
+        <div class="section-label">Files (${t.files.length})</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Filename</th><th>Size</th><th>Status</th></tr></thead>
+            <tbody>${t.files.map(f => `
+              <tr>
+                <td style="font-family:var(--mono);font-size:11px">${f.filename}${f.blocked?` <span class="badge badge-error" style="font-size:9px">BLOCKED: ${f.block_reason}</span>`:''}</td>
+                <td class="size-text">${fmtSize(f.size_bytes)}</td>
+                <td>${statusBadge(f.status)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : ''}
+
+      ${t.events && t.events.length ? `
+        <div class="section-label">Events</div>
+        <div class="event-list">
+          ${t.events.map(ev => `
+            <div class="event-item">
+              <div class="event-level ${ev.level}"></div>
+              <div class="event-msg">${ev.message}</div>
+              <div class="event-time">${fmtDate(ev.created_at)}</div>
+            </div>`).join('')}
+        </div>` : ''}
+    `;
+    document.getElementById('modal-overlay').classList.add('open');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay')) {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+}
+
+// ── Events ───────────────────────────────────────────────────────────────────
+async function loadEvents() {
+  try {
+    const events = await api('GET', '/events?limit=200');
+    const el = document.getElementById('event-list');
+    if (!events.length) {
+      el.innerHTML = '<div class="empty-state">No events yet.</div>';
+      return;
+    }
+    el.innerHTML = events.map(ev => `
+      <div class="event-item">
+        <div class="event-level ${ev.level}"></div>
+        <div>
+          <div class="event-msg">${ev.message}</div>
+          ${ev.torrent_name ? `<div class="event-name">${ev.torrent_name}</div>` : ''}
+        </div>
+        <div class="event-time">${fmtDate(ev.created_at)}</div>
+      </div>`).join('');
+  } catch(e) { toast('Load error: ' + e.message, 'error'); }
+}
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+async function loadSettings() {
+  try {
+    settingsData = await api('GET', '/settings');
+    renderSettings();
+  } catch(e) { toast('Settings error: ' + e.message, 'error'); }
+}
+
+function renderSettings() {
+  const s = settingsData;
+  document.getElementById('settings-form').innerHTML = `
+
+    <div class="settings-section">
+      <div class="settings-section-header">🔑 AllDebrid</div>
+      <div class="settings-body">
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input class="form-input" type="password" id="s-alldebrid_api_key" value="${s.alldebrid_api_key||''}" placeholder="Your AllDebrid API key" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Agent Name</label>
+          <input class="form-input" id="s-alldebrid_agent" value="${s.alldebrid_agent||'AllDebrid-Client'}" />
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-header">📁 Folders & Downloads</div>
+      <div class="settings-body">
+        <div class="form-group">
+          <label class="form-label">Watch Folder</label>
+          <input class="form-input" id="s-watch_folder" value="${s.watch_folder||''}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Processed Folder</label>
+          <input class="form-input" id="s-processed_folder" value="${s.processed_folder||''}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Download Folder</label>
+          <input class="form-input" id="s-download_folder" value="${s.download_folder||''}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Concurrent Downloads</label>
+          <input class="form-input" type="number" id="s-max_concurrent_downloads" value="${s.max_concurrent_downloads||3}" min="1" max="20" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Speed (MB/s, 0 = unlimited)</label>
+          <input class="form-input" type="number" id="s-max_speed_mbps" value="${s.max_speed_mbps||0}" min="0" />
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-header">🔔 Discord Notifications</div>
+      <div class="settings-body">
+        <div class="form-group">
+          <label class="form-label">Webhook URL</label>
+          <input class="form-input" id="s-discord_webhook_url" value="${s.discord_webhook_url||''}" placeholder="https://discord.com/api/webhooks/…" />
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Notify on Added</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added?'checked':''}><div class="toggle-track"></div></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Notify on Finished</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_finished" ${s.discord_notify_finished?'checked':''}><div class="toggle-track"></div></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Notify on Error</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error?'checked':''}><div class="toggle-track"></div></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-header">🔗 aria2 / AriaNg</div>
+      <div class="settings-body">
+        <div class="toggle-row">
+          <div><div class="toggle-label">Enable AriaNg</div><div class="toggle-desc">Send downloads to aria2 via JSON-RPC</div></div>
+          <label class="toggle"><input type="checkbox" id="s-ariang_enabled" ${s.ariang_enabled?'checked':''}><div class="toggle-track"></div></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 RPC URL (with token: http://token:SECRET@host:6800/jsonrpc)</label>
+          <input class="form-input" id="s-ariang_url" value="${s.ariang_url||''}" placeholder="http://localhost:6800/jsonrpc" />
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-header">☁️ JDownloader</div>
+      <div class="settings-body">
+        <div class="toggle-row">
+          <div><div class="toggle-label">Enable JDownloader</div><div class="toggle-desc">Send links via FlashGot/Direct integration</div></div>
+          <label class="toggle"><input type="checkbox" id="s-jdownloader_enabled" ${s.jdownloader_enabled?'checked':''}><div class="toggle-track"></div></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">JDownloader URL</label>
+          <input class="form-input" id="s-jdownloader_url" value="${s.jdownloader_url||''}" placeholder="http://localhost:9696" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-input" id="s-jdownloader_user" value="${s.jdownloader_user||''}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" type="password" id="s-jdownloader_password" value="${s.jdownloader_password||''}" />
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-header">🚫 Filters</div>
+      <div class="settings-body">
+        <div class="form-group">
+          <label class="form-label">Blocked Extensions (one per line, e.g. .jpg)</label>
+          <textarea class="form-input" id="s-blocked_extensions" rows="5" style="resize:vertical">${(s.blocked_extensions||[]).join('\n')}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Blocked Keywords (one per line)</label>
+          <textarea class="form-input" id="s-blocked_keywords" rows="3" style="resize:vertical">${(s.blocked_keywords||[]).join('\n')}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
+          <input class="form-input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb||0}" min="0" />
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-header">⏱ Polling Intervals</div>
+      <div class="settings-body">
+        <div class="form-group">
+          <label class="form-label">AllDebrid Poll Interval (seconds)</label>
+          <input class="form-input" type="number" id="s-poll_interval_seconds" value="${s.poll_interval_seconds||30}" min="10" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Watch Folder Scan Interval (seconds)</label>
+          <input class="form-input" type="number" id="s-watch_interval_seconds" value="${s.watch_interval_seconds||10}" min="5" />
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function getSettingsFromForm() {
+  const g = id => document.getElementById('s-'+id);
+  const txt = id => g(id)?.value?.trim() || '';
+  const num = id => parseInt(g(id)?.value || '0');
+  const chk = id => g(id)?.checked || false;
+  const lines = id => g(id)?.value?.split('\n').map(l=>l.trim()).filter(Boolean) || [];
+
+  return {
+    alldebrid_api_key: txt('alldebrid_api_key'),
+    alldebrid_agent: txt('alldebrid_agent') || 'AllDebrid-Client',
+    watch_folder: txt('watch_folder'),
+    processed_folder: txt('processed_folder'),
+    download_folder: txt('download_folder'),
+    max_concurrent_downloads: num('max_concurrent_downloads') || 3,
+    max_speed_mbps: num('max_speed_mbps'),
+    discord_webhook_url: txt('discord_webhook_url'),
+    discord_notify_added: chk('discord_notify_added'),
+    discord_notify_finished: chk('discord_notify_finished'),
+    discord_notify_error: chk('discord_notify_error'),
+    ariang_enabled: chk('ariang_enabled'),
+    ariang_url: txt('ariang_url'),
+    jdownloader_enabled: chk('jdownloader_enabled'),
+    jdownloader_url: txt('jdownloader_url'),
+    jdownloader_user: txt('jdownloader_user'),
+    jdownloader_password: txt('jdownloader_password'),
+    blocked_extensions: lines('blocked_extensions'),
+    blocked_keywords: lines('blocked_keywords'),
+    min_file_size_mb: num('min_file_size_mb'),
+    poll_interval_seconds: num('poll_interval_seconds') || 30,
+    watch_interval_seconds: num('watch_interval_seconds') || 10,
+  };
+}
+
+async function saveSettings() {
+  try {
+    const data = getSettingsFromForm();
+    await api('PUT', '/settings', data);
+    settingsData = data;
+    toast('Settings saved!', 'success');
+  } catch(e) { toast('Save error: ' + e.message, 'error'); }
+}
+
+async function testDiscord() {
+  const url = document.getElementById('s-discord_webhook_url')?.value?.trim();
+  if (!url) { toast('Enter a webhook URL first', 'warn'); return; }
+  try {
+    const r = await api('POST', '/settings/test-discord');
+    toast(r.ok ? 'Discord notification sent! ✓' : 'Discord test failed', r.ok ? 'success' : 'error');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function testAllDebrid() {
+  try {
+    const r = await api('POST', '/settings/test-alldebrid');
+    const user = r.user?.user;
+    toast(`Connected as ${user?.username||'unknown'} ✓`, 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+checkApiStatus();
+loadStats();
+loadRecent();
+setInterval(() => {
+  if (document.getElementById('view-dashboard').classList.contains('active')) {
+    loadStats(); loadRecent();
+  }
+  if (document.getElementById('view-torrents').classList.contains('active')) {
+    loadTorrents();
+  }
+  checkApiStatus();
+}, 15000);
+</script>
+</body>
+</html>
