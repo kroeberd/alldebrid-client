@@ -1,12 +1,13 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router
-from core.config import settings
 from core.scheduler import start_scheduler, stop_scheduler
 from db.database import init_db
 
@@ -44,4 +45,16 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api")
 
-app.mount("/", StaticFiles(directory="/app/frontend/static", html=True), name="static")
+# Resolve frontend/static: env override > relative to this file > Docker fallback
+_here = Path(__file__).parent
+_candidates = [
+    Path(os.getenv("STATIC_DIR", "")),
+    _here.parent / "frontend" / "static",
+    Path("/app/frontend/static"),
+]
+_static = next((p for p in _candidates if p.exists()), None)
+if _static is None:
+    raise RuntimeError("Frontend static directory not found. Set STATIC_DIR env var.")
+
+logger.info(f"Serving static files from: {_static}")
+app.mount("/", StaticFiles(directory=str(_static), html=True), name="static")

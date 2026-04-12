@@ -1,10 +1,9 @@
 import asyncio
 import logging
-from core.config import settings
+from core.config import get_settings
 from services.manager import manager
 
 logger = logging.getLogger("alldebrid.scheduler")
-
 _tasks = []
 
 
@@ -14,17 +13,16 @@ async def watch_folder_loop():
             await manager.scan_watch_folder()
         except Exception as e:
             logger.error(f"Watch folder error: {e}")
-        await asyncio.sleep(settings.watch_interval_seconds)
+        await asyncio.sleep(get_settings().watch_interval_seconds)
 
 
 async def sync_status_loop():
     while True:
         try:
-            if settings.alldebrid_api_key:
-                await manager.sync_alldebrid_status()
+            await manager.sync_alldebrid_status()
         except Exception as e:
             logger.error(f"Status sync error: {e}")
-        await asyncio.sleep(settings.poll_interval_seconds)
+        await asyncio.sleep(get_settings().poll_interval_seconds)
 
 
 async def start_scheduler():
@@ -37,4 +35,3 @@ async def stop_scheduler():
     for t in _tasks:
         t.cancel()
     _tasks.clear()
-    logger.info("Scheduler stopped")

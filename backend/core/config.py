@@ -1,12 +1,13 @@
 import json
 import os
 from pathlib import Path
-from typing import Optional, List
+from typing import List
 from pydantic import BaseModel
 
 CONFIG_PATH = Path(os.getenv("CONFIG_PATH", "/app/config/config.json"))
 
-
+# Single mutable container — all modules reference this dict-like object
+# so changes via update_settings() are immediately visible everywhere.
 class AppSettings(BaseModel):
     # AllDebrid
     alldebrid_api_key: str = ""
@@ -39,11 +40,20 @@ class AppSettings(BaseModel):
         ".svg", ".ico", ".tiff", ".heic"
     ]
     blocked_keywords: List[str] = []
-    min_file_size_mb: int = 0  # 0 = no minimum
+    min_file_size_mb: int = 0
 
     # Polling
     poll_interval_seconds: int = 30
     watch_interval_seconds: int = 10
+
+
+# Module-level mutable object — ALL modules must call get_settings() to
+# get the current live instance, never cache the result at import time.
+_settings: AppSettings = AppSettings()
+
+
+def get_settings() -> AppSettings:
+    return _settings
 
 
 def load_settings() -> AppSettings:
@@ -63,4 +73,15 @@ def save_settings(s: AppSettings):
         json.dump(s.model_dump(), f, indent=2)
 
 
-settings: AppSettings = load_settings()
+def apply_settings(s: AppSettings):
+    """Update the live settings object in-place so all modules see the change."""
+    global _settings
+    _settings = s
+
+
+# Load persisted settings on startup
+_settings = load_settings()
+
+# Legacy alias so old `from core.config import settings` still works
+# for READ-ONLY uses — but write paths must use apply_settings()
+settings = _settings  # NOTE: this alias is stale after apply_settings() — use get_settings()
