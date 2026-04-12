@@ -5,733 +5,301 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AllDebrid-Client</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0a0a0f;
-    --surface: #111118;
-    --surface2: #16161f;
-    --border: #1e1e2e;
-    --border2: #2a2a3e;
-    --accent: #6c63ff;
-    --accent2: #ff6584;
-    --accent3: #43e97b;
-    --text: #e8e8f0;
-    --text2: #8888aa;
-    --text3: #5555770;
-    --success: #43e97b;
-    --warning: #ffd166;
-    --error: #ef476f;
-    --info: #6c63ff;
-    --radius: 10px;
-    --radius-sm: 6px;
-    --font: 'Syne', sans-serif;
-    --mono: 'DM Mono', monospace;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font);
-    min-height: 100vh;
-    display: flex;
-    overflow: hidden;
-  }
-
-  /* ── Sidebar ── */
-  #sidebar {
-    width: 220px;
-    min-width: 220px;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    position: sticky;
-    top: 0;
-  }
-
-  .logo {
-    padding: 24px 20px 20px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .logo-title {
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .logo-sub {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text2);
-    margin-top: 3px;
-    letter-spacing: 0.08em;
-  }
-
-  nav {
-    flex: 1;
-    padding: 12px 0;
-  }
-
-  .nav-section {
-    padding: 6px 16px 2px;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text2);
-    margin-top: 8px;
-  }
-
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 20px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text2);
-    transition: all 0.15s;
-    border-left: 3px solid transparent;
-    margin: 1px 0;
-  }
-
-  .nav-item:hover { color: var(--text); background: var(--surface2); }
-  .nav-item.active {
-    color: var(--accent);
-    border-left-color: var(--accent);
-    background: rgba(108,99,255,0.08);
-  }
-
-  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-
-  .status-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--error);
-    margin-left: auto;
-    animation: pulse 2s infinite;
-  }
-  .status-dot.ok { background: var(--success); animation: none; }
-
-  @keyframes pulse {
-    0%,100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  /* ── Main ── */
-  #main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-  }
-
-  #topbar {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-height: 58px;
-  }
-
-  #topbar h1 {
-    font-size: 16px;
-    font-weight: 700;
-    flex: 1;
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border-radius: var(--radius-sm);
-    border: none;
-    cursor: pointer;
-    font-family: var(--font);
-    font-size: 13px;
-    font-weight: 600;
-    transition: all 0.15s;
-  }
-
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: #7c74ff; }
-  .btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
-  .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
-  .btn-danger { background: rgba(239,71,111,0.15); color: var(--error); border: 1px solid rgba(239,71,111,0.3); }
-  .btn-danger:hover { background: rgba(239,71,111,0.25); }
-  .btn-success { background: rgba(67,233,123,0.15); color: var(--success); border: 1px solid rgba(67,233,123,0.3); }
-  .btn-sm { padding: 5px 10px; font-size: 12px; }
-
-  #content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-  }
-
-  /* ── Views ── */
-  .view { display: none; }
-  .view.active { display: block; }
-
-  /* ── Stats Cards ── */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 14px;
-    margin-bottom: 24px;
-  }
-
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-  }
-
-  .stat-card.blue::before { background: var(--accent); }
-  .stat-card.green::before { background: var(--success); }
-  .stat-card.red::before { background: var(--error); }
-  .stat-card.yellow::before { background: var(--warning); }
-  .stat-card.purple::before { background: #c77dff; }
-
-  .stat-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text2);
-    margin-bottom: 10px;
-  }
-
-  .stat-value {
-    font-size: 32px;
-    font-weight: 800;
-    line-height: 1;
-  }
-
-  .stat-card.blue .stat-value { color: var(--accent); }
-  .stat-card.green .stat-value { color: var(--success); }
-  .stat-card.red .stat-value { color: var(--error); }
-  .stat-card.yellow .stat-value { color: var(--warning); }
-  .stat-card.purple .stat-value { color: #c77dff; }
-
-  /* ── Table ── */
-  .table-wrap {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-
-  .table-header {
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .table-title { font-size: 13px; font-weight: 700; flex: 1; }
-
-  .filter-tabs {
-    display: flex;
-    gap: 4px;
-  }
-
-  .filter-tab {
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    color: var(--text2);
-    border: 1px solid transparent;
-    transition: all 0.15s;
-  }
-  .filter-tab.active {
-    background: rgba(108,99,255,0.15);
-    color: var(--accent);
-    border-color: rgba(108,99,255,0.3);
-  }
-  .filter-tab:hover:not(.active) { color: var(--text); }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
-  thead th {
-    padding: 10px 18px;
-    text-align: left;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text2);
-    border-bottom: 1px solid var(--border);
-    background: var(--surface2);
-  }
-
-  tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background 0.1s;
-  }
-
-  tbody tr:last-child { border-bottom: none; }
-  tbody tr:hover { background: var(--surface2); }
-
-  td { padding: 12px 18px; vertical-align: middle; }
-
-  .torrent-name {
-    font-weight: 600;
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .torrent-hash {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text2);
-    margin-top: 2px;
-  }
-
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .badge-pending { background: rgba(136,136,170,0.12); color: var(--text2); }
-  .badge-uploading { background: rgba(108,99,255,0.15); color: var(--accent); }
-  .badge-processing { background: rgba(108,99,255,0.15); color: #a89cf7; }
-  .badge-downloading { background: rgba(67,233,123,0.12); color: var(--success); }
-  .badge-ready { background: rgba(67,233,123,0.15); color: #86efac; }
-  .badge-completed { background: rgba(67,233,123,0.18); color: var(--success); }
-  .badge-error { background: rgba(239,71,111,0.15); color: var(--error); }
-  .badge-deleted { background: rgba(136,136,170,0.08); color: #555577; }
-  .badge-imported { background: rgba(255,213,102,0.12); color: var(--warning); }
-  .badge-partial { background: rgba(255,213,102,0.15); color: var(--warning); }
-
-  .progress-bar {
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-    min-width: 80px;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    border-radius: 2px;
-    transition: width 0.3s;
-  }
-
-  .progress-fill.done { background: linear-gradient(90deg, var(--success), #06d6a0); }
-
-  .actions-cell {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-
-  /* ── Add Magnet ── */
-  .add-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-
-  .add-panel-title {
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .input-row {
-    display: flex;
-    gap: 10px;
-  }
-
-  .input-field {
-    flex: 1;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 10px 14px;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 12px;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-
-  .input-field:focus { border-color: var(--accent); }
-  .input-field::placeholder { color: var(--text2); }
-
-  /* ── Settings ── */
-  .settings-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 20px;
-  }
-
-  .settings-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-
-  .settings-section-header {
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text2);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .settings-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
-
-  .form-group { display: flex; flex-direction: column; gap: 5px; }
-
-  .form-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text2);
-    letter-spacing: 0.04em;
-  }
-
-  .form-input {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 9px 12px;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 12px;
-    outline: none;
-    transition: border-color 0.15s;
-    width: 100%;
-  }
-
-  .form-input:focus { border-color: var(--accent); }
-  .form-input::placeholder { color: var(--text2); opacity: 0.5; }
-
-  .toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  .toggle-label { font-size: 13px; font-weight: 600; }
-  .toggle-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
-
-  .toggle {
-    position: relative;
-    width: 40px; height: 22px;
-    flex-shrink: 0;
-  }
-
-  .toggle input { opacity: 0; width: 0; height: 0; }
-
-  .toggle-track {
-    position: absolute;
-    inset: 0;
-    background: var(--border2);
-    border-radius: 11px;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .toggle-track::after {
-    content: '';
-    position: absolute;
-    left: 3px; top: 3px;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    background: var(--text2);
-    transition: all 0.2s;
-  }
-
-  .toggle input:checked + .toggle-track { background: var(--accent); }
-  .toggle input:checked + .toggle-track::after {
-    left: 21px;
-    background: #fff;
-  }
-
-  .tags-input {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 8px;
-    min-height: 44px;
-    cursor: text;
-  }
-
-  .tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(108,99,255,0.2);
-    color: var(--accent);
-    border-radius: 4px;
-    padding: 2px 8px;
-    font-size: 11px;
-    font-family: var(--mono);
-  }
-
-  .tag-remove {
-    cursor: pointer;
-    opacity: 0.6;
-    font-size: 14px;
-    line-height: 1;
-  }
-  .tag-remove:hover { opacity: 1; }
-
-  .tags-input-field {
-    border: none;
-    background: transparent;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 12px;
-    outline: none;
-    flex: 1;
-    min-width: 80px;
-  }
-
-  /* ── Events ── */
-  .event-list { display: flex; flex-direction: column; gap: 0; }
-
-  .event-item {
-    display: flex;
-    gap: 12px;
-    padding: 10px 18px;
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-    align-items: flex-start;
-  }
-
-  .event-item:last-child { border-bottom: none; }
-
-  .event-level {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    margin-top: 4px;
-    flex-shrink: 0;
-  }
-
-  .event-level.info { background: var(--accent); }
-  .event-level.error { background: var(--error); }
-  .event-level.warn { background: var(--warning); }
-
-  .event-msg { flex: 1; color: var(--text); }
-  .event-name { color: var(--text2); font-size: 11px; }
-  .event-time { color: var(--text2); font-family: var(--mono); font-size: 10px; white-space: nowrap; }
-
-  /* ── Toast ── */
-  #toast-container {
-    position: fixed;
-    bottom: 24px; right: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1000;
-  }
-
-  .toast {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 12px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    animation: slideIn 0.2s ease;
-    max-width: 300px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-  }
-
-  .toast.success { border-color: rgba(67,233,123,0.4); }
-  .toast.error { border-color: rgba(239,71,111,0.4); }
-
-  @keyframes slideIn {
-    from { transform: translateX(20px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-
-  /* ── Detail Modal ── */
-  #modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(10,10,15,0.85);
-    backdrop-filter: blur(4px);
-    z-index: 500;
-    display: none;
-    align-items: center;
-    justify-content: center;
-  }
-
-  #modal-overlay.open { display: flex; }
-
-  #modal {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    width: 90%;
-    max-width: 640px;
-    max-height: 80vh;
-    overflow-y: auto;
-  }
-
-  .modal-header {
-    padding: 18px 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .modal-title { flex: 1; font-size: 15px; font-weight: 700; }
-  .modal-close { cursor: pointer; color: var(--text2); font-size: 20px; }
-  .modal-close:hover { color: var(--text); }
-
-  .modal-body { padding: 20px; }
-
-  .detail-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-
-  .detail-item { }
-  .detail-key { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2); margin-bottom: 3px; }
-  .detail-val { font-size: 13px; font-family: var(--mono); }
-
-  .section-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text2);
-    margin-bottom: 10px;
-    margin-top: 16px;
-  }
-
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-
-  .empty-state {
-    padding: 40px;
-    text-align: center;
-    color: var(--text2);
-    font-size: 13px;
-  }
-
-  .empty-icon { font-size: 36px; margin-bottom: 12px; }
-
-  .size-text { font-family: var(--mono); font-size: 11px; color: var(--text2); }
-
-  .save-bar {
-    position: sticky;
-    bottom: 0;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0 -24px -24px;
-  }
-
-  .save-bar-hint { font-size: 12px; color: var(--text2); flex: 1; }
+:root {
+  --bg:       #080c14;
+  --bg2:      #0d1220;
+  --surface:  #111827;
+  --surface2: #161f30;
+  --border:   #1e2d45;
+  --border2:  #263650;
+  --accent:   #f97316;
+  --accent2:  #fb923c;
+  --blue:     #3b82f6;
+  --green:    #22c55e;
+  --yellow:   #eab308;
+  --red:      #ef4444;
+  --purple:   #a855f7;
+  --text:     #e2e8f0;
+  --text2:    #64748b;
+  --text3:    #334155;
+  --radius:   12px;
+  --radius-sm:8px;
+  --font:     'Outfit', sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+  --sidebar:  240px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); display: flex; font-size: 14px; }
+
+/* ── Sidebar ── */
+#sidebar {
+  width: var(--sidebar); min-width: var(--sidebar);
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  height: 100vh; position: sticky; top: 0;
+}
+.logo {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.logo-icon {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: linear-gradient(135deg, var(--accent), #c2410c);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+  box-shadow: 0 0 16px rgba(249,115,22,0.3);
+}
+.logo-text { line-height: 1.2; }
+.logo-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.logo-ver  { font-size: 10px; color: var(--text2); font-family: var(--mono); }
+
+nav { flex: 1; padding: 10px 0; overflow-y: auto; }
+.nav-group { padding: 14px 16px 4px; font-size: 9px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--text3); }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 18px; cursor: pointer; font-size: 13px; font-weight: 500;
+  color: var(--text2); border-left: 3px solid transparent;
+  transition: all .15s; margin: 1px 0;
+}
+.nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+.nav-item:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(249,115,22,.07); font-weight: 600; }
+.nav-badge { margin-left: auto; background: var(--accent); color: #fff;
+  border-radius: 10px; font-size: 10px; font-weight: 700;
+  padding: 1px 6px; min-width: 18px; text-align: center; }
+
+.sidebar-footer {
+  padding: 14px 18px; border-top: 1px solid var(--border);
+}
+.conn-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+.conn-row:last-child { margin-bottom: 0; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+.dot.ok     { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,.4); }
+.dot.error  { background: var(--red); animation: blink 1.5s infinite; }
+.dot.check  { background: var(--yellow); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Main ── */
+#main { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; min-width: 0; }
+#topbar {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 14px 24px; display: flex; align-items: center; gap: 12px; min-height: 58px;
+}
+#topbar h1 { font-size: 17px; font-weight: 700; flex: 1; }
+#content { flex: 1; overflow-y: auto; padding: 22px 24px; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: var(--radius-sm); border: none;
+  cursor: pointer; font-family: var(--font); font-size: 13px; font-weight: 600;
+  transition: all .15s; white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); box-shadow: 0 0 12px rgba(249,115,22,.4); }
+.btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+.btn-danger { background: rgba(239,68,68,.12); color: var(--red); border: 1px solid rgba(239,68,68,.25); }
+.btn-danger:hover { background: rgba(239,68,68,.22); }
+.btn-blue { background: rgba(59,130,246,.15); color: var(--blue); border: 1px solid rgba(59,130,246,.25); }
+.btn-blue:hover { background: rgba(59,130,246,.25); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Views ── */
+.view { display: none; animation: fadeIn .2s ease; }
+.view.active { display: block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+
+/* ── Stat Cards ── */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: 14px; margin-bottom: 22px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px; position: relative; overflow: hidden;
+}
+.stat-card::after {
+  content:''; position:absolute; top:0;left:0;right:0;height:2px;
+  background: var(--c);
+}
+.stat-card[data-c="orange"] { --c: var(--accent); }
+.stat-card[data-c="green"]  { --c: var(--green); }
+.stat-card[data-c="blue"]   { --c: var(--blue); }
+.stat-card[data-c="yellow"] { --c: var(--yellow); }
+.stat-card[data-c="red"]    { --c: var(--red); }
+.stat-card[data-c="purple"] { --c: var(--purple); }
+.stat-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text2); margin-bottom: 10px; }
+.stat-value { font-size: 30px; font-weight: 800; color: var(--c); line-height: 1; }
+.stat-sub { font-size: 10px; color: var(--text2); margin-top: 5px; font-family: var(--mono); }
+
+/* ── Card ── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 18px; }
+.card-header { padding: 13px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.card-title { font-size: 13px; font-weight: 700; flex: 1; }
+
+/* ── Input ── */
+.input { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 12px; color: var(--text); font-family: var(--mono); font-size: 12px;
+  outline: none; transition: border-color .15s; width: 100%; }
+.input:focus { border-color: var(--accent); }
+.input::placeholder { color: var(--text3); }
+.input-row { display: flex; gap: 8px; }
+.input-row .input { flex: 1; }
+
+/* ── Table ── */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { padding: 9px 16px; text-align: left; font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text2);
+  border-bottom: 1px solid var(--border); background: var(--surface2); }
+tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; cursor: default; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface2); }
+td { padding: 11px 16px; vertical-align: middle; }
+
+.t-name { font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-hash { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-top: 2px; }
+
+/* ── Badges ── */
+.badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.badge-pending    { background: rgba(100,116,139,.12); color: var(--text2); }
+.badge-uploading  { background: rgba(59,130,246,.14); color: var(--blue); }
+.badge-processing { background: rgba(168,85,247,.14); color: var(--purple); }
+.badge-downloading{ background: rgba(34,197,94,.12);  color: var(--green); }
+.badge-ready      { background: rgba(234,179,8,.12);  color: var(--yellow); }
+.badge-completed  { background: rgba(34,197,94,.16);  color: #4ade80; }
+.badge-error      { background: rgba(239,68,68,.14);  color: var(--red); }
+.badge-partial    { background: rgba(234,179,8,.14);  color: var(--yellow); }
+.badge-deleted    { background: rgba(100,116,139,.08);color: var(--text3); }
+.badge-imported   { background: rgba(249,115,22,.12); color: var(--accent); }
+
+/* ── Progress ── */
+.prog { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; min-width: 70px; }
+.prog-fill { height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius: 2px; transition: width .5s; }
+.prog-fill.done { background: linear-gradient(90deg,var(--green),#16a34a); }
+.prog-pct { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-top: 3px; display: block; }
+
+/* ── Filter tabs ── */
+.filter-tabs { display: flex; gap: 3px; }
+.ftab { padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 600;
+  cursor: pointer; color: var(--text2); border: 1px solid transparent; transition: all .15s; }
+.ftab.active { background: rgba(249,115,22,.14); color: var(--accent); border-color: rgba(249,115,22,.3); }
+.ftab:hover:not(.active) { color: var(--text); }
+
+/* ── Settings ── */
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(340px,1fr)); gap: 18px; }
+.scard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.scard-header { padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text2);
+  display: flex; align-items: center; gap: 8px; }
+.scard-body { padding: 16px; display: flex; flex-direction: column; gap: 13px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-label { font-size: 11px; font-weight: 600; color: var(--text2); letter-spacing: .04em; }
+.form-hint  { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.toggle-info .tl { font-size: 13px; font-weight: 600; }
+.toggle-info .td { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.toggle { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.ttrack { position: absolute; inset: 0; background: var(--border2); border-radius: 12px; cursor: pointer; transition: background .2s; }
+.ttrack::after { content:''; position: absolute; left: 4px; top: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--text3); transition: all .2s; }
+.toggle input:checked + .ttrack { background: var(--accent); }
+.toggle input:checked + .ttrack::after { left: 22px; background: #fff; }
+.test-row { display: flex; gap: 8px; align-items: flex-end; }
+.test-row .input { flex: 1; }
+
+/* ── Events ── */
+.event-item { display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12px; align-items: flex-start; }
+.event-item:last-child { border-bottom: none; }
+.elevel { width: 8px; height: 8px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+.elevel.info  { background: var(--blue); }
+.elevel.warn  { background: var(--yellow); }
+.elevel.error { background: var(--red); }
+.emsg { flex: 1; }
+.ename { font-size: 10px; color: var(--text2); margin-top: 1px; }
+.etime { font-family: var(--mono); font-size: 10px; color: var(--text3); white-space: nowrap; }
+
+/* ── Modal ── */
+#overlay { position: fixed; inset: 0; background: rgba(8,12,20,.88); backdrop-filter: blur(6px);
+  z-index: 500; display: none; align-items: center; justify-content: center; }
+#overlay.open { display: flex; }
+#modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  width: 90%; max-width: 620px; max-height: 82vh; overflow-y: auto; }
+.modal-hdr { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.modal-title { flex: 1; font-size: 15px; font-weight: 700; }
+.modal-close { cursor: pointer; color: var(--text2); font-size: 20px; line-height: 1; }
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 20px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.dk { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text2); margin-bottom: 3px; }
+.dv { font-size: 13px; font-family: var(--mono); word-break: break-all; }
+.sec-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text2); margin: 16px 0 8px; }
+
+/* ── Toast ── */
+#toasts { position: fixed; bottom: 22px; right: 22px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 11px 15px; font-size: 13px; font-weight: 600; display: flex; align-items: center;
+  gap: 8px; animation: toastIn .2s ease; max-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+.toast.success { border-color: rgba(34,197,94,.4); }
+.toast.error   { border-color: rgba(239,68,68,.4); }
+.toast.warn    { border-color: rgba(234,179,8,.4); }
+@keyframes toastIn { from{transform:translateX(16px);opacity:0} to{transform:none;opacity:1} }
+
+/* ── Misc ── */
+.empty { padding: 40px; text-align: center; color: var(--text2); font-size: 13px; }
+.empty-icon { font-size: 32px; margin-bottom: 10px; }
+.actions { display: flex; gap: 5px; align-items: center; }
+.sz { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+.save-bar { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border);
+  padding: 13px 24px; display: flex; align-items: center; gap: 10px; margin: 0 -24px -22px; }
+.save-hint { font-size: 12px; color: var(--text2); flex: 1; }
+.beta-banner { background: rgba(249,115,22,.08); border: 1px solid rgba(249,115,22,.2);
+  border-radius: var(--radius-sm); padding: 8px 14px; font-size: 12px; color: var(--accent2);
+  margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+textarea.input { resize: vertical; }
 </style>
 </head>
 <body>
 
-<!-- Sidebar -->
 <aside id="sidebar">
   <div class="logo">
-    <div class="logo-title">AllDebrid<br>Client</div>
-    <div class="logo-sub">v1.0.0 · automated debrid</div>
+    <div class="logo-icon">⬇</div>
+    <div class="logo-text">
+      <div class="logo-name">AllDebrid-Client</div>
+      <div class="logo-ver">v0.0.1 · beta</div>
+    </div>
   </div>
   <nav>
-    <div class="nav-section">Queue</div>
+    <div class="nav-group">Queue</div>
     <div class="nav-item active" data-view="dashboard" onclick="nav(this)">
-      <span class="nav-icon">⚡</span> Dashboard
+      <span class="icon">⚡</span>Dashboard
     </div>
     <div class="nav-item" data-view="torrents" onclick="nav(this)">
-      <span class="nav-icon">🧲</span> Torrents
+      <span class="icon">🧲</span>Torrents
+      <span class="nav-badge" id="nb-active" style="display:none">0</span>
     </div>
-    <div class="nav-section">Tools</div>
+    <div class="nav-group">Monitor</div>
     <div class="nav-item" data-view="events" onclick="nav(this)">
-      <span class="nav-icon">📋</span> Events
+      <span class="icon">📋</span>Event Log
     </div>
-    <div class="nav-section">System</div>
+    <div class="nav-group">System</div>
     <div class="nav-item" data-view="settings" onclick="nav(this)">
-      <span class="nav-icon">⚙️</span> Settings
+      <span class="icon">⚙️</span>Settings
     </div>
   </nav>
-  <div style="padding:16px 20px; border-top:1px solid var(--border);">
-    <div style="font-size:10px;color:var(--text2);margin-bottom:6px;">API STATUS</div>
-    <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;">
-      <div class="status-dot" id="api-status-dot"></div>
-      <span id="api-status-text">Checking…</span>
-    </div>
+  <div class="sidebar-footer">
+    <div class="conn-row"><div class="dot" id="dot-api"></div><span id="lbl-api">AllDebrid: checking…</span></div>
+    <div class="conn-row"><div class="dot" id="dot-aria"></div><span id="lbl-aria">aria2: —</span></div>
+    <div class="conn-row"><div class="dot" id="dot-jd"></div><span id="lbl-jd">JDownloader: —</span></div>
   </div>
 </aside>
 
-<!-- Main -->
 <div id="main">
   <div id="topbar">
     <h1 id="page-title">Dashboard</h1>
@@ -741,108 +309,94 @@
 
     <!-- Dashboard -->
     <div class="view active" id="view-dashboard">
-      <div class="stats-grid" id="stats-grid">
-        <div class="stat-card blue"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>
-        <div class="stat-card green"><div class="stat-label">Completed</div><div class="stat-value" id="s-completed">—</div></div>
-        <div class="stat-card blue"><div class="stat-label">Downloading</div><div class="stat-value" id="s-downloading">—</div></div>
-        <div class="stat-card yellow"><div class="stat-label">Processing</div><div class="stat-value" id="s-processing">—</div></div>
-        <div class="stat-card red"><div class="stat-label">Errors</div><div class="stat-value" id="s-error">—</div></div>
-        <div class="stat-card purple"><div class="stat-label">Downloaded</div><div class="stat-value" id="s-size" style="font-size:20px;margin-top:4px">—</div></div>
-      </div>
+      <div class="beta-banner">⚠️ Beta-Version — kann Fehler enthalten. Bitte Feedback über GitHub Issues melden.</div>
 
-      <!-- Quick add -->
-      <div class="add-panel">
-        <div class="add-panel-title">🧲 Add Magnet Link</div>
-        <div class="input-row">
-          <input class="input-field" id="quick-magnet" placeholder="magnet:?xt=urn:btih:…" />
-          <button class="btn btn-primary" onclick="quickAdd()">Add</button>
-          <button class="btn btn-ghost" onclick="importExisting()" title="Import magnets already on AllDebrid">⬇ Import Existing</button>
+      <div class="stats-grid">
+        <div class="stat-card" data-c="orange"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>
+        <div class="stat-card" data-c="green"><div class="stat-label">Completed</div><div class="stat-value" id="s-completed">—</div></div>
+        <div class="stat-card" data-c="blue"><div class="stat-label">Active</div><div class="stat-value" id="s-active">—</div></div>
+        <div class="stat-card" data-c="yellow"><div class="stat-label">Processing</div><div class="stat-value" id="s-processing">—</div></div>
+        <div class="stat-card" data-c="red"><div class="stat-label">Errors</div><div class="stat-value" id="s-error">—</div></div>
+        <div class="stat-card" data-c="purple">
+          <div class="stat-label">Downloaded</div>
+          <div class="stat-value" id="s-size" style="font-size:20px;padding-top:4px">—</div>
+          <div class="stat-sub" id="s-blocked">— blocked files</div>
         </div>
       </div>
 
-      <!-- Recent torrents mini -->
-      <div class="table-wrap">
-        <div class="table-header">
-          <span class="table-title">Recent Activity</span>
-          <button class="btn btn-ghost btn-sm" onclick="nav(document.querySelector('[data-view=torrents]'))">View All →</button>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🧲 Add Magnet Link</span>
+        </div>
+        <div style="padding:14px 16px">
+          <div class="input-row">
+            <input class="input" id="q-magnet" placeholder="magnet:?xt=urn:btih:…" />
+            <button class="btn btn-primary" onclick="quickAdd()">Add</button>
+            <button class="btn btn-ghost" onclick="importExisting()" title="Import all magnets on AllDebrid">⬇ Import Existing</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Activity</span>
+          <button class="btn btn-ghost btn-sm" onclick="nav(document.querySelector('[data-view=torrents]'))">All →</button>
         </div>
         <table>
-          <thead><tr>
-            <th>Name</th>
-            <th>Status</th>
-            <th>Progress</th>
-            <th>Size</th>
-            <th>Added</th>
-          </tr></thead>
-          <tbody id="recent-tbody">
-            <tr><td colspan="5" class="empty-state">Loading…</td></tr>
-          </tbody>
+          <thead><tr><th>Name</th><th>Status</th><th>Progress</th><th>Size</th><th>Added</th></tr></thead>
+          <tbody id="dash-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
 
     <!-- Torrents -->
     <div class="view" id="view-torrents">
-      <div class="add-panel">
-        <div class="add-panel-title">🧲 Add Magnet Link</div>
-        <div class="input-row">
-          <input class="input-field" id="magnet-input" placeholder="magnet:?xt=urn:btih:…" />
-          <button class="btn btn-primary" onclick="addMagnet()">Add Torrent</button>
-          <button class="btn btn-ghost" onclick="importExisting()">⬇ Import from AllDebrid</button>
+      <div class="card" style="margin-bottom:16px">
+        <div style="padding:14px 16px">
+          <div class="input-row">
+            <input class="input" id="t-magnet" placeholder="magnet:?xt=urn:btih:…" />
+            <button class="btn btn-primary" onclick="addMagnet()">Add Torrent</button>
+            <button class="btn btn-ghost" onclick="importExisting()">⬇ Import from AllDebrid</button>
+          </div>
         </div>
       </div>
-
-      <div class="table-wrap">
-        <div class="table-header">
-          <span class="table-title">All Torrents</span>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">All Torrents</span>
           <div class="filter-tabs">
-            <div class="filter-tab active" onclick="setFilter(this,'')">All</div>
-            <div class="filter-tab" onclick="setFilter(this,'downloading')">Downloading</div>
-            <div class="filter-tab" onclick="setFilter(this,'ready')">Ready</div>
-            <div class="filter-tab" onclick="setFilter(this,'completed')">Completed</div>
-            <div class="filter-tab" onclick="setFilter(this,'error')">Error</div>
+            <div class="ftab active" onclick="setFilter(this,'')">All</div>
+            <div class="ftab" onclick="setFilter(this,'downloading')">Active</div>
+            <div class="ftab" onclick="setFilter(this,'ready')">Ready</div>
+            <div class="ftab" onclick="setFilter(this,'completed')">Done</div>
+            <div class="ftab" onclick="setFilter(this,'error')">Error</div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="loadTorrents()" style="margin-left:8px">↻ Refresh</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadTorrents()" style="margin-left:8px">↻</button>
         </div>
         <table>
-          <thead><tr>
-            <th>Name / Hash</th>
-            <th>Source</th>
-            <th>Status</th>
-            <th>Progress</th>
-            <th>Size</th>
-            <th>Added</th>
-            <th>Actions</th>
-          </tr></thead>
-          <tbody id="torrents-tbody">
-            <tr><td colspan="7" class="empty-state">Loading…</td></tr>
-          </tbody>
+          <thead><tr><th>Name / Hash</th><th>Source</th><th>Status</th><th>Progress</th><th>Size</th><th>Added</th><th>Actions</th></tr></thead>
+          <tbody id="t-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
 
     <!-- Events -->
     <div class="view" id="view-events">
-      <div class="table-wrap">
-        <div class="table-header">
-          <span class="table-title">Event Log</span>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Event Log</span>
           <button class="btn btn-ghost btn-sm" onclick="loadEvents()">↻ Refresh</button>
         </div>
-        <div class="event-list" id="event-list">
-          <div class="empty-state">Loading…</div>
-        </div>
+        <div id="event-list"><div class="empty">Loading…</div></div>
       </div>
     </div>
 
     <!-- Settings -->
     <div class="view" id="view-settings">
-      <div class="settings-grid" id="settings-form">
-        <!-- Dynamically rendered -->
-      </div>
+      <div class="settings-grid" id="settings-form"></div>
       <div class="save-bar">
-        <span class="save-bar-hint">Changes are applied immediately after saving.</span>
+        <span class="save-hint">Settings are applied immediately after saving.</span>
         <button class="btn btn-ghost" onclick="testDiscord()">🔔 Test Discord</button>
-        <button class="btn btn-ghost" onclick="testAllDebrid()">🔑 Test API Key</button>
+        <button class="btn btn-ghost" onclick="testAD()">🔑 Test AllDebrid</button>
         <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
       </div>
     </div>
@@ -851,154 +405,176 @@
 </div>
 
 <!-- Modal -->
-<div id="modal-overlay" onclick="closeModal(event)">
+<div id="overlay" onclick="closeModal(event)">
   <div id="modal">
-    <div class="modal-header">
-      <span class="modal-title" id="modal-title">Torrent Details</span>
+    <div class="modal-hdr">
+      <span class="modal-title" id="modal-title">Details</span>
       <span class="modal-close" onclick="closeModal()">✕</span>
     </div>
     <div class="modal-body" id="modal-body"></div>
   </div>
 </div>
 
-<!-- Toast -->
-<div id="toast-container"></div>
+<div id="toasts"></div>
 
 <script>
 const API = '/api';
 let currentFilter = '';
 let settingsData = {};
 
-// ── Navigation ───────────────────────────────────────────────────────────────
+// ── Nav ────────────────────────────────────────────────────────────────────
 function nav(el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
-  const view = el.dataset.view;
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById('view-' + view).classList.add('active');
-
-  const titles = { dashboard: 'Dashboard', torrents: 'Torrents', events: 'Events', settings: 'Settings' };
-  document.getElementById('page-title').textContent = titles[view] || view;
-
-  if (view === 'dashboard') { loadStats(); loadRecent(); }
-  if (view === 'torrents') loadTorrents();
-  if (view === 'events') loadEvents();
-  if (view === 'settings') loadSettings();
+  const v = el.dataset.view;
+  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  const titles = {dashboard:'Dashboard',torrents:'Torrents',events:'Event Log',settings:'Settings'};
+  document.getElementById('page-title').textContent = titles[v] || v;
+  if (v === 'dashboard') { loadStats(); loadRecent(); }
+  if (v === 'torrents')  loadTorrents();
+  if (v === 'events')    loadEvents();
+  if (v === 'settings')  loadSettings();
 }
 
-// ── API Helpers ──────────────────────────────────────────────────────────────
+// ── API ────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const opts = {method, headers: {'Content-Type':'application/json'}};
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(API + path, opts);
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({ detail: r.statusText }));
-    throw new Error(err.detail || r.statusText);
-  }
-  return r.json();
+  const data = await r.json().catch(() => ({detail: r.statusText}));
+  if (!r.ok) throw new Error(data.detail || r.statusText);
+  return data;
 }
 
-// ── Toast ────────────────────────────────────────────────────────────────────
+// ── Toast ──────────────────────────────────────────────────────────────────
 function toast(msg, type = 'info') {
-  const icons = { success: '✅', error: '❌', info: 'ℹ️', warn: '⚠️' };
+  const icons = {success:'✅',error:'❌',warn:'⚠️',info:'ℹ️'};
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.innerHTML = `<span>${icons[type]||'·'}</span><span>${msg}</span>`;
-  document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => el.remove(), 3500);
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.style.opacity = '0', 3000);
+  setTimeout(() => el.remove(), 3400);
 }
 
-// ── Formatters ───────────────────────────────────────────────────────────────
-function fmtSize(bytes) {
-  if (!bytes) return '—';
-  const units = ['B','KB','MB','GB','TB'];
-  let i = 0;
-  while (bytes >= 1024 && i < units.length - 1) { bytes /= 1024; i++; }
-  return bytes.toFixed(1) + ' ' + units[i];
+// ── Format ─────────────────────────────────────────────────────────────────
+function fmtSize(b) {
+  if (!b) return '—';
+  const u = ['B','KB','MB','GB','TB']; let i = 0;
+  while (b >= 1024 && i < u.length-1) {b/=1024; i++;}
+  return b.toFixed(1)+' '+u[i];
 }
-
-function fmtDate(dt) {
-  if (!dt) return '—';
-  const d = new Date(dt);
-  return d.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit' }) + ' ' +
-         d.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' });
+function fmtDate(d) {
+  if (!d) return '—';
+  const x = new Date(d);
+  return x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' '+
+         x.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
 }
-
-function statusBadge(s) {
-  const labels = {
-    pending: '⏳ Pending', uploading: '⬆ Uploading', processing: '⚙ Processing',
-    downloading: '⬇ Downloading', ready: '✓ Ready', completed: '✅ Done',
-    error: '❌ Error', deleted: '🗑 Deleted', imported: '📋 Imported', partial: '⚠ Partial'
-  };
-  return `<span class="badge badge-${s}">${labels[s]||s}</span>`;
+function badge(s) {
+  const m = {pending:'⏳ Pending',uploading:'⬆ Uploading',processing:'⚙ Processing',
+    downloading:'⬇ Downloading',ready:'✓ Ready',completed:'✅ Done',
+    error:'❌ Error',deleted:'🗑 Deleted',imported:'📋 Imported',partial:'⚠ Partial'};
+  return `<span class="badge badge-${s}">${m[s]||s}</span>`;
 }
-
-function progressBar(pct, status) {
+function progress(pct, status) {
   const done = status === 'completed';
-  return `<div class="progress-bar"><div class="progress-fill ${done?'done':''}" style="width:${Math.min(pct||0,100)}%"></div></div>
-          <span class="size-text" style="margin-top:3px;display:block">${(pct||0).toFixed(0)}%</span>`;
+  return `<div class="prog"><div class="prog-fill ${done?'done':''}" style="width:${Math.min(pct||0,100)}%"></div></div>
+          <span class="prog-pct">${(pct||0).toFixed(0)}%</span>`;
 }
 
-// ── Status Check ─────────────────────────────────────────────────────────────
-async function checkApiStatus() {
+// ── Status Bar ─────────────────────────────────────────────────────────────
+async function checkConnections() {
+  // API/AllDebrid
   try {
     await api('GET', '/stats');
-    document.getElementById('api-status-dot').classList.add('ok');
-    document.getElementById('api-status-text').textContent = 'Online';
+    setDot('api', 'ok', 'AllDebrid: online');
   } catch {
-    document.getElementById('api-status-text').textContent = 'Offline';
+    setDot('api', 'error', 'AllDebrid: error');
+  }
+  // aria2
+  const cfg = settingsData;
+  if (cfg.ariang_enabled && cfg.ariang_url) {
+    try {
+      const r = await api('POST', '/settings/test-aria2');
+      setDot('aria', 'ok', `aria2: v${r.version||'?'}`);
+    } catch(e) {
+      setDot('aria', 'error', 'aria2: error');
+    }
+  } else {
+    setDot('aria', '', 'aria2: disabled');
+  }
+  // JDownloader
+  if (cfg.jdownloader_enabled && cfg.jdownloader_url) {
+    try {
+      await api('POST', '/settings/test-jdownloader');
+      setDot('jd', 'ok', 'JDownloader: online');
+    } catch {
+      setDot('jd', 'error', 'JDownloader: error');
+    }
+  } else {
+    setDot('jd', '', 'JDownloader: disabled');
   }
 }
 
-// ── Dashboard ────────────────────────────────────────────────────────────────
+function setDot(id, state, label) {
+  const d = document.getElementById('dot-'+id);
+  const l = document.getElementById('lbl-'+id);
+  d.className = 'dot' + (state ? ' '+state : '');
+  l.textContent = label;
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────
 async function loadStats() {
   try {
     const s = await api('GET', '/stats');
     const bs = s.by_status || {};
-    const total = Object.values(bs).reduce((a,b) => a+b, 0);
+    const total = Object.values(bs).reduce((a,b)=>a+b,0);
     document.getElementById('s-total').textContent = total;
-    document.getElementById('s-completed').textContent = bs.completed || 0;
-    document.getElementById('s-downloading').textContent = bs.downloading || 0;
-    document.getElementById('s-processing').textContent = (bs.processing||0) + (bs.uploading||0);
-    document.getElementById('s-error').textContent = bs.error || 0;
+    document.getElementById('s-completed').textContent = bs.completed||0;
+    document.getElementById('s-active').textContent = s.active_downloads||0;
+    document.getElementById('s-processing').textContent = (bs.processing||0)+(bs.uploading||0);
+    document.getElementById('s-error').textContent = bs.error||0;
     document.getElementById('s-size').textContent = fmtSize(s.total_completed_bytes);
-  } catch(e) { toast('Stats error: ' + e.message, 'error'); }
+    document.getElementById('s-blocked').textContent = `${s.total_blocked_files||0} blocked files`;
+    const active = s.active_downloads || 0;
+    const nb = document.getElementById('nb-active');
+    nb.textContent = active; nb.style.display = active > 0 ? '' : 'none';
+  } catch(e) { /* silent */ }
 }
 
 async function loadRecent() {
   try {
-    const { items } = await api('GET', '/torrents?limit=8');
-    const tbody = document.getElementById('recent-tbody');
+    const {items} = await api('GET', '/torrents?limit=10');
+    const tb = document.getElementById('dash-tbody');
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🧲</div>No torrents yet. Add a magnet link to get started.</div></td></tr>';
+      tb.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">🧲</div>No torrents yet. Add a magnet link to start.</div></td></tr>';
       return;
     }
-    tbody.innerHTML = items.map(t => `
-      <tr onclick="showDetail(${t.id})" style="cursor:pointer">
-        <td><div class="torrent-name">${t.name || '—'}</div></td>
-        <td>${statusBadge(t.status)}</td>
-        <td>${progressBar(t.progress, t.status)}</td>
-        <td class="size-text">${fmtSize(t.size_bytes)}</td>
-        <td class="size-text">${fmtDate(t.created_at)}</td>
-      </tr>`).join('');
-  } catch(e) { toast('Load error: ' + e.message, 'error'); }
+    tb.innerHTML = items.map(t => `<tr onclick="showDetail(${t.id})" style="cursor:pointer">
+      <td><div class="t-name">${t.name||'(unnamed)'}</div></td>
+      <td>${badge(t.status)}</td>
+      <td>${progress(t.progress,t.status)}</td>
+      <td class="sz">${fmtSize(t.size_bytes)}</td>
+      <td class="sz">${fmtDate(t.created_at)}</td>
+    </tr>`).join('');
+  } catch(e) { console.error(e); }
 }
 
 async function quickAdd() {
-  const val = document.getElementById('quick-magnet').value.trim();
-  if (!val) return;
+  const v = document.getElementById('q-magnet').value.trim();
+  if (!v) return;
   try {
-    await api('POST', '/torrents/add-magnet', { magnet: val });
+    await api('POST', '/torrents/add-magnet', {magnet: v});
     toast('Magnet added!', 'success');
-    document.getElementById('quick-magnet').value = '';
-    await loadStats();
-    await loadRecent();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
+    document.getElementById('q-magnet').value = '';
+    loadStats(); loadRecent();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
-// ── Torrents ─────────────────────────────────────────────────────────────────
+// ── Torrents ───────────────────────────────────────────────────────────────
 function setFilter(el, status) {
-  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   currentFilter = status;
   loadTorrents();
@@ -1007,366 +583,389 @@ function setFilter(el, status) {
 async function loadTorrents() {
   try {
     const qs = currentFilter ? `?status=${currentFilter}&limit=100` : '?limit=100';
-    const { items } = await api('GET', '/torrents' + qs);
-    const tbody = document.getElementById('torrents-tbody');
+    const {items} = await api('GET', '/torrents'+qs);
+    const tb = document.getElementById('t-tbody');
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🧲</div>No torrents found.</div></td></tr>';
+      tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">🧲</div>No torrents found.</div></td></tr>';
       return;
     }
-    tbody.innerHTML = items.map(t => `
-      <tr>
-        <td>
-          <div class="torrent-name">${t.name || '(unnamed)'}</div>
-          <div class="torrent-hash">${t.hash ? t.hash.substring(0,16)+'…' : ''}</div>
-        </td>
-        <td class="size-text">${t.source || '—'}</td>
-        <td>${statusBadge(t.status)}</td>
-        <td>${progressBar(t.progress, t.status)}</td>
-        <td class="size-text">${fmtSize(t.size_bytes)}</td>
-        <td class="size-text">${fmtDate(t.created_at)}</td>
-        <td>
-          <div class="actions-cell">
-            <button class="btn btn-ghost btn-sm" onclick="showDetail(${t.id})">Details</button>
-            ${t.status==='error'?`<button class="btn btn-ghost btn-sm" onclick="retryTorrent(${t.id})">↻</button>`:''}
-            <button class="btn btn-danger btn-sm" onclick="deleteTorrent(${t.id},event)">✕</button>
-          </div>
-        </td>
-      </tr>`).join('');
-  } catch(e) { toast('Load error: ' + e.message, 'error'); }
+    tb.innerHTML = items.map(t => `<tr>
+      <td>
+        <div class="t-name">${t.name||'(unnamed)'}</div>
+        <div class="t-hash">${(t.hash||'').substring(0,16)}${t.hash?'…':''}</div>
+      </td>
+      <td class="sz">${t.source||'—'}</td>
+      <td>${badge(t.status)}</td>
+      <td>${progress(t.progress,t.status)}</td>
+      <td class="sz">${fmtSize(t.size_bytes)}</td>
+      <td class="sz">${fmtDate(t.created_at)}</td>
+      <td>
+        <div class="actions">
+          <button class="btn btn-ghost btn-sm" onclick="showDetail(${t.id})">Details</button>
+          ${t.status==='error'?`<button class="btn btn-blue btn-sm" onclick="retryT(${t.id})">↻</button>`:''}
+          <button class="btn btn-danger btn-sm" onclick="deleteT(${t.id},event)">✕</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  } catch(e) { toast(e.message,'error'); }
 }
 
 async function addMagnet() {
-  const val = document.getElementById('magnet-input').value.trim();
-  if (!val) return;
+  const v = document.getElementById('t-magnet').value.trim();
+  if (!v) return;
   try {
-    await api('POST', '/torrents/add-magnet', { magnet: val });
-    toast('Magnet added!', 'success');
-    document.getElementById('magnet-input').value = '';
+    await api('POST','/torrents/add-magnet',{magnet:v});
+    toast('Added!','success');
+    document.getElementById('t-magnet').value='';
     loadTorrents();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  } catch(e) { toast(e.message,'error'); }
 }
 
 async function importExisting() {
   try {
-    const r = await api('POST', '/torrents/import-existing');
-    toast(`Imported ${r.imported} magnets from AllDebrid`, 'success');
-    loadStats();
-    loadRecent();
+    const r = await api('POST','/torrents/import-existing');
+    toast(`Imported ${r.imported} magnets from AllDebrid`,'success');
+    loadStats(); loadRecent();
     if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
-  } catch(e) { toast('Import error: ' + e.message, 'error'); }
+  } catch(e) { toast(e.message,'error'); }
 }
 
-async function deleteTorrent(id, e) {
+async function deleteT(id, e) {
   e.stopPropagation();
-  if (!confirm('Delete this torrent from AllDebrid?')) return;
+  if (!confirm('Delete from AllDebrid and remove from list?')) return;
   try {
-    await api('DELETE', `/torrents/${id}?from_alldebrid=true`);
-    toast('Deleted', 'success');
-    loadTorrents();
-    loadStats();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
+    await api('DELETE',`/torrents/${id}?from_alldebrid=true`);
+    toast('Deleted','success');
+    loadTorrents(); loadStats();
+  } catch(e) { toast(e.message,'error'); }
 }
 
-async function retryTorrent(id) {
+async function retryT(id) {
   try {
-    await api('POST', `/torrents/${id}/retry`);
-    toast('Queued for retry', 'success');
+    await api('POST',`/torrents/${id}/retry`);
+    toast('Queued for retry','success');
     loadTorrents();
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  } catch(e) { toast(e.message,'error'); }
 }
 
-// ── Detail Modal ──────────────────────────────────────────────────────────────
+// ── Detail Modal ───────────────────────────────────────────────────────────
 async function showDetail(id) {
   try {
-    const t = await api('GET', `/torrents/${id}`);
-    document.getElementById('modal-title').textContent = t.name || 'Torrent Details';
+    const t = await api('GET',`/torrents/${id}`);
+    document.getElementById('modal-title').textContent = t.name||'Torrent Details';
     document.getElementById('modal-body').innerHTML = `
       <div class="detail-grid">
-        <div class="detail-item"><div class="detail-key">Status</div><div class="detail-val">${statusBadge(t.status)}</div></div>
-        <div class="detail-item"><div class="detail-key">Progress</div><div class="detail-val">${(t.progress||0).toFixed(1)}%</div></div>
-        <div class="detail-item"><div class="detail-key">Size</div><div class="detail-val">${fmtSize(t.size_bytes)}</div></div>
-        <div class="detail-item"><div class="detail-key">Source</div><div class="detail-val">${t.source||'—'}</div></div>
-        <div class="detail-item"><div class="detail-key">Added</div><div class="detail-val">${fmtDate(t.created_at)}</div></div>
-        <div class="detail-item"><div class="detail-key">Completed</div><div class="detail-val">${fmtDate(t.completed_at)}</div></div>
-        <div class="detail-item" style="grid-column:1/-1"><div class="detail-key">AllDebrid ID</div><div class="detail-val">${t.alldebrid_id||'—'}</div></div>
-        <div class="detail-item" style="grid-column:1/-1"><div class="detail-key">Hash</div><div class="detail-val" style="font-size:11px;word-break:break-all">${t.hash||'—'}</div></div>
-        ${t.local_path ? `<div class="detail-item" style="grid-column:1/-1"><div class="detail-key">Local Path</div><div class="detail-val" style="font-size:11px">${t.local_path}</div></div>` : ''}
-        ${t.error_message ? `<div class="detail-item" style="grid-column:1/-1"><div class="detail-key">Error</div><div class="detail-val" style="color:var(--error)">${t.error_message}</div></div>` : ''}
+        <div><div class="dk">Status</div><div class="dv">${badge(t.status)}</div></div>
+        <div><div class="dk">Progress</div><div class="dv">${(t.progress||0).toFixed(1)}%</div></div>
+        <div><div class="dk">Size</div><div class="dv">${fmtSize(t.size_bytes)}</div></div>
+        <div><div class="dk">Source</div><div class="dv">${t.source||'—'}</div></div>
+        <div><div class="dk">Added</div><div class="dv">${fmtDate(t.created_at)}</div></div>
+        <div><div class="dk">Completed</div><div class="dv">${fmtDate(t.completed_at)}</div></div>
+        <div style="grid-column:1/-1"><div class="dk">AllDebrid ID</div><div class="dv">${t.alldebrid_id||'—'}</div></div>
+        <div style="grid-column:1/-1"><div class="dk">Hash</div><div class="dv" style="font-size:11px">${t.hash||'—'}</div></div>
+        ${t.local_path?`<div style="grid-column:1/-1"><div class="dk">Local Path</div><div class="dv" style="font-size:11px">${t.local_path}</div></div>`:''}
+        ${t.error_message?`<div style="grid-column:1/-1"><div class="dk">Error</div><div class="dv" style="color:var(--red)">${t.error_message}</div></div>`:''}
       </div>
-
-      ${t.files && t.files.length ? `
-        <div class="section-label">Files (${t.files.length})</div>
-        <div class="table-wrap">
+      ${t.files&&t.files.length?`
+        <div class="sec-label">Files (${t.files.length})</div>
+        <div class="card">
           <table>
             <thead><tr><th>Filename</th><th>Size</th><th>Status</th></tr></thead>
-            <tbody>${t.files.map(f => `
-              <tr>
-                <td style="font-family:var(--mono);font-size:11px">${f.filename}${f.blocked?` <span class="badge badge-error" style="font-size:9px">BLOCKED: ${f.block_reason}</span>`:''}</td>
-                <td class="size-text">${fmtSize(f.size_bytes)}</td>
-                <td>${statusBadge(f.status)}</td>
-              </tr>`).join('')}
-            </tbody>
+            <tbody>${t.files.map(f=>`<tr>
+              <td style="font-family:var(--mono);font-size:11px">${f.filename}
+                ${f.blocked?`<span class="badge badge-error" style="font-size:9px;margin-left:6px">BLOCKED: ${f.block_reason}</span>`:''}
+              </td>
+              <td class="sz">${fmtSize(f.size_bytes)}</td>
+              <td>${badge(f.status)}</td>
+            </tr>`).join('')}</tbody>
           </table>
-        </div>` : ''}
-
-      ${t.events && t.events.length ? `
-        <div class="section-label">Events</div>
-        <div class="event-list">
-          ${t.events.map(ev => `
-            <div class="event-item">
-              <div class="event-level ${ev.level}"></div>
-              <div class="event-msg">${ev.message}</div>
-              <div class="event-time">${fmtDate(ev.created_at)}</div>
-            </div>`).join('')}
-        </div>` : ''}
+        </div>
+      `:''}
+      ${t.events&&t.events.length?`
+        <div class="sec-label">Events</div>
+        ${t.events.map(ev=>`
+          <div class="event-item">
+            <div class="elevel ${ev.level}"></div>
+            <div class="emsg">${ev.message}</div>
+            <div class="etime">${fmtDate(ev.created_at)}</div>
+          </div>`).join('')}
+      `:''}
     `;
-    document.getElementById('modal-overlay').classList.add('open');
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
+    document.getElementById('overlay').classList.add('open');
+  } catch(e) { toast(e.message,'error'); }
 }
 
 function closeModal(e) {
-  if (!e || e.target === document.getElementById('modal-overlay')) {
-    document.getElementById('modal-overlay').classList.remove('open');
-  }
+  if (!e || e.target === document.getElementById('overlay'))
+    document.getElementById('overlay').classList.remove('open');
 }
 
-// ── Events ───────────────────────────────────────────────────────────────────
+// ── Events ─────────────────────────────────────────────────────────────────
 async function loadEvents() {
   try {
-    const events = await api('GET', '/events?limit=200');
+    const evs = await api('GET','/events?limit=200');
     const el = document.getElementById('event-list');
-    if (!events.length) {
-      el.innerHTML = '<div class="empty-state">No events yet.</div>';
-      return;
-    }
-    el.innerHTML = events.map(ev => `
+    if (!evs.length) { el.innerHTML='<div class="empty">No events yet.</div>'; return; }
+    el.innerHTML = evs.map(ev=>`
       <div class="event-item">
-        <div class="event-level ${ev.level}"></div>
-        <div>
-          <div class="event-msg">${ev.message}</div>
-          ${ev.torrent_name ? `<div class="event-name">${ev.torrent_name}</div>` : ''}
-        </div>
-        <div class="event-time">${fmtDate(ev.created_at)}</div>
+        <div class="elevel ${ev.level}"></div>
+        <div><div class="emsg">${ev.message}</div>${ev.torrent_name?`<div class="ename">${ev.torrent_name}</div>`:''}</div>
+        <div class="etime">${fmtDate(ev.created_at)}</div>
       </div>`).join('');
-  } catch(e) { toast('Load error: ' + e.message, 'error'); }
+  } catch(e) { toast(e.message,'error'); }
 }
 
-// ── Settings ─────────────────────────────────────────────────────────────────
+// ── Settings ───────────────────────────────────────────────────────────────
 async function loadSettings() {
   try {
-    settingsData = await api('GET', '/settings');
+    settingsData = await api('GET','/settings');
     renderSettings();
-  } catch(e) { toast('Settings error: ' + e.message, 'error'); }
+  } catch(e) { toast(e.message,'error'); }
 }
 
 function renderSettings() {
   const s = settingsData;
   document.getElementById('settings-form').innerHTML = `
 
-    <div class="settings-section">
-      <div class="settings-section-header">🔑 AllDebrid</div>
-      <div class="settings-body">
+    <div class="scard">
+      <div class="scard-header">🔑 AllDebrid</div>
+      <div class="scard-body">
         <div class="form-group">
           <label class="form-label">API Key</label>
-          <input class="form-input" type="password" id="s-alldebrid_api_key" value="${s.alldebrid_api_key||''}" placeholder="Your AllDebrid API key" />
+          <div class="test-row">
+            <input class="input" type="password" id="s-alldebrid_api_key" value="${s.alldebrid_api_key||''}" placeholder="Your AllDebrid API key"/>
+            <button class="btn btn-blue btn-sm" onclick="testAD()">Test</button>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Agent Name</label>
-          <input class="form-input" id="s-alldebrid_agent" value="${s.alldebrid_agent||'AllDebrid-Client'}" />
+          <input class="input" id="s-alldebrid_agent" value="${s.alldebrid_agent||'AllDebrid-Client'}"/>
         </div>
       </div>
     </div>
 
-    <div class="settings-section">
-      <div class="settings-section-header">📁 Folders & Downloads</div>
-      <div class="settings-body">
+    <div class="scard">
+      <div class="scard-header">📁 Folders</div>
+      <div class="scard-body">
         <div class="form-group">
           <label class="form-label">Watch Folder</label>
-          <input class="form-input" id="s-watch_folder" value="${s.watch_folder||''}" />
+          <input class="input" id="s-watch_folder" value="${s.watch_folder||''}"/>
+          <span class="form-hint">Drop .torrent or .magnet files here</span>
         </div>
         <div class="form-group">
           <label class="form-label">Processed Folder</label>
-          <input class="form-input" id="s-processed_folder" value="${s.processed_folder||''}" />
+          <input class="input" id="s-processed_folder" value="${s.processed_folder||''}"/>
         </div>
         <div class="form-group">
           <label class="form-label">Download Folder</label>
-          <input class="form-input" id="s-download_folder" value="${s.download_folder||''}" />
+          <input class="input" id="s-download_folder" value="${s.download_folder||''}"/>
         </div>
         <div class="form-group">
           <label class="form-label">Max Concurrent Downloads</label>
-          <input class="form-input" type="number" id="s-max_concurrent_downloads" value="${s.max_concurrent_downloads||3}" min="1" max="20" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Max Speed (MB/s, 0 = unlimited)</label>
-          <input class="form-input" type="number" id="s-max_speed_mbps" value="${s.max_speed_mbps||0}" min="0" />
+          <input class="input" type="number" id="s-max_concurrent_downloads" value="${s.max_concurrent_downloads||3}" min="1" max="20"/>
         </div>
       </div>
     </div>
 
-    <div class="settings-section">
-      <div class="settings-section-header">🔔 Discord Notifications</div>
-      <div class="settings-body">
+    <div class="scard">
+      <div class="scard-header">🔗 aria2 / AriaNg</div>
+      <div class="scard-body">
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Enable aria2</div><div class="td">Forward unlocked links to aria2</div></div>
+          <label class="toggle"><input type="checkbox" id="s-ariang_enabled" ${s.ariang_enabled?'checked':''}><div class="ttrack"></div></label>
+        </div>
         <div class="form-group">
-          <label class="form-label">Webhook URL</label>
-          <input class="form-input" id="s-discord_webhook_url" value="${s.discord_webhook_url||''}" placeholder="https://discord.com/api/webhooks/…" />
-        </div>
-        <div class="toggle-row">
-          <div><div class="toggle-label">Notify on Added</div></div>
-          <label class="toggle"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added?'checked':''}><div class="toggle-track"></div></label>
-        </div>
-        <div class="toggle-row">
-          <div><div class="toggle-label">Notify on Finished</div></div>
-          <label class="toggle"><input type="checkbox" id="s-discord_notify_finished" ${s.discord_notify_finished?'checked':''}><div class="toggle-track"></div></label>
-        </div>
-        <div class="toggle-row">
-          <div><div class="toggle-label">Notify on Error</div></div>
-          <label class="toggle"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error?'checked':''}><div class="toggle-track"></div></label>
+          <label class="form-label">RPC URL</label>
+          <div class="test-row">
+            <input class="input" id="s-ariang_url" value="${s.ariang_url||''}" placeholder="http://token:SECRET@host:6800/jsonrpc"/>
+            <button class="btn btn-blue btn-sm" onclick="testAria2()">Test</button>
+          </div>
+          <span class="form-hint">Format: http://token:SECRET@IP:PORT/jsonrpc</span>
         </div>
       </div>
     </div>
 
-    <div class="settings-section">
-      <div class="settings-section-header">🔗 aria2 / AriaNg</div>
-      <div class="settings-body">
+    <div class="scard">
+      <div class="scard-header">☁️ JDownloader</div>
+      <div class="scard-body">
         <div class="toggle-row">
-          <div><div class="toggle-label">Enable AriaNg</div><div class="toggle-desc">Send downloads to aria2 via JSON-RPC</div></div>
-          <label class="toggle"><input type="checkbox" id="s-ariang_enabled" ${s.ariang_enabled?'checked':''}><div class="toggle-track"></div></label>
+          <div class="toggle-info"><div class="tl">Enable JDownloader</div><div class="td">Send links via local API</div></div>
+          <label class="toggle"><input type="checkbox" id="s-jdownloader_enabled" ${s.jdownloader_enabled?'checked':''}><div class="ttrack"></div></label>
         </div>
         <div class="form-group">
-          <label class="form-label">aria2 RPC URL (with token: http://token:SECRET@host:6800/jsonrpc)</label>
-          <input class="form-input" id="s-ariang_url" value="${s.ariang_url||''}" placeholder="http://localhost:6800/jsonrpc" />
-        </div>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <div class="settings-section-header">☁️ JDownloader</div>
-      <div class="settings-body">
-        <div class="toggle-row">
-          <div><div class="toggle-label">Enable JDownloader</div><div class="toggle-desc">Send links via FlashGot/Direct integration</div></div>
-          <label class="toggle"><input type="checkbox" id="s-jdownloader_enabled" ${s.jdownloader_enabled?'checked':''}><div class="toggle-track"></div></label>
-        </div>
-        <div class="form-group">
-          <label class="form-label">JDownloader URL</label>
-          <input class="form-input" id="s-jdownloader_url" value="${s.jdownloader_url||''}" placeholder="http://localhost:9696" />
+          <label class="form-label">Local API URL</label>
+          <div class="test-row">
+            <input class="input" id="s-jdownloader_url" value="${s.jdownloader_url||''}" placeholder="http://localhost:9696"/>
+            <button class="btn btn-blue btn-sm" onclick="testJD()">Test</button>
+          </div>
+          <span class="form-hint">Enable "Deprecated API" in JDownloader Advanced Settings</span>
         </div>
         <div class="form-group">
           <label class="form-label">Username</label>
-          <input class="form-input" id="s-jdownloader_user" value="${s.jdownloader_user||''}" />
+          <input class="input" id="s-jdownloader_user" value="${s.jdownloader_user||''}"/>
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
-          <input class="form-input" type="password" id="s-jdownloader_password" value="${s.jdownloader_password||''}" />
+          <input class="input" type="password" id="s-jdownloader_password" value="${s.jdownloader_password||''}"/>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Auto-Start Downloads</div></div>
+          <label class="toggle"><input type="checkbox" id="s-jdownloader_autostart" ${s.jdownloader_autostart!==false?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Auto-Extract Archives</div></div>
+          <label class="toggle"><input type="checkbox" id="s-jdownloader_extract" ${s.jdownloader_extract!==false?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Remove Files After Extract</div></div>
+          <label class="toggle"><input type="checkbox" id="s-jdownloader_remove_after" ${s.jdownloader_remove_after?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Extract Destination (optional)</label>
+          <input class="input" id="s-jdownloader_extract_folder" value="${s.jdownloader_extract_folder||''}" placeholder="Leave empty = same as download folder"/>
         </div>
       </div>
     </div>
 
-    <div class="settings-section">
-      <div class="settings-section-header">🚫 Filters</div>
-      <div class="settings-body">
+    <div class="scard">
+      <div class="scard-header">🔔 Discord Notifications</div>
+      <div class="scard-body">
         <div class="form-group">
-          <label class="form-label">Blocked Extensions (one per line, e.g. .jpg)</label>
-          <textarea class="form-input" id="s-blocked_extensions" rows="5" style="resize:vertical">${(s.blocked_extensions||[]).join('\n')}</textarea>
+          <label class="form-label">Webhook URL</label>
+          <div class="test-row">
+            <input class="input" id="s-discord_webhook_url" value="${s.discord_webhook_url||''}" placeholder="https://discord.com/api/webhooks/…"/>
+            <button class="btn btn-blue btn-sm" onclick="testDiscord()">Test</button>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Notify on Added</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Notify on Finished</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_finished" ${s.discord_notify_finished?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Notify on Error</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error?'checked':''}><div class="ttrack"></div></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">🚫 File Filters</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Blocked Extensions (one per line)</label>
+          <textarea class="input" id="s-blocked_extensions" rows="6">${(s.blocked_extensions||[]).join('\n')}</textarea>
+          <span class="form-hint">e.g. .jpg · .png · .nfo — images are blocked by default</span>
         </div>
         <div class="form-group">
           <label class="form-label">Blocked Keywords (one per line)</label>
-          <textarea class="form-input" id="s-blocked_keywords" rows="3" style="resize:vertical">${(s.blocked_keywords||[]).join('\n')}</textarea>
+          <textarea class="input" id="s-blocked_keywords" rows="3">${(s.blocked_keywords||[]).join('\n')}</textarea>
         </div>
         <div class="form-group">
           <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
-          <input class="form-input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb||0}" min="0" />
+          <input class="input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb||0}" min="0"/>
         </div>
       </div>
     </div>
 
-    <div class="settings-section">
-      <div class="settings-section-header">⏱ Polling Intervals</div>
-      <div class="settings-body">
+    <div class="scard">
+      <div class="scard-header">⏱ Polling Intervals</div>
+      <div class="scard-body">
         <div class="form-group">
           <label class="form-label">AllDebrid Poll Interval (seconds)</label>
-          <input class="form-input" type="number" id="s-poll_interval_seconds" value="${s.poll_interval_seconds||30}" min="10" />
+          <input class="input" type="number" id="s-poll_interval_seconds" value="${s.poll_interval_seconds||30}" min="10"/>
         </div>
         <div class="form-group">
-          <label class="form-label">Watch Folder Scan Interval (seconds)</label>
-          <input class="form-input" type="number" id="s-watch_interval_seconds" value="${s.watch_interval_seconds||10}" min="5" />
+          <label class="form-label">Watch Folder Scan (seconds)</label>
+          <input class="input" type="number" id="s-watch_interval_seconds" value="${s.watch_interval_seconds||10}" min="5"/>
         </div>
       </div>
     </div>
   `;
 }
 
-function getSettingsFromForm() {
+function getFormSettings() {
   const g = id => document.getElementById('s-'+id);
-  const txt = id => g(id)?.value?.trim() || '';
-  const num = id => parseInt(g(id)?.value || '0');
-  const chk = id => g(id)?.checked || false;
-  const lines = id => g(id)?.value?.split('\n').map(l=>l.trim()).filter(Boolean) || [];
-
+  const t = id => g(id)?.value?.trim()||'';
+  const n = id => parseInt(g(id)?.value||'0');
+  const c = id => g(id)?.checked||false;
+  const l = id => g(id)?.value?.split('\n').map(x=>x.trim()).filter(Boolean)||[];
   return {
-    alldebrid_api_key: txt('alldebrid_api_key'),
-    alldebrid_agent: txt('alldebrid_agent') || 'AllDebrid-Client',
-    watch_folder: txt('watch_folder'),
-    processed_folder: txt('processed_folder'),
-    download_folder: txt('download_folder'),
-    max_concurrent_downloads: num('max_concurrent_downloads') || 3,
-    max_speed_mbps: num('max_speed_mbps'),
-    discord_webhook_url: txt('discord_webhook_url'),
-    discord_notify_added: chk('discord_notify_added'),
-    discord_notify_finished: chk('discord_notify_finished'),
-    discord_notify_error: chk('discord_notify_error'),
-    ariang_enabled: chk('ariang_enabled'),
-    ariang_url: txt('ariang_url'),
-    jdownloader_enabled: chk('jdownloader_enabled'),
-    jdownloader_url: txt('jdownloader_url'),
-    jdownloader_user: txt('jdownloader_user'),
-    jdownloader_password: txt('jdownloader_password'),
-    blocked_extensions: lines('blocked_extensions'),
-    blocked_keywords: lines('blocked_keywords'),
-    min_file_size_mb: num('min_file_size_mb'),
-    poll_interval_seconds: num('poll_interval_seconds') || 30,
-    watch_interval_seconds: num('watch_interval_seconds') || 10,
+    alldebrid_api_key: t('alldebrid_api_key'),
+    alldebrid_agent:   t('alldebrid_agent')||'AllDebrid-Client',
+    watch_folder: t('watch_folder'), processed_folder: t('processed_folder'),
+    download_folder: t('download_folder'), max_concurrent_downloads: n('max_concurrent_downloads')||3,
+    max_speed_mbps: 0,
+    ariang_enabled: c('ariang_enabled'), ariang_url: t('ariang_url'),
+    jdownloader_enabled: c('jdownloader_enabled'), jdownloader_url: t('jdownloader_url'),
+    jdownloader_user: t('jdownloader_user'), jdownloader_password: t('jdownloader_password'),
+    jdownloader_autostart: c('jdownloader_autostart'), jdownloader_extract: c('jdownloader_extract'),
+    jdownloader_remove_after: c('jdownloader_remove_after'), jdownloader_extract_folder: t('jdownloader_extract_folder'),
+    discord_webhook_url: t('discord_webhook_url'),
+    discord_notify_added: c('discord_notify_added'), discord_notify_finished: c('discord_notify_finished'),
+    discord_notify_error: c('discord_notify_error'),
+    blocked_extensions: l('blocked_extensions'), blocked_keywords: l('blocked_keywords'),
+    min_file_size_mb: n('min_file_size_mb'), poll_interval_seconds: n('poll_interval_seconds')||30,
+    watch_interval_seconds: n('watch_interval_seconds')||10,
   };
 }
 
 async function saveSettings() {
   try {
-    const data = getSettingsFromForm();
-    await api('PUT', '/settings', data);
-    settingsData = data;
-    toast('Settings saved!', 'success');
-  } catch(e) { toast('Save error: ' + e.message, 'error'); }
+    const d = getFormSettings();
+    await api('PUT','/settings',d);
+    settingsData = d;
+    toast('Settings saved!','success');
+    checkConnections();
+  } catch(e) { toast(e.message,'error'); }
 }
 
 async function testDiscord() {
-  const url = document.getElementById('s-discord_webhook_url')?.value?.trim();
-  if (!url) { toast('Enter a webhook URL first', 'warn'); return; }
   try {
-    const r = await api('POST', '/settings/test-discord');
-    toast(r.ok ? 'Discord notification sent! ✓' : 'Discord test failed', r.ok ? 'success' : 'error');
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
+    await api('POST','/settings/test-discord');
+    toast('Discord notification sent ✓','success');
+  } catch(e) { toast('Discord: '+e.message,'error'); }
 }
 
-async function testAllDebrid() {
+async function testAD() {
   try {
-    const r = await api('POST', '/settings/test-alldebrid');
-    const user = r.user?.user;
-    toast(`Connected as ${user?.username||'unknown'} ✓`, 'success');
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
+    const r = await api('POST','/settings/test-alldebrid');
+    toast(`AllDebrid: connected as ${r.username} ${r.isPremium?'(Premium)':'(Free)'}✓`,'success');
+    setDot('api','ok',`AllDebrid: ${r.username}`);
+  } catch(e) { toast('AllDebrid: '+e.message,'error'); setDot('api','error','AllDebrid: error'); }
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────────
-checkApiStatus();
-loadStats();
-loadRecent();
-setInterval(() => {
-  if (document.getElementById('view-dashboard').classList.contains('active')) {
-    loadStats(); loadRecent();
-  }
-  if (document.getElementById('view-torrents').classList.contains('active')) {
-    loadTorrents();
-  }
-  checkApiStatus();
-}, 15000);
+async function testAria2() {
+  try {
+    const r = await api('POST','/settings/test-aria2');
+    toast(`aria2 v${r.version} connected ✓`,'success');
+    setDot('aria','ok',`aria2: v${r.version}`);
+  } catch(e) { toast('aria2: '+e.message,'error'); setDot('aria','error','aria2: error'); }
+}
+
+async function testJD() {
+  try {
+    await api('POST','/settings/test-jdownloader');
+    toast('JDownloader connected ✓','success');
+    setDot('jd','ok','JDownloader: online');
+  } catch(e) { toast('JDownloader: '+e.message,'error'); setDot('jd','error','JDownloader: error'); }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async()=>{
+  try { settingsData = await api('GET','/settings'); } catch{}
+  loadStats(); loadRecent();
+  checkConnections();
+  setInterval(()=>{
+    loadStats();
+    if (document.getElementById('view-dashboard').classList.contains('active')) loadRecent();
+    if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
+  }, 15000);
+  setInterval(checkConnections, 60000);
+})();
 </script>
 </body>
 </html>

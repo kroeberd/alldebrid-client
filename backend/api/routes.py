@@ -14,10 +14,10 @@ router = APIRouter()
 logger = logging.getLogger("alldebrid.api")
 
 
-# ─── Settings ────────────────────────────────────────────────────────────────
+# ─── Settings ─────────────────────────────────────────────────────────────────
 
 @router.get("/settings")
-async def get_settings_endpoint():
+async def get_settings_ep():
     return get_settings().model_dump()
 
 
@@ -25,7 +25,7 @@ async def get_settings_endpoint():
 async def update_settings(new: AppSettings):
     save_settings(new)
     apply_settings(new)
-    manager.reset_services()  # force re-init with new credentials
+    manager.reset_services()
     return {"ok": True}
 
 
@@ -37,7 +37,7 @@ async def test_discord():
     svc = NotificationService(cfg.discord_webhook_url)
     ok = await svc.test()
     if not ok:
-        raise HTTPException(502, "Discord webhook test failed — check the URL")
+        raise HTTPException(502, "Discord test failed — check webhook URL")
     return {"ok": True}
 
 
@@ -50,7 +50,32 @@ async def test_alldebrid():
         svc = AllDebridService(cfg.alldebrid_api_key, cfg.alldebrid_agent)
         user = await svc.get_user()
         await svc.close()
-        return {"ok": True, "user": user}
+        u = user.get("user", user)
+        return {"ok": True, "username": u.get("username", ""), "isPremium": u.get("isPremium", False)}
+    except Exception as e:
+        raise HTTPException(502, str(e))
+
+
+@router.post("/settings/test-aria2")
+async def test_aria2():
+    cfg = get_settings()
+    if not cfg.ariang_url:
+        raise HTTPException(400, "No aria2 URL configured")
+    try:
+        result = await manager.test_aria2()
+        return {"ok": True, "version": result.get("version", "?")}
+    except Exception as e:
+        raise HTTPException(502, str(e))
+
+
+@router.post("/settings/test-jdownloader")
+async def test_jdownloader():
+    cfg = get_settings()
+    if not cfg.jdownloader_url:
+        raise HTTPException(400, "No JDownloader URL configured")
+    try:
+        result = await manager.test_jdownloader()
+        return {"ok": True, **result}
     except Exception as e:
         raise HTTPException(502, str(e))
 
@@ -88,12 +113,12 @@ async def get_torrent(torrent_id: int):
         cur = await db.execute("SELECT * FROM torrents WHERE id=?", (torrent_id,))
         row = await cur.fetchone()
         if not row:
-            raise HTTPException(404, "Torrent not found")
+            raise HTTPException(404, "Not found")
         files = [dict(f) for f in await (await db.execute(
             "SELECT * FROM download_files WHERE torrent_id=?", (torrent_id,)
         )).fetchall()]
         events = [dict(e) for e in await (await db.execute(
-            "SELECT * FROM events WHERE torrent_id=? ORDER BY created_at DESC LIMIT 50",
+            "SELECT * FROM events WHERE torrent_id=? ORDER BY created_at DESC LIMIT 100",
             (torrent_id,)
         )).fetchall()]
         return {**dict(row), "files": files, "events": events}
@@ -105,9 +130,8 @@ class MagnetRequest(BaseModel):
 
 @router.post("/torrents/add-magnet")
 async def add_magnet(req: MagnetRequest):
-    cfg = get_settings()
-    if not cfg.alldebrid_api_key:
-        raise HTTPException(400, "AllDebrid API key not configured — save it in Settings first")
+    if not get_settings().alldebrid_api_key:
+        raise HTTPException(400, "AllDebrid API key not configured")
     try:
         result = await manager.add_magnet_direct(req.magnet, source="manual")
         return result
@@ -119,8 +143,7 @@ async def add_magnet(req: MagnetRequest):
 
 @router.post("/torrents/import-existing")
 async def import_existing():
-    cfg = get_settings()
-    if not cfg.alldebrid_api_key:
+    if not get_settings().alldebrid_api_key:
         raise HTTPException(400, "AllDebrid API key not configured")
     results = await manager.import_existing_magnets()
     return {"imported": len(results), "items": results}
@@ -141,7 +164,7 @@ async def delete_torrent(torrent_id: int, from_alldebrid: bool = True):
 async def retry_torrent(torrent_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "UPDATE torrents SET status='pending', error_message=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            "UPDATE torrents SET status='pending',error_message=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?",
             (torrent_id,),
         )
         await db.commit()
@@ -162,10 +185,14 @@ async def get_stats():
         blocked = (await (await db.execute(
             "SELECT COUNT(*) as c FROM download_files WHERE blocked=1"
         )).fetchone())["c"]
+        active = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM torrents WHERE status IN ('downloading','processing','uploading')"
+        )).fetchone())["c"]
         return {
             "by_status": by_status,
             "total_completed_bytes": size_row["total"] or 0,
             "total_blocked_files": blocked,
+            "active_downloads": active,
         }
 
 

@@ -6,29 +6,36 @@ from pydantic import BaseModel
 
 CONFIG_PATH = Path(os.getenv("CONFIG_PATH", "/app/config/config.json"))
 
-# Single mutable container — all modules reference this dict-like object
-# so changes via update_settings() are immediately visible everywhere.
+
 class AppSettings(BaseModel):
     # AllDebrid
     alldebrid_api_key: str = ""
     alldebrid_agent: str = "AllDebrid-Client"
 
-    # Download
+    # Folders
     watch_folder: str = "/app/data/watch"
     processed_folder: str = "/app/data/processed"
     download_folder: str = "/app/data/downloads"
+
+    # Download limits
     max_concurrent_downloads: int = 3
     max_speed_mbps: int = 0  # 0 = unlimited
 
-    # Integrations
-    ariang_url: str = ""
+    # aria2
     ariang_enabled: bool = False
-    jdownloader_url: str = ""
+    ariang_url: str = ""  # http://token:SECRET@host:6800/jsonrpc
+
+    # JDownloader
+    jdownloader_enabled: bool = False
+    jdownloader_url: str = ""  # http://localhost:9696
     jdownloader_user: str = ""
     jdownloader_password: str = ""
-    jdownloader_enabled: bool = False
+    jdownloader_autostart: bool = True
+    jdownloader_extract: bool = True
+    jdownloader_remove_after: bool = False
+    jdownloader_extract_folder: str = ""
 
-    # Notifications
+    # Discord
     discord_webhook_url: str = ""
     discord_notify_added: bool = True
     discord_notify_finished: bool = True
@@ -37,7 +44,7 @@ class AppSettings(BaseModel):
     # Filters
     blocked_extensions: List[str] = [
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
-        ".svg", ".ico", ".tiff", ".heic"
+        ".svg", ".ico", ".tiff", ".heic", ".nfo", ".sfv"
     ]
     blocked_keywords: List[str] = []
     min_file_size_mb: int = 0
@@ -47,8 +54,6 @@ class AppSettings(BaseModel):
     watch_interval_seconds: int = 10
 
 
-# Module-level mutable object — ALL modules must call get_settings() to
-# get the current live instance, never cache the result at import time.
 _settings: AppSettings = AppSettings()
 
 
@@ -74,14 +79,9 @@ def save_settings(s: AppSettings):
 
 
 def apply_settings(s: AppSettings):
-    """Update the live settings object in-place so all modules see the change."""
     global _settings
     _settings = s
 
 
-# Load persisted settings on startup
 _settings = load_settings()
-
-# Legacy alias so old `from core.config import settings` still works
-# for READ-ONLY uses — but write paths must use apply_settings()
-settings = _settings  # NOTE: this alias is stale after apply_settings() — use get_settings()
+settings = _settings  # legacy read-only alias
