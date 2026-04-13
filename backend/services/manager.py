@@ -1,521 +1,697 @@
 import asyncio
-import hashlib
 import logging
 import re
 import shutil
 from pathlib import Path
 from typing import Optional, List, Tuple, Set
-import aiofiles
 import aiosqlite
 
 from core.config import get_settings, AppSettings
-from services.alldebrid import AllDebridService
+from services.alldebrid import AllDebridService, flatten_files
+from services.jdownloader import MyJDownloaderClient
 from services.notifications import NotificationService
 from db.database import DB_PATH
 
 logger = logging.getLogger("alldebrid.manager")
 
+READY_CODE = 4
+ERROR_CODES = set(range(5, 16))
+MAX_FILE_RETRIES = 3
 
-def extract_hash_from_magnet(magnet: str) -> Optional[str]:
-    match = re.search(r"xt=urn:btih:([a-fA-F0-9]{40}|[a-zA-Z2-7]{32})", magnet, re.IGNORECASE)
-    if match:
-        h = match.group(1)
-        if len(h) == 32:
+
+def extract_hash(magnet: str) -> Optional[str]:
+    m = re.search(r"xt=urn:btih:([a-fA-F0-9]{40}|[a-zA-Z2-7]{32})", magnet, re.I)
+    if not m:
+        return None
+    h = m.group(1)
+    if len(h) == 32:
+        try:
             import base64
-            try:
-                h = base64.b32decode(h.upper()).hex()
-            except Exception:
-                return None
-        return h.lower()
-    return None
+            h = base64.b32decode(h.upper()).hex()
+        except Exception:
+            return None
+    return h.lower()
 
 
-def is_file_blocked(filename: str, cfg: AppSettings) -> Tuple[bool, str]:
+def is_blocked(filename: str, cfg: AppSettings) -> Tuple[bool, str]:
     ext = Path(filename).suffix.lower()
     if ext in [e.lower() for e in cfg.blocked_extensions]:
-        return True, f"Blocked extension: {ext}"
-    name_lower = filename.lower()
+        return True, f"extension {ext}"
     for kw in cfg.blocked_keywords:
-        if kw.lower() in name_lower:
-            return True, f"Blocked keyword: {kw}"
+        if kw.lower() in filename.lower():
+            return True, f"keyword '{kw}'"
     return False, ""
 
 
-def _parse_torrent_sync(file_bytes: bytes) -> Tuple[str, str]:
-    """Run in executor — returns (hash, name). Avoids async/thread conflicts."""
-    import bencodepy
-    data = bencodepy.decode(file_bytes)
-    info = data[b"info"]
-    h = hashlib.sha1(bencodepy.encode(info)).hexdigest()
-    name = info.get(b"name", b"").decode("utf-8", errors="ignore")
-    return h, name
+def safe_name(s: str) -> str:
+    return re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', s)[:200].strip() or "download"
+
+
+def _read_bytes(path: str) -> bytes:
+    with open(path, "rb") as f:
+        return f.read()
+
+
+def _read_text(path: str) -> str:
+    with open(path, "r", errors="ignore") as f:
+        return f.read()
+
+
+def _terminal_torrent_status(status: str) -> bool:
+    return status in ("completed", "deleted", "error")
+
+
+async def _retry_async(fn, *args, attempts: int = MAX_FILE_RETRIES, delay: float = 1.0):
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return await fn(*args)
+        except Exception as e:
+            last_error = e
+            if attempt >= attempts:
+                break
+            await asyncio.sleep(delay * attempt)
+    raise last_error
 
 
 class TorrentManager:
     def __init__(self):
-        self._ad_service: Optional[AllDebridService] = None
-        self._download_semaphore: Optional[asyncio.Semaphore] = None
-        self._active_downloads: Set[int] = set()
-        # Track files currently being processed to avoid retry spam
+        self._ad: Optional[AllDebridService] = None
+        self._sem: Optional[asyncio.Semaphore] = None
+        self._active: Set[int] = set()
         self._processing_files: Set[str] = set()
-        self._failed_files: Set[str] = set()  # permanently failed this session
+        self._failed_files: Set[str] = set()
+
+    def is_paused(self) -> bool:
+        return bool(get_settings().paused)
 
     def reset_services(self):
-        if self._ad_service:
-            asyncio.create_task(self._ad_service.close())
-        self._ad_service = None
-        self._download_semaphore = None
+        if self._ad:
+            try:
+                asyncio.get_event_loop().create_task(self._ad.close())
+            except RuntimeError:
+                pass
+        self._ad = None
+        self._sem = None
 
-    def _get_ad(self) -> AllDebridService:
-        cfg = get_settings()
-        if self._ad_service is None:
-            self._ad_service = AllDebridService(cfg.alldebrid_api_key, cfg.alldebrid_agent)
-        return self._ad_service
+    def ad(self) -> AllDebridService:
+        if self._ad is None:
+            cfg = get_settings()
+            self._ad = AllDebridService(cfg.alldebrid_api_key, cfg.alldebrid_agent)
+        return self._ad
 
-    def _get_semaphore(self) -> asyncio.Semaphore:
-        cfg = get_settings()
-        if self._download_semaphore is None:
-            self._download_semaphore = asyncio.Semaphore(cfg.max_concurrent_downloads)
-        return self._download_semaphore
+    def sem(self) -> asyncio.Semaphore:
+        if self._sem is None:
+            self._sem = asyncio.Semaphore(get_settings().max_concurrent_downloads)
+        return self._sem
 
-    def _notify(self) -> NotificationService:
+    def notify(self) -> NotificationService:
         return NotificationService(get_settings().discord_webhook_url)
 
-    # ─── Watch Folder ────────────────────────────────────────────────────────
+    def jd(self) -> Optional[MyJDownloaderClient]:
+        cfg = get_settings()
+        if cfg.jdownloader_enabled and cfg.jdownloader_email:
+            return MyJDownloaderClient(
+                cfg.jdownloader_email,
+                cfg.jdownloader_password,
+                cfg.jdownloader_device_name,
+            )
+        return None
+
+    # ── Watch Folder ──────────────────────────────────────────────────────────
 
     async def scan_watch_folder(self):
+        if self.is_paused():
+            return
         cfg = get_settings()
-        watch = Path(cfg.watch_folder)
+        watch     = Path(cfg.watch_folder)
         processed = Path(cfg.processed_folder)
         watch.mkdir(parents=True, exist_ok=True)
         processed.mkdir(parents=True, exist_ok=True)
 
         for f in list(watch.iterdir()):
-            fkey = str(f)
-            if fkey in self._processing_files or fkey in self._failed_files:
+            key = str(f.resolve())
+            if key in self._processing_files or key in self._failed_files:
                 continue
-            self._processing_files.add(fkey)
+            if f.suffix.lower() not in (".torrent", ".magnet", ".txt"):
+                continue
+            self._processing_files.add(key)
             try:
                 if f.suffix.lower() == ".torrent":
-                    await self._handle_torrent_file(f, processed)
-                elif f.suffix.lower() in (".magnet", ".txt"):
+                    await self._handle_torrent(f, processed)
+                else:
                     await self._handle_magnet_file(f, processed)
             except Exception as e:
-                logger.error(f"Watch folder error for {f.name}: {e}")
-                self._failed_files.add(fkey)  # don't retry this session
+                logger.error(f"Watch [{f.name}]: {e}")
+                self._failed_files.add(key)
             finally:
-                self._processing_files.discard(fkey)
+                self._processing_files.discard(key)
 
-    async def _handle_torrent_file(self, path: Path, processed: Path):
-        """Read torrent, upload file directly to AllDebrid (no local bencode hash needed)."""
-        cfg = get_settings()
+    async def _handle_torrent(self, path: Path, processed: Path):
+        if not get_settings().alldebrid_api_key:
+            return
         loop = asyncio.get_event_loop()
-
-        # Read file async
-        async with aiofiles.open(path, "rb") as f:
-            file_bytes = await f.read()
-
+        file_bytes = await loop.run_in_executor(None, _read_bytes, str(path))
         if not file_bytes:
-            logger.warning(f"Empty torrent file: {path.name}")
-            self._failed_files.add(str(path))
-            return
-
-        # Parse in executor to avoid blocking event loop
-        try:
-            torrent_hash, name = await loop.run_in_executor(
-                None, _parse_torrent_sync, file_bytes
-            )
-        except Exception as e:
-            logger.error(f"Failed to parse torrent {path.name}: {e}")
-            # Still try uploading the file directly
-            torrent_hash = None
-            name = path.stem
-
-        if not cfg.alldebrid_api_key:
-            logger.warning("No API key configured, skipping torrent upload")
-            return
-
-        ad = self._get_ad()
-        try:
-            # Upload .torrent file directly — more reliable than magnet
-            result = await ad.upload_torrent_file(file_bytes, path.name)
-            ad_id = str(result.get("id", ""))
-            name = result.get("name", name)
-            if not torrent_hash:
-                torrent_hash = result.get("hash", ad_id)
-
-            logger.info(f"Uploaded torrent file to AllDebrid: {name} (id={ad_id})")
-            await self._upsert_torrent(torrent_hash or ad_id, None, name, ad_id, "watch_torrent")
-            shutil.move(str(path), str(processed / path.name))
-            self._failed_files.discard(str(path))
-        except Exception as e:
-            logger.error(f"AllDebrid upload failed for {path.name}: {e}")
-            raise
+            raise ValueError("Empty torrent file")
+        result = await self.ad().upload_torrent_file(file_bytes, path.name)
+        ad_id = str(result.get("id", ""))
+        name  = result.get("name") or result.get("filename") or path.stem
+        hash_ = result.get("hash", ad_id).lower()
+        logger.info(f"Uploaded torrent: {name} (ad_id={ad_id})")
+        await self._upsert(hash_, None, name, ad_id, "watch_torrent")
+        shutil.move(str(path), str(processed / path.name))
 
     async def _handle_magnet_file(self, path: Path, processed: Path):
-        async with aiofiles.open(path, "r", errors="ignore") as f:
-            content = await f.read()
+        loop = asyncio.get_event_loop()
+        content = await loop.run_in_executor(None, _read_text, str(path))
         magnets = [l.strip() for l in content.splitlines() if l.strip().startswith("magnet:")]
         if not magnets:
-            # Not a magnet file, ignore
-            self._failed_files.add(str(path))
+            self._failed_files.add(str(path.resolve()))
             return
         for magnet in magnets:
-            h = extract_hash_from_magnet(magnet)
+            h = extract_hash(magnet)
             if h:
-                await self._add_magnet(magnet, h, source="watch_file")
+                await self._add_magnet(magnet, h, "watch_file")
         shutil.move(str(path), str(processed / path.name))
-        self._failed_files.discard(str(path))
 
-    # ─── Magnet Management ────────────────────────────────────────────────────
+    # ── Magnet Upload ─────────────────────────────────────────────────────────
 
-    async def add_magnet_direct(self, magnet: str, source: str = "api") -> dict:
-        h = extract_hash_from_magnet(magnet)
+    async def add_magnet_direct(self, magnet: str, source: str = "manual") -> dict:
+        if self.is_paused():
+            raise Exception("Processing is paused")
+        h = extract_hash(magnet)
         if not h:
-            raise ValueError("Invalid magnet link — no btih hash found")
-        return await self._add_magnet(magnet, h, source=source)
+            raise ValueError("Invalid magnet — no btih hash found")
+        return await self._add_magnet(magnet, h, source)
 
-    async def _add_magnet(self, magnet: str, torrent_hash: str, source: str = "unknown") -> dict:
-        cfg = get_settings()
-        ad = self._get_ad()
-
+    async def _add_magnet(self, magnet: str, h: str, source: str) -> dict:
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
-            cur = await db.execute("SELECT * FROM torrents WHERE hash=?", (torrent_hash,))
+            cur = await db.execute("SELECT * FROM torrents WHERE hash=?", (h,))
             existing = await cur.fetchone()
-            if existing and existing["status"] in ("completed", "downloading", "ready", "uploading"):
-                logger.info(f"Torrent {torrent_hash[:12]} already known ({existing['status']})")
+            if existing and existing["status"] in (
+                "uploading", "processing", "downloading", "ready", "completed"
+            ):
                 return dict(existing)
 
-        try:
-            result = await ad.upload_magnet(magnet)
-            ad_id = str(result.get("id", ""))
-            name = result.get("name", torrent_hash[:16])
-            logger.info(f"Uploaded magnet to AllDebrid: {name} (id={ad_id})")
-        except Exception as e:
-            logger.error(f"AllDebrid magnet upload failed: {e}")
-            async with aiosqlite.connect(DB_PATH) as db:
-                await db.execute(
-                    "INSERT OR IGNORE INTO torrents (hash,magnet,status,error_message,source) VALUES (?,?,?,?,?)",
-                    (torrent_hash, magnet, "error", str(e), source),
-                )
-                await db.commit()
-            raise
+        result = await self.ad().upload_magnet(magnet)
+        ad_id = str(result.get("id", ""))
+        name  = result.get("name") or result.get("filename") or h[:16]
+        hash_ = result.get("hash", h).lower()
+        logger.info(f"Magnet uploaded: {name} (ad_id={ad_id})")
 
-        row = await self._upsert_torrent(torrent_hash, magnet, name, ad_id, source)
+        row = await self._upsert(hash_, magnet, name, ad_id, source)
+        cfg = get_settings()
         if cfg.discord_notify_added:
-            await self._notify().send("📥 Torrent Added", f"**{name}**\nQueued on AllDebrid", 0x3498db)
+            await self.notify().send("📥 Added", f"**{name}**\nQueued on AllDebrid", 0x3b82f6)
         return row
 
-    async def _upsert_torrent(self, hash_: str, magnet: Optional[str], name: str, ad_id: str, source: str) -> dict:
+    async def _upsert(self, hash_: str, magnet: Optional[str],
+                      name: str, ad_id: str, source: str) -> dict:
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
             await db.execute(
                 """INSERT INTO torrents (hash,magnet,name,alldebrid_id,status,source)
                    VALUES (?,?,?,?,?,?)
                    ON CONFLICT(hash) DO UPDATE SET
-                   alldebrid_id=excluded.alldebrid_id, name=excluded.name,
-                   status='uploading', updated_at=CURRENT_TIMESTAMP""",
+                     alldebrid_id=excluded.alldebrid_id, name=excluded.name,
+                     status='uploading', updated_at=CURRENT_TIMESTAMP""",
                 (hash_, magnet, name, ad_id, "uploading", source),
             )
             await db.execute(
-                "INSERT INTO events (torrent_id,level,message) SELECT id,'info',? FROM torrents WHERE hash=?",
-                (f"Added to AllDebrid (id={ad_id})", hash_),
+                "INSERT INTO events (torrent_id,level,message) "
+                "SELECT id,'info',? FROM torrents WHERE hash=?",
+                (f"Uploaded to AllDebrid (id={ad_id})", hash_),
             )
             await db.commit()
             cur = await db.execute("SELECT * FROM torrents WHERE hash=?", (hash_,))
             row = await cur.fetchone()
             return dict(row) if row else {}
 
-    # ─── Status Sync ─────────────────────────────────────────────────────────
+    # ── Status Polling ────────────────────────────────────────────────────────
 
     async def sync_alldebrid_status(self):
+        if self.is_paused():
+            return
         cfg = get_settings()
         if not cfg.alldebrid_api_key:
             return
-        ad = self._get_ad()
-
-        try:
-            magnets = await ad.get_all_magnets()
-        except Exception as e:
-            logger.error(f"Failed to fetch AllDebrid status: {e}")
-            return
-
-        # Status code mapping from AllDebrid docs
-        status_map = {
-            0: "processing",   # In Queue
-            1: "processing",   # Downloading
-            2: "processing",   # Compressing / Moving
-            3: "downloading",  # Downloading
-            4: "processing",   # Uploading
-            5: "ready",        # Ready
-            6: "error",        # Error
-            7: "error",        # Virus
-            8: "ready",        # 
-            9: "ready",        # 
-            10: "ready",       # 
-            11: "ready",       # 
-        }
 
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
-            for m in magnets:
-                ad_id = str(m.get("id", ""))
-                status_code = m.get("statusCode", 0)
-                new_status = status_map.get(status_code, "processing")
-                size = m.get("size", 0) or 0
-                downloaded = m.get("downloaded", 0) or 0
-                progress = (downloaded / size * 100) if size > 0 else 0
+            cur = await db.execute(
+                """SELECT id, alldebrid_id, name, status FROM torrents
+                   WHERE alldebrid_id IS NOT NULL AND alldebrid_id != ''
+                   AND status NOT IN ('completed','deleted','error')"""
+            )
+            rows = await cur.fetchall()
 
-                cur = await db.execute(
-                    "SELECT * FROM torrents WHERE alldebrid_id=?", (ad_id,)
-                )
-                row = await cur.fetchone()
-                if not row:
+        if not rows:
+            await self.sync_jdownloader_downloads()
+            return
+
+        for row in rows:
+            ad_id = row["alldebrid_id"]
+            try:
+                magnets = await self.ad().get_magnet_status(str(ad_id))
+                if not magnets:
                     continue
-                if row["status"] in ("completed", "deleted"):
-                    continue
+                m = magnets[0]
+
+                code = m.get("statusCode", 0)
+                size = m.get("size", 0) or 0
+                dl   = m.get("downloaded", 0) or 0
+                pct  = (dl / size * 100) if size > 0 else 0
+
+                if code == READY_CODE:
+                    new_status = "ready"
+                elif code in ERROR_CODES:
+                    new_status = "error"
+                else:
+                    new_status = "processing"
 
                 old_status = row["status"]
-                await db.execute(
-                    """UPDATE torrents SET status=?,progress=?,size_bytes=?,
-                       updated_at=CURRENT_TIMESTAMP WHERE alldebrid_id=?""",
-                    (new_status, progress, size, ad_id),
-                )
+                persisted_status = old_status if old_status in ("downloading", "queued") and new_status == "ready" else new_status
 
-                if new_status == "ready" and old_status != "ready":
+                async with aiosqlite.connect(DB_PATH) as db:
                     await db.execute(
-                        "INSERT INTO events (torrent_id,level,message) VALUES (?,?,?)",
-                        (row["id"], "info", "Ready — starting download"),
+                        "UPDATE torrents SET status=?,progress=?,size_bytes=?,"
+                        "updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                        (persisted_status, pct, size, row["id"]),
                     )
-                    asyncio.create_task(
-                        self._start_download(row["id"], ad_id, m)
-                    )
-                elif new_status == "error" and old_status != "error":
-                    err_msg = m.get("error", "Unknown AllDebrid error")
-                    await db.execute(
-                        "UPDATE torrents SET error_message=? WHERE alldebrid_id=?",
-                        (str(err_msg), ad_id)
-                    )
-                    if cfg.discord_notify_error:
-                        name = row["name"] or ad_id
-                        await self._notify().send(
-                            "❌ AllDebrid Error", f"**{name}**\n{err_msg}", 0xef476f
+                    if new_status == "ready" and old_status in ("pending", "uploading", "processing"):
+                        await db.execute(
+                            "INSERT INTO events (torrent_id,level,message) VALUES (?,?,?)",
+                            (row["id"], "info", "Ready — fetching download links"),
                         )
+                        name = m.get("filename") or row["name"]
+                        asyncio.create_task(self._start_download(row["id"], ad_id, name))
+                    elif new_status == "error" and old_status != "error":
+                        err_msg = f"AllDebrid error code {code}: {m.get('status', '')}"
+                        await db.execute(
+                            "UPDATE torrents SET error_message=? WHERE id=?",
+                            (err_msg, row["id"])
+                        )
+                        await db.execute(
+                            "INSERT INTO events (torrent_id,level,message) VALUES (?,?,?)",
+                            (row["id"], "error", err_msg),
+                        )
+                        if cfg.discord_notify_error:
+                            await self.notify().send(
+                                "❌ Error", f"**{row['name']}**\n{err_msg}", 0xef4444
+                            )
+                    await db.commit()
 
-            await db.commit()
+            except Exception as e:
+                if "MAGNET_INVALID_ID" in str(e):
+                    async with aiosqlite.connect(DB_PATH) as db:
+                        await db.execute(
+                            "UPDATE torrents SET status='deleted',"
+                            "updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                            (row["id"],)
+                        )
+                        await db.commit()
+                else:
+                    logger.error(f"Status poll failed for {ad_id}: {e}")
 
-    # ─── Download ─────────────────────────────────────────────────────────────
+        await self.sync_jdownloader_downloads()
 
-    async def _start_download(self, torrent_db_id: int, ad_id: str, magnet_data: dict):
-        if torrent_db_id in self._active_downloads:
+    # ── Download ──────────────────────────────────────────────────────────────
+
+    async def _start_download(self, db_id: int, ad_id: str, name: str):
+        if self.is_paused():
             return
-        self._active_downloads.add(torrent_db_id)
+        if db_id in self._active:
+            return
+        self._active.add(db_id)
         try:
-            async with self._get_semaphore():
-                await self._download_torrent(torrent_db_id, ad_id, magnet_data)
+            async with self.sem():
+                await self._download(db_id, ad_id, name)
         except Exception as e:
-            logger.error(f"Download task failed for {torrent_db_id}: {e}")
+            logger.error(f"Download failed db_id={db_id}: {e}")
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "UPDATE torrents SET status='error',error_message=?,"
+                    "updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (str(e), db_id)
+                )
+                await db.commit()
         finally:
-            self._active_downloads.discard(torrent_db_id)
+            self._active.discard(db_id)
 
-    async def _download_torrent(self, torrent_db_id: int, ad_id: str, magnet_data: dict):
+    async def _download(self, db_id: int, ad_id: str, name: str):
         cfg = get_settings()
-        ad = self._get_ad()
 
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
-                "UPDATE torrents SET status='downloading',updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (torrent_db_id,),
+                "UPDATE torrents SET status='downloading',"
+                "updated_at=CURRENT_TIMESTAMP WHERE id=?", (db_id,)
             )
             await db.commit()
 
-        # Get links from status data or re-fetch
-        links = magnet_data.get("links", [])
-        name = magnet_data.get("name", f"torrent_{torrent_db_id}")
+        try:
+            files_data = await self.ad().get_magnet_files([ad_id])
+            flat_files = []
+            for entry in files_data:
+                if str(entry.get("id", "")) == str(ad_id):
+                    flat_files = flatten_files(entry.get("files", []))
+                    break
+        except Exception as e:
+            logger.error(f"get_magnet_files failed for {ad_id}: {e}")
+            flat_files = []
 
-        if not links:
-            try:
-                status_data = await ad.get_magnet_status(ad_id)
-                magnet_info = status_data.get("magnets", {})
-                if isinstance(magnet_info, list):
-                    magnet_info = magnet_info[0] if magnet_info else {}
-                links = magnet_info.get("links", [])
-                name = magnet_info.get("name", name)
-            except Exception as e:
-                logger.error(f"Could not get links for {ad_id}: {e}")
+        if not flat_files:
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "UPDATE torrents SET status='error',"
+                    "error_message='No files returned from AllDebrid',"
+                    "updated_at=CURRENT_TIMESTAMP WHERE id=?", (db_id,)
+                )
+                await db.commit()
+            return
 
-        dest_folder = Path(cfg.download_folder) / _safe_dirname(name)
-        dest_folder.mkdir(parents=True, exist_ok=True)
+        dest = Path(cfg.download_folder) / safe_name(name)
+        dest.mkdir(parents=True, exist_ok=True)
 
         all_ok = True
-        downloaded_files = []
+        n_done = 0
+        queued_for_jd = False
+        jd_links = []
+        jd_client = self.jd()
 
-        for link_info in links:
-            link = link_info if isinstance(link_info, str) else link_info.get("link", "")
-            if not link:
+        for file_info in flat_files:
+            filename = file_info["name"]
+            link     = file_info["link"]
+
+            blocked, reason = is_blocked(filename, cfg)
+            if blocked:
+                logger.info(f"Blocked: {filename} ({reason})")
+                await self._log_file(db_id, filename, link, None, "blocked", reason)
                 continue
+
             try:
-                unlocked = await ad.unlock_link(link)
-                dl_link = unlocked.get("link", "")
-                filename = unlocked.get("filename", link.split("/")[-1])
+                unlocked = await _retry_async(self.ad().unlock_link, link)
+                dl_url   = unlocked.get("link", "")
+                filename = unlocked.get("filename", filename)
+                routed_filename = safe_name(filename)
 
-                blocked, reason = is_file_blocked(filename, cfg)
-                if blocked:
-                    logger.info(f"Blocking file: {filename} ({reason})")
-                    await self._save_file_record(torrent_db_id, filename, dl_link, None, "blocked", reason)
-                    continue
+                if not dl_url:
+                    raise Exception("Empty download URL from unlock")
 
-                # Route to integration or direct download
-                local_path = await self._route_download(dl_link, str(dest_folder), filename)
-                await self._save_file_record(torrent_db_id, filename, dl_link, local_path, "completed", None)
-                downloaded_files.append(filename)
+                logger.info(
+                    f"Routing [{filename}]: jd={'yes' if jd_client else 'no'}"
+                )
+
+                if jd_client:
+                    jd_links.append({
+                        "filename": filename,
+                        "routed_filename": routed_filename,
+                        "download_url": dl_url,
+                    })
+                else:
+                    local = await _retry_async(self._download_direct, dl_url, dest, routed_filename)
+                    await self._log_file(db_id, filename, dl_url, local, "completed", None)
+
+                n_done += 1
 
             except Exception as e:
-                logger.error(f"File download error ({link}): {e}")
-                await self._save_file_record(torrent_db_id, link.split("/")[-1], link, None, "error", str(e))
+                logger.error(f"File failed [{filename}]: {e}")
+                await self._log_file(db_id, filename, link, None, "error", str(e))
                 all_ok = False
 
-        final_status = "completed" if all_ok else "partial"
+        if jd_client and jd_links:
+            try:
+                await _retry_async(
+                    jd_client.add_package,
+                    [item["download_url"] for item in jd_links],
+                    str(dest),
+                    safe_name(name),
+                    cfg.jdownloader_autostart,
+                    cfg.jdownloader_extract,
+                )
+                for item in jd_links:
+                    logger.info(f"JDownloader: queued {item['filename']}")
+                    await self._log_file(db_id, item["filename"], item["download_url"], None, "queued", None)
+                queued_for_jd = True
+            except Exception as e:
+                logger.error(f"JDownloader package failed [{name}]: {e}")
+                for item in jd_links:
+                    await self._log_file(db_id, item["filename"], item["download_url"], None, "error", str(e))
+                all_ok = False
+
+        if all_ok and n_done > 0 and queued_for_jd:
+            final = "queued"
+        else:
+            final = "completed" if all_ok and n_done > 0 else (
+                "error" if n_done == 0 else "partial"
+            )
+
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
-            cur = await db.execute("SELECT name FROM torrents WHERE id=?", (torrent_db_id,))
+            cur = await db.execute("SELECT name FROM torrents WHERE id=?", (db_id,))
             row = await cur.fetchone()
-            torrent_name = row["name"] if row else name
+            tname = row["name"] if row else name
+            if final == "completed":
+                await db.execute(
+                    "UPDATE torrents SET status=?,completed_at=CURRENT_TIMESTAMP,"
+                    "local_path=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (final, str(dest), db_id),
+                )
+            else:
+                await db.execute(
+                    "UPDATE torrents SET status=?,local_path=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (final, str(dest), db_id),
+                )
             await db.execute(
-                """UPDATE torrents SET status=?,completed_at=CURRENT_TIMESTAMP,
-                   local_path=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""",
-                (final_status, str(dest_folder), torrent_db_id),
+                "INSERT INTO events (torrent_id,level,message) VALUES (?,?,?)",
+                (db_id, "info" if final in ("completed", "queued") else "warn",
+                 f"Download {final}: {n_done} files"),
+            )
+            await db.commit()
+
+        if final == "completed":
+            await self.ad().delete_magnet(ad_id)
+            if get_settings().discord_notify_finished:
+                await self.notify().send(
+                    "✅ Complete", f"**{tname}**\n{n_done} files → `{dest}`", 0x22c55e
+                )
+        elif final == "queued":
+            await self._log_event(
+                db_id,
+                "info",
+                "Queued in JDownloader - waiting for completed downloads before deleting from AllDebrid",
+            )
+        elif get_settings().discord_notify_error:
+            await self.notify().send(
+                "⚠️ Partial/Error", f"**{tname}**\nKept on AllDebrid", 0xe67e22
+            )
+
+    async def _log_event(self, torrent_id: int, level: str, message: str):
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                "INSERT INTO events (torrent_id,level,message) VALUES (?,?,?)",
+                (torrent_id, level, message),
+            )
+            await db.commit()
+
+    async def sync_jdownloader_downloads(self):
+        if self.is_paused():
+            return
+        jd_client = self.jd()
+        if not jd_client:
+            return
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                """SELECT t.id, t.name, t.alldebrid_id, t.local_path, f.id AS file_id,
+                          f.filename, f.download_url, f.status, f.blocked
+                   FROM torrents t
+                   JOIN download_files f ON f.torrent_id = t.id
+                   WHERE t.alldebrid_id IS NOT NULL AND t.alldebrid_id != ''
+                     AND t.status NOT IN ('completed','deleted','error')
+                     AND f.blocked = 0
+                     AND f.status IN ('queued')"""
+            )
+            rows = await cur.fetchall()
+
+        if not rows:
+            return
+
+        touched_torrents: Set[int] = set()
+        for row in rows:
+            local_path = None
+            if row["local_path"]:
+                local_path = str(Path(row["local_path"]) / safe_name(row["filename"]))
+                if Path(local_path).exists():
+                    async with aiosqlite.connect(DB_PATH) as db:
+                        await db.execute(
+                            "UPDATE download_files SET status='completed', local_path=? WHERE id=?",
+                            (local_path, row["file_id"]),
+                        )
+                        await db.commit()
+                    touched_torrents.add(row["id"])
+                    continue
+
+            try:
+                state = await jd_client.get_download_state(row["download_url"], row["filename"])
+            except Exception as e:
+                logger.warning(f"JD status check failed for {row['filename']}: {e}")
+                continue
+
+            if not state.get("finished"):
+                continue
+
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "UPDATE download_files SET status='completed', local_path=? WHERE id=?",
+                    (local_path, row["file_id"]),
+                )
+                await db.commit()
+
+            touched_torrents.add(row["id"])
+
+        for torrent_id in touched_torrents:
+            await self._finalize_completed_jd_torrent(torrent_id)
+
+    async def _finalize_completed_jd_torrent(self, torrent_id: int):
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                "SELECT * FROM torrents WHERE id=?",
+                (torrent_id,),
+            )
+            torrent = await cur.fetchone()
+            if not torrent or _terminal_torrent_status(torrent["status"]):
+                return
+
+            cur = await db.execute(
+                """SELECT
+                       SUM(CASE WHEN blocked = 0 THEN 1 ELSE 0 END) AS required_count,
+                       SUM(CASE WHEN blocked = 0 AND status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+                       SUM(CASE WHEN blocked = 0 AND status = 'error' THEN 1 ELSE 0 END) AS error_count
+                   FROM download_files
+                   WHERE torrent_id=?""",
+                (torrent_id,),
+            )
+            counts = await cur.fetchone()
+
+            required_count = int(counts["required_count"] or 0)
+            completed_count = int(counts["completed_count"] or 0)
+            error_count = int(counts["error_count"] or 0)
+            if required_count == 0 or completed_count != required_count or error_count:
+                return
+
+            await db.execute(
+                "UPDATE torrents SET status='completed', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (torrent_id,),
             )
             await db.execute(
                 "INSERT INTO events (torrent_id,level,message) VALUES (?,?,?)",
-                (torrent_db_id, "info" if all_ok else "warn", f"Download {final_status}: {len(downloaded_files)} files"),
+                (torrent_id, "info", f"JDownloader completed {completed_count} files"),
             )
             await db.commit()
 
-        # Only delete from AllDebrid after successful download
-        if all_ok:
-            deleted = await ad.delete_magnet(ad_id)
-            if deleted:
-                logger.info(f"Deleted magnet {ad_id} from AllDebrid")
-            if cfg.discord_notify_finished:
-                await self._notify().send(
-                    "✅ Download Complete",
-                    f"**{torrent_name}**\n{len(downloaded_files)} files → `{dest_folder}`",
-                    0x2ecc71
-                )
-        else:
-            if cfg.discord_notify_error:
-                await self._notify().send(
-                    "⚠️ Partial Download",
-                    f"**{torrent_name}**\nSome files failed — magnet kept on AllDebrid",
-                    0xe67e22
-                )
+            torrent = dict(torrent)
 
-    async def _route_download(self, url: str, dest: str, filename: str) -> Optional[str]:
-        """Route to aria2, JDownloader, or direct download."""
-        cfg = get_settings()
-        if cfg.ariang_enabled and cfg.ariang_url:
-            await self._send_to_aria2(url, dest)
-            return None  # aria2 handles path
-        elif cfg.jdownloader_enabled and cfg.jdownloader_url:
-            await self._send_to_jdownloader(url, dest, filename)
-            return None  # JD handles path
-        else:
-            return await self._download_file_direct(url, Path(dest), filename)
+        await self.ad().delete_magnet(torrent["alldebrid_id"])
+        if get_settings().discord_notify_finished:
+            await self.notify().send(
+                "âœ… Complete",
+                f"**{torrent['name']}**\n{completed_count} files finished in JDownloader",
+                0x22c55e,
+            )
 
-    async def _download_file_direct(self, url: str, dest: Path, filename: str) -> str:
-        import aiohttp
-        local_path = dest / _safe_filename(filename)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                resp.raise_for_status()
-                async with aiofiles.open(local_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(1024 * 1024):
+    async def _download_direct(self, url: str, dest: Path, filename: str) -> str:
+        import aiohttp, aiofiles
+        local = dest / safe_name(filename)
+        async with aiohttp.ClientSession() as s:
+            async with s.get(url, timeout=aiohttp.ClientTimeout(total=3600)) as r:
+                r.raise_for_status()
+                async with aiofiles.open(local, "wb") as f:
+                    async for chunk in r.content.iter_chunked(1024 * 1024):
                         await f.write(chunk)
-        return str(local_path)
+        return str(local)
 
-    async def _send_to_aria2(self, url: str, dest: str):
-        import aiohttp
-        cfg = get_settings()
-        rpc_url = cfg.ariang_url
-        secret = ""
-        # Support format: http://token:SECRET@host:port/jsonrpc
-        if "@" in rpc_url:
-            creds, rpc_url = rpc_url.rsplit("@", 1)
-            secret = creds.split(":", 1)[-1] if ":" in creds else creds
-            if not rpc_url.startswith("http"):
-                rpc_url = "http://" + rpc_url
-
-        payload = {
-            "jsonrpc": "2.0",
-            "method": "aria2.addUri",
-            "id": "adc",
-            "params": [f"token:{secret}", [url], {"dir": dest}],
-        }
-        async with aiohttp.ClientSession() as s:
-            async with s.post(rpc_url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                result = await resp.json()
-                if "error" in result:
-                    raise Exception(f"aria2 error: {result['error']}")
-                return result.get("result", "")
-
-    async def _send_to_jdownloader(self, url: str, dest: str, filename: str):
-        """Send via JDownloader local API (direct/deprecated API on port 9696)"""
-        import aiohttp
-        cfg = get_settings()
-        jd_url = cfg.jdownloader_url.rstrip("/")
-        auth = None
-        if cfg.jdownloader_user:
-            auth = aiohttp.BasicAuth(cfg.jdownloader_user, cfg.jdownloader_password)
-
-        payload = {
-            "links": url,
-            "packageName": filename,
-            "destinationFolder": dest,
-            "autoStart": cfg.jdownloader_autostart,
-        }
-        async with aiohttp.ClientSession() as s:
-            async with s.post(
-                f"{jd_url}/flash/add", data=payload, auth=auth,
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as resp:
-                if resp.status not in (200, 201, 204):
-                    raise Exception(f"JDownloader returned HTTP {resp.status}")
-
-    async def _save_file_record(self, torrent_id: int, filename: str, url: str,
-                                 local_path: Optional[str], status: str, block_reason: Optional[str]):
+    async def _log_file(self, torrent_id: int, filename: str, url: str,
+                        local: Optional[str], status: str, reason: Optional[str]):
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
                 """INSERT INTO download_files
                    (torrent_id,filename,download_url,local_path,status,blocked,block_reason)
                    VALUES (?,?,?,?,?,?,?)""",
-                (torrent_id, filename, url, local_path, status,
-                 1 if status == "blocked" else 0, block_reason),
+                (torrent_id, filename, url, local, status,
+                 1 if status == "blocked" else 0, reason),
             )
             await db.commit()
 
-    # ─── Import & Management ─────────────────────────────────────────────────
+    # ── Import ────────────────────────────────────────────────────────────────
 
     async def import_existing_magnets(self) -> List[dict]:
-        ad = self._get_ad()
-        magnets = await ad.get_all_magnets()
+        if self.is_paused():
+            return []
+        try:
+            all_magnets = await self.ad().get_magnet_status()
+        except Exception as e:
+            err = str(e)
+            if any(kw in err for kw in ("DISCONTINUED", "discontinued", "deprecated", "migrate")):
+                raise Exception(
+                    "AllDebrid has disabled 'list all magnets' for your account. "
+                    "Add magnets manually via the UI or watch folder."
+                )
+            raise
+
+        if not all_magnets:
+            return []
+
         results = []
         async with aiosqlite.connect(DB_PATH) as db:
-            for m in magnets:
+            db.row_factory = aiosqlite.Row
+            for m in all_magnets:
                 ad_id = str(m.get("id", ""))
                 hash_ = m.get("hash", ad_id).lower()
-                name = m.get("name", "")
-                status_code = m.get("statusCode", 0)
-                status = "ready" if status_code == 5 else "processing"
-                await db.execute(
-                    """INSERT OR IGNORE INTO torrents (hash,name,alldebrid_id,status,source)
-                       VALUES (?,?,?,?,?)""",
-                    (hash_, name, ad_id, status, "alldebrid_existing"),
+                name  = m.get("filename") or m.get("name") or ""
+                code  = m.get("statusCode", 0)
+                status = "ready" if code == READY_CODE else (
+                    "error" if code in ERROR_CODES else "processing"
                 )
-                results.append({"hash": hash_, "name": name, "id": ad_id, "status": status})
+                cur = await db.execute("SELECT id, status FROM torrents WHERE hash=?", (hash_,))
+                existing = await cur.fetchone()
+                should_queue = True
+                if existing:
+                    torrent_id = existing["id"]
+                    existing_status = existing["status"]
+                    if not _terminal_torrent_status(existing_status):
+                        await db.execute(
+                            "UPDATE torrents SET name=?, alldebrid_id=?, status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                            (name, ad_id, status if existing_status in ("pending", "uploading", "processing", "ready") else existing_status, torrent_id),
+                        )
+                    else:
+                        should_queue = False
+                else:
+                    cur = await db.execute(
+                        """INSERT INTO torrents (hash,name,alldebrid_id,status,source)
+                           VALUES (?,?,?,?,?)""",
+                        (hash_, name, ad_id, status, "alldebrid_existing"),
+                    )
+                    torrent_id = cur.lastrowid
+                results.append({
+                    "hash": hash_,
+                    "name": name,
+                    "id": ad_id,
+                    "status": status,
+                    "torrent_id": torrent_id,
+                    "should_queue": should_queue,
+                })
             await db.commit()
+
+        for item in results:
+            if item["status"] == "ready" and item["should_queue"]:
+                asyncio.create_task(self._start_download(item["torrent_id"], item["id"], item["name"]))
         return results
+
+    # ── Delete ────────────────────────────────────────────────────────────────
 
     async def delete_torrent(self, torrent_id: int, delete_from_ad: bool = True):
         async with aiosqlite.connect(DB_PATH) as db:
@@ -525,48 +701,25 @@ class TorrentManager:
             if not row:
                 raise ValueError("Torrent not found")
             if delete_from_ad and row["alldebrid_id"] and row["status"] != "completed":
-                await self._get_ad().delete_magnet(row["alldebrid_id"])
+                await self.ad().delete_magnet(row["alldebrid_id"])
             await db.execute(
-                "UPDATE torrents SET status='deleted',updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (torrent_id,),
+                "UPDATE torrents SET status='deleted',"
+                "updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (torrent_id,)
             )
             await db.commit()
 
-    async def test_aria2(self) -> dict:
-        import aiohttp
-        cfg = get_settings()
-        rpc_url = cfg.ariang_url
-        secret = ""
-        if "@" in rpc_url:
-            creds, rpc_url = rpc_url.rsplit("@", 1)
-            secret = creds.split(":", 1)[-1] if ":" in creds else creds
-            if not rpc_url.startswith("http"):
-                rpc_url = "http://" + rpc_url
-        payload = {"jsonrpc": "2.0", "method": "aria2.getVersion", "id": "adc", "params": [f"token:{secret}"]}
-        async with aiohttp.ClientSession() as s:
-            async with s.post(rpc_url, json=payload, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                result = await resp.json()
-                if "error" in result:
-                    raise Exception(result["error"]["message"])
-                return result.get("result", {})
+    # ── Tests ─────────────────────────────────────────────────────────────────
 
     async def test_jdownloader(self) -> dict:
-        import aiohttp
         cfg = get_settings()
-        jd_url = cfg.jdownloader_url.rstrip("/")
-        auth = aiohttp.BasicAuth(cfg.jdownloader_user, cfg.jdownloader_password) if cfg.jdownloader_user else None
-        async with aiohttp.ClientSession() as s:
-            async with s.get(f"{jd_url}/jdcheckjson", auth=auth, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                if resp.status == 200:
-                    return {"status": "ok", "http": resp.status}
-                raise Exception(f"JDownloader returned HTTP {resp.status}")
-
-
-def _safe_dirname(name: str) -> str:
-    return re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', name)[:200] or "download"
-
-def _safe_filename(name: str) -> str:
-    return re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', name)[:255] or "file"
+        if not cfg.jdownloader_email:
+            raise Exception("MyJDownloader email not configured")
+        return await MyJDownloaderClient(
+            cfg.jdownloader_email,
+            cfg.jdownloader_password,
+            cfg.jdownloader_device_name,
+        ).check()
 
 
 manager = TorrentManager()

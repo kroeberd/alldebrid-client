@@ -19,6 +19,10 @@ async def watch_folder_loop():
 async def sync_status_loop():
     while True:
         try:
+            await manager.import_existing_magnets()
+        except Exception as e:
+            logger.debug(f"Existing magnet import skipped: {e}")
+        try:
             await manager.sync_alldebrid_status()
         except Exception as e:
             logger.error(f"Status sync error: {e}")

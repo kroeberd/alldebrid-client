@@ -16,20 +16,16 @@ class AppSettings(BaseModel):
     watch_folder: str = "/app/data/watch"
     processed_folder: str = "/app/data/processed"
     download_folder: str = "/app/data/downloads"
-
-    # Download limits
     max_concurrent_downloads: int = 3
-    max_speed_mbps: int = 0  # 0 = unlimited
+    max_speed_mbps: int = 0
 
     # aria2
-    ariang_enabled: bool = False
-    ariang_url: str = ""  # http://token:SECRET@host:6800/jsonrpc
 
-    # JDownloader
+    # JDownloader — MyJD Cloud API only
     jdownloader_enabled: bool = False
-    jdownloader_url: str = ""  # http://localhost:9696
-    jdownloader_user: str = ""
+    jdownloader_email: str = ""
     jdownloader_password: str = ""
+    jdownloader_device_name: str = ""    # leave empty = use first device
     jdownloader_autostart: bool = True
     jdownloader_extract: bool = True
     jdownloader_remove_after: bool = False
@@ -52,6 +48,7 @@ class AppSettings(BaseModel):
     # Polling
     poll_interval_seconds: int = 30
     watch_interval_seconds: int = 10
+    paused: bool = False
 
 
 _settings: AppSettings = AppSettings()
@@ -66,7 +63,9 @@ def load_settings() -> AppSettings:
         try:
             with open(CONFIG_PATH, "r") as f:
                 data = json.load(f)
-            return AppSettings(**data)
+            # Drop unknown keys gracefully
+            valid = {k: v for k, v in data.items() if k in AppSettings.model_fields}
+            return AppSettings(**valid)
         except Exception:
             pass
     return AppSettings()
@@ -84,4 +83,4 @@ def apply_settings(s: AppSettings):
 
 
 _settings = load_settings()
-settings = _settings  # legacy read-only alias
+settings = _settings

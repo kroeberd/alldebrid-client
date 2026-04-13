@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -10,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 from core.scheduler import start_scheduler, stop_scheduler
 from db.database import init_db
+from services.manager import manager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,6 +22,10 @@ logger = logging.getLogger("alldebrid-client")
 async def lifespan(app: FastAPI):
     logger.info("Starting AllDebrid-Client...")
     await init_db()
+    try:
+        await manager.import_existing_magnets()
+    except Exception as e:
+        logger.warning(f"Initial AllDebrid import skipped: {e}")
     await start_scheduler()
     yield
     logger.info("Shutting down AllDebrid-Client...")
@@ -45,16 +49,40 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api")
 
-# Resolve frontend/static: env override > relative to this file > Docker fallback
+# ── Static files resolution ───────────────────────────────────────────────────
+# Candidates in priority order. A valid static dir MUST contain index.html.
+# Path("") / Path(".") are intentionally excluded — they match anything and
+# caused the bug where "Serving static files from: ." + 404 on all routes.
 _here = Path(__file__).parent
-_candidates = [
-    Path(os.getenv("STATIC_DIR", "")),
-    _here.parent / "frontend" / "static",
-    Path("/app/frontend/static"),
-]
-_static = next((p for p in _candidates if p.exists()), None)
+
+_candidates = []
+
+# 1. Explicit env override (only if non-empty)
+_env = os.getenv("STATIC_DIR", "").strip()
+if _env:
+    _candidates.append(Path(_env))
+
+# 2. Relative to this file: <repo>/backend/../frontend/static
+_candidates.append(_here.parent / "frontend" / "static")
+
+# 3. Docker layout: /app/frontend/static  (Dockerfile copies frontend/ → /app/frontend/)
+_candidates.append(Path("/app/frontend/static"))
+
+# 4. Flat Docker layout: /app/static
+_candidates.append(Path("/app/static"))
+
+def _is_valid(p: Path) -> bool:
+    return p.is_dir() and (p / "index.html").exists()
+
+_static = next((p for p in _candidates if _is_valid(p)), None)
+
 if _static is None:
-    raise RuntimeError("Frontend static directory not found. Set STATIC_DIR env var.")
+    tried = ", ".join(str(p) for p in _candidates)
+    raise RuntimeError(
+        f"Frontend index.html not found. Tried: [{tried}]. "
+        "Fix your Docker build (COPY frontend/ /app/frontend/) "
+        "or set the STATIC_DIR environment variable."
+    )
 
 logger.info(f"Serving static files from: {_static}")
 app.mount("/", StaticFiles(directory=str(_static), html=True), name="static")
