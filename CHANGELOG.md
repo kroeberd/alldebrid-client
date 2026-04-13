@@ -12,6 +12,17 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.4.1] - 2026-04-13
+
+### Changed
+- Filtered files now trigger a separate partial webhook while the remaining files continue through the normal completion flow
+- Discord webhooks now use the AllDebrid-Client name, logo, version footer, and a cleaner embed layout
+
+### Fixed
+- Torrents with filtered files now finish as `completed` when all remaining files succeed and are removed from AllDebrid as expected
+- Fixed broken sidebar icon rendering and reduced the sidebar version label to the plain version number
+- Cleaned up the dashboard overview block so the top section renders correctly again
+
 ## [0.4.0] - 2026-04-13
 
 ### Added
@@ -94,8 +105,9 @@ Each shipped change must be reflected here and released with a matching Git comm
 - Docker and Docker Compose support
 - MIT License
 
-[0.3.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.3.1
 [0.4.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.4.0
+[0.4.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.4.1
+[0.3.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.3.1
 [0.3.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.3.0
 [0.2.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.1
 [0.2.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.0

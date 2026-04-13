@@ -1,6 +1,6 @@
 services:
   alldebrid-client:
-    image: kroeberd/alldebrid-client:v0.4.0
+    image: kroeberd/alldebrid-client:v0.4.1
     build: .
     container_name: alldebrid-client
     restart: unless-stopped

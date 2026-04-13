@@ -472,10 +472,8 @@ class TorrentManager:
         has_exclusions = blocked_count > 0
 
         if failed_count == 0 and transferred_count == downloadable_count and downloadable_count > 0:
-            if queued_for_jd and not has_exclusions:
+            if queued_for_jd:
                 final = "queued"
-            elif has_exclusions:
-                final = "partial"
             else:
                 final = "completed"
         elif transferred_count > 0 or blocked_count > 0:
@@ -506,6 +504,21 @@ class TorrentManager:
             )
             await db.commit()
 
+        if has_exclusions:
+            partial_lines = [
+                f"**{tname}**",
+                f"Total files: {total_files} ({fmt_bytes(_size_sum([{'size_bytes': int(f.get('size', 0) or 0)} for f in flat_files]))})",
+                f"Will be downloaded: {transferred_count} ({fmt_bytes(_size_sum(transferred_items))})",
+                f"Not downloaded: {blocked_count + failed_count} ({fmt_bytes(_size_sum(blocked_items + failed_items))})",
+            ]
+            if blocked_count:
+                partial_lines.append(f"Excluded: {blocked_count} ({fmt_bytes(_size_sum(blocked_items))})")
+            if failed_count:
+                partial_lines.append(f"Failed: {failed_count} ({fmt_bytes(_size_sum(failed_items))})")
+            await self._log_event(db_id, "warn", "Filtered files were skipped while the remaining files continued normally")
+            if get_settings().discord_webhook_url and (get_settings().discord_notify_finished or get_settings().discord_notify_error):
+                await self.notify().send("Partial", "\n".join(partial_lines), 0x8B5CF6)
+
         if final == "completed":
             await self._delete_magnet_after_completion(db_id, ad_id)
             await self._mark_finished(db_id)
@@ -519,20 +532,6 @@ class TorrentManager:
                 "info",
                 "Queued in JDownloader - waiting for completed downloads before deleting from AllDebrid",
             )
-        elif final == "partial":
-            partial_lines = [
-                f"**{tname}**",
-                f"Total files: {total_files} ({fmt_bytes(_size_sum([{'size_bytes': int(f.get('size', 0) or 0)} for f in flat_files]))})",
-                f"Will be downloaded: {transferred_count} ({fmt_bytes(_size_sum(transferred_items))})",
-                f"Not downloaded: {blocked_count + failed_count} ({fmt_bytes(_size_sum(blocked_items + failed_items))})",
-            ]
-            if blocked_count:
-                partial_lines.append(f"Excluded: {blocked_count} ({fmt_bytes(_size_sum(blocked_items))})")
-            if failed_count:
-                partial_lines.append(f"Failed: {failed_count} ({fmt_bytes(_size_sum(failed_items))})")
-            await self._log_event(db_id, "warn", "Partial download: some files were excluded or failed")
-            if get_settings().discord_webhook_url and (get_settings().discord_notify_finished or get_settings().discord_notify_error):
-                await self.notify().send("Partial", "\n".join(partial_lines), 0xf59e0b)
         elif get_settings().discord_notify_error:
             await self.notify().send(
                 "Error", f"**{tname}**\nKept on AllDebrid", 0xef4444

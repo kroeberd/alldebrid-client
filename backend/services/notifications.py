@@ -2,8 +2,14 @@ import aiohttp
 import asyncio
 import logging
 import time
+from pathlib import Path
 
 logger = logging.getLogger("alldebrid.notify")
+
+APP_NAME = "AllDebrid-Client"
+VERSION_PATH = Path(__file__).resolve().parents[2] / "VERSION"
+APP_VERSION = VERSION_PATH.read_text(encoding="utf-8").strip() if VERSION_PATH.exists() else "dev"
+APP_LOGO_URL = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
 
 
 class NotificationService:
@@ -30,11 +36,15 @@ class NotificationService:
             return
         await self._respect_rate_limit()
         payload = {
+            "username": APP_NAME,
+            "avatar_url": APP_LOGO_URL,
             "embeds": [{
                 "title": title,
                 "description": description,
                 "color": color,
-                "footer": {"text": "AllDebrid-Client"},
+                "author": {"name": APP_NAME, "icon_url": APP_LOGO_URL},
+                "thumbnail": {"url": APP_LOGO_URL},
+                "footer": {"text": f"{APP_NAME} v{APP_VERSION}"},
             }]
         }
         try:
@@ -47,7 +57,7 @@ class NotificationService:
 
     async def test(self) -> bool:
         try:
-            await self.send("🔔 Test Notification", "AllDebrid-Client is connected!", 0x9b59b6)
+            await self.send("Test Notification", f"{APP_NAME} is connected and ready.", 0x5865F2)
             return True
         except Exception:
             return False

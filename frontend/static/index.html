@@ -349,38 +349,38 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver">v0.3.1 · jd handoff fix</div>
+      <div class="logo-ver">v0.4.1</div>
     </div>
   </div>
   <nav>
     <div class="nav-group">Queue</div>
     <div class="nav-item active" data-view="dashboard" onclick="nav(this)">
-      <span class="icon">⚡</span>Dashboard
+      <span class="icon">&#9889;</span>Dashboard
     </div>
     <div class="nav-item" data-view="torrents" onclick="nav(this)">
-      <span class="icon">🧲</span>Torrents
+      <span class="icon">&#129522;</span>Torrents
       <span class="nav-badge" id="nb-active" style="display:none">0</span>
     </div>
     <div class="nav-group">Monitor</div>
     <div class="nav-item" data-view="events" onclick="nav(this)">
-      <span class="icon">📋</span>Event Log
+      <span class="icon">&#128203;</span>Event Log
     </div>
     <div class="nav-item" data-view="stats" onclick="nav(this)">
-      <span class="icon">ðŸ“Š</span>Statistics
+      <span class="icon">&#128202;</span>Statistics
     </div>
     <div class="nav-item" data-view="changelog" onclick="nav(this)">
-      <span class="icon">ðŸ“š</span>Changelog
+      <span class="icon">&#128214;</span>Changelog
     </div>
     <div class="nav-group">Project</div>
     <div class="nav-item" data-view="github" onclick="nav(this)">
-      <span class="icon">ðŸ”—</span>GitHub
+      <span class="icon">&#128279;</span>GitHub
     </div>
     <div class="nav-item" data-view="coffee" onclick="nav(this)">
-      <span class="icon">â˜•</span>Coffee
+      <span class="icon">&#9749;</span>Coffee
     </div>
     <div class="nav-group">System</div>
     <div class="nav-item" data-view="settings" onclick="nav(this)">
-      <span class="icon">⚙️</span>Settings
+      <span class="icon">&#9881;</span>Settings
     </div>
   </nav>
   <div class="sidebar-footer">
@@ -398,29 +398,25 @@ textarea.input { resize: vertical; }
 
     <!-- Dashboard -->
     <div class="view active" id="view-dashboard">
-      <div class="beta-banner">v0.4.0 moves project links, changelog, and detailed statistics into dedicated sidebar tabs.</div>
+      <div class="beta-banner">v0.4.1 completes filtered torrents correctly, refreshes webhook styling, and fixes the sidebar display.</div>
 
-      
-          <div class="eyebrow">Overview</div>
-          <div class="hero-title">Your AllDebrid queue at a glance.</div>
-          <div class="hero-copy">Track active transfers, cleanup progress, blocked files, and finished monitor signals without leaving the dashboard.</div>
-          <div class="insight-grid">
-            <div class="insight-card">
-              <div class="insight-k">Queue Health</div>
-              <div class="insight-v" id="i-queue-health">â€”</div>
-              <div class="insight-s" id="i-queue-copy">Waiting for stats</div>
-            </div>
-            <div class="insight-card">
-              <div class="insight-k">Finished</div>
-              <div class="insight-v" id="i-finished">â€”</div>
-              <div class="insight-s">Monitor events completed</div>
-            </div>
-            <div class="insight-card">
-              <div class="insight-k">Last 24h</div>
-              <div class="insight-v" id="i-last-day">â€”</div>
-              <div class="insight-s">Completed torrents</div>
-            </div>
-          </div>
+      <div class="insight-grid" style="margin-bottom:18px">
+        <div class="insight-card">
+          <div class="insight-k">Queue Health</div>
+          <div class="insight-v" id="i-queue-health">—</div>
+          <div class="insight-s" id="i-queue-copy">Waiting for stats</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Finished</div>
+          <div class="insight-v" id="i-finished">—</div>
+          <div class="insight-s">Monitor events completed</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Last 24h</div>
+          <div class="insight-v" id="i-last-day">—</div>
+          <div class="insight-s">Completed torrents</div>
+        </div>
+      </div>
         
 
       <div class="stats-grid">
