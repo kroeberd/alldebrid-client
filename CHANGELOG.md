@@ -12,6 +12,13 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.2.1] - 2026-04-13
+
+### Changed
+- Added a dedicated `Finished` monitor/event entry when a torrent has fully completed
+- Automatically removes completed downloads from AllDebrid after successful completion handling
+- Throttles Discord webhook delivery to one message every 5 seconds per webhook URL to reduce timeout pressure
+
 ## [0.2.0] - 2026-04-13
 
 ### Added
@@ -57,6 +64,7 @@ Each shipped change must be reflected here and released with a matching Git comm
 - Docker and Docker Compose support
 - MIT License
 
+[0.2.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.1
 [0.2.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.0
 [0.1.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.1.0
 [0.0.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.0.1

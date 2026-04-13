@@ -32,7 +32,7 @@ Open [http://localhost:8080](http://localhost:8080) and enter your AllDebrid API
 ### Docker build
 
 ```bash
-docker build -t kroeberd/alldebrid-client:v0.2.0 .
+docker build -t kroeberd/alldebrid-client:v0.2.1 .
 ```
 
 Optional for local testing:
@@ -43,7 +43,7 @@ docker run --rm -p 8080:8080 \
   -e DB_PATH=/app/config/alldebrid.db \
   -v ./config:/app/config \
   -v ./data:/app/data \
-  kroeberd/alldebrid-client:v0.2.0
+  kroeberd/alldebrid-client:v0.2.1
 ```
 
 ### Manual
@@ -102,7 +102,7 @@ Recommended release workflow:
 1. Update the implementation.
 2. Add the release entry to `CHANGELOG.md`.
 3. Commit the release changes.
-4. Create the matching tag, for example `git tag v0.2.0`.
+4. Create the matching tag, for example `git tag v0.2.1`.
 
 GitHub automation included in this repository:
 

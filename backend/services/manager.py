@@ -471,10 +471,11 @@ class TorrentManager:
             await db.commit()
 
         if final == "completed":
-            await self.ad().delete_magnet(ad_id)
+            await self._delete_magnet_after_completion(db_id, ad_id)
+            await self._mark_finished(db_id)
             if get_settings().discord_notify_finished:
                 await self.notify().send(
-                    "✅ Complete", f"**{tname}**\n{n_done} files → `{dest}`", 0x22c55e
+                    "Complete", f"**{tname}**\n{n_done} files -> `{dest}`", 0x22c55e
                 )
         elif final == "queued":
             await self._log_event(
@@ -494,6 +495,17 @@ class TorrentManager:
                 (torrent_id, level, message),
             )
             await db.commit()
+
+    async def _delete_magnet_after_completion(self, torrent_id: int, ad_id: str) -> bool:
+        deleted = await self.ad().delete_magnet(ad_id)
+        if deleted:
+            await self._log_event(torrent_id, "info", "Removed from AllDebrid after completion")
+        else:
+            await self._log_event(torrent_id, "warn", "Finished, but removal from AllDebrid failed")
+        return deleted
+
+    async def _mark_finished(self, torrent_id: int):
+        await self._log_event(torrent_id, "info", "Finished")
 
     async def sync_jdownloader_downloads(self):
         if self.is_paused():
@@ -595,10 +607,11 @@ class TorrentManager:
 
             torrent = dict(torrent)
 
-        await self.ad().delete_magnet(torrent["alldebrid_id"])
+        await self._delete_magnet_after_completion(torrent_id, torrent["alldebrid_id"])
+        await self._mark_finished(torrent_id)
         if get_settings().discord_notify_finished:
             await self.notify().send(
-                "âœ… Complete",
+                "Complete",
                 f"**{torrent['name']}**\n{completed_count} files finished in JDownloader",
                 0x22c55e,
             )
