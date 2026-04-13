@@ -19,8 +19,6 @@ class AppSettings(BaseModel):
     max_concurrent_downloads: int = 3
     max_speed_mbps: int = 0
 
-    # aria2
-
     # JDownloader — MyJD Cloud API only
     jdownloader_enabled: bool = False
     jdownloader_email: str = ""

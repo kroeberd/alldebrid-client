@@ -208,11 +208,23 @@ async def get_stats():
         active = (await (await db.execute(
             "SELECT COUNT(*) as c FROM torrents WHERE status IN ('downloading','processing','uploading')"
         )).fetchone())["c"]
+        queued = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM torrents WHERE status='queued'"
+        )).fetchone())["c"]
+        finished = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM events WHERE message='Finished'"
+        )).fetchone())["c"]
+        last_day_completed = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now', '-1 day')"
+        )).fetchone())["c"]
         return {
             "by_status": by_status,
             "total_completed_bytes": size_row["total"] or 0,
             "total_blocked_files": blocked,
             "active_downloads": active,
+            "queued_downloads": queued,
+            "finished_events": finished,
+            "completed_last_24h": last_day_completed,
             "paused": bool(get_settings().paused),
         }
 

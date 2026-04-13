@@ -2,7 +2,7 @@
 
 ## Konzept
 
-Radar-/Orbit-Design: zentraler Core (Download-Manager) mit 3 Satelliten-Nodes für AllDebrid (AD), JDownloader (JD) und aria2 (a2). Verbindungslinien zeigen den Datenfluss. Basiert auf der bereitgestellten Vorlage.
+Radar-/Orbit-Design: zentraler Core (Download-Manager) mit Satelliten-Nodes für AllDebrid (AD) und JDownloader (JD). Verbindungslinien zeigen den Datenfluss. Basiert auf der bereitgestellten Vorlage.
 
 ---
 

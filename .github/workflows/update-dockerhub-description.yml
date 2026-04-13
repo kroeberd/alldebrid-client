@@ -23,4 +23,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: kroeberd/alldebrid-client
           readme-filepath: ./README.md
-          short-description: "Automated torrent downloading via AllDebrid with Web UI, watch folder, Discord, SQLite, aria2 and JDownloader"
+          short-description: "Automated torrent downloading via AllDebrid with Web UI, watch folder, Discord, SQLite, and JDownloader"

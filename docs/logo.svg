@@ -46,14 +46,9 @@
   <circle cx="408" cy="338" r="14" fill="#0d1220" stroke="#3b82f6" stroke-width="2"/>
   <text x="408" y="343" text-anchor="middle" font-family="monospace" font-size="10" fill="#3b82f6" font-weight="bold">JD</text>
 
-  <!-- aria2 (bottom-left) -->
-  <circle cx="104" cy="338" r="14" fill="#0d1220" stroke="#22c55e" stroke-width="2"/>
-  <text x="104" y="343" text-anchor="middle" font-family="monospace" font-size="10" fill="#22c55e" font-weight="bold">a2</text>
-
   <!-- Connection lines to core -->
   <line x1="256" y1="90"  x2="256" y2="210" stroke="#f97316" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
   <line x1="396" y1="330" x2="300" y2="285" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
-  <line x1="116" y1="330" x2="212" y2="285" stroke="#22c55e" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
 
   <!-- Core circle -->
   <circle cx="256" cy="256" r="52" fill="#111827" stroke="#f97316" stroke-width="2.5" filter="url(#glow)"/>

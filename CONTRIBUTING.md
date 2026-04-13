@@ -58,7 +58,7 @@ Thank you for considering contributing! Here's how to get involved.
    ```
    feat: add RSS feed support
    fix: resolve SQLite constraint error on duplicate hash
-   docs: update README with aria2 config example
+   docs: refresh README deployment examples
    ```
 
 4. Push and open a Pull Request against `main`.

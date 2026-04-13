@@ -135,6 +135,41 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 .stat-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text2); margin-bottom: 10px; }
 .stat-value { font-size: 30px; font-weight: 800; color: var(--c); line-height: 1; }
 .stat-sub { font-size: 10px; color: var(--text2); margin-top: 5px; font-family: var(--mono); }
+.hero-grid { display:grid; grid-template-columns: minmax(0,1.5fr) minmax(320px,1fr); gap:16px; margin-bottom:18px; }
+.insight-panel, .support-panel {
+  background: linear-gradient(160deg, rgba(17,24,39,.96), rgba(13,18,32,.92));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+.insight-panel::before, .support-panel::before {
+  content:''; position:absolute; inset:auto -60px -60px auto; width:180px; height:180px;
+  background: radial-gradient(circle, rgba(249,115,22,.16), transparent 65%);
+  pointer-events:none;
+}
+.eyebrow { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text2); font-weight:700; margin-bottom:10px; }
+.hero-title { font-size:28px; line-height:1.05; font-weight:800; max-width:10ch; margin-bottom:10px; }
+.hero-copy { color:var(--text2); font-size:13px; line-height:1.5; max-width:58ch; }
+.insight-grid { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap:12px; margin-top:18px; }
+.insight-card { background: rgba(255,255,255,.03); border:1px solid var(--border); border-radius: 10px; padding:12px; }
+.insight-k { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:.1em; font-weight:700; margin-bottom:6px; }
+.insight-v { font-size:22px; font-weight:800; color:var(--text); }
+.insight-s { font-size:11px; color:var(--text2); margin-top:4px; }
+.support-panel { display:flex; flex-direction:column; justify-content:space-between; gap:16px; }
+.support-copy { color:var(--text2); font-size:13px; line-height:1.5; }
+.support-links { display:flex; flex-wrap:wrap; gap:10px; }
+.btn-support {
+  background: linear-gradient(135deg, #ff813f, #ff5f5f);
+  color:#fff;
+  text-decoration:none;
+}
+.btn-support:hover { box-shadow: 0 0 16px rgba(255,129,63,.35); }
+.mini-stat-row { display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:10px; }
+.mini-stat { background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; padding:12px; }
+.mini-stat .label { font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--text2); font-weight:700; }
+.mini-stat .value { font-size:18px; font-weight:800; margin-top:6px; }
 
 /* ── Card ── */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 18px; }
@@ -262,6 +297,10 @@ td { padding: 11px 16px; vertical-align: middle; }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 textarea.input { resize: vertical; }
+@media (max-width: 980px) {
+  .hero-grid { grid-template-columns: 1fr; }
+  .insight-grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
@@ -271,7 +310,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver">v0.2.1 · finished tracking</div>
+      <div class="logo-ver">v0.3.0 · polished release</div>
     </div>
   </div>
   <nav>
@@ -307,7 +346,54 @@ textarea.input { resize: vertical; }
 
     <!-- Dashboard -->
     <div class="view active" id="view-dashboard">
-      <div class="beta-banner">v0.2.1 improves finished download handling and throttles Discord webhooks to avoid timeouts.</div>
+      <div class="beta-banner">v0.3.0 refreshes the dashboard, removes legacy references, and adds support links.</div>
+
+      <div class="hero-grid">
+        <section class="insight-panel">
+          <div class="eyebrow">Overview</div>
+          <div class="hero-title">Your AllDebrid queue at a glance.</div>
+          <div class="hero-copy">Track active transfers, cleanup progress, blocked files, and finished monitor signals without leaving the dashboard.</div>
+          <div class="insight-grid">
+            <div class="insight-card">
+              <div class="insight-k">Queue Health</div>
+              <div class="insight-v" id="i-queue-health">â€”</div>
+              <div class="insight-s" id="i-queue-copy">Waiting for stats</div>
+            </div>
+            <div class="insight-card">
+              <div class="insight-k">Finished</div>
+              <div class="insight-v" id="i-finished">â€”</div>
+              <div class="insight-s">Monitor events completed</div>
+            </div>
+            <div class="insight-card">
+              <div class="insight-k">Last 24h</div>
+              <div class="insight-v" id="i-last-day">â€”</div>
+              <div class="insight-s">Completed torrents</div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="support-panel">
+          <div>
+            <div class="eyebrow">Support</div>
+            <div class="hero-title" style="font-size:24px;max-width:none">Keep the project moving.</div>
+            <div class="support-copy">If AllDebrid-Client saves you time, you can support future updates, fixes, and polish with a quick coffee.</div>
+          </div>
+          <div class="mini-stat-row">
+            <div class="mini-stat">
+              <div class="label">Source</div>
+              <div class="value" id="i-source">Watch + UI</div>
+            </div>
+            <div class="mini-stat">
+              <div class="label">Delivery</div>
+              <div class="value" id="i-delivery">Direct / JD</div>
+            </div>
+          </div>
+          <div class="support-links">
+            <a class="btn btn-support" href="https://buymeacoffee.com/kroeberd" target="_blank" rel="noreferrer">Buy Me a Coffee</a>
+            <a class="btn btn-ghost" href="https://github.com/kroeberd/alldebrid-client" target="_blank" rel="noreferrer">GitHub</a>
+          </div>
+        </aside>
+      </div>
 
       <div class="stats-grid">
         <div class="stat-card" data-c="orange"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>
@@ -480,6 +566,10 @@ function fmtDate(d) {
   return x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' '+
          x.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
 }
+function pct(part, total) {
+  if (!total) return 0;
+  return Math.round((part / total) * 100);
+}
 function badge(s) {
   const m = {pending:'⏳ Pending',uploading:'⬆ Uploading',processing:'⚙ Processing',
     downloading:'⬇ Downloading',ready:'✓ Ready',completed:'✅ Done',
@@ -552,13 +642,19 @@ async function loadStats() {
     renderTopbarActions();
     const bs = s.by_status || {};
     const total = Object.values(bs).reduce((a,b)=>a+b,0);
+    const completed = bs.completed || 0;
+    const queuePct = pct(completed, total || 0);
     document.getElementById('s-total').textContent = total;
-    document.getElementById('s-completed').textContent = bs.completed||0;
+    document.getElementById('s-completed').textContent = completed;
     document.getElementById('s-active').textContent = s.active_downloads||0;
     document.getElementById('s-processing').textContent = s.paused ? 'Paused' : (bs.processing||0)+(bs.uploading||0);
     document.getElementById('s-error').textContent = bs.error||0;
     document.getElementById('s-size').textContent = fmtSize(s.total_completed_bytes);
     document.getElementById('s-blocked').textContent = `${s.total_blocked_files||0} blocked files`;
+    document.getElementById('i-queue-health').textContent = `${queuePct}%`;
+    document.getElementById('i-queue-copy').textContent = `${s.active_downloads||0} active / ${s.queued_downloads||0} queued`;
+    document.getElementById('i-finished').textContent = s.finished_events||0;
+    document.getElementById('i-last-day').textContent = s.completed_last_24h||0;
     const active = s.active_downloads || 0;
     const nb = document.getElementById('nb-active');
     nb.textContent = active; nb.style.display = active > 0 ? '' : 'none';
