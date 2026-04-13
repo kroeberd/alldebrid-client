@@ -1,6 +1,8 @@
 # AllDebrid-Client
 
-Automated torrent downloading via AllDebrid — with a clean Web UI, watch folder, Discord notifications, and integrations for aria2/AriaNg and JDownloader.
+![AllDebrid-Client Logo](docs/logo.svg)
+
+Automated torrent downloading via AllDebrid with a clean Web UI, watch folder, Discord notifications, and integrations for aria2/AriaNg and JDownloader.
 
 ## Features
 
@@ -26,6 +28,23 @@ docker compose up -d
 ```
 
 Open [http://localhost:8080](http://localhost:8080) and enter your AllDebrid API key in Settings.
+
+### Docker build
+
+```bash
+docker build -t kroeberd/alldebrid-client:v0.1.0 .
+```
+
+Optional for local testing:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e CONFIG_PATH=/app/config/config.json \
+  -e DB_PATH=/app/config/alldebrid.db \
+  -v ./config:/app/config \
+  -v ./data:/app/data \
+  kroeberd/alldebrid-client:v0.1.0
+```
 
 ### Manual
 
@@ -58,6 +77,32 @@ All settings are editable in the Web UI under **Settings**. The config is persis
 | `blocked_keywords` | [] | Filename keywords to skip |
 | `poll_interval_seconds` | 30 | How often to check AllDebrid status |
 | `watch_interval_seconds` | 10 | How often to scan watch folder |
+
+---
+
+## Releases & Changelog
+
+Every change, new feature, fix, and structural update must be recorded in [CHANGELOG.md](CHANGELOG.md) and released with a matching Git tag.
+
+Versioning rules for this repository:
+
+- `vX.Y.Z` for standard release tags
+- New features increment `Y`: `vX.Y.0`
+- Fixes, debugging, and small corrections increment `Z`: `vX.Y.Z`
+- Fundamental or breaking structural changes start a new major stream and reset to `.0.0`: `vY.0.0`
+
+Examples:
+
+- `v0.1.0` for new functionality
+- `v0.1.1` for a fix
+- `v1.0.0` for a major structural release
+
+Recommended release workflow:
+
+1. Update the implementation.
+2. Add the release entry to `CHANGELOG.md`.
+3. Commit the release changes.
+4. Create the matching tag, for example `git tag v0.1.0`.
 
 ---
 

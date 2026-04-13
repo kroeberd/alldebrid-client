@@ -9,7 +9,7 @@
   <Support>https://github.com/kroeberd/alldebrid-client/issues</Support>
   <Project>https://github.com/kroeberd/alldebrid-client</Project>
   <Overview>
-[b]AllDebrid-Client v0.0.1[/b] Beta version - may contain bugs.
+[b]AllDebrid-Client v0.1.0[/b] Branded release with Docker build workflow and release tracking.
 
 Automated torrent/magnet downloading via AllDebrid with a clean Web UI.
 
@@ -32,7 +32,7 @@ Automated torrent/magnet downloading via AllDebrid with a clean Web UI.
   <Category>Downloaders:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/kroeberd/unraid-templates/main/templates/alldebrid-client.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/icon.png</Icon>
+  <Icon>https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg</Icon>
   <ExtraParams>--restart=unless-stopped</ExtraParams>
 
   <Config Name="WebUI Port" Target="8080" Default="8080" Mode="tcp"

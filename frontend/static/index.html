@@ -48,11 +48,10 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); disp
   display: flex; align-items: center; gap: 12px;
 }
 .logo-icon {
-  width: 36px; height: 36px; border-radius: 9px;
-  background: linear-gradient(135deg, var(--accent), #c2410c);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
-  box-shadow: 0 0 16px rgba(249,115,22,0.3);
+  width: 40px; height: 40px; border-radius: 10px;
+  display: block; flex-shrink: 0;
+  box-shadow: 0 0 18px rgba(249,115,22,0.2);
+  object-fit: cover;
 }
 .logo-text { line-height: 1.2; }
 .logo-name { font-size: 14px; font-weight: 700; color: var(--text); }
@@ -269,10 +268,10 @@ textarea.input { resize: vertical; }
 
 <aside id="sidebar">
   <div class="logo">
-    <div class="logo-icon">⬇</div>
+    <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver">v0.0.1 · beta</div>
+      <div class="logo-ver">v0.1.0 · branded build</div>
     </div>
   </div>
   <nav>
@@ -308,7 +307,7 @@ textarea.input { resize: vertical; }
 
     <!-- Dashboard -->
     <div class="view active" id="view-dashboard">
-      <div class="beta-banner">Beta version - may contain bugs. Please report feedback via GitHub Issues.</div>
+      <div class="beta-banner">v0.1.0 introduces release tracking, Docker build docs, and integrated branding across the project.</div>
 
       <div class="stats-grid">
         <div class="stat-card" data-c="orange"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>

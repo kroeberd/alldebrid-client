@@ -90,13 +90,17 @@ Thank you for considering contributing! Here's how to get involved.
 
 ## Versioning
 
-This project uses [Semantic Versioning](https://semver.org/):
+This project uses a repository-specific release scheme:
 
-- `MAJOR` — breaking changes
-- `MINOR` — new backwards-compatible features
-- `PATCH` — bug fixes
+- New features use `vX.Y.0`
+- Fixes, debugging, and maintenance use `vX.Y.Z`
+- Fundamental or breaking structural changes start a new major stream as `vY.0.0`
 
-Update `CHANGELOG.md` with your changes under `[Unreleased]` when submitting a PR.
+Every released change must:
+
+1. Be documented in `CHANGELOG.md`
+2. Be committed intentionally
+3. Receive a matching Git tag such as `v0.1.0` or `v0.1.1`
 
 ---
 

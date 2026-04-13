@@ -2,10 +2,30 @@
 
 All notable changes to AllDebrid-Client will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+This repository uses a project-specific release scheme:
+
+- New features: `vX.Y.0`
+- Fixes, debugging, and maintenance: `vX.Y.Z`
+- Fundamental or breaking structural changes: `vY.0.0`
+
+Each shipped change must be reflected here and released with a matching Git commit and tag.
 
 ---
+
+## [0.1.0] - 2026-04-13
+
+### Added
+- Added a documented Docker image build workflow for local and tagged releases
+- Added repository release rules covering changelog updates, commit discipline, and tag naming
+- Added branded logo usage to the README and frontend static assets
+
+### Changed
+- Updated the frontend branding to display the project logo instead of a placeholder icon
+- Updated the Unraid template to reference the tracked SVG logo asset and the new release version
+- Aligned repository documentation around the `vX.Y.Z` tagging scheme requested for future releases
+
+### Fixed
+- Fixed the Docker/branding documentation mismatch where the Unraid template referenced a non-existent icon path
 
 ## [0.0.1] - 2026-04-12
 
@@ -26,4 +46,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker and Docker Compose support
 - MIT License
 
-[0.0.1]: https://github.com/your-username/alldebrid-client/releases/tag/v0.0.1
+[0.1.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.1.0
+[0.0.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.0.1
