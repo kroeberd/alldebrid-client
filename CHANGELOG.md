@@ -12,6 +12,12 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.3.1] - 2026-04-13
+
+### Fixed
+- Hardened JDownloader handoff so accepted packages are actively moved out of the linkgrabber into the download list
+- Added a recovery step during JDownloader status checks to promote lingering linkgrabber entries instead of leaving them stuck
+
 ## [0.3.0] - 2026-04-13
 
 ### Added
@@ -73,6 +79,7 @@ Each shipped change must be reflected here and released with a matching Git comm
 - Docker and Docker Compose support
 - MIT License
 
+[0.3.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.3.1
 [0.3.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.3.0
 [0.2.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.1
 [0.2.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.0

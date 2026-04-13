@@ -114,6 +114,42 @@ class MyJDownloaderClient:
             time.sleep(0.5)
         return None
 
+    def _find_linkgrabber_entries(self, device: Any, urls: List[str], filename: str = "") -> List[Dict]:
+        query = [{
+            "name": True,
+            "url": True,
+            "uuid": True,
+            "packageUUID": True,
+            "enabled": True,
+            "maxResults": -1,
+            "startAt": 0,
+        }]
+        wanted_urls = {str(url).strip() for url in urls}
+        target_name = Path(filename).name if filename else ""
+        matches: Dict[str, Dict] = {}
+        for _ in range(12):
+            links = device.linkgrabber.query_links(query) or []
+            for entry in links:
+                entry_url = str(entry.get("url", "")).strip()
+                entry_name = Path(str(entry.get("name", ""))).name
+                if entry_url in wanted_urls or (target_name and entry_name == target_name):
+                    key = str(entry.get("uuid") or entry_url or entry_name)
+                    matches[key] = entry
+            if matches:
+                break
+            time.sleep(0.5)
+        return list(matches.values())
+
+    def _move_linkgrabber_entries(self, device: Any, entries: List[Dict]) -> bool:
+        if not entries:
+            return False
+        link_ids = [entry["uuid"] for entry in entries if entry.get("uuid") is not None]
+        package_ids = list({entry["packageUUID"] for entry in entries if entry.get("packageUUID") is not None})
+        if not link_ids and not package_ids:
+            return False
+        device.linkgrabber.move_to_downloadlist(link_ids, package_ids)
+        return True
+
     def _find_download_entry(self, device: Any, url: str, filename: str) -> Optional[Dict]:
         query = [{
             "bytesLoaded": True,
@@ -151,18 +187,22 @@ class MyJDownloaderClient:
         }]
         device.linkgrabber.add_links(params)
 
-        entry = None
-        for url in urls:
-            entry = self._find_linkgrabber_entry(device, url, package_name or "")
-            if entry:
-                break
-        if not entry:
+        entries = self._find_linkgrabber_entries(device, urls, package_name or "")
+        if not entries:
             raise Exception("Link was not accepted by JDownloader linkgrabber")
 
         if autostart:
-            package_ids = [entry["packageUUID"]] if entry.get("packageUUID") is not None else []
-            if package_ids:
-                device.linkgrabber.move_to_downloadlist([], package_ids)
+            moved = self._move_linkgrabber_entries(device, entries)
+            if not moved:
+                raise Exception("JDownloader accepted links but could not move them from linkgrabber")
+
+            for _ in range(12):
+                if any(self._find_download_entry(device, url, package_name or "") for url in urls):
+                    break
+                lingering = self._find_linkgrabber_entries(device, urls, package_name or "")
+                if lingering:
+                    self._move_linkgrabber_entries(device, lingering)
+                time.sleep(0.5)
 
     async def add_package(self, urls: List[str], dest_dir: str,
                           package_name: str = "",
@@ -191,7 +231,13 @@ class MyJDownloaderClient:
         device = _get_device(jd, self._device_name)
         entry = self._find_download_entry(device, url, filename)
         if not entry:
-            return {"present": False, "finished": False, "status": "missing"}
+            linkgrabber_entry = self._find_linkgrabber_entry(device, url, filename)
+            if linkgrabber_entry:
+                self._move_linkgrabber_entries(device, [linkgrabber_entry])
+                time.sleep(1)
+                entry = self._find_download_entry(device, url, filename)
+            if not entry:
+                return {"present": False, "finished": False, "status": "missing"}
         return {
             "present": True,
             "finished": bool(entry.get("finished")),
