@@ -1,0 +1,140 @@
+name: Build & Push (Smart) - GHCR + Docker Hub
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docs/logo.svg'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'docker-compose.yml'
+      - 'backend/requirements.txt'
+      - 'VERSION'
+
+  schedule:
+    - cron: '0 3 * * 1'
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get base image
+        id: base
+        run: |
+          IMAGE=$(grep -i '^FROM ' Dockerfile | head -n1 | awk '{print $2}')
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Get remote digest
+        id: digest
+        run: |
+          docker pull "${{ steps.base.outputs.image }}" > /dev/null 2>&1
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${{ steps.base.outputs.image }}")
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Restore cached digest
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: .base-digest
+          key: base-digest-${{ runner.os }}
+
+      - name: Compare digest
+        id: compare
+        run: |
+          OLD=$(cat .base-digest 2>/dev/null || echo "none")
+          NEW="${{ steps.digest.outputs.digest }}"
+          echo "old=$OLD new=$NEW"
+          if [ "$OLD" = "$NEW" ] && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip build (no base image change)
+        if: steps.compare.outputs.skip == 'true'
+        run: echo "Base image unchanged - skipping build."
+
+      - name: Save digest
+        if: steps.compare.outputs.skip != 'true'
+        run: echo "${{ steps.digest.outputs.digest }}" > .base-digest
+
+      - name: Cache new digest
+        if: steps.compare.outputs.skip != 'true'
+        uses: actions/cache@v4
+        with:
+          path: .base-digest
+          key: base-digest-${{ runner.os }}
+
+      - name: Docker meta
+        if: steps.compare.outputs.skip != 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/kroeberd/alldebrid-client
+            kroeberd/alldebrid-client
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=weekly,enable=${{ github.event_name == 'schedule' }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Set up QEMU
+        if: steps.compare.outputs.skip != 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.compare.outputs.skip != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: steps.compare.outputs.skip != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Docker Hub
+        if: steps.compare.outputs.skip != 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        if: steps.compare.outputs.skip != 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          no-cache: ${{ github.event_name == 'schedule' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Update Docker Hub description
+        if: steps.compare.outputs.skip != 'true'
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: kroeberd/alldebrid-client
+          readme-filepath: ./README.md
+          short-description: "Automated torrent downloading via AllDebrid with Web UI, watch folder, Discord, SQLite, aria2 and JDownloader"

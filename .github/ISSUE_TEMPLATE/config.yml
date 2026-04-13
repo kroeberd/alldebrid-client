@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/kroeberd/alldebrid-client/security/policy
+    about: Please report security vulnerabilities privately using the security policy.
+  - name: Documentation
+    url: https://github.com/kroeberd/alldebrid-client#readme
+    about: Check the README for setup, Docker, and configuration help first.

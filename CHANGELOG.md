@@ -12,6 +12,17 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.2.0] - 2026-04-13
+
+### Added
+- Added GitHub Actions workflow to update the Docker Hub description from the repository README
+- Added smart multi-architecture build and publish workflow for GHCR and Docker Hub
+- Added GitHub issue templates for bug reports and feature requests plus issue template configuration
+- Added a tracked `VERSION` file for release-aware automation triggers
+
+### Changed
+- Updated repository release references to use `v0.2.0` for the current feature release
+
 ## [0.1.0] - 2026-04-13
 
 ### Added
@@ -46,5 +57,6 @@ Each shipped change must be reflected here and released with a matching Git comm
 - Docker and Docker Compose support
 - MIT License
 
+[0.2.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.0
 [0.1.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.1.0
 [0.0.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.0.1
