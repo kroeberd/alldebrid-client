@@ -1,3 +1,5 @@
+<div align="center">
+
 # AllDebrid-Client
 
 ![AllDebrid-Client Logo](docs/logo.svg)
@@ -9,7 +11,9 @@
 
 Automated torrent downloading via AllDebrid with a polished web UI, watch-folder automation, Discord notifications, SQLite tracking, and optional MyJDownloader delivery.
 
-> Support the project: [buymeacoffee.com/kroeberd](https://buymeacoffee.com/kroeberd)
+Support the project: [buymeacoffee.com/kroeberd](https://buymeacoffee.com/kroeberd)
+
+</div>
 
 ## Why AllDebrid-Client
 
@@ -34,6 +38,7 @@ Automated torrent downloading via AllDebrid with a polished web UI, watch-folder
 
 - Live dashboard with totals, active transfers, error count, blocked files, and recent completion insights
 - Event log for upload, processing, queueing, finish, and cleanup actions
+- Dedicated sidebar tabs for GitHub, changelog, support, and detailed statistics
 - Detailed torrent modal with files, paths, status, and monitor history
 
 ### Delivery & Notifications
@@ -41,6 +46,7 @@ Automated torrent downloading via AllDebrid with a polished web UI, watch-folder
 - Direct file download into your chosen target folder
 - Optional MyJDownloader Cloud integration
 - Discord webhook notifications with per-webhook throttling to reduce timeout pressure
+- Partial webhook summaries when files are intentionally excluded, including counts and sizes for downloaded vs. skipped files
 
 ### Safety & Persistence
 
@@ -65,7 +71,7 @@ Open [http://localhost:8080](http://localhost:8080) and enter your AllDebrid API
 ### Docker build
 
 ```bash
-docker build -t kroeberd/alldebrid-client:v0.3.0 .
+docker build -t kroeberd/alldebrid-client:v0.4.0 .
 ```
 
 Optional for local testing:
@@ -76,7 +82,7 @@ docker run --rm -p 8080:8080 \
   -e DB_PATH=/app/config/alldebrid.db \
   -v ./config:/app/config \
   -v ./data:/app/data \
-  kroeberd/alldebrid-client:v0.3.0
+  kroeberd/alldebrid-client:v0.4.0
 ```
 
 ### Manual Run
@@ -133,7 +139,7 @@ Recommended release workflow:
 1. Update the implementation.
 2. Add the release entry to `CHANGELOG.md`.
 3. Commit the release changes.
-4. Create the matching tag, for example `git tag v0.3.0`.
+4. Create the matching tag, for example `git tag v0.4.0`.
 
 GitHub automation included in this repository:
 

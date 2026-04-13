@@ -47,6 +47,20 @@ def safe_name(s: str) -> str:
     return re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', s)[:200].strip() or "download"
 
 
+def _size_sum(items: List[dict]) -> int:
+    return sum(int(item.get("size_bytes", 0) or 0) for item in items)
+
+
+def fmt_bytes(size: int) -> str:
+    units = ["B", "KB", "MB", "GB", "TB"]
+    value = float(size or 0)
+    idx = 0
+    while value >= 1024 and idx < len(units) - 1:
+        value /= 1024
+        idx += 1
+    return f"{value:.1f} {units[idx]}"
+
+
 def _read_bytes(path: str) -> bytes:
     with open(path, "rb") as f:
         return f.read()
@@ -379,15 +393,21 @@ class TorrentManager:
         queued_for_jd = False
         jd_links = []
         jd_client = self.jd()
+        total_files = len(flat_files)
+        blocked_items: List[dict] = []
+        transferred_items: List[dict] = []
+        failed_items: List[dict] = []
 
         for file_info in flat_files:
             filename = file_info["name"]
             link     = file_info["link"]
+            file_size = int(file_info.get("size", 0) or 0)
 
             blocked, reason = is_blocked(filename, cfg)
             if blocked:
                 logger.info(f"Blocked: {filename} ({reason})")
-                await self._log_file(db_id, filename, link, None, "blocked", reason)
+                blocked_items.append({"filename": filename, "size_bytes": file_size, "reason": reason})
+                await self._log_file(db_id, filename, link, None, "blocked", reason, file_size)
                 continue
 
             try:
@@ -408,16 +428,19 @@ class TorrentManager:
                         "filename": filename,
                         "routed_filename": routed_filename,
                         "download_url": dl_url,
+                        "size_bytes": file_size,
                     })
                 else:
                     local = await _retry_async(self._download_direct, dl_url, dest, routed_filename)
-                    await self._log_file(db_id, filename, dl_url, local, "completed", None)
+                    await self._log_file(db_id, filename, dl_url, local, "completed", None, file_size)
+                    transferred_items.append({"filename": filename, "size_bytes": file_size})
 
                 n_done += 1
 
             except Exception as e:
                 logger.error(f"File failed [{filename}]: {e}")
-                await self._log_file(db_id, filename, link, None, "error", str(e))
+                failed_items.append({"filename": filename, "size_bytes": file_size, "reason": str(e)})
+                await self._log_file(db_id, filename, link, None, "error", str(e), file_size)
                 all_ok = False
 
         if jd_client and jd_links:
@@ -432,20 +455,33 @@ class TorrentManager:
                 )
                 for item in jd_links:
                     logger.info(f"JDownloader: queued {item['filename']}")
-                    await self._log_file(db_id, item["filename"], item["download_url"], None, "queued", None)
+                    await self._log_file(db_id, item["filename"], item["download_url"], None, "queued", None, item["size_bytes"])
+                    transferred_items.append({"filename": item["filename"], "size_bytes": item["size_bytes"]})
                 queued_for_jd = True
             except Exception as e:
                 logger.error(f"JDownloader package failed [{name}]: {e}")
                 for item in jd_links:
-                    await self._log_file(db_id, item["filename"], item["download_url"], None, "error", str(e))
+                    failed_items.append({"filename": item["filename"], "size_bytes": item["size_bytes"], "reason": str(e)})
+                    await self._log_file(db_id, item["filename"], item["download_url"], None, "error", str(e), item["size_bytes"])
                 all_ok = False
 
-        if all_ok and n_done > 0 and queued_for_jd:
-            final = "queued"
+        blocked_count = len(blocked_items)
+        failed_count = len(failed_items)
+        transferred_count = len(transferred_items)
+        downloadable_count = total_files - blocked_count
+        has_exclusions = blocked_count > 0
+
+        if failed_count == 0 and transferred_count == downloadable_count and downloadable_count > 0:
+            if queued_for_jd and not has_exclusions:
+                final = "queued"
+            elif has_exclusions:
+                final = "partial"
+            else:
+                final = "completed"
+        elif transferred_count > 0 or blocked_count > 0:
+            final = "partial"
         else:
-            final = "completed" if all_ok and n_done > 0 else (
-                "error" if n_done == 0 else "partial"
-            )
+            final = "error"
 
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
@@ -483,9 +519,23 @@ class TorrentManager:
                 "info",
                 "Queued in JDownloader - waiting for completed downloads before deleting from AllDebrid",
             )
+        elif final == "partial":
+            partial_lines = [
+                f"**{tname}**",
+                f"Total files: {total_files} ({fmt_bytes(_size_sum([{'size_bytes': int(f.get('size', 0) or 0)} for f in flat_files]))})",
+                f"Will be downloaded: {transferred_count} ({fmt_bytes(_size_sum(transferred_items))})",
+                f"Not downloaded: {blocked_count + failed_count} ({fmt_bytes(_size_sum(blocked_items + failed_items))})",
+            ]
+            if blocked_count:
+                partial_lines.append(f"Excluded: {blocked_count} ({fmt_bytes(_size_sum(blocked_items))})")
+            if failed_count:
+                partial_lines.append(f"Failed: {failed_count} ({fmt_bytes(_size_sum(failed_items))})")
+            await self._log_event(db_id, "warn", "Partial download: some files were excluded or failed")
+            if get_settings().discord_webhook_url and (get_settings().discord_notify_finished or get_settings().discord_notify_error):
+                await self.notify().send("Partial", "\n".join(partial_lines), 0xf59e0b)
         elif get_settings().discord_notify_error:
             await self.notify().send(
-                "⚠️ Partial/Error", f"**{tname}**\nKept on AllDebrid", 0xe67e22
+                "Error", f"**{tname}**\nKept on AllDebrid", 0xef4444
             )
 
     async def _log_event(self, torrent_id: int, level: str, message: str):
@@ -628,13 +678,14 @@ class TorrentManager:
         return str(local)
 
     async def _log_file(self, torrent_id: int, filename: str, url: str,
-                        local: Optional[str], status: str, reason: Optional[str]):
+                        local: Optional[str], status: str, reason: Optional[str],
+                        size_bytes: int = 0):
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
                 """INSERT INTO download_files
-                   (torrent_id,filename,download_url,local_path,status,blocked,block_reason)
-                   VALUES (?,?,?,?,?,?,?)""",
-                (torrent_id, filename, url, local, status,
+                   (torrent_id,filename,size_bytes,download_url,local_path,status,blocked,block_reason)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                (torrent_id, filename, size_bytes, url, local, status,
                  1 if status == "blocked" else 0, reason),
             )
             await db.commit()

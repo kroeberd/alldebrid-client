@@ -12,6 +12,21 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.4.0] - 2026-04-13
+
+### Added
+- Added dedicated sidebar tabs for GitHub, Buy Me a Coffee, detailed statistics, and the full changelog
+- Added API endpoints for rich statistics and in-app changelog rendering
+- Added a dedicated partial-download Discord webhook summary with total files, downloaded files, skipped files, and byte totals
+
+### Changed
+- Removed project/support links from the dashboard and moved them into dedicated navigation areas
+- Centered the README header section and refreshed the documentation to match the current UI layout and release version
+- Updated release metadata and container references to `v0.4.0`
+
+### Fixed
+- Stopped treating excluded-file partial runs like hard errors by separating the partial notification flow from error alerts
+
 ## [0.3.1] - 2026-04-13
 
 ### Fixed
@@ -80,6 +95,7 @@ Each shipped change must be reflected here and released with a matching Git comm
 - MIT License
 
 [0.3.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.3.1
+[0.4.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.4.0
 [0.3.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.3.0
 [0.2.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.1
 [0.2.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.0

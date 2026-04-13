@@ -170,6 +170,45 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 .mini-stat { background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; padding:12px; }
 .mini-stat .label { font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--text2); font-weight:700; }
 .mini-stat .value { font-size:18px; font-weight:800; margin-top:6px; }
+.tab-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-bottom:18px; }
+.metric-card {
+  background: linear-gradient(180deg, rgba(17,24,39,.98), rgba(22,31,48,.92));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.metric-label { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text2); font-weight:700; margin-bottom:10px; }
+.metric-value { font-size:28px; font-weight:800; color:var(--text); }
+.metric-sub { margin-top:8px; color:var(--text2); font-size:12px; line-height:1.5; }
+.split-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:16px; margin-bottom:18px; }
+.list-card { background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); overflow:hidden; }
+.list-card .card-body { padding:16px 18px; }
+.kv-list { display:flex; flex-direction:column; gap:10px; }
+.kv-row { display:flex; justify-content:space-between; gap:14px; color:var(--text2); font-size:13px; }
+.kv-row strong { color:var(--text); font-weight:700; }
+.link-card {
+  display:block;
+  background: linear-gradient(135deg, rgba(249,115,22,.14), rgba(59,130,246,.12));
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  padding:18px;
+  color:var(--text);
+  text-decoration:none;
+}
+.link-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+.link-card-title { font-size:18px; font-weight:800; margin-bottom:8px; }
+.link-card-copy { color:var(--text2); line-height:1.6; font-size:13px; }
+.changelog-shell {
+  background: #09101d;
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  padding:20px;
+  font-family: var(--mono);
+  font-size:12px;
+  line-height:1.7;
+  white-space: pre-wrap;
+  color: #dbe7ff;
+}
 
 /* ── Card ── */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 18px; }
@@ -326,6 +365,19 @@ textarea.input { resize: vertical; }
     <div class="nav-item" data-view="events" onclick="nav(this)">
       <span class="icon">📋</span>Event Log
     </div>
+    <div class="nav-item" data-view="stats" onclick="nav(this)">
+      <span class="icon">ðŸ“Š</span>Statistics
+    </div>
+    <div class="nav-item" data-view="changelog" onclick="nav(this)">
+      <span class="icon">ðŸ“š</span>Changelog
+    </div>
+    <div class="nav-group">Project</div>
+    <div class="nav-item" data-view="github" onclick="nav(this)">
+      <span class="icon">ðŸ”—</span>GitHub
+    </div>
+    <div class="nav-item" data-view="coffee" onclick="nav(this)">
+      <span class="icon">â˜•</span>Coffee
+    </div>
     <div class="nav-group">System</div>
     <div class="nav-item" data-view="settings" onclick="nav(this)">
       <span class="icon">⚙️</span>Settings
@@ -346,10 +398,9 @@ textarea.input { resize: vertical; }
 
     <!-- Dashboard -->
     <div class="view active" id="view-dashboard">
-      <div class="beta-banner">v0.3.1 improves JDownloader handoff so accepted packages do not remain stuck in the linkgrabber.</div>
+      <div class="beta-banner">v0.4.0 moves project links, changelog, and detailed statistics into dedicated sidebar tabs.</div>
 
-      <div class="hero-grid">
-        <section class="insight-panel">
+      
           <div class="eyebrow">Overview</div>
           <div class="hero-title">Your AllDebrid queue at a glance.</div>
           <div class="hero-copy">Track active transfers, cleanup progress, blocked files, and finished monitor signals without leaving the dashboard.</div>
@@ -370,30 +421,7 @@ textarea.input { resize: vertical; }
               <div class="insight-s">Completed torrents</div>
             </div>
           </div>
-        </section>
-
-        <aside class="support-panel">
-          <div>
-            <div class="eyebrow">Support</div>
-            <div class="hero-title" style="font-size:24px;max-width:none">Keep the project moving.</div>
-            <div class="support-copy">If AllDebrid-Client saves you time, you can support future updates, fixes, and polish with a quick coffee.</div>
-          </div>
-          <div class="mini-stat-row">
-            <div class="mini-stat">
-              <div class="label">Source</div>
-              <div class="value" id="i-source">Watch + UI</div>
-            </div>
-            <div class="mini-stat">
-              <div class="label">Delivery</div>
-              <div class="value" id="i-delivery">Direct / JD</div>
-            </div>
-          </div>
-          <div class="support-links">
-            <a class="btn btn-support" href="https://buymeacoffee.com/kroeberd" target="_blank" rel="noreferrer">Buy Me a Coffee</a>
-            <a class="btn btn-ghost" href="https://github.com/kroeberd/alldebrid-client" target="_blank" rel="noreferrer">GitHub</a>
-          </div>
-        </aside>
-      </div>
+        
 
       <div class="stats-grid">
         <div class="stat-card" data-c="orange"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>
@@ -474,6 +502,96 @@ textarea.input { resize: vertical; }
       </div>
     </div>
 
+    <!-- Statistics -->
+    <div class="view" id="view-stats">
+      <div class="tab-grid" id="detail-stat-cards">
+        <div class="metric-card">
+          <div class="metric-label">Library</div>
+          <div class="metric-value">â€”</div>
+          <div class="metric-sub">Loading detailed statisticsâ€¦</div>
+        </div>
+      </div>
+
+      <div class="split-grid">
+        <div class="list-card">
+          <div class="card-header">
+            <span class="card-title">Torrent Status</span>
+          </div>
+          <div class="card-body" id="detail-torrent-status"><div class="empty">Loadingâ€¦</div></div>
+        </div>
+        <div class="list-card">
+          <div class="card-header">
+            <span class="card-title">File Status</span>
+          </div>
+          <div class="card-body" id="detail-file-status"><div class="empty">Loadingâ€¦</div></div>
+        </div>
+      </div>
+
+      <div class="split-grid">
+        <div class="list-card">
+          <div class="card-header">
+            <span class="card-title">Monitor Levels</span>
+          </div>
+          <div class="card-body" id="detail-event-levels"><div class="empty">Loadingâ€¦</div></div>
+        </div>
+        <div class="list-card">
+          <div class="card-header">
+            <span class="card-title">Latest Signals</span>
+          </div>
+          <div class="card-body" id="detail-latest-events"><div class="empty">Loadingâ€¦</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Changelog -->
+    <div class="view" id="view-changelog">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Changelog</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadChangelog()">Refresh</button>
+        </div>
+        <div style="padding:18px">
+          <div class="changelog-shell" id="changelog-content">Loadingâ€¦</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GitHub -->
+    <div class="view" id="view-github">
+      <div class="split-grid">
+        <a class="link-card" href="https://github.com/kroeberd/alldebrid-client" target="_blank" rel="noreferrer">
+          <div class="link-card-title">Repository</div>
+          <div class="link-card-copy">Browse source code, release tags, issues, and project automation on GitHub.</div>
+        </a>
+        <a class="link-card" href="https://github.com/kroeberd/alldebrid-client/issues" target="_blank" rel="noreferrer">
+          <div class="link-card-title">Issues</div>
+          <div class="link-card-copy">Report bugs, request features, or follow existing discussions around the client.</div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Coffee -->
+    <div class="view" id="view-coffee">
+      <div class="split-grid">
+        <a class="link-card" href="https://buymeacoffee.com/kroeberd" target="_blank" rel="noreferrer">
+          <div class="link-card-title">Buy Me a Coffee</div>
+          <div class="link-card-copy">Support ongoing development, maintenance, and polish for AllDebrid-Client.</div>
+        </a>
+        <div class="list-card">
+          <div class="card-header">
+            <span class="card-title">Why Support Helps</span>
+          </div>
+          <div class="card-body">
+            <div class="kv-list">
+              <div class="kv-row"><span>Feature work</span><strong>UI, workflows, releases</strong></div>
+              <div class="kv-row"><span>Operations</span><strong>Container builds and registry upkeep</strong></div>
+              <div class="kv-row"><span>Community</span><strong>Issue triage and Discord support</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Settings -->
     <div class="view" id="view-settings">
       <div class="settings-grid" id="settings-form"></div>
@@ -524,11 +642,22 @@ function nav(el) {
   const v = el.dataset.view;
   document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
   document.getElementById('view-' + v).classList.add('active');
-  const titles = {dashboard:'Dashboard',torrents:'Torrents',events:'Event Log',settings:'Settings'};
+  const titles = {
+    dashboard:'Dashboard',
+    torrents:'Torrents',
+    events:'Event Log',
+    stats:'Statistics',
+    changelog:'Changelog',
+    github:'GitHub',
+    coffee:'Coffee',
+    settings:'Settings'
+  };
   document.getElementById('page-title').textContent = titles[v] || v;
   if (v === 'dashboard') { loadStats(); loadRecent(); }
   if (v === 'torrents')  loadTorrents();
   if (v === 'events')    loadEvents();
+  if (v === 'stats')     loadDetailedStats();
+  if (v === 'changelog') loadChangelog();
   if (v === 'settings')  loadSettings();
 }
 
@@ -569,6 +698,13 @@ function fmtDate(d) {
 function pct(part, total) {
   if (!total) return 0;
   return Math.round((part / total) * 100);
+}
+function renderKvMap(map, formatter) {
+  const entries = Object.entries(map || {});
+  if (!entries.length) return '<div class="empty">No data available.</div>';
+  return `<div class="kv-list">${entries.map(([key, value]) => `
+    <div class="kv-row"><span>${key}</span><strong>${formatter ? formatter(value, key) : value}</strong></div>
+  `).join('')}</div>`;
 }
 function badge(s) {
   const m = {pending:'⏳ Pending',uploading:'⬆ Uploading',processing:'⚙ Processing',
@@ -834,6 +970,55 @@ async function loadEvents() {
 }
 
 // ── Settings ───────────────────────────────────────────────────────────────
+async function loadDetailedStats() {
+  try {
+    const stats = await api('GET', '/stats/detail');
+    const totals = stats.totals || {};
+    document.getElementById('detail-stat-cards').innerHTML = `
+      <div class="metric-card">
+        <div class="metric-label">Tracked Torrents</div>
+        <div class="metric-value">${totals.torrent_total || 0}</div>
+        <div class="metric-sub">Across active, queued, completed, partial, and error states.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Tracked Size</div>
+        <div class="metric-value">${fmtSize(totals.torrent_size_total || 0)}</div>
+        <div class="metric-sub">Total bytes recorded on torrent entries.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Completed Size</div>
+        <div class="metric-value">${fmtSize(totals.completed_size || 0)}</div>
+        <div class="metric-sub">Bytes already finalized as completed.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Partial Torrents</div>
+        <div class="metric-value">${totals.partial_total || 0}</div>
+        <div class="metric-sub">Excluded-file runs are tracked separately from errors.</div>
+      </div>
+    `;
+    document.getElementById('detail-torrent-status').innerHTML = renderKvMap(stats.torrent_status);
+    document.getElementById('detail-file-status').innerHTML = renderKvMap(
+      stats.file_status,
+      (value) => `${value.count} / ${fmtSize(value.size_bytes)}`
+    );
+    document.getElementById('detail-event-levels').innerHTML = renderKvMap(stats.event_levels);
+    const latest = stats.latest_events || [];
+    document.getElementById('detail-latest-events').innerHTML = latest.length ? latest.map(ev => `
+      <div class="event-item">
+        <div class="elevel ${ev.level}"></div>
+        <div><div class="emsg">${ev.message}</div>${ev.torrent_name?`<div class="ename">${ev.torrent_name}</div>`:''}</div>
+        <div class="etime">${fmtDate(ev.created_at)}</div>
+      </div>`).join('') : '<div class="empty">No recent signals yet.</div>';
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function loadChangelog() {
+  try {
+    const data = await api('GET', '/meta/changelog');
+    document.getElementById('changelog-content').textContent = data.content || 'No changelog content found.';
+  } catch(e) { toast(e.message,'error'); }
+}
+
 async function loadSettings() {
   try {
     settingsData = await api('GET','/settings');

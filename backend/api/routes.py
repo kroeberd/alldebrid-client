@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -13,6 +14,7 @@ from db.database import DB_PATH
 
 router = APIRouter()
 logger = logging.getLogger("alldebrid.api")
+CHANGELOG_PATH = Path(__file__).resolve().parents[2] / "CHANGELOG.md"
 
 
 # ─── Settings ─────────────────────────────────────────────────────────────────
@@ -229,28 +231,56 @@ async def get_stats():
         }
 
 
-# ─── Events ───────────────────────────────────────────────────────────────────
-
-
-@router.post("/torrents/{torrent_id}/retry")
-async def retry_torrent(torrent_id: int):
-    """Re-trigger download for a torrent that is ready on AllDebrid."""
-    import aiosqlite
-    from db.database import DB_PATH
+@router.get("/stats/detail")
+async def get_stats_detail():
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cur = await db.execute("SELECT * FROM torrents WHERE id=?", (torrent_id,))
-        row = await cur.fetchone()
-    if not row:
-        raise HTTPException(404, "Torrent not found")
-    row = dict(row)
-    if not row.get("alldebrid_id"):
-        raise HTTPException(400, "No AllDebrid ID — cannot retry")
-    import asyncio
-    asyncio.create_task(
-        manager._start_download(torrent_id, row["alldebrid_id"], row["name"])
-    )
-    return {"queued": True, "name": row["name"]}
+
+        torrent_status_rows = await (await db.execute(
+            "SELECT status, COUNT(*) as count FROM torrents GROUP BY status"
+        )).fetchall()
+        file_status_rows = await (await db.execute(
+            "SELECT status, COUNT(*) as count, COALESCE(SUM(size_bytes), 0) as size FROM download_files GROUP BY status"
+        )).fetchall()
+        totals = await (await db.execute(
+            """SELECT
+                   COUNT(*) as torrent_total,
+                   COALESCE(SUM(size_bytes), 0) as torrent_size_total,
+                   COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN size_bytes ELSE 0 END), 0) as completed_size,
+                   COALESCE(SUM(CASE WHEN status='partial' THEN 1 ELSE 0 END), 0) as partial_total
+               FROM torrents"""
+        )).fetchone()
+        event_levels = await (await db.execute(
+            "SELECT level, COUNT(*) as count FROM events GROUP BY level"
+        )).fetchall()
+        latest_events = await (await db.execute(
+            """SELECT e.level, e.message, e.created_at, t.name as torrent_name
+               FROM events e
+               LEFT JOIN torrents t ON e.torrent_id = t.id
+               ORDER BY e.created_at DESC LIMIT 8"""
+        )).fetchall()
+
+    return {
+        "torrent_status": {row["status"]: row["count"] for row in torrent_status_rows},
+        "file_status": {
+            row["status"]: {"count": row["count"], "size_bytes": row["size"]}
+            for row in file_status_rows
+        },
+        "totals": dict(totals),
+        "event_levels": {row["level"]: row["count"] for row in event_levels},
+        "latest_events": [dict(row) for row in latest_events],
+    }
+
+
+@router.get("/meta/changelog")
+async def get_changelog():
+    if not CHANGELOG_PATH.exists():
+        raise HTTPException(404, "CHANGELOG.md not found")
+    return {"content": CHANGELOG_PATH.read_text(encoding="utf-8", errors="replace")}
+
+
+# ─── Events ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/events")
 async def get_events(limit: int = Query(100, le=500)):
