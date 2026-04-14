@@ -594,6 +594,109 @@ class TorrentManager:
         for torrent_id in touched:
             await self._finalize_aria2_torrent(torrent_id)
 
+    async def reconcile_aria2_on_startup(self):
+        """Called once at startup to reconcile DB state with what aria2 actually has.
+
+        Three cases are handled:
+
+        1. DB has a GID that aria2 still knows (active/waiting/paused/complete/error)
+           → update file status to match aria2's current state.
+
+        2. DB has a GID that aria2 no longer knows (GID absent from all lists)
+           → aria2 lost the entry (restart, manual removal). The download either
+             finished before the client stopped or was dropped. Mark completed so
+             the torrent can finalize and clean up AllDebrid.
+
+        3. aria2 has active/waiting downloads whose URI matches a download_url in
+           the DB but with a *different or missing* GID (e.g. client re-added it
+           before crashing, leaving a stale GID in the DB)
+           → update the DB GID to the current one aria2 reports.
+        """
+        if self.download_client_name() != "aria2":
+            return
+        try:
+            all_downloads = await self.aria2().get_all()
+        except Exception as exc:
+            logger.warning("Startup aria2 reconciliation skipped: %s", exc)
+            return
+
+        by_gid = {dl.gid: dl for dl in all_downloads}
+        # Build URI → GID map for case 3
+        uri_to_gid: Dict[str, str] = {}
+        for dl in all_downloads:
+            for fi in dl.files or []:
+                for u in fi.get("uris", []) or []:
+                    uri = str(u.get("uri", "")).strip()
+                    if uri:
+                        uri_to_gid[uri] = dl.gid
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            rows = await (
+                await db.execute(
+                    """SELECT t.id AS torrent_id, t.alldebrid_id, t.name,
+                              f.id AS file_id, f.download_id, f.download_url,
+                              f.local_path, f.status
+                       FROM torrents t
+                       JOIN download_files f ON f.torrent_id = t.id
+                       WHERE f.download_client='aria2'
+                         AND f.blocked=0
+                         AND f.status IN ('queued', 'downloading', 'paused')"""
+                )
+            ).fetchall()
+
+        touched: Set[int] = set()
+        for row in rows:
+            gid = str(row["download_id"] or "")
+            dl = by_gid.get(gid)
+
+            if dl is None:
+                # Case 3: GID missing — check if aria2 has it under the same URI
+                url = str(row["download_url"] or "").strip()
+                alt_gid = uri_to_gid.get(url)
+                if alt_gid:
+                    dl = by_gid[alt_gid]
+                    # Update GID in DB to the current one
+                    async with aiosqlite.connect(DB_PATH) as db:
+                        await db.execute(
+                            "UPDATE download_files SET download_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                            (alt_gid, row["file_id"]),
+                        )
+                        await db.commit()
+                    logger.info("Reconciled GID %s → %s for %s", gid or "(none)", alt_gid, url)
+                else:
+                    # Case 2: truly gone from aria2 — treat as completed
+                    logger.info("Startup reconcile: GID %s not in aria2, marking completed (%s)", gid, row["file_id"])
+                    await self._update_file_state(row["file_id"], "completed", row["local_path"])
+                    touched.add(row["torrent_id"])
+                    continue
+
+            # Case 1: GID found — sync status
+            if dl.status in {"complete", "removed"}:
+                await self._update_file_state(row["file_id"], "completed", row["local_path"])
+                await self.aria2().remove(dl.gid)
+                touched.add(row["torrent_id"])
+            elif dl.status == "error":
+                reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
+                await self._update_file_state(row["file_id"], "error", row["local_path"], reason=reason)
+                await self.aria2().remove(dl.gid)
+                touched.add(row["torrent_id"])
+            elif dl.status == "active":
+                await self._update_file_state(row["file_id"], "downloading", row["local_path"])
+            elif dl.status == "waiting":
+                await self._update_file_state(row["file_id"], "queued", row["local_path"])
+            elif dl.status == "paused":
+                await self._update_file_state(row["file_id"], "paused", row["local_path"])
+
+        for torrent_id in touched:
+            await self._finalize_aria2_torrent(torrent_id)
+
+        logger.info(
+            "Startup aria2 reconciliation complete: %d file(s) checked, %d torrent(s) finalized",
+            len(rows),
+            len(touched),
+        )
+
     async def _update_file_state(self, file_id: int, status: str, local_path: Optional[str], reason: Optional[str] = None):
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(

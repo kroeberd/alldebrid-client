@@ -26,6 +26,10 @@ async def lifespan(app: FastAPI):
         await manager.import_existing_magnets()
     except Exception as e:
         logger.warning(f"Initial AllDebrid import skipped: {e}")
+    try:
+        await manager.reconcile_aria2_on_startup()
+    except Exception as e:
+        logger.warning(f"Startup aria2 reconciliation failed: {e}")
     await start_scheduler()
     yield
     logger.info("Shutting down AllDebrid-Client...")
