@@ -22,6 +22,39 @@ logger = logging.getLogger("alldebrid-client")
 async def lifespan(app: FastAPI):
     logger.info("Starting AllDebrid-Client...")
     await init_db()
+    # Reset any torrents stuck in 'downloading' with no file records — these
+    # were mid-reset when the app last stopped (between _reset_torrent_for_redownload
+    # and _download() completing). They need a clean re-download.
+    try:
+        import aiosqlite as _aiosqlite
+        from db.database import DB_PATH as _DB_PATH
+        async with _aiosqlite.connect(_DB_PATH) as _db:
+            _db.row_factory = _aiosqlite.Row
+            stuck = await (await _db.execute(
+                """SELECT id, alldebrid_id, name FROM torrents
+                   WHERE status='downloading'
+                     AND id NOT IN (SELECT DISTINCT torrent_id FROM download_files)"""
+            )).fetchall()
+            for row in stuck:
+                await _db.execute(
+                    "UPDATE torrents SET status='ready', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (row["id"],),
+                )
+                await _db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, 'warn', ?)",
+                    (row["id"], "Recovered stuck download on startup — re-queuing"),
+                )
+                logger.info("Startup: reset stuck torrent %s (%s)", row["id"], row["name"])
+            await _db.commit()
+        # Kick off re-downloads for recovered torrents
+        for row in stuck:
+            if row["alldebrid_id"]:
+                import asyncio as _asyncio
+                _asyncio.create_task(
+                    manager._start_download(row["id"], str(row["alldebrid_id"]), str(row["name"] or ""))
+                )
+    except Exception as e:
+        logger.warning(f"Startup stuck-download cleanup failed: {e}")
     try:
         await manager.import_existing_magnets()
     except Exception as e:

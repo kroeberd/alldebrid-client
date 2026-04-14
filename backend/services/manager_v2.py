@@ -603,6 +603,8 @@ class TorrentManager:
         for row in rows:
             if row["torrent_id"] in reset_on_sync:
                 continue  # already scheduled for reset
+            if row["torrent_id"] in self._active:
+                continue  # _start_download/_download is running — leave it alone
 
             dl = by_gid.get(str(row["download_id"] or ""))
 
@@ -671,11 +673,14 @@ class TorrentManager:
             await self._finalize_aria2_torrent(torrent_id)
 
     async def _reset_torrent_for_redownload(self, torrent_id: int, reason: str):
-        """Clear download_files and reset torrent to 'ready' so _start_download re-runs."""
+        """Clear download_files and mark torrent as downloading so the sync loop
+        ignores it while _start_download/_download re-runs and re-registers
+        the new URIs with aria2. Status is updated to 'queued' or 'paused' once
+        _download() completes and the new download_files rows are written."""
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("DELETE FROM download_files WHERE torrent_id=?", (torrent_id,))
             await db.execute(
-                "UPDATE torrents SET status='ready', error_message=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                "UPDATE torrents SET status='downloading', error_message=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                 (torrent_id,),
             )
             await db.execute(
