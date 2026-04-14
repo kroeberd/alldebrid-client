@@ -35,6 +35,7 @@ class AppSettings(BaseModel):
     discord_notify_error: bool = True
 
     # Filters
+    filters_enabled: bool = True
     blocked_extensions: List[str] = [
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
         ".svg", ".ico", ".tiff", ".heic", ".nfo", ".sfv"

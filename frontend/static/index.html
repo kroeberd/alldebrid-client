@@ -1254,18 +1254,27 @@ function renderSettings() {
     <div class="scard">
       <div class="scard-header">🚫 File Filters</div>
       <div class="scard-body">
-        <div class="form-group">
-          <label class="form-label">Blocked Extensions (one per line)</label>
-          <textarea class="input" id="s-blocked_extensions" rows="6">${(s.blocked_extensions||[]).join('\n')}</textarea>
-          <span class="form-hint">e.g. .jpg · .png · .nfo — images are blocked by default</span>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Enable File Filters</div>
+            <div class="td">When off, all files are downloaded regardless of extension, keyword or size rules.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-filters_enabled" ${s.filters_enabled!==false?'checked':''} onchange="toggleFilterFields()"><div class="ttrack"></div></label>
         </div>
-        <div class="form-group">
-          <label class="form-label">Blocked Keywords (one per line)</label>
-          <textarea class="input" id="s-blocked_keywords" rows="3">${(s.blocked_keywords||[]).join('\n')}</textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
-          <input class="input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb||0}" min="0"/>
+        <div id="filter-fields" style="${s.filters_enabled===false?'opacity:.4;pointer-events:none':''}">
+          <div class="form-group">
+            <label class="form-label">Blocked Extensions (one per line)</label>
+            <textarea class="input" id="s-blocked_extensions" rows="6">${(s.blocked_extensions||[]).join('\n')}</textarea>
+            <span class="form-hint">e.g. .jpg · .png · .nfo — images are blocked by default</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Blocked Keywords (one per line)</label>
+            <textarea class="input" id="s-blocked_keywords" rows="3">${(s.blocked_keywords||[]).join('\n')}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
+            <input class="input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb||0}" min="0"/>
+          </div>
         </div>
       </div>
     </div>
@@ -1311,7 +1320,17 @@ function getFormSettings() {
     blocked_extensions: l('blocked_extensions'), blocked_keywords: l('blocked_keywords'),
     min_file_size_mb: n('min_file_size_mb'), poll_interval_seconds: n('poll_interval_seconds')||30,
     watch_interval_seconds: n('watch_interval_seconds')||10,
+    filters_enabled: c('filters_enabled'),
   };
+}
+
+function toggleFilterFields() {
+  const enabled = document.getElementById('s-filters_enabled')?.checked;
+  const fields = document.getElementById('filter-fields');
+  if (fields) {
+    fields.style.opacity = enabled ? '' : '0.4';
+    fields.style.pointerEvents = enabled ? '' : 'none';
+  }
 }
 
 async function saveSettings() {

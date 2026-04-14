@@ -51,6 +51,8 @@ def safe_rel_path(value: str) -> Path:
 
 
 def is_blocked(filename: str, cfg: AppSettings, size_bytes: int = 0) -> Tuple[bool, str]:
+    if not cfg.filters_enabled:
+        return False, ""
     ext = Path(filename).suffix.lower()
     if ext in [entry.lower() for entry in cfg.blocked_extensions]:
         return True, f"extension {ext}"
@@ -122,11 +124,14 @@ async def _retry_async(fn, *args, attempts: int = MAX_FILE_RETRIES, delay: float
     raise last_error
 
 
+MAX_CONCURRENT_AD_UPLOADS = 5
+
 class TorrentManager:
     def __init__(self):
         self._ad: Optional[AllDebridService] = None
         self._aria2: Optional[Aria2Service] = None
         self._sem: Optional[asyncio.Semaphore] = None
+        self._upload_sem: asyncio.Semaphore = asyncio.Semaphore(MAX_CONCURRENT_AD_UPLOADS)
         self._active: Set[int] = set()
         self._processing_files: Set[str] = set()
         self._failed_files: Set[str] = set()
@@ -212,7 +217,8 @@ class TorrentManager:
         content = path.read_bytes()
         if not content:
             raise ValueError("Empty torrent file")
-        result = await self.ad().upload_torrent_file(content, path.name)
+        async with self._upload_sem:
+            result = await self.ad().upload_torrent_file(content, path.name)
         ad_id = str(result.get("id", ""))
         name = result.get("name") or result.get("filename") or path.stem
         hash_value = result.get("hash", ad_id).lower()
@@ -248,7 +254,8 @@ class TorrentManager:
             if existing and existing["status"] in ("uploading", "processing", "queued", "downloading", "ready", "completed"):
                 return dict(existing)
 
-        result = await self.ad().upload_magnet(magnet)
+        async with self._upload_sem:
+            result = await self.ad().upload_magnet(magnet)
         ad_id = str(result.get("id", ""))
         name = result.get("name") or result.get("filename") or hash_value[:16]
         normalized_hash = result.get("hash", hash_value).lower()
