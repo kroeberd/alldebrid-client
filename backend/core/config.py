@@ -19,17 +19,14 @@ class AppSettings(BaseModel):
     max_concurrent_downloads: int = 3
     max_speed_mbps: int = 0
 
-    # aria2
-
-    # JDownloader — MyJD Cloud API only
-    jdownloader_enabled: bool = False
-    jdownloader_email: str = ""
-    jdownloader_password: str = ""
-    jdownloader_device_name: str = ""    # leave empty = use first device
-    jdownloader_autostart: bool = True
-    jdownloader_extract: bool = True
-    jdownloader_remove_after: bool = False
-    jdownloader_extract_folder: str = ""
+    # Download delivery
+    download_client: str = "direct"
+    aria2_url: str = "http://127.0.0.1:6800/jsonrpc"
+    aria2_secret: str = ""
+    aria2_download_path: str = ""
+    aria2_operation_timeout_seconds: int = 15
+    aria2_start_paused: bool = False
+    aria2_poll_interval_seconds: int = 5
 
     # Discord
     discord_webhook_url: str = ""
@@ -84,3 +81,4 @@ def apply_settings(s: AppSettings):
 
 _settings = load_settings()
 settings = _settings
+

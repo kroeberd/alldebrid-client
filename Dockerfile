@@ -2,6 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+LABEL org.opencontainers.image.title="AllDebrid-Client"
+LABEL org.opencontainers.image.version="0.5.0"
+LABEL org.opencontainers.image.description="Automated torrent downloading via AllDebrid with a branded web UI"
+
 # System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl && rm -rf /var/lib/apt/lists/*

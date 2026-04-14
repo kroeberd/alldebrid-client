@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest an improvement or new capability for AllDebrid-Client
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement.
+        Clear use cases help us evaluate requests much faster.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or missing capability
+      description: What is difficult today, or what is missing?
+      placeholder: I want to ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to happen?
+      placeholder: Add support for ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds or other approaches you have tried
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, examples, related services, or edge cases

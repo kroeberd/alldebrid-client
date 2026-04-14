@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -7,12 +8,12 @@ import aiosqlite
 from core.config import AppSettings, get_settings, save_settings, apply_settings
 from services.notifications import NotificationService
 from services.alldebrid import AllDebridService
-from services.jdownloader import myjd_list_devices
-from services.manager import manager
+from services.manager_v2 import manager
 from db.database import DB_PATH
 
 router = APIRouter()
 logger = logging.getLogger("alldebrid.api")
+CHANGELOG_PATH = Path(__file__).resolve().parents[2] / "CHANGELOG.md"
 
 
 # ─── Settings ─────────────────────────────────────────────────────────────────
@@ -73,13 +74,10 @@ async def test_alldebrid():
         raise HTTPException(502, str(e))
 
 
-@router.post("/settings/test-jdownloader")
-async def test_jdownloader():
-    cfg = get_settings()
-    if not cfg.jdownloader_email:
-        raise HTTPException(400, "MyJDownloader email not configured")
+@router.post("/settings/test-aria2")
+async def test_aria2():
     try:
-        result = await manager.test_jdownloader()
+        result = await manager.test_aria2()
         return {"ok": True, **result}
     except Exception as e:
         raise HTTPException(502, str(e))
@@ -109,22 +107,6 @@ async def list_torrents(
         cur2 = await db.execute(f"SELECT COUNT(*) FROM torrents t {where}", params)
         total = (await cur2.fetchone())[0]
         return {"items": [dict(r) for r in rows], "total": total}
-
-@router.post("/settings/jd-devices")
-async def jd_list_devices():
-    """Login to MyJDownloader and return available devices for the UI picker."""
-    cfg = get_settings()
-    if not cfg.jdownloader_email:
-        raise HTTPException(400, "MyJDownloader email not configured")
-    if not cfg.jdownloader_password:
-        raise HTTPException(400, "MyJDownloader password not configured")
-    try:
-        devices = await myjd_list_devices(cfg.jdownloader_email, cfg.jdownloader_password)
-        return {"devices": devices}
-    except Exception as e:
-        raise HTTPException(502, str(e))
-
-
 
 @router.get("/torrents/{torrent_id}")
 async def get_torrent(torrent_id: int):
@@ -191,6 +173,24 @@ async def retry_torrent(torrent_id: int):
     return {"ok": True}
 
 
+@router.post("/torrents/{torrent_id}/pause")
+async def pause_torrent(torrent_id: int):
+    try:
+        await manager.pause_torrent(torrent_id)
+        return {"ok": True}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/torrents/{torrent_id}/resume")
+async def resume_torrent(torrent_id: int):
+    try:
+        await manager.resume_torrent(torrent_id)
+        return {"ok": True}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 # ─── Stats ────────────────────────────────────────────────────────────────────
 
 @router.get("/stats")
@@ -206,39 +206,79 @@ async def get_stats():
             "SELECT COUNT(*) as c FROM download_files WHERE blocked=1"
         )).fetchone())["c"]
         active = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM torrents WHERE status IN ('downloading','processing','uploading')"
+            "SELECT COUNT(*) as c FROM torrents WHERE status IN ('downloading','processing','uploading','paused')"
+        )).fetchone())["c"]
+        queued = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM torrents WHERE status='queued'"
+        )).fetchone())["c"]
+        finished = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM events WHERE message='Finished'"
+        )).fetchone())["c"]
+        last_day_completed = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now', '-1 day')"
         )).fetchone())["c"]
         return {
             "by_status": by_status,
             "total_completed_bytes": size_row["total"] or 0,
             "total_blocked_files": blocked,
             "active_downloads": active,
+            "queued_downloads": queued,
+            "finished_events": finished,
+            "completed_last_24h": last_day_completed,
             "paused": bool(get_settings().paused),
         }
 
 
-# ─── Events ───────────────────────────────────────────────────────────────────
-
-
-@router.post("/torrents/{torrent_id}/retry")
-async def retry_torrent(torrent_id: int):
-    """Re-trigger download for a torrent that is ready on AllDebrid."""
-    import aiosqlite
-    from db.database import DB_PATH
+@router.get("/stats/detail")
+async def get_stats_detail():
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cur = await db.execute("SELECT * FROM torrents WHERE id=?", (torrent_id,))
-        row = await cur.fetchone()
-    if not row:
-        raise HTTPException(404, "Torrent not found")
-    row = dict(row)
-    if not row.get("alldebrid_id"):
-        raise HTTPException(400, "No AllDebrid ID — cannot retry")
-    import asyncio
-    asyncio.create_task(
-        manager._start_download(torrent_id, row["alldebrid_id"], row["name"])
-    )
-    return {"queued": True, "name": row["name"]}
+
+        torrent_status_rows = await (await db.execute(
+            "SELECT status, COUNT(*) as count FROM torrents GROUP BY status"
+        )).fetchall()
+        file_status_rows = await (await db.execute(
+            "SELECT status, COUNT(*) as count, COALESCE(SUM(size_bytes), 0) as size FROM download_files GROUP BY status"
+        )).fetchall()
+        totals = await (await db.execute(
+            """SELECT
+                   COUNT(*) as torrent_total,
+                   COALESCE(SUM(size_bytes), 0) as torrent_size_total,
+                   COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN size_bytes ELSE 0 END), 0) as completed_size,
+                   COALESCE(SUM(CASE WHEN status='partial' THEN 1 ELSE 0 END), 0) as partial_total
+               FROM torrents"""
+        )).fetchone()
+        event_levels = await (await db.execute(
+            "SELECT level, COUNT(*) as count FROM events GROUP BY level"
+        )).fetchall()
+        latest_events = await (await db.execute(
+            """SELECT e.level, e.message, e.created_at, t.name as torrent_name
+               FROM events e
+               LEFT JOIN torrents t ON e.torrent_id = t.id
+               ORDER BY e.created_at DESC LIMIT 8"""
+        )).fetchall()
+
+    return {
+        "torrent_status": {row["status"]: row["count"] for row in torrent_status_rows},
+        "file_status": {
+            row["status"]: {"count": row["count"], "size_bytes": row["size"]}
+            for row in file_status_rows
+        },
+        "totals": dict(totals),
+        "event_levels": {row["level"]: row["count"] for row in event_levels},
+        "latest_events": [dict(row) for row in latest_events],
+    }
+
+
+@router.get("/meta/changelog")
+async def get_changelog():
+    if not CHANGELOG_PATH.exists():
+        raise HTTPException(404, "CHANGELOG.md not found")
+    return {"content": CHANGELOG_PATH.read_text(encoding="utf-8", errors="replace")}
+
+
+# ─── Events ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/events")
 async def get_events(limit: int = Query(100, le=500)):

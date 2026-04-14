@@ -12,61 +12,43 @@
       <feGaussianBlur stdDeviation="4" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <filter id="softglow">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
     <clipPath id="round">
       <rect width="512" height="512" rx="110" ry="110"/>
     </clipPath>
   </defs>
 
-  <!-- Background -->
   <rect width="512" height="512" rx="110" fill="url(#bgGrad)"/>
 
-  <!-- Radar rings -->
   <circle cx="256" cy="256" r="180" fill="none" stroke="#1e2d45" stroke-width="1.5" opacity="0.8"/>
   <circle cx="256" cy="256" r="130" fill="none" stroke="#1e2d45" stroke-width="1.5" opacity="0.8"/>
-  <circle cx="256" cy="256" r="80"  fill="none" stroke="#263650" stroke-width="1.5"/>
+  <circle cx="256" cy="256" r="80" fill="none" stroke="#263650" stroke-width="1.5"/>
 
-  <!-- Crosshairs -->
-  <line x1="256" y1="70"  x2="256" y2="442" stroke="#1e2d45" stroke-width="1" opacity="0.5"/>
-  <line x1="70"  y1="256" x2="442" y2="256" stroke="#1e2d45" stroke-width="1" opacity="0.5"/>
+  <line x1="256" y1="70" x2="256" y2="442" stroke="#1e2d45" stroke-width="1" opacity="0.5"/>
+  <line x1="70" y1="256" x2="442" y2="256" stroke="#1e2d45" stroke-width="1" opacity="0.5"/>
 
-  <!-- Radar sweep (subtle) -->
-  <path d="M256,256 L256,76 A180,180 0 0,1 416,316 Z" fill="rgba(249,115,22,0.04)"/>
+  <path d="M256,256 L256,76 A180,180 0 0,1 416,316 Z" fill="#f97316" opacity="0.04"/>
   <line x1="256" y1="256" x2="416" y2="316" stroke="#f97316" stroke-width="1.5" opacity="0.3"/>
 
-  <!-- Satellite nodes on outer ring -->
-  <!-- AllDebrid (top) -->
   <circle cx="256" cy="76" r="14" fill="#0d1220" stroke="#f97316" stroke-width="2"/>
   <text x="256" y="81" text-anchor="middle" font-family="monospace" font-size="11" fill="#f97316" font-weight="bold">AD</text>
 
-  <!-- aria2 (bottom-right) -->
   <circle cx="408" cy="338" r="14" fill="#0d1220" stroke="#3b82f6" stroke-width="2"/>
   <text x="408" y="343" text-anchor="middle" font-family="monospace" font-size="10" fill="#3b82f6" font-weight="bold">A2</text>
 
-  <!-- Connection lines to core -->
-  <line x1="256" y1="90"  x2="256" y2="210" stroke="#f97316" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
+  <line x1="256" y1="90" x2="256" y2="210" stroke="#f97316" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
   <line x1="396" y1="330" x2="300" y2="285" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
 
-  <!-- Core circle -->
   <circle cx="256" cy="256" r="52" fill="#111827" stroke="#f97316" stroke-width="2.5" filter="url(#glow)"/>
   <circle cx="256" cy="256" r="44" fill="url(#coreGrad)" opacity="0.15"/>
 
-  <!-- Download arrow icon in core -->
   <g filter="url(#glow)" fill="#f97316">
-    <!-- Arrow shaft -->
     <rect x="249" y="228" width="14" height="26" rx="3" fill="#f97316"/>
-    <!-- Arrow head -->
     <polygon points="256,282 236,258 276,258" fill="#f97316"/>
-    <!-- Base line -->
     <rect x="234" y="285" width="44" height="5" rx="2.5" fill="#f97316"/>
   </g>
 
-  <!-- Corner dots (decorative) -->
-  <circle cx="76"  cy="76"  r="3" fill="#1e2d45"/>
-  <circle cx="436" cy="76"  r="3" fill="#1e2d45"/>
-  <circle cx="76"  cy="436" r="3" fill="#1e2d45"/>
+  <circle cx="76" cy="76" r="3" fill="#1e2d45"/>
+  <circle cx="436" cy="76" r="3" fill="#1e2d45"/>
+  <circle cx="76" cy="436" r="3" fill="#1e2d45"/>
   <circle cx="436" cy="436" r="3" fill="#1e2d45"/>
 </svg>

@@ -9,15 +9,14 @@
   <Support>https://github.com/kroeberd/alldebrid-client/issues</Support>
   <Project>https://github.com/kroeberd/alldebrid-client</Project>
   <Overview>
-[b]AllDebrid-Client v0.0.1[/b] Beta version - may contain bugs.
+[b]AllDebrid-Client v0.5.0[/b] Unifies downloads around direct + aria2 delivery, removes JDownloader, and hardens AllDebrid status tracking.
 
 Automated torrent/magnet downloading via AllDebrid with a clean Web UI.
 
 [b]Features:[/b]
 • Watch folder — drop .torrent or .magnet files for auto-import
 • AllDebrid API — upload, poll status, unlock links, auto-delete after download
-• aria2 / AriaNg integration via JSON-RPC
-• JDownloader integration via local API
+• Direct downloader or aria2 JSON-RPC delivery
 • File filters — block images, keywords, minimum size
 • Discord webhook notifications
 • SQLite database — prevents re-downloading known hashes
@@ -32,7 +31,7 @@ Automated torrent/magnet downloading via AllDebrid with a clean Web UI.
   <Category>Downloaders:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/kroeberd/unraid-templates/main/templates/alldebrid-client.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/icon.png</Icon>
+  <Icon>https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg</Icon>
   <ExtraParams>--restart=unless-stopped</ExtraParams>
 
   <Config Name="WebUI Port" Target="8080" Default="8080" Mode="tcp"

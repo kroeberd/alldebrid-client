@@ -1,112 +1,217 @@
-"""
-aria2 JSON-RPC client.
-
-URL formats:
-  http://localhost:6800/jsonrpc                    (no secret)
-  http://localhost:6800/jsonrpc#mysecret           (secret after #)
-  http://token:mysecret@localhost:6800/jsonrpc     (secret in URL)
-"""
-import aiohttp
+import asyncio
 import logging
-from typing import Optional, Dict, Any
-from urllib.parse import urlparse
+from dataclasses import dataclass
+from pathlib import PurePosixPath
+from typing import Any, Dict, List, Optional
+
+import aiohttp
 
 logger = logging.getLogger("alldebrid.aria2")
 
 
-def _parse_url(raw: str) -> tuple[str, str]:
-    """Returns (rpc_url, secret)."""
-    raw = raw.strip()
-
-    # http://token:SECRET@host:port/jsonrpc
-    if "://" in raw and "@" in raw:
-        p = urlparse(raw)
-        secret = p.password or p.username or ""
-        netloc = p.hostname + (f":{p.port}" if p.port else "")
-        rpc_url = f"{p.scheme}://{netloc}{p.path or '/jsonrpc'}"
-        return rpc_url, secret
-
-    # SECRET@host:port
-    if "@" in raw and "://" not in raw:
-        secret, host = raw.split("@", 1)
-        if not host.startswith("http"):
-            host = f"http://{host}"
-        if "/jsonrpc" not in host:
-            host = host.rstrip("/") + "/jsonrpc"
-        return host, secret
-
-    # http://host:port/jsonrpc#SECRET
-    if "#" in raw:
-        url, secret = raw.rsplit("#", 1)
-        if not url.startswith("http"):
-            url = f"http://{url}"
-        return url, secret
-
-    # plain URL
-    if not raw.startswith("http"):
-        raw = f"http://{raw}"
-    if "/jsonrpc" not in raw:
-        raw = raw.rstrip("/") + "/jsonrpc"
-    return raw, ""
+class Aria2RPCError(Exception):
+    pass
 
 
-class Aria2Client:
-    def __init__(self, url: str):
-        self.rpc_url, self.secret = _parse_url(url)
-        self._rid = 0
-        logger.debug(f"aria2 RPC: {self.rpc_url}, secret={'***' if self.secret else 'none'}")
+@dataclass
+class Aria2DownloadStatus:
+    gid: str
+    status: str
+    total_length: int
+    completed_length: int
+    download_speed: int
+    error_code: str = ""
+    error_message: str = ""
+    files: Optional[List[Dict[str, Any]]] = None
 
-    def _next_rid(self) -> int:
-        self._rid += 1
-        return self._rid
 
-    def _params(self, *args) -> list:
-        base = [f"token:{self.secret}"] if self.secret else []
-        return base + list(args)
+class Aria2Service:
+    def __init__(self, url: str, secret: str = "", timeout_seconds: int = 15):
+        self.url = url.strip()
+        self.secret = secret.strip()
+        self.timeout = aiohttp.ClientTimeout(total=max(5, int(timeout_seconds or 15)))
+        self._request_id = 0
 
-    async def _call(self, method: str, *args) -> Any:
+    async def test(self) -> Dict[str, Any]:
+        version = await self._call("aria2.getVersion")
+        return {
+            "version": version.get("version", "unknown"),
+            "enabled_features": version.get("enabledFeatures", []),
+        }
+
+    async def get_all(self) -> List[Aria2DownloadStatus]:
+        token_prefix = [f"token:{self.secret}"] if self.secret else []
+        methods = [
+            {"methodName": "aria2.tellActive", "params": token_prefix + [self._keys()]},
+            {"methodName": "aria2.tellWaiting", "params": token_prefix + [0, 1000, self._keys()]},
+            {"methodName": "aria2.tellStopped", "params": token_prefix + [0, 1000, self._keys()]},
+        ]
+        results = await self._call_multicall(methods)
+        downloads: List[Aria2DownloadStatus] = []
+        for entry in results or []:
+            payload = entry[0] if isinstance(entry, list) and entry else []
+            for raw in payload or []:
+                downloads.append(self._normalize(raw))
+        return downloads
+
+    async def tell_status(self, gid: str) -> Aria2DownloadStatus:
+        result = await self._call("aria2.tellStatus", [gid, self._keys()])
+        return self._normalize(result)
+
+    async def ensure_download(
+        self,
+        uri: str,
+        remote_file_path: str,
+        start_paused: bool = False,
+        max_retries: int = 5,
+    ) -> str:
+        existing = await self.find_existing_download(uri, remote_file_path)
+        if existing:
+            if start_paused:
+                await self.pause(existing.gid)
+            return existing.gid
+
+        remote = self._normalize_path(remote_file_path)
+        remote_dir = str(PurePosixPath(remote).parent)
+        remote_name = PurePosixPath(remote).name
+        options: Dict[str, Any] = {"dir": remote_dir, "out": remote_name}
+        if start_paused:
+            options["pause"] = "true"
+
+        last_error: Optional[Exception] = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                gid = await self._call("aria2.addUri", [[uri], options])
+                await self.tell_status(gid)
+                logger.info("Queued aria2 download %s -> %s (%s)", uri, remote, gid)
+                return gid
+            except Exception as exc:
+                last_error = exc
+                if attempt >= max_retries:
+                    break
+                delay = min(attempt * attempt, 10)
+                logger.warning(
+                    "Unable to queue aria2 download on attempt %s/%s for %s, retrying in %ss: %s",
+                    attempt,
+                    max_retries,
+                    uri,
+                    delay,
+                    exc,
+                )
+                await asyncio.sleep(delay)
+
+        raise Aria2RPCError(f"Unable to queue aria2 download for {uri}: {last_error}")
+
+    async def find_existing_download(
+        self,
+        uri: str,
+        remote_file_path: str,
+    ) -> Optional[Aria2DownloadStatus]:
+        normalized_path = self._normalize_path(remote_file_path)
+        for download in await self.get_all():
+            if download.status in {"complete", "removed"}:
+                continue
+            for file_info in download.files or []:
+                current_path = self._normalize_path(str(file_info.get("path", "")))
+                if current_path and current_path == normalized_path:
+                    return download
+                for current_uri in file_info.get("uris", []) or []:
+                    if str(current_uri.get("uri", "")).strip() == uri.strip():
+                        return download
+        return None
+
+    async def pause(self, gid: str):
+        await self._best_effort("aria2.pause", [gid])
+
+    async def resume(self, gid: str):
+        await self._best_effort("aria2.unpause", [gid])
+
+    async def remove(self, gid: str):
+        await self._best_effort("aria2.forceRemove", [gid])
+        await self._best_effort("aria2.removeDownloadResult", [gid])
+
+    async def _call_multicall(self, methods: List[Dict[str, Any]]) -> Any:
+        """Call system.multicall without prepending the token at the outer level.
+        The token must already be embedded in each sub-call's params."""
+        self._request_id += 1
         payload = {
             "jsonrpc": "2.0",
-            "method": method,
-            "id": f"adc-{self._next_rid()}",
-            "params": self._params(*args),
+            "id": str(self._request_id),
+            "method": "system.multicall",
+            "params": [methods],
         }
         try:
-            async with aiohttp.ClientSession() as s:
-                async with s.post(
-                    self.rpc_url, json=payload,
-                    timeout=aiohttp.ClientTimeout(total=10)
-                ) as resp:
-                    if resp.status != 200:
-                        raise Exception(f"aria2 HTTP {resp.status}")
-                    result = await resp.json(content_type=None)
-        except aiohttp.ClientConnectorError as e:
-            raise Exception(f"Cannot connect to aria2 at {self.rpc_url}: {e}")
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.post(self.url, json=payload) as response:
+                    data = await response.json(content_type=None)
+        except aiohttp.ClientError as exc:
+            raise Aria2RPCError(f"Network error talking to aria2: {exc}") from exc
 
-        if "error" in result:
-            err = result["error"]
-            code = err.get("code", "?")
-            msg  = err.get("message", str(err))
-            raise Exception(f"aria2 error [{code}]: {msg}")
+        if "error" in data:
+            error = data["error"] or {}
+            raise Aria2RPCError(f"aria2 [{error.get('code', 'UNKNOWN')}]: {error.get('message', 'Unknown error')}")
 
-        return result.get("result")
+        return data.get("result")
 
-    async def get_version(self) -> Dict:
-        return await self._call("aria2.getVersion")
+    async def _best_effort(self, method: str, params: List[Any]):
+        try:
+            await self._call(method, params)
+        except Exception as exc:
+            logger.debug("aria2 %s failed for %s: %s", method, params, exc)
 
-    async def add_uri(self, uri: str, dest_dir: str,
-                      filename: Optional[str] = None) -> str:
-        """Add a URI download. Returns GID."""
-        options: Dict[str, Any] = {"dir": dest_dir}
-        if filename:
-            options["out"] = filename
-        gid = await self._call("aria2.addUri", [uri], options)
-        logger.info(f"aria2 addUri → GID={gid} | dir={dest_dir} | url={uri[:60]}...")
-        return gid
+    async def _call(self, method: str, params: Optional[List[Any]] = None) -> Any:
+        self._request_id += 1
+        rpc_params = list(params or [])
+        if self.secret:
+            rpc_params.insert(0, f"token:{self.secret}")
 
-    async def tell_status(self, gid: str) -> Dict:
-        return await self._call("aria2.tellStatus", gid,
-                                ["status","totalLength","completedLength","errorMessage"])
+        payload = {
+            "jsonrpc": "2.0",
+            "id": str(self._request_id),
+            "method": method,
+            "params": rpc_params,
+        }
 
-    async def get_global_stat(self) -> Dict:
-        return await self._call("aria2.getGlobalStat")
+        try:
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.post(self.url, json=payload) as response:
+                    data = await response.json(content_type=None)
+        except aiohttp.ClientError as exc:
+            raise Aria2RPCError(f"Network error talking to aria2: {exc}") from exc
+
+        if "error" in data:
+            error = data["error"] or {}
+            raise Aria2RPCError(f"aria2 [{error.get('code', 'UNKNOWN')}]: {error.get('message', 'Unknown error')}")
+
+        return data.get("result")
+
+    def _normalize(self, raw: Dict[str, Any]) -> Aria2DownloadStatus:
+        return Aria2DownloadStatus(
+            gid=str(raw.get("gid", "")),
+            status=str(raw.get("status", "")),
+            total_length=int(raw.get("totalLength", 0) or 0),
+            completed_length=int(raw.get("completedLength", 0) or 0),
+            download_speed=int(raw.get("downloadSpeed", 0) or 0),
+            error_code=str(raw.get("errorCode", "") or ""),
+            error_message=str(raw.get("errorMessage", "") or ""),
+            files=list(raw.get("files") or []),
+        )
+
+    @staticmethod
+    def _keys() -> List[str]:
+        return [
+            "gid",
+            "status",
+            "totalLength",
+            "completedLength",
+            "downloadSpeed",
+            "errorCode",
+            "errorMessage",
+            "files",
+        ]
+
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        if not path:
+            return ""
+        return str(PurePosixPath(path.replace("\\", "/"))).strip()

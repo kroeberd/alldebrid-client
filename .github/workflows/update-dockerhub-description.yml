@@ -1,0 +1,26 @@
+name: Update Docker Hub description
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+
+permissions:
+  contents: read
+
+jobs:
+  update-description:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: kroeberd/alldebrid-client
+          readme-filepath: ./README.md
+          short-description: "Automated torrent downloading via AllDebrid with Web UI, watch folder, Discord, SQLite, and JDownloader"

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from core.config import get_settings
-from services.manager import manager
+from services.manager_v2 import manager
 
 logger = logging.getLogger("alldebrid.scheduler")
 _tasks = []
@@ -29,9 +29,19 @@ async def sync_status_loop():
         await asyncio.sleep(get_settings().poll_interval_seconds)
 
 
+async def sync_download_clients_loop():
+    while True:
+        try:
+            await manager.sync_download_clients()
+        except Exception as e:
+            logger.error(f"Download client sync error: {e}")
+        await asyncio.sleep(max(2, get_settings().aria2_poll_interval_seconds))
+
+
 async def start_scheduler():
     _tasks.append(asyncio.create_task(watch_folder_loop()))
     _tasks.append(asyncio.create_task(sync_status_loop()))
+    _tasks.append(asyncio.create_task(sync_download_clients_loop()))
     logger.info("Scheduler started")
 
 

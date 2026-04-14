@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 from core.scheduler import start_scheduler, stop_scheduler
 from db.database import init_db
-from services.manager import manager
+from services.manager_v2 import manager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AllDebrid-Client",
     description="Automated torrent downloading via AllDebrid",
-    version="1.0.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
