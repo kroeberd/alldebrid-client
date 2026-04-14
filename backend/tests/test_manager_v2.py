@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from pathlib import Path
 import sys
@@ -100,6 +101,41 @@ class Aria2ServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([row.gid for row in rows], ["1", "2", "3"])
         self.assertEqual([method for method, _ in calls], ["aria2.tellActive", "aria2.tellWaiting", "aria2.tellStopped"])
+
+    async def test_ensure_download_serializes_same_uri(self):
+        service = Aria2Service("http://localhost:6800/jsonrpc", "secret", 15)
+        state = {"added": False, "add_calls": 0}
+
+        async def fake_get_all():
+            if state["added"]:
+                return [
+                    types.SimpleNamespace(
+                        gid="gid-1",
+                        status="active",
+                        files=[{"uris": [{"uri": "https://same.invalid/file"}]}],
+                    )
+                ]
+            return []
+
+        async def fake_call(method, params=None):
+            if method == "aria2.addUri":
+                state["add_calls"] += 1
+                await asyncio.sleep(0.01)
+                state["added"] = True
+                return "gid-1"
+            raise AssertionError(method)
+
+        service.get_all = fake_get_all
+        service._call = fake_call
+
+        gid1, gid2 = await asyncio.gather(
+            service.ensure_download("https://same.invalid/file", {"dir": "/downloads", "out": "file.bin"}),
+            service.ensure_download("https://same.invalid/file", {"dir": "/downloads", "out": "file.bin"}),
+        )
+
+        self.assertEqual(gid1, "gid-1")
+        self.assertEqual(gid2, "gid-1")
+        self.assertEqual(state["add_calls"], 1)
 
 
 class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):

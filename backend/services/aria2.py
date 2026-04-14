@@ -31,6 +31,7 @@ class Aria2Service:
         self.secret = secret.strip()
         self.timeout = aiohttp.ClientTimeout(total=max(5, int(timeout_seconds or 15)))
         self._request_id = 0
+        self._uri_locks: Dict[str, asyncio.Lock] = {}
 
     async def test(self) -> Dict[str, Any]:
         version = await self._call("aria2.getVersion")
@@ -69,52 +70,54 @@ class Aria2Service:
 
         Returns the GID of the (existing or newly added) download.
         """
-        all_downloads = await self.get_all()
-        matches = self._find_all_matching_by_uri(uri, all_downloads)
+        normalized_uri = uri.strip()
+        async with self._lock_for_uri(normalized_uri):
+            all_downloads = await self.get_all()
+            matches = self._find_all_matching_by_uri(normalized_uri, all_downloads)
 
-        # Already finished — remove any stale duplicates, return the complete GID.
-        for dl in matches:
-            if dl.status in {"complete", "removed"}:
-                for dup in matches:
-                    if dup.gid != dl.gid and dup.status not in {"complete", "removed"}:
-                        logger.warning("Removing stale duplicate aria2 entry %s for %s", dup.gid, uri)
-                        await self.remove(dup.gid)
-                return dl.gid
+            # Already finished — remove any stale duplicates, return the complete GID.
+            for dl in matches:
+                if dl.status in {"complete", "removed"}:
+                    for dup in matches:
+                        if dup.gid != dl.gid and dup.status not in {"complete", "removed"}:
+                            logger.warning("Removing stale duplicate aria2 entry %s for %s", dup.gid, normalized_uri)
+                            await self.remove(dup.gid)
+                    return dl.gid
 
-        # Multiple active entries for the same URI — keep the first, drop the rest.
-        if len(matches) > 1:
-            for dup in matches[1:]:
-                logger.warning("Removing duplicate aria2 entry %s for %s", dup.gid, uri)
-                await self.remove(dup.gid)
+            # Multiple active entries for the same URI — keep the first, drop the rest.
+            if len(matches) > 1:
+                for dup in matches[1:]:
+                    logger.warning("Removing duplicate aria2 entry %s for %s", dup.gid, normalized_uri)
+                    await self.remove(dup.gid)
 
-        if matches:
-            existing = matches[0]
-            if start_paused and existing.status != "paused":
-                await self.pause(existing.gid)
-            return existing.gid
+            if matches:
+                existing = matches[0]
+                if start_paused and existing.status != "paused":
+                    await self.pause(existing.gid)
+                return existing.gid
 
-        rpc_options: Dict[str, Any] = dict(options or {})
-        if start_paused:
-            rpc_options["pause"] = "true"
+            rpc_options: Dict[str, Any] = dict(options or {})
+            if start_paused:
+                rpc_options["pause"] = "true"
 
-        last_error: Optional[Exception] = None
-        for attempt in range(1, max_retries + 1):
-            try:
-                gid = await self._call("aria2.addUri", [[uri], rpc_options])
-                logger.info("Queued aria2 download %s (%s)", uri, gid)
-                return gid
-            except Exception as exc:
-                last_error = exc
-                if attempt >= max_retries:
-                    break
-                delay = min(attempt * attempt, 10)
-                logger.warning(
-                    "Unable to queue aria2 download on attempt %s/%s for %s, retrying in %ss: %s",
-                    attempt, max_retries, uri, delay, exc,
-                )
-                await asyncio.sleep(delay)
+            last_error: Optional[Exception] = None
+            for attempt in range(1, max_retries + 1):
+                try:
+                    gid = await self._call("aria2.addUri", [[normalized_uri], rpc_options])
+                    logger.info("Queued aria2 download %s (%s)", normalized_uri, gid)
+                    return gid
+                except Exception as exc:
+                    last_error = exc
+                    if attempt >= max_retries:
+                        break
+                    delay = min(attempt * attempt, 10)
+                    logger.warning(
+                        "Unable to queue aria2 download on attempt %s/%s for %s, retrying in %ss: %s",
+                        attempt, max_retries, normalized_uri, delay, exc,
+                    )
+                    await asyncio.sleep(delay)
 
-        raise Aria2RPCError(f"Unable to queue aria2 download for {uri}: {last_error}")
+        raise Aria2RPCError(f"Unable to queue aria2 download for {normalized_uri}: {last_error}")
 
     def _find_all_matching_by_uri(
         self,
@@ -147,6 +150,13 @@ class Aria2Service:
             if dl.status not in {"complete", "removed"}:
                 return dl
         return None
+
+    def _lock_for_uri(self, uri: str) -> asyncio.Lock:
+        lock = self._uri_locks.get(uri)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._uri_locks[uri] = lock
+        return lock
 
     async def pause(self, gid: str):
         await self._best_effort("aria2.pause", [gid])

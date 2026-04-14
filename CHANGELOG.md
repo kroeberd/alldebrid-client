@@ -12,6 +12,12 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.5.3] - 2026-04-14
+
+### Fixed
+- Serialized aria2 queueing per download URL so duplicate checks now happen before `addUri` even under parallel enqueue races
+- Added a regression test covering concurrent `ensure_download` calls for the same unlocked AllDebrid URL
+
 ## [0.5.2] - 2026-04-14
 
 ### Fixed
