@@ -243,6 +243,69 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(fake_ad.unlock_link.await_count, 1)
         self.assertEqual(manager._log_file.await_count, 1)
 
+    async def test_aria2_download_preparation_does_not_create_destination_root(self):
+        from services.manager_v2 import TorrentManager
+
+        manager = TorrentManager()
+        manager._log_file = AsyncMock()
+        manager._send_partial_summary = AsyncMock()
+        manager._log_event = AsyncMock()
+        manager._delete_magnet_after_completion = AsyncMock()
+        manager._mark_finished = AsyncMock()
+        manager._dispatch_pending_aria2_queue = AsyncMock()
+        fake_ad = types.SimpleNamespace(unlock_link=AsyncMock(return_value={"link": "https://download.invalid/file"}))
+        manager.ad = lambda: fake_ad
+
+        root = Path.cwd() / "backend" / "tests" / "_tmp_aria2_prepare"
+        if root.exists():
+            for child in sorted(root.rglob("*"), reverse=True):
+                try:
+                    if child.is_file():
+                        child.unlink()
+                    else:
+                        child.rmdir()
+                except Exception:
+                    pass
+        download_folder = root / "downloads"
+        destination_root = download_folder / "Torrent Name"
+
+        fake_cfg = types.SimpleNamespace(
+            download_client="aria2",
+            download_folder=str(download_folder),
+            filters_enabled=True,
+            blocked_extensions=[],
+            blocked_keywords=[],
+            min_file_size_mb=0,
+            aria2_start_paused=False,
+            discord_notify_finished=False,
+            discord_notify_error=False,
+        )
+
+        files = [
+            {"path": "folder/file.mp4", "name": "file.mp4", "size": 10, "link": "https://source.invalid/a"},
+        ]
+
+        try:
+            with patch("services.manager_v2.get_settings", return_value=fake_cfg), \
+                 patch("services.manager_v2.aiosqlite.connect") as mock_connect:
+                mock_db = AsyncMock()
+                mock_connect.return_value.__aenter__.return_value = mock_db
+                manager._fetch_ready_files = AsyncMock(return_value=files)
+                await manager._download(1, "ad-id", "Torrent Name")
+
+            self.assertFalse(destination_root.exists())
+            manager._dispatch_pending_aria2_queue.assert_awaited_once()
+        finally:
+            if root.exists():
+                for child in sorted(root.rglob("*"), reverse=True):
+                    try:
+                        if child.is_file():
+                            child.unlink()
+                        else:
+                            child.rmdir()
+                    except Exception:
+                        pass
+
     async def test_startup_reconcile_removes_duplicate_aria2_jobs(self):
         from services.manager_v2 import TorrentManager
 

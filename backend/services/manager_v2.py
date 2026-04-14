@@ -462,7 +462,8 @@ class TorrentManager:
             raise Exception("No downloadable files returned from AllDebrid")
 
         destination_root = Path(cfg.download_folder) / safe_name(name)
-        destination_root.mkdir(parents=True, exist_ok=True)
+        if client_name != "aria2":
+            destination_root.mkdir(parents=True, exist_ok=True)
 
         total_files = len(flat_files)
         blocked_items: List[dict] = []

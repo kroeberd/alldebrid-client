@@ -12,6 +12,11 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.6.3] - 2026-04-14
+
+### Fixed
+- Stopped pre-creating torrent destination folders in the aria2 preparation path so directory creation is fully delegated to aria2.
+
 ## [0.6.2] - 2026-04-14
 
 ### Fixed
