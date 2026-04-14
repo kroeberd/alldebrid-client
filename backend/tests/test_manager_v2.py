@@ -44,7 +44,7 @@ if "pydantic" not in sys.modules:
 
     sys.modules["pydantic"] = types.SimpleNamespace(BaseModel=_FakeBaseModel)
 
-from services.alldebrid import flatten_files
+from services.alldebrid import AllDebridService, flatten_files
 from services.aria2 import Aria2Service
 from services.manager_v2 import normalize_provider_state, safe_rel_path
 
@@ -79,6 +79,50 @@ class ManagerV2Tests(unittest.TestCase):
         state = normalize_provider_state({"statusCode": 8, "size": 200, "downloaded": 10, "status": "Error"})
         self.assertEqual(state["provider_status"], "error")
         self.assertEqual(state["local_status"], "error")
+
+
+class AllDebridServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_post_retries_after_empty_response(self):
+        service = AllDebridService("api-key")
+        responses = ["", '{"status":"success","data":{"ok":true}}']
+
+        class FakeResponse:
+            def __init__(self, body):
+                self.body = body
+                self.status = 200
+
+            async def text(self):
+                return self.body
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        class FakeSession:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def post(self, *args, **kwargs):
+                return FakeResponse(responses.pop(0))
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        with patch("services.alldebrid.aiohttp.ClientSession", FakeSession):
+            result = await service._post("https://api.example", "magnet/status", retries=2)
+
+        self.assertEqual(result, {"ok": True})
+
+    def test_decode_json_body_reports_invalid_payload(self):
+        service = AllDebridService("api-key")
+        with self.assertRaises(Exception) as ctx:
+            service._decode_json_body("<html>bad gateway</html>", "magnet/status")
+        self.assertIn("invalid JSON", str(ctx.exception))
 
 
 class Aria2ServiceTests(unittest.IsolatedAsyncioTestCase):

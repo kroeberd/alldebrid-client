@@ -12,6 +12,12 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.6.1] - 2026-04-14
+
+### Fixed
+- Retried transient empty or invalid JSON responses from AllDebrid during status polling, file listing, and link unlock calls.
+- Improved AllDebrid error messages so API-side bad responses are distinguishable from aria2 sync issues.
+
 ## [0.6.0] - 2026-04-14
 
 ### Added

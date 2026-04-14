@@ -19,6 +19,8 @@ NOTE: Uses a fresh aiohttp session per request to avoid ServerDisconnected
 errors from AllDebrid closing keep-alive connections.
 """
 
+import asyncio
+import json
 import aiohttp
 import logging
 from typing import Optional, List, Dict, Any
@@ -39,23 +41,54 @@ class AllDebridService:
     def _headers(self) -> Dict[str, str]:
         return {"Authorization": f"Bearer {self.api_key}"}
 
-    async def _post(self, base: str, endpoint: str,
-                    data: Optional[Dict] = None) -> Dict[str, Any]:
-        url = f"{base}/{endpoint}"
+    def _decode_json_body(self, body: str, endpoint: str) -> Dict[str, Any]:
+        payload = (body or "").strip()
+        if not payload:
+            raise Exception(f"AllDebrid returned an empty response for {endpoint}")
         try:
-            async with aiohttp.ClientSession(headers=self._headers()) as s:
-                async with s.post(url, data=data or {}, timeout=TIMEOUT) as resp:
-                    result = await resp.json(content_type=None)
-        except aiohttp.ClientError as e:
-            raise Exception(f"Network error: {e}")
+            result = json.loads(payload)
+        except json.JSONDecodeError as exc:
+            snippet = payload[:160].replace("\n", " ").replace("\r", " ")
+            raise Exception(
+                f"AllDebrid returned invalid JSON for {endpoint}: {snippet or '<empty>'}"
+            ) from exc
+        if not isinstance(result, dict):
+            raise Exception(f"AllDebrid returned unexpected payload type for {endpoint}")
+        return result
 
-        if result.get("status") != "success":
-            err  = result.get("error", {})
-            code = err.get("code", "UNKNOWN") if isinstance(err, dict) else "UNKNOWN"
-            msg  = err.get("message", str(err)) if isinstance(err, dict) else str(err)
-            raise Exception(f"AllDebrid [{code}]: {msg}")
+    async def _post(self, base: str, endpoint: str,
+                    data: Optional[Dict] = None,
+                    retries: int = 1) -> Dict[str, Any]:
+        url = f"{base}/{endpoint}"
+        last_error: Optional[Exception] = None
+        attempts = max(1, int(retries or 1))
+        for attempt in range(1, attempts + 1):
+            result = None
+            try:
+                async with aiohttp.ClientSession(headers=self._headers()) as s:
+                    async with s.post(url, data=data or {}, timeout=TIMEOUT) as resp:
+                        body = await resp.text()
+                        if resp.status >= 500:
+                            raise Exception(f"AllDebrid HTTP {resp.status} for {endpoint}")
+                        result = self._decode_json_body(body, endpoint)
+            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                last_error = Exception(f"Network error: {exc}")
+            except Exception as exc:
+                last_error = exc
 
-        return result.get("data", {})
+            if result is not None:
+                if result.get("status") != "success":
+                    err  = result.get("error", {})
+                    code = err.get("code", "UNKNOWN") if isinstance(err, dict) else "UNKNOWN"
+                    msg  = err.get("message", str(err)) if isinstance(err, dict) else str(err)
+                    raise Exception(f"AllDebrid [{code}]: {msg}")
+                return result.get("data", {})
+
+            if attempt >= attempts:
+                break
+            await asyncio.sleep(min(attempt, 3))
+
+        raise last_error or Exception(f"Unknown AllDebrid error for {endpoint}")
 
     async def _multipart(self, endpoint: str, form: aiohttp.FormData) -> Dict[str, Any]:
         url = f"{API_V4}/{endpoint}"
@@ -63,8 +96,8 @@ class AllDebridService:
             async with aiohttp.ClientSession(headers=self._headers()) as s:
                 async with s.post(url, data=form,
                                   timeout=aiohttp.ClientTimeout(total=120)) as resp:
-                    result = await resp.json(content_type=None)
-        except aiohttp.ClientError as e:
+                    result = self._decode_json_body(await resp.text(), endpoint)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             raise Exception(f"Network error uploading: {e}")
         if result.get("status") != "success":
             err = result.get("error", {})
@@ -75,7 +108,7 @@ class AllDebridService:
     # ── User ──────────────────────────────────────────────────────────────────
 
     async def get_user(self) -> Dict:
-        return await self._post(API_V4, "user")
+        return await self._post(API_V4, "user", retries=3)
 
     # ── Magnets ───────────────────────────────────────────────────────────────
 
@@ -114,7 +147,7 @@ class AllDebridService:
             payload["id"] = str(magnet_id)
 
         try:
-            data = await self._post(API_V41, "magnet/status", payload)
+            data = await self._post(API_V41, "magnet/status", payload, retries=3)
             raw = data.get("magnets", [])
             if isinstance(raw, dict):
                 return [raw]
@@ -130,7 +163,7 @@ class AllDebridService:
 
         # Fallback: deprecated /v4/magnet/status
         try:
-            data = await self._post(API_V4, "magnet/status", payload)
+            data = await self._post(API_V4, "magnet/status", payload, retries=3)
             raw = data.get("magnets", [])
             if isinstance(raw, dict):
                 return [raw]
@@ -146,7 +179,7 @@ class AllDebridService:
         if not magnet_ids:
             return []
         payload = {f"id[{i}]": str(mid) for i, mid in enumerate(magnet_ids)}
-        data = await self._post(API_V4, "magnet/files", payload)
+        data = await self._post(API_V4, "magnet/files", payload, retries=3)
         return data.get("magnets", [])
 
     async def delete_magnet(self, magnet_id: str) -> bool:
@@ -166,7 +199,7 @@ class AllDebridService:
             return False
 
     async def unlock_link(self, link: str) -> Dict:
-        return await self._post(API_V4, "link/unlock", {"link": link})
+        return await self._post(API_V4, "link/unlock", {"link": link}, retries=3)
 
     async def close(self):
         pass  # no persistent session to close
