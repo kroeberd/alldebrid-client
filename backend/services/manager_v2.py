@@ -594,23 +594,28 @@ class TorrentManager:
         for torrent_id in touched:
             await self._finalize_aria2_torrent(torrent_id)
 
+    async def _reset_torrent_for_redownload(self, torrent_id: int, reason: str):
+        """Clear download_files and reset torrent to 'ready' so _start_download re-runs."""
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("DELETE FROM download_files WHERE torrent_id=?", (torrent_id,))
+            await db.execute(
+                "UPDATE torrents SET status='ready', error_message=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (torrent_id,),
+            )
+            await db.execute(
+                "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
+                (torrent_id, "warn", reason),
+            )
+            await db.commit()
+
     async def reconcile_aria2_on_startup(self):
         """Called once at startup to reconcile DB state with what aria2 actually has.
 
-        Three cases are handled:
-
-        1. DB has a GID that aria2 still knows (active/waiting/paused/complete/error)
-           → update file status to match aria2's current state.
-
-        2. DB has a GID that aria2 no longer knows (GID absent from all lists)
-           → aria2 lost the entry (restart, manual removal). The download either
-             finished before the client stopped or was dropped. Mark completed so
-             the torrent can finalize and clean up AllDebrid.
-
-        3. aria2 has active/waiting downloads whose URI matches a download_url in
-           the DB but with a *different or missing* GID (e.g. client re-added it
-           before crashing, leaving a stale GID in the DB)
-           → update the DB GID to the current one aria2 reports.
+        1. GID still in aria2 → sync status directly.
+        2. GID gone, same URI active under new GID → update GID, sync status.
+        3. GID gone, URI not in aria2 → reset download_files and re-queue via
+           _start_download. We cannot know if the download completed cleanly or
+           was dropped, so a safe re-download is the only correct action.
         """
         if self.download_client_name() != "aria2":
             return
@@ -621,7 +626,6 @@ class TorrentManager:
             return
 
         by_gid = {dl.gid: dl for dl in all_downloads}
-        # Build URI → GID map for case 3
         uri_to_gid: Dict[str, str] = {}
         for dl in all_downloads:
             for fi in dl.files or []:
@@ -646,17 +650,21 @@ class TorrentManager:
             ).fetchall()
 
         touched: Set[int] = set()
+        reset_torrents: Set[int] = set()
+
         for row in rows:
+            if row["torrent_id"] in reset_torrents:
+                continue  # whole torrent already scheduled for reset
+
             gid = str(row["download_id"] or "")
             dl = by_gid.get(gid)
 
             if dl is None:
-                # Case 3: GID missing — check if aria2 has it under the same URI
                 url = str(row["download_url"] or "").strip()
                 alt_gid = uri_to_gid.get(url)
                 if alt_gid:
+                    # Case 2: same URI under new GID — update and fall through to sync
                     dl = by_gid[alt_gid]
-                    # Update GID in DB to the current one
                     async with aiosqlite.connect(DB_PATH) as db:
                         await db.execute(
                             "UPDATE download_files SET download_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
@@ -665,13 +673,19 @@ class TorrentManager:
                         await db.commit()
                     logger.info("Reconciled GID %s → %s for %s", gid or "(none)", alt_gid, url)
                 else:
-                    # Case 2: truly gone from aria2 — treat as completed
-                    logger.info("Startup reconcile: GID %s not in aria2, marking completed (%s)", gid, row["file_id"])
-                    await self._update_file_state(row["file_id"], "completed", row["local_path"])
-                    touched.add(row["torrent_id"])
+                    # Case 3: gone — reset whole torrent and re-queue
+                    logger.info(
+                        "Startup reconcile: GID %s not in aria2 for torrent %s — resetting",
+                        gid, row["torrent_id"],
+                    )
+                    reset_torrents.add(row["torrent_id"])
+                    await self._reset_torrent_for_redownload(
+                        row["torrent_id"],
+                        f"aria2 entry lost (GID {gid}) — reset for re-download on startup",
+                    )
                     continue
 
-            # Case 1: GID found — sync status
+            # Cases 1 + 2: sync status from aria2
             if dl.status in {"complete", "removed"}:
                 await self._update_file_state(row["file_id"], "completed", row["local_path"])
                 await self.aria2().remove(dl.gid)
@@ -691,10 +705,20 @@ class TorrentManager:
         for torrent_id in touched:
             await self._finalize_aria2_torrent(torrent_id)
 
+        for torrent_id in reset_torrents:
+            async with aiosqlite.connect(DB_PATH) as db:
+                db.row_factory = aiosqlite.Row
+                t = await (await db.execute(
+                    "SELECT alldebrid_id, name FROM torrents WHERE id=?", (torrent_id,)
+                )).fetchone()
+            if t and t["alldebrid_id"]:
+                asyncio.create_task(
+                    self._start_download(torrent_id, str(t["alldebrid_id"]), str(t["name"] or ""))
+                )
+
         logger.info(
-            "Startup aria2 reconciliation complete: %d file(s) checked, %d torrent(s) finalized",
-            len(rows),
-            len(touched),
+            "Startup aria2 reconciliation: %d file(s) checked, %d finalized, %d reset",
+            len(rows), len(touched), len(reset_torrents),
         )
 
     async def _update_file_state(self, file_id: int, status: str, local_path: Optional[str], reason: Optional[str] = None):
@@ -939,6 +963,19 @@ class TorrentManager:
         if not all_magnets:
             return []
 
+        # Fetch aria2 state once — used to check per-file progress during import
+        aria2_by_uri: Dict[str, "Aria2DownloadStatus"] = {}
+        if self.download_client_name() == "aria2":
+            try:
+                for dl in await self.aria2().get_all():
+                    for fi in dl.files or []:
+                        for u in fi.get("uris", []) or []:
+                            uri = str(u.get("uri", "")).strip()
+                            if uri:
+                                aria2_by_uri[uri] = dl
+            except Exception as exc:
+                logger.warning("import_existing_magnets: could not fetch aria2 state: %s", exc)
+
         results = []
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
@@ -957,14 +994,7 @@ class TorrentManager:
                             """UPDATE torrents
                                SET name=?, alldebrid_id=?, provider_status=?, provider_status_code=?, download_client=?, updated_at=CURRENT_TIMESTAMP
                                WHERE id=?""",
-                            (
-                                name,
-                                ad_id,
-                                normalized["provider_status"],
-                                normalized["status_code"],
-                                self.download_client_name(),
-                                torrent_id,
-                            ),
+                            (name, ad_id, normalized["provider_status"], normalized["status_code"], self.download_client_name(), torrent_id),
                         )
                     else:
                         should_queue = False
@@ -973,33 +1003,83 @@ class TorrentManager:
                         """INSERT INTO torrents
                            (hash, name, alldebrid_id, status, source, provider_status, provider_status_code, download_client)
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (
-                            hash_value,
-                            name,
-                            ad_id,
-                            normalized["local_status"],
-                            "alldebrid_existing",
-                            normalized["provider_status"],
-                            normalized["status_code"],
-                            self.download_client_name(),
-                        ),
+                        (hash_value, name, ad_id, normalized["local_status"], "alldebrid_existing",
+                         normalized["provider_status"], normalized["status_code"], self.download_client_name()),
                     )
                     torrent_id = cur.lastrowid
-                results.append(
-                    {
-                        "hash": hash_value,
-                        "name": name,
-                        "id": ad_id,
-                        "status": normalized["local_status"],
-                        "torrent_id": torrent_id,
-                        "should_queue": should_queue,
-                    }
-                )
+                results.append({
+                    "hash": hash_value,
+                    "name": name,
+                    "id": ad_id,
+                    "status": normalized["local_status"],
+                    "torrent_id": torrent_id,
+                    "should_queue": should_queue,
+                })
             await db.commit()
 
         for item in results:
-            if item["status"] == "ready" and item["should_queue"]:
-                asyncio.create_task(self._start_download(item["torrent_id"], item["id"], item["name"]))
+            if item["status"] != "ready" or not item["should_queue"]:
+                continue
+
+            torrent_id = item["torrent_id"]
+            ad_id = item["id"]
+
+            # When using aria2, check existing download_files against aria2 state
+            # before blindly re-queuing everything.
+            #
+            # Why URI-based and not GID-based:
+            # aria2 GIDs are ephemeral — they are assigned at queue time and are not
+            # persisted across aria2 restarts. After an aria2 restart all stopped/complete
+            # entries are gone and active ones get new GIDs. The only stable identifier
+            # we share with aria2 is the download URL (the unlocked AllDebrid link stored
+            # in download_files.download_url).
+            #
+            # Note: unlocked AllDebrid links expire after some time, so for a torrent
+            # that has never been through _download() (no download_files rows yet) we
+            # cannot match against aria2 at all — we simply call _start_download which
+            # generates fresh links and lets ensure_download handle deduplication.
+            if self.download_client_name() == "aria2":
+                async with aiosqlite.connect(DB_PATH) as db:
+                    db.row_factory = aiosqlite.Row
+                    file_rows = await (
+                        await db.execute(
+                            "SELECT id AS file_id, download_url, download_id, local_path, status "
+                            "FROM download_files WHERE torrent_id=? AND blocked=0 AND download_client='aria2'",
+                            (torrent_id,),
+                        )
+                    ).fetchall()
+
+                if file_rows:
+                    completed = 0
+                    needs_reset = False
+                    for fr in file_rows:
+                        url = str(fr["download_url"] or "").strip()
+                        dl = aria2_by_uri.get(url)
+                        if dl is None:
+                            # Not tracked in aria2 — needs re-queue
+                            needs_reset = True
+                        elif dl.status in {"complete", "removed"}:
+                            await self._update_file_state(fr["file_id"], "completed", fr["local_path"])
+                            await self.aria2().remove(dl.gid)
+                            completed += 1
+                        elif dl.status == "error":
+                            reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
+                            await self._update_file_state(fr["file_id"], "error", fr["local_path"], reason=reason)
+                            await self.aria2().remove(dl.gid)
+                            needs_reset = True
+                        # active/waiting/paused → already tracked, no action needed
+
+                    if needs_reset:
+                        await self._reset_torrent_for_redownload(
+                            torrent_id, "Partial/missing aria2 state on import — reset for re-download"
+                        )
+                        asyncio.create_task(self._start_download(torrent_id, ad_id, item["name"]))
+                    else:
+                        # All files accounted for — let _finalize decide if we're done
+                        await self._finalize_aria2_torrent(torrent_id)
+                    continue  # handled above
+
+            asyncio.create_task(self._start_download(torrent_id, ad_id, item["name"]))
         return results
 
     async def delete_torrent(self, torrent_id: int, delete_from_ad: bool = True):
