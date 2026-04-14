@@ -40,16 +40,13 @@ class Aria2Service:
         }
 
     async def get_all(self) -> List[Aria2DownloadStatus]:
-        token_prefix = [f"token:{self.secret}"] if self.secret else []
-        methods = [
-            {"methodName": "aria2.tellActive", "params": token_prefix + [self._keys()]},
-            {"methodName": "aria2.tellWaiting", "params": token_prefix + [0, 1000, self._keys()]},
-            {"methodName": "aria2.tellStopped", "params": token_prefix + [0, 1000, self._keys()]},
-        ]
-        results = await self._call_multicall(methods)
         downloads: List[Aria2DownloadStatus] = []
-        for entry in results or []:
-            payload = entry[0] if isinstance(entry, list) and entry else []
+        results = await asyncio.gather(
+            self._call("aria2.tellActive", [self._keys()]),
+            self._call("aria2.tellWaiting", [0, 1000, self._keys()]),
+            self._call("aria2.tellStopped", [0, 1000, self._keys()]),
+        )
+        for payload in results:
             for raw in payload or []:
                 downloads.append(self._normalize(raw))
         return downloads

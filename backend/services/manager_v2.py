@@ -416,6 +416,7 @@ class TorrentManager:
         transferred_items: List[dict] = []
         queued_items: List[dict] = []
         failed_items: List[dict] = []
+        seen_queue_keys: Set[Tuple[str, str]] = set()
 
         for file_info in flat_files:
             relative_path = file_info.get("path") or file_info.get("name") or "download.bin"
@@ -424,6 +425,12 @@ class TorrentManager:
             blocked, reason = is_blocked(display_name, cfg, file_size)
             source_link = file_info["link"]
             local_path = destination_root / safe_rel_path(display_name)
+            dedupe_key = (display_name.lower(), source_link.strip())
+
+            if dedupe_key in seen_queue_keys:
+                logger.info("Skipping duplicate AllDebrid file entry for %s", display_name)
+                continue
+            seen_queue_keys.add(dedupe_key)
 
             if blocked:
                 blocked_items.append({"filename": display_name, "size_bytes": file_size, "reason": reason})

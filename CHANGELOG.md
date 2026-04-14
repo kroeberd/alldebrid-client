@@ -12,6 +12,13 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.5.1] - 2026-04-14
+
+### Fixed
+- Replaced the aria2 sync `system.multicall` polling with individual RPC calls so authenticated aria2 setups no longer fail with `The parameter at 0 has wrong type`
+- Prevented duplicate queueing when AllDebrid or a repeated start path yields the same file entry more than once during aria2 preparation
+- Restored correct aria2 state reconciliation so queued/downloading jobs are no longer misclassified as local errors just because sync polling failed
+
 ## [0.5.0] - 2026-04-14
 
 ### Added
