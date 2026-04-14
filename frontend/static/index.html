@@ -1050,11 +1050,16 @@ async function loadDetailedStats() {
 }
 
 async function loadChangelog() {
+  const el = document.getElementById('changelog-content');
+  el.innerHTML = '<p style="color:var(--text3)">Loading…</p>';
   try {
     const data = await api('GET', '/meta/changelog');
     const md = data.content || 'No changelog content found.';
-    document.getElementById('changelog-content').innerHTML = renderMarkdown(md);
-  } catch(e) { toast(e.message,'error'); }
+    el.innerHTML = renderMarkdown(md);
+  } catch(e) {
+    el.innerHTML = `<p style="color:#f87171">Failed to load changelog: ${e.message}</p>`;
+    toast(e.message, 'error');
+  }
 }
 
 function renderMarkdown(md) {
@@ -1064,22 +1069,24 @@ function renderMarkdown(md) {
   let inList = false;
   for (let raw of lines) {
     const line = raw.trimEnd();
-    if (/^#{1}\s/.test(line)) {
+    // Check from most specific (###) to least (# ) to avoid false matches
+    if (/^#{3,}\s/.test(line)) {
       if (inList) { html += '</ul>'; inList = false; }
-      html += `<h1>${escape(line.replace(/^#+\s*/,''))}</h1>`;
+      html += `<h3>${escape(line.replace(/^#+\s*/,''))}</h3>`;
     } else if (/^#{2}\s/.test(line)) {
       if (inList) { html += '</ul>'; inList = false; }
       html += `<h2>${escape(line.replace(/^#+\s*/,''))}</h2>`;
-    } else if (/^#{3,}\s/.test(line)) {
+    } else if (/^#\s/.test(line)) {
       if (inList) { html += '</ul>'; inList = false; }
-      html += `<h3>${escape(line.replace(/^#+\s*/,''))}</h3>`;
+      html += `<h1>${escape(line.replace(/^#+\s*/,''))}</h1>`;
     } else if (/^[-*]\s/.test(line)) {
       if (!inList) { html += '<ul>'; inList = true; }
       html += `<li>${escape(line.replace(/^[-*]\s+/,''))}</li>`;
-    } else if (line === '' || line === '---') {
+    } else if (line === '---') {
       if (inList) { html += '</ul>'; inList = false; }
-      if (line === '---') html += '<hr>';
-      else html += '<br>';
+      html += '<hr>';
+    } else if (line === '') {
+      if (inList) { html += '</ul>'; inList = false; }
     } else {
       if (inList) { html += '</ul>'; inList = false; }
       html += `<p>${escape(line)}</p>`;
