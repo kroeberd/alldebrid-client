@@ -202,13 +202,20 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
   background: #09101d;
   border:1px solid var(--border);
   border-radius: var(--radius);
-  padding:20px;
-  font-family: var(--mono);
-  font-size:12px;
+  padding:20px 24px;
+  font-family: var(--font);
+  font-size:13px;
   line-height:1.7;
-  white-space: pre-wrap;
   color: #dbe7ff;
 }
+.changelog-shell h1 { font-size:17px; font-weight:700; color:#fff; margin:18px 0 6px; border-bottom:1px solid var(--border); padding-bottom:6px; }
+.changelog-shell h2 { font-size:14px; font-weight:700; color:#a5c8ff; margin:14px 0 4px; }
+.changelog-shell h3 { font-size:13px; font-weight:600; color:#7ba8e0; margin:10px 0 3px; }
+.changelog-shell ul { margin:4px 0 8px 18px; padding:0; }
+.changelog-shell li { margin:2px 0; color:#c8daf5; }
+.changelog-shell p  { margin:3px 0; color:#dbe7ff; }
+.changelog-shell hr { border:none; border-top:1px solid var(--border); margin:12px 0; }
+.changelog-shell br { display:block; content:''; margin:2px 0; }
 
 /* ── Card ── */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 18px; }
@@ -275,6 +282,17 @@ td { padding: 11px 16px; vertical-align: middle; }
 .form-group { display: flex; flex-direction: column; gap: 5px; }
 .form-label { font-size: 11px; font-weight: 600; color: var(--text2); letter-spacing: .04em; }
 .form-hint  { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.info-details { margin-top: 6px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.info-details summary { font-size: 11px; font-weight: 600; color: var(--text2); padding: 7px 10px; cursor: pointer; user-select: none; list-style: none; display: flex; align-items: center; gap: 6px; background: var(--surface); }
+.info-details summary::-webkit-details-marker { display: none; }
+.info-details summary::before { content: '▶'; font-size: 9px; transition: transform 0.15s; display: inline-block; color: var(--text3); }
+.info-details[open] summary::before { transform: rotate(90deg); }
+.info-details-body { padding: 10px 12px; background: var(--bg); border-top: 1px solid var(--border); font-size: 11px; color: var(--text2); display: flex; flex-direction: column; gap: 10px; }
+.info-mode { display: flex; flex-direction: column; gap: 3px; }
+.info-mode-title { font-weight: 700; font-size: 11px; color: var(--text1); }
+.info-mode-desc { color: var(--text2); line-height: 1.5; }
+.info-mode-pros { color: #4ade80; font-size: 10px; margin-top: 2px; }
+.info-mode-cons { color: #f87171; font-size: 10px; margin-top: 1px; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .toggle-info .tl { font-size: 13px; font-weight: 600; }
 .toggle-info .td { font-size: 11px; color: var(--text2); margin-top: 1px; }
@@ -506,7 +524,7 @@ textarea.input { resize: vertical; }
         <div class="metric-card">
           <div class="metric-label">Library</div>
           <div class="metric-value">â€”</div>
-          <div class="metric-sub">Loading detailed statisticsâ€¦</div>
+          <div class="metric-sub">Loading detailed statistics…</div>
         </div>
       </div>
 
@@ -515,13 +533,13 @@ textarea.input { resize: vertical; }
           <div class="card-header">
             <span class="card-title">Torrent Status</span>
           </div>
-          <div class="card-body" id="detail-torrent-status"><div class="empty">Loadingâ€¦</div></div>
+          <div class="card-body" id="detail-torrent-status"><div class="empty">Loading…</div></div>
         </div>
         <div class="list-card">
           <div class="card-header">
             <span class="card-title">File Status</span>
           </div>
-          <div class="card-body" id="detail-file-status"><div class="empty">Loadingâ€¦</div></div>
+          <div class="card-body" id="detail-file-status"><div class="empty">Loading…</div></div>
         </div>
       </div>
 
@@ -530,13 +548,13 @@ textarea.input { resize: vertical; }
           <div class="card-header">
             <span class="card-title">Monitor Levels</span>
           </div>
-          <div class="card-body" id="detail-event-levels"><div class="empty">Loadingâ€¦</div></div>
+          <div class="card-body" id="detail-event-levels"><div class="empty">Loading…</div></div>
         </div>
         <div class="list-card">
           <div class="card-header">
             <span class="card-title">Latest Signals</span>
           </div>
-          <div class="card-body" id="detail-latest-events"><div class="empty">Loadingâ€¦</div></div>
+          <div class="card-body" id="detail-latest-events"><div class="empty">Loading…</div></div>
         </div>
       </div>
     </div>
@@ -549,7 +567,7 @@ textarea.input { resize: vertical; }
           <button class="btn btn-ghost btn-sm" onclick="loadChangelog()">Refresh</button>
         </div>
         <div style="padding:18px">
-          <div class="changelog-shell" id="changelog-content">Loadingâ€¦</div>
+          <div class="changelog-shell" id="changelog-content">Loading…</div>
         </div>
       </div>
     </div>
@@ -1034,8 +1052,41 @@ async function loadDetailedStats() {
 async function loadChangelog() {
   try {
     const data = await api('GET', '/meta/changelog');
-    document.getElementById('changelog-content').textContent = data.content || 'No changelog content found.';
+    const md = data.content || 'No changelog content found.';
+    document.getElementById('changelog-content').innerHTML = renderMarkdown(md);
   } catch(e) { toast(e.message,'error'); }
+}
+
+function renderMarkdown(md) {
+  const escape = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const lines = md.split('\n');
+  let html = '';
+  let inList = false;
+  for (let raw of lines) {
+    const line = raw.trimEnd();
+    if (/^#{1}\s/.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h1>${escape(line.replace(/^#+\s*/,''))}</h1>`;
+    } else if (/^#{2}\s/.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h2>${escape(line.replace(/^#+\s*/,''))}</h2>`;
+    } else if (/^#{3,}\s/.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h3>${escape(line.replace(/^#+\s*/,''))}</h3>`;
+    } else if (/^[-*]\s/.test(line)) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${escape(line.replace(/^[-*]\s+/,''))}</li>`;
+    } else if (line === '' || line === '---') {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (line === '---') html += '<hr>';
+      else html += '<br>';
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p>${escape(line)}</p>`;
+    }
+  }
+  if (inList) html += '</ul>';
+  return html;
 }
 
 async function loadSettings() {
@@ -1099,6 +1150,44 @@ function renderSettings() {
             <option value="aria2" ${(s.download_client||'direct')==='aria2'?'selected':''}>aria2</option>
           </select>
           <span class="form-hint">Use direct downloads inside the app or hand off links to aria2 via JSON-RPC.</span>
+          <details class="info-details">
+            <summary>How do the delivery modes work?</summary>
+            <div class="info-details-body">
+              <div class="info-mode">
+                <div class="info-mode-title">⬇️ Direct download</div>
+                <div class="info-mode-desc">
+                  The app fetches each file itself, streaming it directly to the configured download folder.
+                  No external tool is needed. The app unlocks the AllDebrid link, opens an HTTP connection, and writes the data chunk by chunk.
+                  Progress is tracked internally and the torrent is marked complete once all files are written.
+                </div>
+                <div class="info-mode-pros">✔ Zero setup — works out of the box · no extra container needed</div>
+                <div class="info-mode-cons">✖ Slower for large batches · no resume on app restart · ties up app memory during download</div>
+              </div>
+              <div class="info-mode">
+                <div class="info-mode-title">⚡ aria2</div>
+                <div class="info-mode-desc">
+                  The app unlocks each AllDebrid link and hands the resulting URL to aria2 via JSON-RPC.
+                  aria2 then handles the actual download entirely on its own — it decides how many connections to open,
+                  where to write the file, whether to segment the transfer, and when it is complete.
+                  The app only monitors aria2's reported status (<code>active / waiting / complete / error</code>)
+                  and updates its internal state accordingly. When aria2 reports a download as complete,
+                  the app marks the file done, removes the entry from aria2, and — once all files of a torrent
+                  are finished — deletes the torrent from AllDebrid.
+                </div>
+                <div class="info-mode-pros">✔ Faster multi-connection downloads · resumable · aria2 manages bandwidth &amp; concurrency · works across Docker volumes</div>
+                <div class="info-mode-cons">✖ Requires a running aria2 instance with RPC enabled · needs correct RPC URL and optional secret configured below</div>
+              </div>
+              <div class="info-mode">
+                <div class="info-mode-title">📁 aria2 Download Root</div>
+                <div class="info-mode-desc">
+                  Only relevant in aria2 mode. When the app and aria2 run in separate Docker containers,
+                  their views of the filesystem differ. Set this to the path that aria2 uses as its download
+                  root (e.g. <code>/downloads</code>) so the app constructs the correct <code>dir</code> and
+                  <code>out</code> options when submitting jobs. Leave empty if both containers share the same mount path.
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 RPC URL</label>

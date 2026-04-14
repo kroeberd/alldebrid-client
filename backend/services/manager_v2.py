@@ -564,9 +564,10 @@ class TorrentManager:
             local_path = Path(row["local_path"]) if row["local_path"] else None
 
             if status is None:
-                if local_path and local_path.exists():
-                    await self._update_file_state(row["file_id"], "completed", str(local_path))
-                    touched.add(row["torrent_id"])
+                # GID no longer in aria2 — it was removed (e.g. after a restart or manual cleanup).
+                # Treat as completed; aria2 is the authority and it no longer tracks this download.
+                await self._update_file_state(row["file_id"], "completed", row["local_path"])
+                touched.add(row["torrent_id"])
                 continue
 
             if status.status == "paused":
@@ -610,6 +611,8 @@ class TorrentManager:
             if not torrent or _terminal_torrent_status(torrent["status"]):
                 return
 
+            torrent_dict = dict(torrent)  # always available below
+
             counts = await (
                 await db.execute(
                     """SELECT
@@ -617,7 +620,8 @@ class TorrentManager:
                            SUM(CASE WHEN blocked=0 AND status='completed' THEN 1 ELSE 0 END) AS completed_count,
                            SUM(CASE WHEN blocked=0 AND status='error' THEN 1 ELSE 0 END) AS error_count,
                            SUM(CASE WHEN blocked=0 AND status IN ('queued', 'downloading', 'paused') THEN 1 ELSE 0 END) AS active_count,
-                           SUM(CASE WHEN blocked=0 AND status='paused' THEN 1 ELSE 0 END) AS paused_count
+                           SUM(CASE WHEN blocked=0 AND status='paused' THEN 1 ELSE 0 END) AS paused_count,
+                           COUNT(*) AS total_files
                        FROM download_files WHERE torrent_id=?""",
                     (torrent_id,),
                 )
@@ -628,31 +632,20 @@ class TorrentManager:
             error_count = int(counts["error_count"] or 0)
             active_count = int(counts["active_count"] or 0)
             paused_count = int(counts["paused_count"] or 0)
+            total_files = int(counts["total_files"] or 0)
 
-            # All files were filtered/blocked — nothing to download, treat as completed.
-            if required_count == 0:
-                total_files = await (
-                    await db.execute("SELECT COUNT(*) FROM download_files WHERE torrent_id=?", (torrent_id,))
-                ).fetchone()
-                total = int((total_files or [0])[0])
-                if total > 0:
-                    await db.execute(
-                        "UPDATE torrents SET status='completed', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                        (torrent_id,),
-                    )
-                    await db.execute("INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)", (torrent_id, "info", "All files were filtered/blocked — marked completed"))
-                    await db.commit()
-                    torrent_dict = dict(torrent)
-                else:
-                    return
+            should_complete = False
+
+            if total_files == 0:
+                # No file records yet — _download() hasn't run, nothing to do
+                return
+            elif required_count == 0:
+                # All files were filtered/blocked — nothing to download
+                should_complete = True
+                event_msg = "All files were filtered/blocked — marked completed"
             elif required_count > 0 and completed_count == required_count and error_count == 0 and active_count == 0:
-                await db.execute(
-                    "UPDATE torrents SET status='completed', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    (torrent_id,),
-                )
-                await db.execute("INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)", (torrent_id, "info", f"aria2 completed {completed_count} files"))
-                await db.commit()
-                torrent_dict = dict(torrent)
+                should_complete = True
+                event_msg = f"aria2 completed {completed_count} files"
             elif error_count > 0 and active_count == 0:
                 await db.execute(
                     "UPDATE torrents SET status='error', error_message='One or more aria2 transfers failed', updated_at=CURRENT_TIMESTAMP WHERE id=?",
@@ -660,7 +653,7 @@ class TorrentManager:
                 )
                 await db.commit()
                 if get_settings().discord_notify_error:
-                    await self.notify().send("Error", f"**{torrent['name']}**\nOne or more aria2 transfers failed", 0xEF4444)
+                    await self.notify().send("Error", f"**{torrent_dict['name']}**\nOne or more aria2 transfers failed", 0xEF4444)
                 return
             elif active_count > 0:
                 new_status = "paused" if paused_count == active_count else "downloading"
@@ -669,6 +662,14 @@ class TorrentManager:
                 return
             else:
                 return
+
+            if should_complete:
+                await db.execute(
+                    "UPDATE torrents SET status='completed', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (torrent_id,),
+                )
+                await db.execute("INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)", (torrent_id, "info", event_msg))
+                await db.commit()
 
         await self._delete_magnet_after_completion(torrent_id, torrent_dict["alldebrid_id"])
         await self._mark_finished(torrent_id)
@@ -779,10 +780,24 @@ class TorrentManager:
 
     async def _delete_magnet_after_completion(self, torrent_id: int, ad_id: str) -> bool:
         deleted = await self.ad().delete_magnet(ad_id)
-        if deleted:
-            await self._log_event(torrent_id, "info", "Removed from AllDebrid after completion")
-        else:
-            await self._log_event(torrent_id, "warn", "Finished, but removal from AllDebrid failed")
+        async with aiosqlite.connect(DB_PATH) as db:
+            if deleted:
+                # Mark as deleted so import_existing_magnets and sync_alldebrid_status
+                # never pick this torrent up again, even if AllDebrid still lists it briefly.
+                await db.execute(
+                    "UPDATE torrents SET status='deleted', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (torrent_id,),
+                )
+                await db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
+                    (torrent_id, "info", "Removed from AllDebrid after completion"),
+                )
+            else:
+                await db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
+                    (torrent_id, "warn", "Finished, but removal from AllDebrid failed — will retry next cycle"),
+                )
+            await db.commit()
         return deleted
 
     async def _mark_finished(self, torrent_id: int):

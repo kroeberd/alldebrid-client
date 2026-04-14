@@ -165,11 +165,27 @@ async def delete_torrent(torrent_id: int, from_alldebrid: bool = True):
 @router.post("/torrents/{torrent_id}/retry")
 async def retry_torrent(torrent_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        row = await (await db.execute(
+            "SELECT alldebrid_id, name, provider_status FROM torrents WHERE id=?", (torrent_id,)
+        )).fetchone()
+        if not row:
+            raise HTTPException(404, "Torrent not found")
         await db.execute(
-            "UPDATE torrents SET status='pending',error_message=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            "UPDATE torrents SET status='pending', error_message=NULL, polling_failures=0, updated_at=CURRENT_TIMESTAMP WHERE id=?",
             (torrent_id,),
         )
+        await db.execute(
+            "DELETE FROM download_files WHERE torrent_id=?", (torrent_id,)
+        )
         await db.commit()
+
+    # If AllDebrid already has the files ready, kick off the download immediately
+    # rather than waiting for the next sync_alldebrid_status cycle.
+    if row["provider_status"] == "ready" and row["alldebrid_id"]:
+        import asyncio
+        asyncio.create_task(manager._start_download(torrent_id, str(row["alldebrid_id"]), str(row["name"] or "")))
+
     return {"ok": True}
 
 
