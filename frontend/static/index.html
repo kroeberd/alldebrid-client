@@ -369,7 +369,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver">v0.5.4</div>
+      <div class="logo-ver">v0.6.0</div>
     </div>
   </div>
   <nav>
@@ -418,7 +418,7 @@ textarea.input { resize: vertical; }
 
     <!-- Dashboard -->
     <div class="view active" id="view-dashboard">
-      <div class="beta-banner">v0.5.4 matches aria2 jobs by stable target path before expiring AllDebrid links.</div>
+      <div class="beta-banner">v0.6.0 runs aria2 in configurable slots so the next file only starts when a previous one finishes or fails.</div>
 
       <div class="insight-grid" style="margin-bottom:18px">
         <div class="insight-card">
@@ -1216,6 +1216,11 @@ function renderSettings() {
           <label class="form-label">aria2 Timeout (seconds)</label>
           <input class="input" type="number" id="s-aria2_operation_timeout_seconds" value="${s.aria2_operation_timeout_seconds||15}" min="5" max="120"/>
         </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Simultaneous Downloads</label>
+          <input class="input" type="number" id="s-aria2_max_active_downloads" value="${s.aria2_max_active_downloads||s.max_concurrent_downloads||3}" min="1" max="50"/>
+          <span class="form-hint">Only this many files are handed to aria2 at once. Remaining files stay pending until a slot becomes free.</span>
+        </div>
         <div class="toggle-row">
           <div class="toggle-info">
             <div class="tl">Start aria2 Jobs Paused</div>
@@ -1312,6 +1317,7 @@ function getFormSettings() {
     aria2_secret: t('aria2_secret'),
     aria2_download_path: t('aria2_download_path'),
     aria2_operation_timeout_seconds: n('aria2_operation_timeout_seconds') || 15,
+    aria2_max_active_downloads: n('aria2_max_active_downloads') || n('max_concurrent_downloads') || 3,
     aria2_start_paused: c('aria2_start_paused'),
     aria2_poll_interval_seconds: 5,
     discord_webhook_url: t('discord_webhook_url'),

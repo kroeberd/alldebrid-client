@@ -9,7 +9,7 @@
   <Support>https://github.com/kroeberd/alldebrid-client/issues</Support>
   <Project>https://github.com/kroeberd/alldebrid-client</Project>
   <Overview>
-[b]AllDebrid-Client v0.5.4[/b] Matches aria2 jobs by stable target path before expiring AllDebrid links and avoids false reset/requeue loops.
+[b]AllDebrid-Client v0.6.0[/b] Runs aria2 in configurable slots so files are only handed off when capacity is free, while keeping path-based matching and dedupe in place.
 
 Automated torrent/magnet downloading via AllDebrid with a clean Web UI.
 

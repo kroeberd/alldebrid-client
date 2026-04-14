@@ -12,6 +12,16 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.6.0] - 2026-04-14
+
+### Added
+- Added a dedicated `aria2_max_active_downloads` setting so the app can limit how many files are handed to aria2 at the same time
+- Added slot-based aria2 dispatching: files are prepared as `pending` first and only move into aria2 when a global slot becomes free
+
+### Changed
+- aria2 mode now behaves like a controlled work queue instead of submitting every unlocked file immediately
+- Pending aria2 files are now unlocked and submitted only when they are about to start, reducing dependence on long-lived AllDebrid download URLs
+
 ## [0.5.4] - 2026-04-14
 
 ### Fixed

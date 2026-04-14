@@ -153,6 +153,7 @@ class TorrentManager:
         self._active: Set[int] = set()
         self._processing_files: Set[str] = set()
         self._failed_files: Set[str] = set()
+        self._aria2_dispatch_lock = asyncio.Lock()
 
     def is_paused(self) -> bool:
         return bool(get_settings().paused)
@@ -472,27 +473,15 @@ class TorrentManager:
                     continue
 
                 if client_name == "aria2":
-                    remote_path = self._remote_aria2_path(local_path)
-                    remote_dir = str(PurePosixPath(remote_path).parent)
-                    remote_name = PurePosixPath(remote_path).name
-                    aria2_options = {"dir": remote_dir, "out": remote_name}
-                    gid = await _retry_async(
-                        self.aria2().ensure_download,
-                        download_url,
-                        aria2_options,
-                        cfg.aria2_start_paused,
-                    )
-                    queued_status = "paused" if cfg.aria2_start_paused else "queued"
                     queued_items.append({"filename": display_name, "size_bytes": file_size})
                     await self._log_file(
                         torrent_id,
                         display_name,
-                        download_url,
+                        source_link,
                         str(local_path),
-                        queued_status,
+                        "pending",
                         None,
                         file_size,
-                        download_id=gid,
                         download_client="aria2",
                     )
                 else:
@@ -527,9 +516,9 @@ class TorrentManager:
         if failed_count == 0 and completed_count == downloadable_count and downloadable_count > 0:
             final_status = "completed"
         elif failed_count == 0 and completed_count + queued_count == downloadable_count and queued_count > 0:
-            final_status = "paused" if cfg.aria2_start_paused else "queued"
+            final_status = "queued"
         elif blocked_count > 0 and failed_count == 0 and completed_count + queued_count > 0:
-            final_status = "paused" if queued_count > 0 and cfg.aria2_start_paused else ("queued" if queued_count > 0 else "completed")
+            final_status = "queued" if queued_count > 0 else "completed"
         else:
             final_status = "error"
 
@@ -564,8 +553,9 @@ class TorrentManager:
             await self._log_event(
                 torrent_id,
                 "info",
-                "Queued in aria2 and waiting for transfer completion" if final_status == "queued" else "Queued in aria2 as paused",
+                "Prepared for slot-based aria2 delivery",
             )
+            await self._dispatch_pending_aria2_queue()
         else:
             if cfg.discord_notify_error:
                 await self.notify().send("Error", f"**{name}**\nKept on AllDebrid for inspection", 0xEF4444)
@@ -603,6 +593,77 @@ class TorrentManager:
                         uri_to_dl[uri] = dl
         return by_gid, uri_to_dl, path_to_dl
 
+    def _aria2_slot_limit(self) -> int:
+        cfg = get_settings()
+        value = int(getattr(cfg, "aria2_max_active_downloads", 0) or 0)
+        if value <= 0:
+            value = int(cfg.max_concurrent_downloads or 1)
+        return max(1, value)
+
+    async def _dispatch_pending_aria2_queue(self, all_downloads=None):
+        if self.download_client_name() != "aria2" or self.is_paused():
+            return
+
+        async with self._aria2_dispatch_lock:
+            current_downloads = all_downloads if all_downloads is not None else await self.aria2().get_all()
+            in_flight = [dl for dl in current_downloads if dl.status in {"active", "waiting", "paused"}]
+            available_slots = max(0, self._aria2_slot_limit() - len(in_flight))
+            if available_slots <= 0:
+                return
+
+            async with aiosqlite.connect(DB_PATH) as db:
+                db.row_factory = aiosqlite.Row
+                pending_rows = await (
+                    await db.execute(
+                        """SELECT f.id AS file_id, f.torrent_id, f.filename, f.download_url, f.local_path, t.name AS torrent_name
+                           FROM download_files f
+                           JOIN torrents t ON t.id = f.torrent_id
+                           WHERE f.download_client='aria2'
+                             AND f.blocked=0
+                             AND f.status='pending'
+                             AND t.status NOT IN ('completed','deleted','error')
+                           ORDER BY f.id ASC
+                           LIMIT ?""",
+                        (available_slots,),
+                    )
+                ).fetchall()
+
+            for row in pending_rows:
+                source_link = str(row["download_url"] or "").strip()
+                local_path = Path(row["local_path"])
+                try:
+                    unlocked = await _retry_async(self.ad().unlock_link, source_link)
+                    download_url = unlocked.get("link", "")
+                    if not download_url:
+                        raise Exception("Empty download URL from unlock")
+
+                    remote_path = self._remote_aria2_path(local_path)
+                    remote_dir = str(PurePosixPath(remote_path).parent)
+                    remote_name = PurePosixPath(remote_path).name
+                    gid = await _retry_async(
+                        self.aria2().ensure_download,
+                        download_url,
+                        {"dir": remote_dir, "out": remote_name},
+                        get_settings().aria2_start_paused,
+                    )
+                    queued_status = "paused" if get_settings().aria2_start_paused else "queued"
+                    async with aiosqlite.connect(DB_PATH) as db:
+                        await db.execute(
+                            """UPDATE download_files
+                               SET status=?, download_id=?, download_url=?, updated_at=CURRENT_TIMESTAMP
+                               WHERE id=?""",
+                            (queued_status, gid, download_url, row["file_id"]),
+                        )
+                        await db.execute(
+                            "UPDATE torrents SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status NOT IN ('completed','deleted','error')",
+                            (queued_status if get_settings().aria2_start_paused else "queued", row["torrent_id"]),
+                        )
+                        await db.commit()
+                except Exception as exc:
+                    logger.error("aria2 dispatch failed [%s]: %s", row["filename"], exc)
+                    await self._update_file_state(row["file_id"], "error", row["local_path"], reason=str(exc))
+                    await self._finalize_aria2_torrent(row["torrent_id"])
+
     async def sync_download_clients(self):
         if self.download_client_name() == "aria2":
             await self.sync_aria2_downloads()
@@ -625,7 +686,7 @@ class TorrentManager:
                        JOIN download_files f ON f.torrent_id = t.id
                        WHERE f.download_client='aria2'
                          AND f.blocked=0
-                         AND f.status IN ('queued', 'downloading', 'paused')"""
+                         AND f.status IN ('pending', 'queued', 'downloading', 'paused')"""
                 )
             ).fetchall()
 
@@ -638,6 +699,9 @@ class TorrentManager:
                 continue  # _start_download/_download is running — leave it alone
 
             dl = by_gid.get(str(row["download_id"] or ""))
+
+            if row["status"] == "pending":
+                continue
 
             if dl is None:
                 remote_path = ""
@@ -715,6 +779,8 @@ class TorrentManager:
         for torrent_id in touched:
             await self._finalize_aria2_torrent(torrent_id)
 
+        await self._dispatch_pending_aria2_queue()
+
     async def _reset_torrent_for_redownload(self, torrent_id: int, reason: str):
         """Clear download_files and mark torrent as downloading so the sync loop
         ignores it while _start_download/_download re-runs and re-registers
@@ -764,7 +830,7 @@ class TorrentManager:
                        JOIN download_files f ON f.torrent_id = t.id
                        WHERE f.download_client='aria2'
                          AND f.blocked=0
-                         AND f.status IN ('queued', 'downloading', 'paused')"""
+                         AND f.status IN ('pending', 'queued', 'downloading', 'paused')"""
                 )
             ).fetchall()
 
@@ -774,6 +840,9 @@ class TorrentManager:
         for row in rows:
             if row["torrent_id"] in reset_torrents:
                 continue  # whole torrent already scheduled for reset
+
+            if row["status"] == "pending":
+                continue
 
             gid = str(row["download_id"] or "")
             dl = by_gid.get(gid)
@@ -849,6 +918,8 @@ class TorrentManager:
                 asyncio.create_task(
                     self._start_download(torrent_id, str(t["alldebrid_id"]), str(t["name"] or ""))
                 )
+
+        await self._dispatch_pending_aria2_queue()
 
     async def _dedupe_aria2_downloads_on_startup(self, all_downloads):
         by_uri: Dict[str, List] = {}
@@ -943,7 +1014,7 @@ class TorrentManager:
                            SUM(CASE WHEN blocked=0 THEN 1 ELSE 0 END) AS required_count,
                            SUM(CASE WHEN blocked=0 AND status='completed' THEN 1 ELSE 0 END) AS completed_count,
                            SUM(CASE WHEN blocked=0 AND status='error' THEN 1 ELSE 0 END) AS error_count,
-                           SUM(CASE WHEN blocked=0 AND status IN ('queued', 'downloading', 'paused') THEN 1 ELSE 0 END) AS active_count,
+                           SUM(CASE WHEN blocked=0 AND status IN ('pending', 'queued', 'downloading', 'paused') THEN 1 ELSE 0 END) AS active_count,
                            SUM(CASE WHEN blocked=0 AND status='paused' THEN 1 ELSE 0 END) AS paused_count,
                            COUNT(*) AS total_files
                        FROM download_files WHERE torrent_id=?""",
@@ -980,7 +1051,7 @@ class TorrentManager:
                     await self.notify().send("Error", f"**{torrent_dict['name']}**\nOne or more aria2 transfers failed", 0xEF4444)
                 return
             elif active_count > 0:
-                new_status = "paused" if paused_count == active_count else "downloading"
+                new_status = "paused" if paused_count == active_count and active_count > 0 else "queued"
                 await db.execute("UPDATE torrents SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", (new_status, torrent_id))
                 await db.commit()
                 return

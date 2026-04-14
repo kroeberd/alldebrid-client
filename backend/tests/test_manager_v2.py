@@ -239,6 +239,16 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(uri_to_dl["https://example.invalid/file"], download)
         self.assertIs(path_to_dl["/downloads/show/file.mp4"], download)
 
+    def test_aria2_slot_limit_uses_dedicated_setting(self):
+        from services.manager_v2 import TorrentManager
+
+        manager = TorrentManager()
+        with patch("services.manager_v2.get_settings", return_value=types.SimpleNamespace(
+            aria2_max_active_downloads=7,
+            max_concurrent_downloads=3,
+        )):
+            self.assertEqual(manager._aria2_slot_limit(), 7)
+
 
 if __name__ == "__main__":
     unittest.main()

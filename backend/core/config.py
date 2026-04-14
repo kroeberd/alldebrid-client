@@ -27,6 +27,7 @@ class AppSettings(BaseModel):
     aria2_operation_timeout_seconds: int = 15
     aria2_start_paused: bool = False
     aria2_poll_interval_seconds: int = 5
+    aria2_max_active_downloads: int = 3
 
     # Discord
     discord_webhook_url: str = ""
