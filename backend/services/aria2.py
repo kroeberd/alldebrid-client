@@ -61,46 +61,50 @@ class Aria2Service:
     async def ensure_download(
         self,
         uri: str,
-        remote_file_path: str,
+        options: Optional[Dict[str, Any]] = None,
         start_paused: bool = False,
         max_retries: int = 5,
     ) -> str:
-        all_downloads = await self.get_all()
-        matches = self._find_all_matching(uri, remote_file_path, all_downloads)
+        """Add a download to aria2 if not already present.
 
-        # If any match is already complete, clean up duplicates and return its gid.
+        Deduplication is done exclusively by URI — path comparison is unreliable
+        when the manager and aria2 run in separate containers with different mounts.
+
+        Returns the GID of the (existing or newly added) download.
+        """
+        all_downloads = await self.get_all()
+        matches = self._find_all_matching_by_uri(uri, all_downloads)
+
+        # Already finished — remove any stale duplicates, return the complete GID.
         for dl in matches:
             if dl.status in {"complete", "removed"}:
                 for dup in matches:
                     if dup.gid != dl.gid and dup.status not in {"complete", "removed"}:
+                        logger.warning("Removing stale duplicate aria2 entry %s for %s", dup.gid, uri)
                         await self.remove(dup.gid)
                 return dl.gid
 
-        # Remove duplicate active entries, keep the first one.
+        # Multiple active entries for the same URI — keep the first, drop the rest.
         if len(matches) > 1:
             for dup in matches[1:]:
-                logger.warning("Removing duplicate aria2 entry %s for %s", dup.gid, remote_file_path)
+                logger.warning("Removing duplicate aria2 entry %s for %s", dup.gid, uri)
                 await self.remove(dup.gid)
 
         if matches:
             existing = matches[0]
-            if start_paused and existing.status not in {"paused"}:
+            if start_paused and existing.status != "paused":
                 await self.pause(existing.gid)
             return existing.gid
 
-        remote = self._normalize_path(remote_file_path)
-        remote_dir = str(PurePosixPath(remote).parent)
-        remote_name = PurePosixPath(remote).name
-        options: Dict[str, Any] = {"dir": remote_dir, "out": remote_name}
+        rpc_options: Dict[str, Any] = dict(options or {})
         if start_paused:
-            options["pause"] = "true"
+            rpc_options["pause"] = "true"
 
         last_error: Optional[Exception] = None
         for attempt in range(1, max_retries + 1):
             try:
-                gid = await self._call("aria2.addUri", [[uri], options])
-                await self.tell_status(gid)
-                logger.info("Queued aria2 download %s -> %s (%s)", uri, remote, gid)
+                gid = await self._call("aria2.addUri", [[uri], rpc_options])
+                logger.info("Queued aria2 download %s (%s)", uri, gid)
                 return gid
             except Exception as exc:
                 last_error = exc
@@ -109,47 +113,40 @@ class Aria2Service:
                 delay = min(attempt * attempt, 10)
                 logger.warning(
                     "Unable to queue aria2 download on attempt %s/%s for %s, retrying in %ss: %s",
-                    attempt,
-                    max_retries,
-                    uri,
-                    delay,
-                    exc,
+                    attempt, max_retries, uri, delay, exc,
                 )
                 await asyncio.sleep(delay)
 
         raise Aria2RPCError(f"Unable to queue aria2 download for {uri}: {last_error}")
 
-    def _find_all_matching(
+    def _find_all_matching_by_uri(
         self,
         uri: str,
-        remote_file_path: str,
         all_downloads: List["Aria2DownloadStatus"],
     ) -> List["Aria2DownloadStatus"]:
-        """Return all downloads that match by URI or destination path, complete ones first."""
-        normalized_path = self._normalize_path(remote_file_path)
+        """Return all downloads whose URI list contains the given URI.
+        complete/removed entries are sorted first so they are detected early."""
+        uri = uri.strip()
         matched: List[Aria2DownloadStatus] = []
         for download in all_downloads:
             for file_info in download.files or []:
-                current_path = self._normalize_path(str(file_info.get("path", "")))
-                if current_path and current_path == normalized_path:
-                    matched.append(download)
-                    break
-                for current_uri in file_info.get("uris", []) or []:
-                    if str(current_uri.get("uri", "")).strip() == uri.strip():
+                for u in file_info.get("uris", []) or []:
+                    if str(u.get("uri", "")).strip() == uri:
                         matched.append(download)
                         break
-        # Sort: complete/removed first so they are detected before active duplicates
+                else:
+                    continue
+                break
         matched.sort(key=lambda d: 0 if d.status in {"complete", "removed"} else 1)
         return matched
 
     async def find_existing_download(
         self,
         uri: str,
-        remote_file_path: str,
-    ) -> Optional[Aria2DownloadStatus]:
-        """Return the first non-complete matching download, or None."""
+    ) -> Optional["Aria2DownloadStatus"]:
+        """Return the first active (non-complete) download for the given URI."""
         all_downloads = await self.get_all()
-        for dl in self._find_all_matching(uri, remote_file_path, all_downloads):
+        for dl in self._find_all_matching_by_uri(uri, all_downloads):
             if dl.status not in {"complete", "removed"}:
                 return dl
         return None

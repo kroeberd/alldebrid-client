@@ -420,10 +420,13 @@ class TorrentManager:
 
                 if client_name == "aria2":
                     remote_path = self._remote_aria2_path(local_path)
+                    remote_dir = str(PurePosixPath(remote_path).parent)
+                    remote_name = PurePosixPath(remote_path).name
+                    aria2_options = {"dir": remote_dir, "out": remote_name}
                     gid = await _retry_async(
                         self.aria2().ensure_download,
                         download_url,
-                        remote_path,
+                        aria2_options,
                         cfg.aria2_start_paused,
                     )
                     queued_status = "paused" if cfg.aria2_start_paused else "queued"
