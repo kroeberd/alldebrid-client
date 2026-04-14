@@ -94,6 +94,12 @@ def _aria2_status_rank(status: str) -> int:
     return order.get((status or "").strip().lower(), 99)
 
 
+def _normalize_aria2_path(path: str) -> str:
+    if not path:
+        return ""
+    return str(PurePosixPath(str(path).replace("\\", "/"))).strip()
+
+
 def normalize_provider_state(magnet: Dict) -> Dict[str, object]:
     code = int(magnet.get("statusCode", 0) or 0)
     size = int(magnet.get("size", 0) or 0)
@@ -582,6 +588,21 @@ class TorrentManager:
             return str(PurePosixPath(cfg.aria2_download_path.replace("\\", "/")) / PurePosixPath(str(relative).replace("\\", "/")))
         return str(PurePosixPath(str(local_path).replace("\\", "/")))
 
+    def _build_aria2_indexes(self, all_downloads):
+        by_gid = {download.gid: download for download in all_downloads}
+        uri_to_dl = {}
+        path_to_dl = {}
+        for dl in all_downloads:
+            for fi in dl.files or []:
+                current_path = _normalize_aria2_path(str(fi.get("path", "")))
+                if current_path:
+                    path_to_dl[current_path] = dl
+                for u in fi.get("uris", []) or []:
+                    uri = str(u.get("uri", "")).strip()
+                    if uri:
+                        uri_to_dl[uri] = dl
+        return by_gid, uri_to_dl, path_to_dl
+
     async def sync_download_clients(self):
         if self.download_client_name() == "aria2":
             await self.sync_aria2_downloads()
@@ -591,16 +612,7 @@ class TorrentManager:
             return
 
         all_downloads = await self.aria2().get_all()
-        by_gid = {download.gid: download for download in all_downloads}
-
-        # URI → download map for GID-mismatch recovery (aria2 restart, re-add, etc.)
-        uri_to_dl = {}
-        for dl in all_downloads:
-            for fi in dl.files or []:
-                for u in fi.get("uris", []) or []:
-                    uri = str(u.get("uri", "")).strip()
-                    if uri:
-                        uri_to_dl[uri] = dl
+        by_gid, uri_to_dl, path_to_dl = self._build_aria2_indexes(all_downloads)
 
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
@@ -628,9 +640,16 @@ class TorrentManager:
             dl = by_gid.get(str(row["download_id"] or ""))
 
             if dl is None:
-                # GID not found — check if the URI is still in aria2 under any GID
+                remote_path = ""
+                if row["local_path"]:
+                    try:
+                        remote_path = _normalize_aria2_path(self._remote_aria2_path(Path(row["local_path"])))
+                    except Exception:
+                        remote_path = _normalize_aria2_path(str(row["local_path"]))
                 url = str(row["download_url"] or "").strip()
-                dl = uri_to_dl.get(url) if url else None
+                dl = path_to_dl.get(remote_path) if remote_path else None
+                if dl is None and url:
+                    dl = uri_to_dl.get(url)
 
                 if dl is not None:
                     # Found under different GID — update DB and fall through to status sync
@@ -640,12 +659,17 @@ class TorrentManager:
                             (dl.gid, row["file_id"]),
                         )
                         await db.commit()
-                    logger.info("Synced stale GID → %s for %s", dl.gid, url)
-                elif url:
-                    # URI not in aria2 at all — cannot confirm completion, reset to be safe
                     logger.info(
-                        "sync_aria2: URI not in aria2 for torrent %s file %s — scheduling reset",
-                        row["torrent_id"], row["file_id"],
+                        "Synced stale GID -> %s for torrent %s file %s via %s",
+                        dl.gid,
+                        row["torrent_id"],
+                        row["file_id"],
+                        "path" if remote_path and path_to_dl.get(remote_path) is dl else "url",
+                    )
+                elif remote_path or url:
+                    logger.info(
+                        "sync_aria2: aria2 entry not found for torrent %s file %s (path=%s, url=%s) -> scheduling reset",
+                        row["torrent_id"], row["file_id"], remote_path or "-", url or "-",
                     )
                     reset_on_sync.add(row["torrent_id"])
                     continue
@@ -727,14 +751,7 @@ class TorrentManager:
 
         all_downloads = await self._dedupe_aria2_downloads_on_startup(all_downloads)
 
-        by_gid = {dl.gid: dl for dl in all_downloads}
-        uri_to_gid: Dict[str, str] = {}
-        for dl in all_downloads:
-            for fi in dl.files or []:
-                for u in fi.get("uris", []) or []:
-                    uri = str(u.get("uri", "")).strip()
-                    if uri:
-                        uri_to_gid[uri] = dl.gid
+        by_gid, uri_to_dl, path_to_dl = self._build_aria2_indexes(all_downloads)
 
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
@@ -762,23 +779,37 @@ class TorrentManager:
             dl = by_gid.get(gid)
 
             if dl is None:
+                remote_path = ""
+                if row["local_path"]:
+                    try:
+                        remote_path = _normalize_aria2_path(self._remote_aria2_path(Path(row["local_path"])))
+                    except Exception:
+                        remote_path = _normalize_aria2_path(str(row["local_path"]))
                 url = str(row["download_url"] or "").strip()
-                alt_gid = uri_to_gid.get(url)
-                if alt_gid:
-                    # Case 2: same URI under new GID — update and fall through to sync
-                    dl = by_gid[alt_gid]
+                dl = path_to_dl.get(remote_path) if remote_path else None
+                if dl is None and url:
+                    dl = uri_to_dl.get(url)
+                if dl:
+                    # Case 2: same path or URI under new GID — update and fall through to sync
                     async with aiosqlite.connect(DB_PATH) as db:
                         await db.execute(
                             "UPDATE download_files SET download_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                            (alt_gid, row["file_id"]),
+                            (dl.gid, row["file_id"]),
                         )
                         await db.commit()
-                    logger.info("Reconciled GID %s → %s for %s", gid or "(none)", alt_gid, url)
+                    logger.info(
+                        "Reconciled GID %s -> %s for torrent %s file %s via %s",
+                        gid or "(none)",
+                        dl.gid,
+                        row["torrent_id"],
+                        row["file_id"],
+                        "path" if remote_path and path_to_dl.get(remote_path) is dl else "url",
+                    )
                 else:
                     # Case 3: gone — reset whole torrent and re-queue
                     logger.info(
-                        "Startup reconcile: GID %s not in aria2 for torrent %s — resetting",
-                        gid, row["torrent_id"],
+                        "Startup reconcile: GID %s not in aria2 for torrent %s (path=%s, url=%s) -> resetting",
+                        gid, row["torrent_id"], remote_path or "-", url or "-",
                     )
                     reset_torrents.add(row["torrent_id"])
                     await self._reset_torrent_for_redownload(
@@ -1144,10 +1175,14 @@ class TorrentManager:
 
         # Fetch aria2 state once — used to check per-file progress during import
         aria2_by_uri: Dict[str, "Aria2DownloadStatus"] = {}
+        aria2_by_path: Dict[str, "Aria2DownloadStatus"] = {}
         if self.download_client_name() == "aria2":
             try:
                 for dl in await self.aria2().get_all():
                     for fi in dl.files or []:
+                        current_path = _normalize_aria2_path(str(fi.get("path", "")))
+                        if current_path:
+                            aria2_by_path[current_path] = dl
                         for u in fi.get("uris", []) or []:
                             uri = str(u.get("uri", "")).strip()
                             if uri:
@@ -1232,8 +1267,16 @@ class TorrentManager:
                     completed = 0
                     needs_reset = False
                     for fr in file_rows:
+                        remote_path = ""
+                        if fr["local_path"]:
+                            try:
+                                remote_path = _normalize_aria2_path(self._remote_aria2_path(Path(fr["local_path"])))
+                            except Exception:
+                                remote_path = _normalize_aria2_path(str(fr["local_path"]))
                         url = str(fr["download_url"] or "").strip()
-                        dl = aria2_by_uri.get(url)
+                        dl = aria2_by_path.get(remote_path) if remote_path else None
+                        if dl is None:
+                            dl = aria2_by_uri.get(url)
                         if dl is None:
                             # Not tracked in aria2 — needs re-queue
                             needs_reset = True

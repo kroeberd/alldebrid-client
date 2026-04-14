@@ -12,6 +12,13 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.5.4] - 2026-04-14
+
+### Fixed
+- Reconciled aria2 downloads by stable target path before falling back to expiring AllDebrid URLs, preventing false “not in aria2” resets
+- Reused existing aria2 jobs when the unlocked AllDebrid URL changed but the requested aria2 output path stayed the same
+- Added regression coverage for path-based aria2 matching in queueing and reconciliation
+
 ## [0.5.3] - 2026-04-14
 
 ### Fixed

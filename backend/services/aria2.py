@@ -65,15 +65,13 @@ class Aria2Service:
     ) -> str:
         """Add a download to aria2 if not already present.
 
-        Deduplication is done exclusively by URI — path comparison is unreliable
-        when the manager and aria2 run in separate containers with different mounts.
-
         Returns the GID of the (existing or newly added) download.
         """
         normalized_uri = uri.strip()
+        target_path = self._target_path_from_options(options)
         async with self._lock_for_uri(normalized_uri):
             all_downloads = await self.get_all()
-            matches = self._find_all_matching_by_uri(normalized_uri, all_downloads)
+            matches = self._find_all_matches(normalized_uri, target_path, all_downloads)
 
             # Already finished — remove any stale duplicates, return the complete GID.
             for dl in matches:
@@ -119,17 +117,22 @@ class Aria2Service:
 
         raise Aria2RPCError(f"Unable to queue aria2 download for {normalized_uri}: {last_error}")
 
-    def _find_all_matching_by_uri(
+    def _find_all_matches(
         self,
         uri: str,
+        target_path: str,
         all_downloads: List["Aria2DownloadStatus"],
     ) -> List["Aria2DownloadStatus"]:
-        """Return all downloads whose URI list contains the given URI.
-        complete/removed entries are sorted first so they are detected early."""
+        """Return all downloads matching the given URI or the requested target path."""
         uri = uri.strip()
+        target_path = self._normalize_path(target_path)
         matched: List[Aria2DownloadStatus] = []
         for download in all_downloads:
             for file_info in download.files or []:
+                current_path = self._normalize_path(str(file_info.get("path", "")))
+                if target_path and current_path == target_path:
+                    matched.append(download)
+                    break
                 for u in file_info.get("uris", []) or []:
                     if str(u.get("uri", "")).strip() == uri:
                         matched.append(download)
@@ -146,7 +149,7 @@ class Aria2Service:
     ) -> Optional["Aria2DownloadStatus"]:
         """Return the first active (non-complete) download for the given URI."""
         all_downloads = await self.get_all()
-        for dl in self._find_all_matching_by_uri(uri, all_downloads):
+        for dl in self._find_all_matches(uri, "", all_downloads):
             if dl.status not in {"complete", "removed"}:
                 return dl
         return None
@@ -157,6 +160,15 @@ class Aria2Service:
             lock = asyncio.Lock()
             self._uri_locks[uri] = lock
         return lock
+
+    def _target_path_from_options(self, options: Optional[Dict[str, Any]]) -> str:
+        if not options:
+            return ""
+        directory = str(options.get("dir", "") or "").strip()
+        out_name = str(options.get("out", "") or "").strip()
+        if not directory or not out_name:
+            return ""
+        return self._normalize_path(str(PurePosixPath(directory) / out_name))
 
     async def pause(self, gid: str):
         await self._best_effort("aria2.pause", [gid])

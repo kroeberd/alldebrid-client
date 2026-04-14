@@ -137,6 +137,25 @@ class Aria2ServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gid2, "gid-1")
         self.assertEqual(state["add_calls"], 1)
 
+    async def test_ensure_download_reuses_existing_target_path(self):
+        service = Aria2Service("http://localhost:6800/jsonrpc", "secret", 15)
+        service.get_all = AsyncMock(return_value=[
+            types.SimpleNamespace(
+                gid="gid-path",
+                status="active",
+                files=[{"path": "/downloads/show/file.mp4", "uris": [{"uri": "https://old.invalid/link"}]}],
+            )
+        ])
+        service._call = AsyncMock()
+
+        gid = await service.ensure_download(
+            "https://new.invalid/link",
+            {"dir": "/downloads/show", "out": "file.mp4"},
+        )
+
+        self.assertEqual(gid, "gid-path")
+        service._call.assert_not_awaited()
+
 
 class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
     async def test_download_deduplicates_duplicate_file_entries(self):
@@ -204,6 +223,21 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
 
         fake_aria2.remove.assert_awaited_once_with("dup")
         self.assertEqual([row.gid for row in deduped], ["keep"])
+
+    def test_build_aria2_indexes_tracks_path_and_uri(self):
+        from services.manager_v2 import TorrentManager
+
+        manager = TorrentManager()
+        download = types.SimpleNamespace(
+            gid="gid-1",
+            files=[{"path": "/downloads/show/file.mp4", "uris": [{"uri": "https://example.invalid/file"}]}],
+        )
+
+        by_gid, uri_to_dl, path_to_dl = manager._build_aria2_indexes([download])
+
+        self.assertIs(by_gid["gid-1"], download)
+        self.assertIs(uri_to_dl["https://example.invalid/file"], download)
+        self.assertIs(path_to_dl["/downloads/show/file.mp4"], download)
 
 
 if __name__ == "__main__":
