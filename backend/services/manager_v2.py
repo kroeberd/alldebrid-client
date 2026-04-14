@@ -573,17 +573,21 @@ class TorrentManager:
             elif status.status == "active":
                 await self._update_file_state(row["file_id"], "downloading", row["local_path"])
             elif status.status in {"complete", "removed"}:
-                if local_path and local_path.exists():
-                    await self._update_file_state(row["file_id"], "completed", str(local_path))
-                    await self.aria2().remove(status.gid)
-                    touched.add(row["torrent_id"])
+                # aria2 reporting "complete" is the authoritative signal that the
+                # download finished — no local path check needed or wanted.
+                await self._update_file_state(row["file_id"], "completed", row["local_path"])
+                await self.aria2().remove(status.gid)
+                touched.add(row["torrent_id"])
             elif status.status == "error":
                 reason = f"{status.error_code}: {status.error_message}".strip(": ")
                 await self._update_file_state(row["file_id"], "error", row["local_path"], reason=reason)
                 await self.aria2().remove(status.gid)
                 touched.add(row["torrent_id"])
 
-        for torrent_id in touched | all_torrent_ids:
+        # Only finalize torrents where something actually changed (completed/errored).
+        # Running _finalize on untouched-but-active torrents causes premature status
+        # transitions and races with in-progress _download() tasks.
+        for torrent_id in touched:
             await self._finalize_aria2_torrent(torrent_id)
 
     async def _update_file_state(self, file_id: int, status: str, local_path: Optional[str], reason: Optional[str] = None):
@@ -622,7 +626,23 @@ class TorrentManager:
             active_count = int(counts["active_count"] or 0)
             paused_count = int(counts["paused_count"] or 0)
 
-            if required_count > 0 and completed_count == required_count and error_count == 0 and active_count == 0:
+            # All files were filtered/blocked — nothing to download, treat as completed.
+            if required_count == 0:
+                total_files = await (
+                    await db.execute("SELECT COUNT(*) FROM download_files WHERE torrent_id=?", (torrent_id,))
+                ).fetchone()
+                total = int((total_files or [0])[0])
+                if total > 0:
+                    await db.execute(
+                        "UPDATE torrents SET status='completed', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                        (torrent_id,),
+                    )
+                    await db.execute("INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)", (torrent_id, "info", "All files were filtered/blocked — marked completed"))
+                    await db.commit()
+                    torrent_dict = dict(torrent)
+                else:
+                    return
+            elif required_count > 0 and completed_count == required_count and error_count == 0 and active_count == 0:
                 await db.execute(
                     "UPDATE torrents SET status='completed', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                     (torrent_id,),
