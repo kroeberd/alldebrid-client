@@ -242,6 +242,8 @@ td { padding: 11px 16px; vertical-align: middle; }
 .badge-pending    { background: rgba(100,116,139,.12); color: var(--text2); }
 .badge-uploading  { background: rgba(59,130,246,.14); color: var(--blue); }
 .badge-processing { background: rgba(168,85,247,.14); color: var(--purple); }
+.badge-queued     { background: rgba(59,130,246,.12); color: #93c5fd; }
+.badge-paused     { background: rgba(234,179,8,.14); color: var(--yellow); }
 .badge-downloading{ background: rgba(34,197,94,.12);  color: var(--green); }
 .badge-ready      { background: rgba(234,179,8,.12);  color: var(--yellow); }
 .badge-completed  { background: rgba(34,197,94,.16);  color: #4ade80; }
@@ -349,7 +351,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver">v0.4.1</div>
+      <div class="logo-ver">v0.5.0</div>
     </div>
   </div>
   <nav>
@@ -385,7 +387,7 @@ textarea.input { resize: vertical; }
   </nav>
   <div class="sidebar-footer">
     <div class="conn-row"><div class="dot" id="dot-api"></div><span id="lbl-api">AllDebrid: checking…</span></div>
-    <div class="conn-row"><div class="dot" id="dot-jd"></div><span id="lbl-jd">JDownloader: —</span></div>
+    <div class="conn-row"><div class="dot" id="dot-aria2"></div><span id="lbl-aria2">aria2: —</span></div>
   </div>
 </aside>
 
@@ -398,7 +400,7 @@ textarea.input { resize: vertical; }
 
     <!-- Dashboard -->
     <div class="view active" id="view-dashboard">
-      <div class="beta-banner">v0.4.1 completes filtered torrents correctly, refreshes webhook styling, and fixes the sidebar display.</div>
+      <div class="beta-banner">v0.5.0 unifies download delivery around direct + aria2 and hardens AllDebrid state handling.</div>
 
       <div class="insight-grid" style="margin-bottom:18px">
         <div class="insight-card">
@@ -595,6 +597,7 @@ textarea.input { resize: vertical; }
         <span class="save-hint">Settings are applied immediately after saving.</span>
         <button class="btn btn-ghost" onclick="testDiscord()">🔔 Test Discord</button>
         <button class="btn btn-ghost" onclick="testAD()">🔑 Test AllDebrid</button>
+        <button class="btn btn-ghost" onclick="testAria2()">⬇️ Test aria2</button>
         <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
       </div>
     </div>
@@ -704,7 +707,7 @@ function renderKvMap(map, formatter) {
 }
 function badge(s) {
   const m = {pending:'⏳ Pending',uploading:'⬆ Uploading',processing:'⚙ Processing',
-    downloading:'⬇ Downloading',ready:'✓ Ready',completed:'✅ Done',
+    queued:'🕓 Queued',paused:'⏸ Paused',downloading:'⬇ Downloading',ready:'✓ Ready',completed:'✅ Done',
     error:'❌ Error',deleted:'🗑 Deleted',imported:'📋 Imported',partial:'⚠ Partial'};
   return `<span class="badge badge-${s}">${m[s]||s}</span>`;
 }
@@ -724,16 +727,16 @@ async function checkConnections() {
     setDot('api', 'error', 'AllDebrid: error');
   }
   const cfg = settingsData;
-  // JDownloader
-  if (cfg.jdownloader_enabled && cfg.jdownloader_email) {
+  // aria2
+  if (cfg.download_client === 'aria2' && cfg.aria2_url) {
     try {
-      await api('POST', '/settings/test-jdownloader');
-      setDot('jd', 'ok', 'JDownloader: online');
+      const result = await api('POST', '/settings/test-aria2');
+      setDot('aria2', 'ok', `aria2: ${result.version||'online'}`);
     } catch {
-      setDot('jd', 'error', 'JDownloader: error');
+      setDot('aria2', 'error', 'aria2: error');
     }
   } else {
-    setDot('jd', '', 'JDownloader: disabled');
+    setDot('aria2', '', 'aria2: direct mode');
   }
 }
 
@@ -852,6 +855,8 @@ async function loadTorrents() {
       <td>
         <div class="actions">
           <button class="btn btn-ghost btn-sm" onclick="showDetail(${t.id})">Details</button>
+          ${t.status==='downloading' || t.status==='queued' ? `<button class="btn btn-blue btn-sm" onclick="pauseT(${t.id})">⏸</button>` : ''}
+          ${t.status==='paused' ? `<button class="btn btn-blue btn-sm" onclick="resumeT(${t.id})">▶</button>` : ''}
           ${t.status==='error'?`<button class="btn btn-blue btn-sm" onclick="retryT(${t.id})">↻</button>`:''}
           <button class="btn btn-danger btn-sm" onclick="deleteT(${t.id},event)">✕</button>
         </div>
@@ -898,6 +903,22 @@ async function retryT(id) {
   } catch(e) { toast(e.message,'error'); }
 }
 
+async function pauseT(id) {
+  try {
+    await api('POST',`/torrents/${id}/pause`);
+    toast('aria2 queue paused','warn');
+    loadTorrents(); loadStats();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function resumeT(id) {
+  try {
+    await api('POST',`/torrents/${id}/resume`);
+    toast('aria2 queue resumed','success');
+    loadTorrents(); loadStats();
+  } catch(e) { toast(e.message,'error'); }
+}
+
 // ── Detail Modal ───────────────────────────────────────────────────────────
 async function showDetail(id) {
   try {
@@ -906,9 +927,11 @@ async function showDetail(id) {
     document.getElementById('modal-body').innerHTML = `
       <div class="detail-grid">
         <div><div class="dk">Status</div><div class="dv">${badge(t.status)}</div></div>
+        <div><div class="dk">Provider</div><div class="dv">${t.provider_status ? badge(t.provider_status) : '—'}</div></div>
         <div><div class="dk">Progress</div><div class="dv">${(t.progress||0).toFixed(1)}%</div></div>
         <div><div class="dk">Size</div><div class="dv">${fmtSize(t.size_bytes)}</div></div>
         <div><div class="dk">Source</div><div class="dv">${t.source||'—'}</div></div>
+        <div><div class="dk">Downloader</div><div class="dv">${t.download_client||'direct'}</div></div>
         <div><div class="dk">Added</div><div class="dv">${fmtDate(t.created_at)}</div></div>
         <div><div class="dk">Completed</div><div class="dv">${fmtDate(t.completed_at)}</div></div>
         <div style="grid-column:1/-1"><div class="dk">AllDebrid ID</div><div class="dv">${t.alldebrid_id||'—'}</div></div>
@@ -1067,63 +1090,42 @@ function renderSettings() {
     </div>
 
     <div class="scard">
-      <div class="scard-header">☁️ JDownloader — MyJDownloader Cloud</div>
+      <div class="scard-header">⬇️ Download Client</div>
       <div class="scard-body">
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="tl">Enable JDownloader</div>
-            <div class="td">Forward unlocked links via MyJD cloud — no port forwarding needed</div>
-          </div>
-          <label class="toggle"><input type="checkbox" id="s-jdownloader_enabled" ${s.jdownloader_enabled?'checked':''}><div class="ttrack"></div></label>
-        </div>
-
-        <!-- Step 1: Credentials -->
-        <div style="margin-top:8px;padding:10px 12px;background:var(--surface2);border-radius:6px">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px;letter-spacing:.06em;text-transform:uppercase">Step 1 — MyJDownloader Account</div>
-          <div class="form-group">
-            <label class="form-label">E-Mail</label>
-            <input class="input" id="s-jdownloader_email" value="${s.jdownloader_email||''}" placeholder="your@email.com" autocomplete="username"/>
-          </div>
-          <div class="form-group" style="margin-top:8px">
-            <label class="form-label">Password</label>
-            <input class="input" type="password" id="s-jdownloader_password" value="${s.jdownloader_password||''}" placeholder="MyJD account password" autocomplete="current-password"/>
-          </div>
-          <button class="btn btn-blue btn-sm" style="margin-top:8px" onclick="jdLogin()">🔑 Login & Load Devices</button>
-          <span id="jd-login-status" style="margin-left:10px;font-size:11px;color:var(--text2)"></span>
-        </div>
-
-        <!-- Step 2: Device picker (shown after login) -->
-        <div id="jd-device-picker" style="display:none;margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:6px">
-          <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px;letter-spacing:.06em;text-transform:uppercase">Step 2 — Select Device</div>
-          <div id="jd-device-list" style="display:flex;flex-direction:column;gap:6px"></div>
-          <div style="margin-top:8px;font-size:11px;color:var(--text2)">
-            Selected: <b id="jd-selected-name" style="color:var(--accent)">${s.jdownloader_device_name||'(none)'}</b>
-          </div>
-        </div>
-
-        <!-- Hidden field for device name -->
-        <input type="hidden" id="s-jdownloader_device_name" value="${s.jdownloader_device_name||''}"/>
-
-        <div style="margin-top:8px">
-          <button class="btn btn-blue btn-sm" onclick="testJD()">🔌 Test Connection</button>
-          <span id="jd-test-result" style="margin-left:10px;font-size:11px;color:var(--text2)"></span>
-        </div>
-
-        <div class="toggle-row" style="margin-top:10px">
-          <div class="toggle-info"><div class="tl">Auto-Start Downloads</div></div>
-          <label class="toggle"><input type="checkbox" id="s-jdownloader_autostart" ${s.jdownloader_autostart!==false?'checked':''}><div class="ttrack"></div></label>
-        </div>
-        <div class="toggle-row">
-          <div class="toggle-info"><div class="tl">Auto-Extract Archives</div></div>
-          <label class="toggle"><input type="checkbox" id="s-jdownloader_extract" ${s.jdownloader_extract!==false?'checked':''}><div class="ttrack"></div></label>
-        </div>
-        <div class="toggle-row">
-          <div class="toggle-info"><div class="tl">Remove After Extract</div></div>
-          <label class="toggle"><input type="checkbox" id="s-jdownloader_remove_after" ${s.jdownloader_remove_after?'checked':''}><div class="ttrack"></div></label>
+        <div class="form-group">
+          <label class="form-label">Delivery Mode</label>
+          <select class="input" id="s-download_client">
+            <option value="direct" ${(s.download_client||'direct')==='direct'?'selected':''}>Direct download</option>
+            <option value="aria2" ${(s.download_client||'direct')==='aria2'?'selected':''}>aria2</option>
+          </select>
+          <span class="form-hint">Use direct downloads inside the app or hand off links to aria2 via JSON-RPC.</span>
         </div>
         <div class="form-group">
-          <label class="form-label">Extract Destination <span style="font-weight:400;color:var(--text2)">(optional)</span></label>
-          <input class="input" id="s-jdownloader_extract_folder" value="${s.jdownloader_extract_folder||''}" placeholder="Default = download folder"/>
+          <label class="form-label">aria2 RPC URL</label>
+          <div class="test-row">
+            <input class="input" id="s-aria2_url" value="${s.aria2_url||'http://127.0.0.1:6800/jsonrpc'}" placeholder="http://127.0.0.1:6800/jsonrpc"/>
+            <button class="btn btn-blue btn-sm" onclick="testAria2()">Test</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Secret</label>
+          <input class="input" type="password" id="s-aria2_secret" value="${s.aria2_secret||''}" placeholder="Optional RPC secret"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Download Root</label>
+          <input class="input" id="s-aria2_download_path" value="${s.aria2_download_path||''}" placeholder="Optional remote root path"/>
+          <span class="form-hint">Leave empty when aria2 writes into the same mounted path as this app.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Timeout (seconds)</label>
+          <input class="input" type="number" id="s-aria2_operation_timeout_seconds" value="${s.aria2_operation_timeout_seconds||15}" min="5" max="120"/>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Start aria2 Jobs Paused</div>
+            <div class="td">Queue the job in aria2 first and resume it manually from the API/UI workflow.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-aria2_start_paused" ${s.aria2_start_paused?'checked':''}><div class="ttrack"></div></label>
         </div>
       </div>
     </div>
@@ -1200,14 +1202,13 @@ function getFormSettings() {
     watch_folder: t('watch_folder'), processed_folder: t('processed_folder'),
     download_folder: t('download_folder'), max_concurrent_downloads: n('max_concurrent_downloads')||3,
     max_speed_mbps: 0,
-    jdownloader_enabled: c('jdownloader_enabled'),
-    jdownloader_email: t('jdownloader_email'),
-    jdownloader_password: t('jdownloader_password'),
-    jdownloader_device_name: t('jdownloader_device_name'),
-    jdownloader_autostart: c('jdownloader_autostart'),
-    jdownloader_extract: c('jdownloader_extract'),
-    jdownloader_remove_after: c('jdownloader_remove_after'),
-    jdownloader_extract_folder: t('jdownloader_extract_folder'),
+    download_client: t('download_client') || 'direct',
+    aria2_url: t('aria2_url'),
+    aria2_secret: t('aria2_secret'),
+    aria2_download_path: t('aria2_download_path'),
+    aria2_operation_timeout_seconds: n('aria2_operation_timeout_seconds') || 15,
+    aria2_start_paused: c('aria2_start_paused'),
+    aria2_poll_interval_seconds: 5,
     discord_webhook_url: t('discord_webhook_url'),
     discord_notify_added: c('discord_notify_added'), discord_notify_finished: c('discord_notify_finished'),
     discord_notify_error: c('discord_notify_error'),
@@ -1242,105 +1243,18 @@ async function testAD() {
   } catch(e) { toast('AllDebrid: '+e.message,'error'); setDot('api','error','AllDebrid: error'); }
 }
 
-async function testJD() {
-  const el = document.getElementById('jd-test-result');
-  if(el) { el.textContent = 'Testing…'; el.style.color='var(--text2)'; }
+async function testAria2() {
   try {
     const current = getFormSettings();
     await api('PUT','/settings', current);
     settingsData = current;
-    const r = await api('POST','/settings/test-jdownloader');
-    const dev   = r.device || 'unknown';
-    const reach = r.reachable === false ? ' ⚠ offline' : ' ✓ online';
-    toast(`JDownloader: ${dev}${reach}`,'success');
-    setDot('jd','ok',`JD: ${dev}`);
-    if(el) { el.textContent = `${dev}${reach}`; el.style.color='var(--green)'; }
+    const r = await api('POST','/settings/test-aria2');
+    toast(`aria2: ${r.version||'online'} ✓`,'success');
+    setDot('aria2','ok',`aria2: ${r.version||'online'}`);
   } catch(e) {
-    toast('JDownloader: '+e.message,'error');
-    setDot('jd','error','JDownloader: error');
-    if(el) { el.textContent = e.message; el.style.color='var(--red)'; }
+    toast('aria2: '+e.message,'error');
+    setDot('aria2','error','aria2: error');
   }
-}
-
-
-
-
-async function jdLogin() {
-  const email = document.getElementById('s-jdownloader_email')?.value?.trim();
-  const pass  = document.getElementById('s-jdownloader_password')?.value;
-  const status = document.getElementById('jd-login-status');
-  const picker = document.getElementById('jd-device-picker');
-  if (!email || !pass) { toast('Enter email and password first','warn'); return; }
-
-  // Save credentials first so the endpoint can read them
-  status.textContent = 'Connecting…'; status.style.color='var(--text2)';
-  try {
-    // Temporarily save to get the device list
-    const current = getFormSettings();
-    current.jdownloader_email = email;
-    current.jdownloader_password = pass;
-    await api('PUT', '/settings', current);
-
-    const r = await api('POST', '/settings/jd-devices');
-    const devices = r.devices || [];
-    if (!devices.length) {
-      status.textContent = '⚠ No devices found';
-      status.style.color = 'var(--yellow)';
-      return;
-    }
-
-    // Render device buttons
-    const list = document.getElementById('jd-device-list');
-    const currentDevice = document.getElementById('s-jdownloader_device_name')?.value || '';
-    list.innerHTML = devices.map(d => `
-      <div onclick="selectJDDevice('${d.name}','${d.id}')"
-           style="display:flex;align-items:center;gap:10px;padding:8px 12px;
-                  border-radius:6px;cursor:pointer;border:1px solid var(--border);
-                  background:${d.name===currentDevice?'rgba(249,115,22,.12)':'var(--surface)'};
-                  transition:background .15s"
-           id="jd-dev-${d.id}">
-        <div style="font-size:16px">💻</div>
-        <div>
-          <div style="font-weight:600;font-size:13px">${d.name}</div>
-          <div style="font-size:10px;color:var(--text2);font-family:var(--mono)">${d.id}</div>
-        </div>
-        ${d.name===currentDevice?'<div style="margin-left:auto;color:var(--accent);font-size:12px">✓ selected</div>':''}
-      </div>`).join('');
-
-    picker.style.display = '';
-    status.textContent = `✓ ${devices.length} device${devices.length!==1?'s':''} found`;
-    status.style.color = 'var(--green)';
-    setDot('jd','ok','JD: connected');
-    toast(`MyJDownloader: ${devices.length} device(s) found`,'success');
-  } catch(e) {
-    status.textContent = '✗ ' + e.message;
-    status.style.color = 'var(--red)';
-    setDot('jd','error','JD: login failed');
-    toast('MyJD: ' + e.message, 'error');
-  }
-}
-
-function selectJDDevice(name, id) {
-  // Update hidden input
-  const inp = document.getElementById('s-jdownloader_device_name');
-  if (inp) inp.value = name;
-  // Update selected label
-  const lbl = document.getElementById('jd-selected-name');
-  if (lbl) lbl.textContent = name;
-  // Highlight selected
-  document.querySelectorAll('[id^="jd-dev-"]').forEach(el => {
-    el.style.background = 'var(--surface)';
-    el.querySelectorAll('[style*="accent"]').forEach(x => x.remove());
-  });
-  const el = document.getElementById('jd-dev-' + id);
-  if (el) {
-    el.style.background = 'rgba(249,115,22,.12)';
-    const tick = document.createElement('div');
-    tick.style.cssText = 'margin-left:auto;color:var(--accent);font-size:12px';
-    tick.textContent = '✓ selected';
-    el.appendChild(tick);
-  }
-  toast(`Device selected: ${name}`,'success');
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────

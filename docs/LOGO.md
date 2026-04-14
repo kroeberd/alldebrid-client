@@ -2,7 +2,7 @@
 
 ## Konzept
 
-Radar-/Orbit-Design: zentraler Core (Download-Manager) mit Satelliten-Nodes für AllDebrid (AD) und JDownloader (JD). Verbindungslinien zeigen den Datenfluss. Basiert auf der bereitgestellten Vorlage.
+Radar-/Orbit-Design: zentraler Core (Download-Manager) mit Satelliten-Nodes für AllDebrid (AD) und aria2 (A2). Verbindungslinien zeigen den Datenfluss. Basiert auf der bereitgestellten Vorlage.
 
 ---
 
@@ -14,7 +14,7 @@ Farbpalette:
 - Rings: `#1e2d45`
 
 **AI Image Prompt:**
-> Minimalist tech app icon, dark background #080c14, centered orange glowing download arrow symbol, three concentric radar rings in dark navy, three small satellite nodes on outer ring (top: orange "AD", bottom-right: blue "JD", bottom-left: green "a2"), subtle orange glow effect, dashed connection lines from nodes to center, clean geometric style, rounded square 512x512, professional SaaS dashboard aesthetic, no text outside icon
+> Minimalist tech app icon, dark background #080c14, centered orange glowing download arrow symbol, three concentric radar rings in dark navy, three small satellite nodes on outer ring (top: orange "AD", bottom-right: blue "A2", bottom-left: green "a2"), subtle orange glow effect, dashed connection lines from nodes to center, clean geometric style, rounded square 512x512, professional SaaS dashboard aesthetic, no text outside icon
 
 ---
 

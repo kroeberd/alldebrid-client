@@ -9,14 +9,14 @@
   <Support>https://github.com/kroeberd/alldebrid-client/issues</Support>
   <Project>https://github.com/kroeberd/alldebrid-client</Project>
   <Overview>
-[b]AllDebrid-Client v0.4.1[/b] Fixes filtered-complete handling, refreshes webhook styling, and cleans up the sidebar display.
+[b]AllDebrid-Client v0.5.0[/b] Unifies downloads around direct + aria2 delivery, removes JDownloader, and hardens AllDebrid status tracking.
 
 Automated torrent/magnet downloading via AllDebrid with a clean Web UI.
 
 [b]Features:[/b]
 • Watch folder — drop .torrent or .magnet files for auto-import
 • AllDebrid API — upload, poll status, unlock links, auto-delete after download
-• JDownloader integration via MyJDownloader Cloud
+• Direct downloader or aria2 JSON-RPC delivery
 • File filters — block images, keywords, minimum size
 • Discord webhook notifications
 • SQLite database — prevents re-downloading known hashes

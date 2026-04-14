@@ -12,6 +12,27 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.5.0] - 2026-04-14
+
+### Added
+- Added a first-class `aria2` download client with JSON-RPC delivery, duplicate protection by URI/path, start-paused support, and pause/resume endpoints
+- Added download-file tracking fields for remote download IDs and client ownership so external delivery status can be merged back into the normal torrent lifecycle
+- Added provider-state tracking fields for AllDebrid so provider progress and local transfer progress are no longer conflated
+
+### Changed
+- Reworked torrent delivery so direct downloads and aria2 now share the same preparation, filtering, logging, and completion flow
+- Refreshed the settings UI and README to document the new direct/aria2 architecture and the removal of JDownloader
+- Updated the Unraid template and release metadata to `v0.5.0`
+
+### Removed
+- Removed JDownloader from the active backend/API/UI flow and dropped the MyJDownloader dependency from runtime requirements
+
+### Fixed
+- Hardened the transition from `ready` on AllDebrid to actual download start by retrying file discovery before failing the torrent
+- Preserved nested multi-file torrent paths instead of flattening everything down to a single filename
+- Improved sync/finalization so aria2-backed downloads can still end as `completed`, emit `Finished`, and remove the source magnet from AllDebrid
+- Added persistent polling-failure escalation so stuck or inconsistent AllDebrid states become visible in events and can be classified as errors when they keep failing
+
 ## [0.4.1] - 2026-04-13
 
 ### Changed

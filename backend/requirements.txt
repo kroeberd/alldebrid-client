@@ -8,4 +8,3 @@ pydantic-settings==2.4.0
 bencodepy==0.9.5
 python-multipart==0.0.9
 pycryptodome==3.20.0
-myjdapi

@@ -8,8 +8,7 @@ import aiosqlite
 from core.config import AppSettings, get_settings, save_settings, apply_settings
 from services.notifications import NotificationService
 from services.alldebrid import AllDebridService
-from services.jdownloader import myjd_list_devices
-from services.manager import manager
+from services.manager_v2 import manager
 from db.database import DB_PATH
 
 router = APIRouter()
@@ -75,13 +74,10 @@ async def test_alldebrid():
         raise HTTPException(502, str(e))
 
 
-@router.post("/settings/test-jdownloader")
-async def test_jdownloader():
-    cfg = get_settings()
-    if not cfg.jdownloader_email:
-        raise HTTPException(400, "MyJDownloader email not configured")
+@router.post("/settings/test-aria2")
+async def test_aria2():
     try:
-        result = await manager.test_jdownloader()
+        result = await manager.test_aria2()
         return {"ok": True, **result}
     except Exception as e:
         raise HTTPException(502, str(e))
@@ -111,22 +107,6 @@ async def list_torrents(
         cur2 = await db.execute(f"SELECT COUNT(*) FROM torrents t {where}", params)
         total = (await cur2.fetchone())[0]
         return {"items": [dict(r) for r in rows], "total": total}
-
-@router.post("/settings/jd-devices")
-async def jd_list_devices():
-    """Login to MyJDownloader and return available devices for the UI picker."""
-    cfg = get_settings()
-    if not cfg.jdownloader_email:
-        raise HTTPException(400, "MyJDownloader email not configured")
-    if not cfg.jdownloader_password:
-        raise HTTPException(400, "MyJDownloader password not configured")
-    try:
-        devices = await myjd_list_devices(cfg.jdownloader_email, cfg.jdownloader_password)
-        return {"devices": devices}
-    except Exception as e:
-        raise HTTPException(502, str(e))
-
-
 
 @router.get("/torrents/{torrent_id}")
 async def get_torrent(torrent_id: int):
@@ -193,6 +173,24 @@ async def retry_torrent(torrent_id: int):
     return {"ok": True}
 
 
+@router.post("/torrents/{torrent_id}/pause")
+async def pause_torrent(torrent_id: int):
+    try:
+        await manager.pause_torrent(torrent_id)
+        return {"ok": True}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/torrents/{torrent_id}/resume")
+async def resume_torrent(torrent_id: int):
+    try:
+        await manager.resume_torrent(torrent_id)
+        return {"ok": True}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 # ─── Stats ────────────────────────────────────────────────────────────────────
 
 @router.get("/stats")
@@ -208,7 +206,7 @@ async def get_stats():
             "SELECT COUNT(*) as c FROM download_files WHERE blocked=1"
         )).fetchone())["c"]
         active = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM torrents WHERE status IN ('downloading','processing','uploading')"
+            "SELECT COUNT(*) as c FROM torrents WHERE status IN ('downloading','processing','uploading','paused')"
         )).fetchone())["c"]
         queued = (await (await db.execute(
             "SELECT COUNT(*) as c FROM torrents WHERE status='queued'"

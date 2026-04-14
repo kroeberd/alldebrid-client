@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/License-MIT-3de68b)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/8Vb9cj4ksv)
 
-Automated torrent downloading via AllDebrid with a polished web UI, watch-folder automation, Discord notifications, SQLite tracking, and optional MyJDownloader delivery.
+Automated torrent downloading via AllDebrid with a polished web UI, watch-folder automation, Discord notifications, SQLite tracking, and unified direct/aria2 delivery.
 
 Support the project: [buymeacoffee.com/kroeberd](https://buymeacoffee.com/kroeberd)
 
@@ -19,7 +19,7 @@ Support the project: [buymeacoffee.com/kroeberd](https://buymeacoffee.com/kroebe
 
 - Add magnets manually or by dropping files into a watch folder
 - Poll AllDebrid automatically until content is ready
-- Download directly to disk or hand off unlocked links to MyJDownloader
+- Download directly to disk or hand off unlocked links to aria2
 - Track every torrent, file, and event in SQLite
 - Remove completed magnets from AllDebrid automatically
 - Emit Discord notifications for added, finished, and error states
@@ -44,9 +44,16 @@ Support the project: [buymeacoffee.com/kroeberd](https://buymeacoffee.com/kroebe
 ### Delivery & Notifications
 
 - Direct file download into your chosen target folder
-- Optional MyJDownloader Cloud integration
+- Optional aria2 JSON-RPC integration with duplicate protection, pause/resume, and start-paused support
 - Discord webhook notifications with per-webhook throttling to reduce timeout pressure
 - Partial webhook summaries when files are intentionally excluded, including counts and sizes for downloaded vs. skipped files
+
+### Monitoring & Robustness
+
+- Provider status and local download status are tracked separately
+- Ready torrents only transition into delivery after usable file/link data is available
+- Repeated AllDebrid polling failures are surfaced in the event log and escalated when they become persistent
+- aria2 transfers are re-synced into the normal torrent lifecycle so finished torrents still end as `completed` and are removed from AllDebrid
 
 ### Safety & Persistence
 
@@ -71,7 +78,7 @@ Open [http://localhost:8080](http://localhost:8080) and enter your AllDebrid API
 ### Docker build
 
 ```bash
-docker build -t kroeberd/alldebrid-client:v0.4.1 .
+docker build -t kroeberd/alldebrid-client:v0.5.0 .
 ```
 
 Optional for local testing:
@@ -82,7 +89,7 @@ docker run --rm -p 8080:8080 \
   -e DB_PATH=/app/config/alldebrid.db \
   -v ./config:/app/config \
   -v ./data:/app/data \
-  kroeberd/alldebrid-client:v0.4.1
+  kroeberd/alldebrid-client:v0.5.0
 ```
 
 ### Manual Run
@@ -99,6 +106,11 @@ uvicorn main:app --host 0.0.0.0 --port 8080
 
 All settings are editable in the web UI and persisted to `config/config.json`.
 
+Migration note:
+
+- Legacy JDownloader keys are ignored on load and can be removed from existing `config.json` files.
+- If you switch to `aria2`, make sure `aria2_download_path` points at the same effective files that the app exposes under `download_folder`, or leave it empty when both containers share the same mount.
+
 | Setting | Default | Description |
 |---|---|---|
 | `alldebrid_api_key` | - | Your AllDebrid API key |
@@ -111,10 +123,12 @@ All settings are editable in the web UI and persisted to `config/config.json`.
 | `discord_notify_added` | `true` | Send notification for newly queued torrents |
 | `discord_notify_finished` | `true` | Send notification when processing finishes |
 | `discord_notify_error` | `true` | Send notification for errors |
-| `jdownloader_enabled` | `false` | Enable MyJDownloader forwarding |
-| `jdownloader_email` | - | MyJDownloader account email |
-| `jdownloader_password` | - | MyJDownloader account password |
-| `jdownloader_device_name` | - | Preferred device name |
+| `download_client` | `direct` | `direct` for in-app downloads or `aria2` for external JSON-RPC delivery |
+| `aria2_url` | `http://127.0.0.1:6800/jsonrpc` | aria2 JSON-RPC endpoint |
+| `aria2_secret` | - | Optional RPC secret |
+| `aria2_download_path` | - | Optional remote root path when aria2 writes to a different mount |
+| `aria2_operation_timeout_seconds` | `15` | Timeout for aria2 RPC calls |
+| `aria2_start_paused` | `false` | Queue new aria2 jobs paused |
 | `blocked_extensions` | image and metadata types | Extensions blocked from download |
 | `blocked_keywords` | `[]` | Case-insensitive filename keyword filter |
 | `min_file_size_mb` | `0` | Minimum file size in MB, `0` disables the threshold |
@@ -139,7 +153,7 @@ Recommended release workflow:
 1. Update the implementation.
 2. Add the release entry to `CHANGELOG.md`.
 3. Commit the release changes.
-4. Create the matching tag, for example `git tag v0.4.1`.
+4. Create the matching tag, for example `git tag v0.5.0`.
 
 GitHub automation included in this repository:
 
@@ -165,8 +179,9 @@ GitHub automation included in this repository:
 | `PUT` | `/api/settings` | Save settings |
 | `POST` | `/api/settings/test-discord` | Test the Discord webhook |
 | `POST` | `/api/settings/test-alldebrid` | Test AllDebrid credentials |
-| `POST` | `/api/settings/test-jdownloader` | Test MyJDownloader connection |
-| `POST` | `/api/settings/jd-devices` | Load MyJDownloader devices |
+| `POST` | `/api/settings/test-aria2` | Test aria2 JSON-RPC connectivity |
+| `POST` | `/api/torrents/{id}/pause` | Pause aria2-backed file transfers |
+| `POST` | `/api/torrents/{id}/resume` | Resume aria2-backed file transfers |
 
 ---
 
