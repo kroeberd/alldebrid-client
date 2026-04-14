@@ -542,12 +542,22 @@ class TorrentManager:
         all_downloads = await self.aria2().get_all()
         by_gid = {download.gid: download for download in all_downloads}
 
+        # URI → download map for GID-mismatch recovery (aria2 restart, re-add, etc.)
+        uri_to_dl = {}
+        for dl in all_downloads:
+            for fi in dl.files or []:
+                for u in fi.get("uris", []) or []:
+                    uri = str(u.get("uri", "")).strip()
+                    if uri:
+                        uri_to_dl[uri] = dl
+
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
             rows = await (
                 await db.execute(
                     """SELECT t.id AS torrent_id, t.name, t.alldebrid_id, t.status AS torrent_status,
-                              f.id AS file_id, f.filename, f.local_path, f.download_id, f.status, f.blocked
+                              f.id AS file_id, f.filename, f.local_path, f.download_url,
+                              f.download_id, f.status, f.blocked
                        FROM torrents t
                        JOIN download_files f ON f.torrent_id = t.id
                        WHERE f.download_client='aria2'
@@ -559,38 +569,56 @@ class TorrentManager:
         touched: Set[int] = set()
         reset_on_sync: Set[int] = set()
         for row in rows:
-            status = by_gid.get(str(row["download_id"] or ""))
-            local_path = Path(row["local_path"]) if row["local_path"] else None
+            if row["torrent_id"] in reset_on_sync:
+                continue  # already scheduled for reset
 
-            if status is None:
-                # GID no longer in aria2. This can mean two things:
-                # - aria2 was restarted and lost queued/active entries (not finished!)
-                # - the entry was manually removed
-                # We cannot tell which, so reset the whole torrent for re-download
-                # rather than assuming completion and deleting from AllDebrid.
-                if row["torrent_id"] not in reset_on_sync:
+            dl = by_gid.get(str(row["download_id"] or ""))
+
+            if dl is None:
+                # GID not found — check if the URI is still in aria2 under any GID
+                url = str(row["download_url"] or "").strip()
+                dl = uri_to_dl.get(url) if url else None
+
+                if dl is not None:
+                    # Found under different GID — update DB and fall through to status sync
+                    async with aiosqlite.connect(DB_PATH) as db:
+                        await db.execute(
+                            "UPDATE download_files SET download_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                            (dl.gid, row["file_id"]),
+                        )
+                        await db.commit()
+                    logger.info("Synced stale GID → %s for %s", dl.gid, url)
+                elif url:
+                    # URI not in aria2 at all — cannot confirm completion, reset to be safe
+                    logger.info(
+                        "sync_aria2: URI not in aria2 for torrent %s file %s — scheduling reset",
+                        row["torrent_id"], row["file_id"],
+                    )
                     reset_on_sync.add(row["torrent_id"])
-                continue
+                    continue
+                else:
+                    # No URL to look up — reset
+                    reset_on_sync.add(row["torrent_id"])
+                    continue
 
-            if status.status == "paused":
+            # Status sync from aria2
+            if dl.status == "paused":
                 await self._update_file_state(row["file_id"], "paused", row["local_path"])
-            elif status.status == "waiting":
+            elif dl.status == "waiting":
                 await self._update_file_state(row["file_id"], "queued", row["local_path"])
-            elif status.status == "active":
+            elif dl.status == "active":
                 await self._update_file_state(row["file_id"], "downloading", row["local_path"])
-            elif status.status in {"complete", "removed"}:
-                # aria2 reporting "complete" is the authoritative signal that the
-                # download finished — no local path check needed or wanted.
+            elif dl.status in {"complete", "removed"}:
                 await self._update_file_state(row["file_id"], "completed", row["local_path"])
-                await self.aria2().remove(status.gid)
+                await self.aria2().remove(dl.gid)
                 touched.add(row["torrent_id"])
-            elif status.status == "error":
-                reason = f"{status.error_code}: {status.error_message}".strip(": ")
+            elif dl.status == "error":
+                reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
                 await self._update_file_state(row["file_id"], "error", row["local_path"], reason=reason)
-                await self.aria2().remove(status.gid)
+                await self.aria2().remove(dl.gid)
                 touched.add(row["torrent_id"])
 
-        # Reset torrents whose GIDs disappeared from aria2 (aria2 restart / manual removal)
+        # Reset torrents whose entries are gone from aria2 (can't confirm completion)
         for torrent_id in reset_on_sync - touched:
             await self._reset_torrent_for_redownload(
                 torrent_id, "aria2 entry lost during sync — reset for re-download"
