@@ -557,17 +557,19 @@ class TorrentManager:
             ).fetchall()
 
         touched: Set[int] = set()
-        all_torrent_ids = set()
+        reset_on_sync: Set[int] = set()
         for row in rows:
-            all_torrent_ids.add(row["torrent_id"])
             status = by_gid.get(str(row["download_id"] or ""))
             local_path = Path(row["local_path"]) if row["local_path"] else None
 
             if status is None:
-                # GID no longer in aria2 — it was removed (e.g. after a restart or manual cleanup).
-                # Treat as completed; aria2 is the authority and it no longer tracks this download.
-                await self._update_file_state(row["file_id"], "completed", row["local_path"])
-                touched.add(row["torrent_id"])
+                # GID no longer in aria2. This can mean two things:
+                # - aria2 was restarted and lost queued/active entries (not finished!)
+                # - the entry was manually removed
+                # We cannot tell which, so reset the whole torrent for re-download
+                # rather than assuming completion and deleting from AllDebrid.
+                if row["torrent_id"] not in reset_on_sync:
+                    reset_on_sync.add(row["torrent_id"])
                 continue
 
             if status.status == "paused":
@@ -588,9 +590,22 @@ class TorrentManager:
                 await self.aria2().remove(status.gid)
                 touched.add(row["torrent_id"])
 
-        # Only finalize torrents where something actually changed (completed/errored).
-        # Running _finalize on untouched-but-active torrents causes premature status
-        # transitions and races with in-progress _download() tasks.
+        # Reset torrents whose GIDs disappeared from aria2 (aria2 restart / manual removal)
+        for torrent_id in reset_on_sync - touched:
+            await self._reset_torrent_for_redownload(
+                torrent_id, "aria2 entry lost during sync — reset for re-download"
+            )
+            async with aiosqlite.connect(DB_PATH) as db:
+                db.row_factory = aiosqlite.Row
+                t = await (await db.execute(
+                    "SELECT alldebrid_id, name FROM torrents WHERE id=?", (torrent_id,)
+                )).fetchone()
+            if t and t["alldebrid_id"]:
+                asyncio.create_task(
+                    self._start_download(torrent_id, str(t["alldebrid_id"]), str(t["name"] or ""))
+                )
+
+        # Finalize torrents where aria2 reported complete or error
         for torrent_id in touched:
             await self._finalize_aria2_torrent(torrent_id)
 
