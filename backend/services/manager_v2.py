@@ -187,20 +187,50 @@ class TorrentManager:
         client = (get_settings().download_client or "direct").strip().lower()
         return client if client in {"direct", "aria2"} else "direct"
 
+    def _watch_error_dir(self, watch: Path) -> Path:
+        return watch / "error"
+
+    def _move_watch_file_to_error(self, file_path: Path, watch: Path) -> Optional[Path]:
+        try:
+            error_dir = self._watch_error_dir(watch)
+            error_dir.mkdir(parents=True, exist_ok=True)
+            destination = error_dir / file_path.name
+            if destination.exists():
+                stem = file_path.stem
+                suffix = file_path.suffix
+                counter = 1
+                while True:
+                    candidate = error_dir / f"{stem}_{counter}{suffix}"
+                    if not candidate.exists():
+                        destination = candidate
+                        break
+                    counter += 1
+            shutil.move(str(file_path), str(destination))
+            return destination
+        except Exception as move_exc:
+            logger.error("Unable to move failed watch file [%s] to error folder: %s", file_path.name, move_exc)
+            return None
+
     async def scan_watch_folder(self):
         if self.is_paused():
             return
         cfg = get_settings()
         watch = Path(cfg.watch_folder)
         processed = Path(cfg.processed_folder)
+        error_dir = self._watch_error_dir(watch)
         try:
             watch.mkdir(parents=True, exist_ok=True)
             processed.mkdir(parents=True, exist_ok=True)
+            error_dir.mkdir(parents=True, exist_ok=True)
         except Exception as exc:
             logger.error("Watch folder inaccessible: %s", exc)
             return
 
         for file_path in list(watch.iterdir()):
+            if file_path.is_dir():
+                if file_path.resolve() == error_dir.resolve():
+                    continue
+                continue
             key = str(file_path.resolve())
             if key in self._processing_files:
                 continue
@@ -220,11 +250,15 @@ class TorrentManager:
             except Exception as exc:
                 logger.error("Watch [%s]: %s", file_path.name, exc)
                 self._failed_files.add(key)
+                moved_to = self._move_watch_file_to_error(file_path, watch)
                 # Write to DB events so the error shows in the UI
                 async with aiosqlite.connect(DB_PATH) as db:
                     await db.execute(
                         "INSERT INTO events (torrent_id, level, message) VALUES (NULL, 'error', ?)",
-                        (f"Watch folder error [{file_path.name}]: {exc}",),
+                        (
+                            f"Watch folder error [{file_path.name}]: {exc}"
+                            + (f" -> moved to {moved_to}" if moved_to else ""),
+                        ),
                     )
                     await db.commit()
             finally:

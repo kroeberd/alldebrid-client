@@ -293,6 +293,60 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         )):
             self.assertEqual(manager._aria2_slot_limit(), 7)
 
+    async def test_scan_watch_folder_moves_failed_files_to_error_dir(self):
+        from services.manager_v2 import TorrentManager
+
+        manager = TorrentManager()
+        root = Path.cwd() / "backend" / "tests" / "_tmp_watch_scan"
+        root.mkdir(parents=True, exist_ok=True)
+        try:
+            watch = root / "watch"
+            processed = root / "processed"
+            watch.mkdir(parents=True, exist_ok=True)
+            processed.mkdir(parents=True, exist_ok=True)
+            failing = watch / "broken.torrent"
+            failing.write_bytes(b"not-a-real-torrent")
+            ignored_dir = watch / "error"
+            ignored_dir.mkdir(exist_ok=True)
+            (ignored_dir / "ignoreme.torrent").write_bytes(b"stay-here")
+
+            seen = []
+
+            async def raise_on_handle(file_path, processed_path):
+                seen.append(file_path.name)
+                raise RuntimeError("boom")
+
+            manager._handle_torrent = raise_on_handle
+            manager._move_watch_file_to_error = lambda file_path, watch_path: watch_path / "error" / file_path.name
+
+            fake_cfg = types.SimpleNamespace(
+                paused=False,
+                watch_folder=str(watch),
+                processed_folder=str(processed),
+            )
+
+            with patch("services.manager_v2.get_settings", return_value=fake_cfg), \
+                 patch("services.manager_v2.aiosqlite.connect") as mock_connect:
+                mock_db = AsyncMock()
+                mock_connect.return_value.__aenter__.return_value = mock_db
+                await manager.scan_watch_folder()
+
+            self.assertEqual(seen, ["broken.torrent"])
+        finally:
+            if root.exists():
+                for child in sorted(root.rglob("*"), reverse=True):
+                    try:
+                        if child.is_file():
+                            child.unlink()
+                        else:
+                            child.rmdir()
+                    except Exception:
+                        pass
+                try:
+                    root.rmdir()
+                except Exception:
+                    pass
+
 
 if __name__ == "__main__":
     unittest.main()

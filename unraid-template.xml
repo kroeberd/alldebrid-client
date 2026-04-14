@@ -9,7 +9,7 @@
   <Support>https://github.com/kroeberd/alldebrid-client/issues</Support>
   <Project>https://github.com/kroeberd/alldebrid-client</Project>
   <Overview>
-[b]AllDebrid-Client v0.6.1[/b] Runs aria2 in configurable slots and now retries temporary empty AllDebrid API responses instead of immediately failing queued files.
+[b]AllDebrid-Client v0.6.2[/b] Moves failed watch files into a dedicated error folder and excludes that folder from future watch scans, while keeping the recent aria2 and AllDebrid stability fixes.
 
 Automated torrent/magnet downloading via AllDebrid with a clean Web UI.
 

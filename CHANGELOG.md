@@ -12,6 +12,12 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.6.2] - 2026-04-14
+
+### Fixed
+- Moved failed watch-folder torrent and magnet files into `watch/error` so they no longer get retried from the root watch folder.
+- Explicitly ignored the `watch/error` subfolder during watch scans.
+
 ## [0.6.1] - 2026-04-14
 
 ### Fixed
