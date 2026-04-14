@@ -169,24 +169,40 @@ class TorrentManager:
         cfg = get_settings()
         watch = Path(cfg.watch_folder)
         processed = Path(cfg.processed_folder)
-        watch.mkdir(parents=True, exist_ok=True)
-        processed.mkdir(parents=True, exist_ok=True)
+        try:
+            watch.mkdir(parents=True, exist_ok=True)
+            processed.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:
+            logger.error("Watch folder inaccessible: %s", exc)
+            return
 
         for file_path in list(watch.iterdir()):
             key = str(file_path.resolve())
-            if key in self._processing_files or key in self._failed_files:
+            if key in self._processing_files:
                 continue
-            if file_path.suffix.lower() not in {".torrent", ".magnet", ".txt"}:
+            suffix = file_path.suffix.lower()
+            if suffix not in {".torrent", ".magnet", ".txt"}:
                 continue
+            # Retry previously failed files on every cycle — the error may be transient
+            # (e.g. API key not yet configured, network blip). Remove from failed set
+            # so it gets a fresh attempt.
+            self._failed_files.discard(key)
             self._processing_files.add(key)
             try:
-                if file_path.suffix.lower() == ".torrent":
+                if suffix == ".torrent":
                     await self._handle_torrent(file_path, processed)
                 else:
                     await self._handle_magnet_file(file_path, processed)
             except Exception as exc:
                 logger.error("Watch [%s]: %s", file_path.name, exc)
                 self._failed_files.add(key)
+                # Write to DB events so the error shows in the UI
+                async with aiosqlite.connect(DB_PATH) as db:
+                    await db.execute(
+                        "INSERT INTO events (torrent_id, level, message) VALUES (NULL, 'error', ?)",
+                        (f"Watch folder error [{file_path.name}]: {exc}",),
+                    )
+                    await db.commit()
             finally:
                 self._processing_files.discard(key)
 

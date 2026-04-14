@@ -13,7 +13,14 @@ from db.database import DB_PATH
 
 router = APIRouter()
 logger = logging.getLogger("alldebrid.api")
-CHANGELOG_PATH = Path(__file__).resolve().parents[2] / "CHANGELOG.md"
+CHANGELOG_PATH = next(
+    (p for p in [
+        Path(__file__).resolve().parents[2] / "CHANGELOG.md",  # repo layout: backend/api/ → root
+        Path("/app/CHANGELOG.md"),                              # Docker: copied to /app/
+        Path(__file__).resolve().parent / "CHANGELOG.md",      # fallback: same dir as routes.py
+    ] if p.exists()),
+    Path("/app/CHANGELOG.md"),  # default for error message
+)
 
 
 # ─── Settings ─────────────────────────────────────────────────────────────────

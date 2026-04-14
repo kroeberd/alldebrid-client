@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # App
 COPY backend/ /app/
 COPY frontend/ /app/frontend/
+COPY CHANGELOG.md /app/CHANGELOG.md
 
 # Directories
 RUN mkdir -p /app/data/watch /app/data/processed /app/data/downloads /app/config
