@@ -82,6 +82,18 @@ def _terminal_torrent_status(status: str) -> bool:
     return status in {"completed", "deleted", "error"}
 
 
+def _aria2_status_rank(status: str) -> int:
+    order = {
+        "complete": 0,
+        "removed": 1,
+        "active": 2,
+        "waiting": 3,
+        "paused": 4,
+        "error": 5,
+    }
+    return order.get((status or "").strip().lower(), 99)
+
+
 def normalize_provider_state(magnet: Dict) -> Dict[str, object]:
     code = int(magnet.get("statusCode", 0) or 0)
     size = int(magnet.get("size", 0) or 0)
@@ -713,6 +725,8 @@ class TorrentManager:
             logger.warning("Startup aria2 reconciliation skipped: %s", exc)
             return
 
+        all_downloads = await self._dedupe_aria2_downloads_on_startup(all_downloads)
+
         by_gid = {dl.gid: dl for dl in all_downloads}
         uri_to_gid: Dict[str, str] = {}
         for dl in all_downloads:
@@ -804,6 +818,54 @@ class TorrentManager:
                 asyncio.create_task(
                     self._start_download(torrent_id, str(t["alldebrid_id"]), str(t["name"] or ""))
                 )
+
+    async def _dedupe_aria2_downloads_on_startup(self, all_downloads):
+        by_uri: Dict[str, List] = {}
+        removed_gids: Set[str] = set()
+        for dl in all_downloads:
+            for fi in dl.files or []:
+                for u in fi.get("uris", []) or []:
+                    uri = str(u.get("uri", "")).strip()
+                    if uri:
+                        by_uri.setdefault(uri, []).append(dl)
+
+        duplicate_sets = 0
+        removed = 0
+        for uri, matches in by_uri.items():
+            unique: List = []
+            seen_gids: Set[str] = set()
+            for dl in matches:
+                if dl.gid and dl.gid not in seen_gids:
+                    unique.append(dl)
+                    seen_gids.add(dl.gid)
+
+            if len(unique) <= 1:
+                continue
+
+            duplicate_sets += 1
+            unique.sort(key=lambda dl: (_aria2_status_rank(dl.status), dl.gid))
+            keep = unique[0]
+            for dup in unique[1:]:
+                logger.warning(
+                    "Startup aria2 dedupe removed duplicate gid %s for %s; keeping %s (%s)",
+                    dup.gid,
+                    uri,
+                    keep.gid,
+                    keep.status,
+                )
+                await self.aria2().remove(dup.gid)
+                removed_gids.add(dup.gid)
+                removed += 1
+
+        if duplicate_sets:
+            logger.info(
+                "Startup aria2 dedupe finished: %s duplicate url groups, %s duplicate jobs removed",
+                duplicate_sets,
+                removed,
+            )
+            return [dl for dl in all_downloads if dl.gid not in removed_gids]
+
+        return all_downloads
 
         logger.info(
             "Startup aria2 reconciliation: %d file(s) checked, %d finalized, %d reset",

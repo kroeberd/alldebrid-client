@@ -12,6 +12,12 @@ Each shipped change must be reflected here and released with a matching Git comm
 
 ---
 
+## [0.5.2] - 2026-04-14
+
+### Fixed
+- Added startup-time aria2 duplicate cleanup so already queued duplicate jobs are removed before reconciliation and requeue logic runs
+- Kept the startup aria2 reconciliation on the already-cleaned in-memory state to avoid a second dependency on immediate RPC refresh
+
 ## [0.5.1] - 2026-04-14
 
 ### Fixed

@@ -119,6 +119,7 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         fake_cfg = types.SimpleNamespace(
             download_client="direct",
             download_folder=str(Path.cwd() / "tmp-downloads"),
+            filters_enabled=True,
             blocked_extensions=[],
             blocked_keywords=[],
             min_file_size_mb=0,
@@ -142,6 +143,31 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(fake_ad.unlock_link.await_count, 1)
         self.assertEqual(manager._log_file.await_count, 1)
+
+    async def test_startup_reconcile_removes_duplicate_aria2_jobs(self):
+        from services.manager_v2 import TorrentManager
+
+        manager = TorrentManager()
+        keep = types.SimpleNamespace(gid="keep", status="active", files=[{"uris": [{"uri": "https://same.invalid/file"}]}])
+        dup = types.SimpleNamespace(gid="dup", status="waiting", files=[{"uris": [{"uri": "https://same.invalid/file"}]}])
+        calls = {"count": 0}
+
+        async def fake_get_all():
+            calls["count"] += 1
+            if calls["count"] == 1:
+                return [keep, dup]
+            return [keep]
+
+        fake_aria2 = types.SimpleNamespace(
+            get_all=AsyncMock(side_effect=fake_get_all),
+            remove=AsyncMock(),
+        )
+        manager.aria2 = lambda: fake_aria2
+
+        deduped = await manager._dedupe_aria2_downloads_on_startup([keep, dup])
+
+        fake_aria2.remove.assert_awaited_once_with("dup")
+        self.assertEqual([row.gid for row in deduped], ["keep"])
 
 
 if __name__ == "__main__":
