@@ -436,6 +436,11 @@ class TorrentManager:
                 if not download_url:
                     raise Exception("Empty download URL from unlock")
 
+                # unlock_link returns the authoritative file size — use it if
+                # AllDebrid didn't provide one in the magnet/files response.
+                if file_size <= 0:
+                    file_size = int(unlocked.get("filesize", 0) or 0)
+
                 if local_path.exists() and (file_size <= 0 or local_path.stat().st_size >= max(file_size - 1024, 0)):
                     transferred_items.append({"filename": display_name, "size_bytes": file_size})
                     await self._log_file(torrent_id, display_name, download_url, str(local_path), "completed", None, file_size)
@@ -490,6 +495,10 @@ class TorrentManager:
         queued_count = len(queued_items)
         downloadable_count = total_files - blocked_count
 
+        # Compute total size from all processed files — more reliable than the
+        # AllDebrid magnet-status value which is often 0 until the torrent is ready.
+        total_size_bytes = _size_sum(blocked_items + transferred_items + queued_items + failed_items)
+
         if failed_count == 0 and completed_count == downloadable_count and downloadable_count > 0:
             final_status = "completed"
         elif failed_count == 0 and completed_count + queued_count == downloadable_count and queued_count > 0:
@@ -501,8 +510,8 @@ class TorrentManager:
 
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
-                "UPDATE torrents SET status=?, local_path=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (final_status, str(destination_root), torrent_id),
+                "UPDATE torrents SET status=?, local_path=?, size_bytes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (final_status, str(destination_root), total_size_bytes, torrent_id),
             )
             if final_status == "completed":
                 await db.execute("UPDATE torrents SET completed_at=CURRENT_TIMESTAMP WHERE id=?", (torrent_id,))
@@ -625,19 +634,20 @@ class TorrentManager:
                     continue
 
             # Status sync from aria2
+            sz = dl.total_length if dl.total_length > 0 else None
             if dl.status == "paused":
-                await self._update_file_state(row["file_id"], "paused", row["local_path"])
+                await self._update_file_state(row["file_id"], "paused", row["local_path"], size_bytes=sz)
             elif dl.status == "waiting":
-                await self._update_file_state(row["file_id"], "queued", row["local_path"])
+                await self._update_file_state(row["file_id"], "queued", row["local_path"], size_bytes=sz)
             elif dl.status == "active":
-                await self._update_file_state(row["file_id"], "downloading", row["local_path"])
+                await self._update_file_state(row["file_id"], "downloading", row["local_path"], size_bytes=sz)
             elif dl.status in {"complete", "removed"}:
-                await self._update_file_state(row["file_id"], "completed", row["local_path"])
+                await self._update_file_state(row["file_id"], "completed", row["local_path"], size_bytes=sz)
                 await self.aria2().remove(dl.gid)
                 touched.add(row["torrent_id"])
             elif dl.status == "error":
                 reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
-                await self._update_file_state(row["file_id"], "error", row["local_path"], reason=reason)
+                await self._update_file_state(row["file_id"], "error", row["local_path"], reason=reason, size_bytes=sz)
                 await self.aria2().remove(dl.gid)
                 touched.add(row["torrent_id"])
 
@@ -752,21 +762,22 @@ class TorrentManager:
                     continue
 
             # Cases 1 + 2: sync status from aria2
+            sz = dl.total_length if dl.total_length > 0 else None
             if dl.status in {"complete", "removed"}:
-                await self._update_file_state(row["file_id"], "completed", row["local_path"])
+                await self._update_file_state(row["file_id"], "completed", row["local_path"], size_bytes=sz)
                 await self.aria2().remove(dl.gid)
                 touched.add(row["torrent_id"])
             elif dl.status == "error":
                 reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
-                await self._update_file_state(row["file_id"], "error", row["local_path"], reason=reason)
+                await self._update_file_state(row["file_id"], "error", row["local_path"], reason=reason, size_bytes=sz)
                 await self.aria2().remove(dl.gid)
                 touched.add(row["torrent_id"])
             elif dl.status == "active":
-                await self._update_file_state(row["file_id"], "downloading", row["local_path"])
+                await self._update_file_state(row["file_id"], "downloading", row["local_path"], size_bytes=sz)
             elif dl.status == "waiting":
-                await self._update_file_state(row["file_id"], "queued", row["local_path"])
+                await self._update_file_state(row["file_id"], "queued", row["local_path"], size_bytes=sz)
             elif dl.status == "paused":
-                await self._update_file_state(row["file_id"], "paused", row["local_path"])
+                await self._update_file_state(row["file_id"], "paused", row["local_path"], size_bytes=sz)
 
         for torrent_id in touched:
             await self._finalize_aria2_torrent(torrent_id)
@@ -787,14 +798,29 @@ class TorrentManager:
             len(rows), len(touched), len(reset_torrents),
         )
 
-    async def _update_file_state(self, file_id: int, status: str, local_path: Optional[str], reason: Optional[str] = None):
+    async def _update_file_state(
+        self,
+        file_id: int,
+        status: str,
+        local_path: Optional[str],
+        reason: Optional[str] = None,
+        size_bytes: Optional[int] = None,
+    ):
         async with aiosqlite.connect(DB_PATH) as db:
-            await db.execute(
-                """UPDATE download_files
-                   SET status=?, local_path=?, block_reason=?, updated_at=CURRENT_TIMESTAMP
-                   WHERE id=?""",
-                (status, local_path, reason, file_id),
-            )
+            if size_bytes is not None and size_bytes > 0:
+                await db.execute(
+                    """UPDATE download_files
+                       SET status=?, local_path=?, block_reason=?, size_bytes=?, updated_at=CURRENT_TIMESTAMP
+                       WHERE id=?""",
+                    (status, local_path, reason, size_bytes, file_id),
+                )
+            else:
+                await db.execute(
+                    """UPDATE download_files
+                       SET status=?, local_path=?, block_reason=?, updated_at=CURRENT_TIMESTAMP
+                       WHERE id=?""",
+                    (status, local_path, reason, file_id),
+                )
             await db.commit()
 
     async def _finalize_aria2_torrent(self, torrent_id: int):
@@ -857,9 +883,22 @@ class TorrentManager:
                 return
 
             if should_complete:
+                # Recompute total size from actual file sizes — aria2 provides the
+                # authoritative value once downloads run, overwriting any 0 from AllDebrid.
+                size_row = await (
+                    await db.execute(
+                        "SELECT COALESCE(SUM(size_bytes), 0) AS total FROM download_files WHERE torrent_id=?",
+                        (torrent_id,),
+                    )
+                ).fetchone()
+                total_size = int(size_row["total"] or 0)
                 await db.execute(
-                    "UPDATE torrents SET status='completed', completed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    (torrent_id,),
+                    """UPDATE torrents
+                       SET status='completed', completed_at=CURRENT_TIMESTAMP,
+                           size_bytes=CASE WHEN ? > 0 THEN ? ELSE size_bytes END,
+                           updated_at=CURRENT_TIMESTAMP
+                       WHERE id=?""",
+                    (total_size, total_size, torrent_id),
                 )
                 await db.execute("INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)", (torrent_id, "info", event_msg))
                 await db.commit()
