@@ -38,7 +38,7 @@ DB_PATH = Path(os.getenv("DB_PATH", "/app/data/alldebrid.db"))
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _get_settings():
-    """Importiert Settings lazy, um Zirkularimporte zu vermeiden."""
+    """Lazy-imports settings to avoid circular imports."""
     try:
         from core.config import get_settings
         return get_settings()
@@ -47,16 +47,16 @@ def _get_settings():
 
 
 def _is_postgres() -> bool:
-    """Gibt True zurück wenn PostgreSQL (intern oder extern) konfiguriert ist."""
+    """Returns True when PostgreSQL (internal or external) is configured."""
     cfg = _get_settings()
     return cfg is not None and getattr(cfg, "db_type", "sqlite") == "postgres"
 
 
 def _build_dsn() -> str:
-    """Baut asyncpg-DSN aus AppSettings."""
+    """Builds an asyncpg DSN from AppSettings."""
     cfg = _get_settings()
     if cfg is None:
-        raise RuntimeError("Einstellungen nicht verfügbar")
+        raise RuntimeError("Settings not available")
     ssl = "require" if getattr(cfg, "postgres_ssl", False) else "disable"
     app_name = getattr(cfg, "postgres_application_name", "alldebrid-client")
     return (
@@ -85,7 +85,7 @@ class _DbConnection:
         return self._backend
 
     def _adapt(self, sql: str) -> str:
-        """Wandelt SQLite-SQL in PostgreSQL-kompatibles SQL um."""
+        """Translates SQLite SQL to PostgreSQL-compatible SQL."""
         if self._backend == "sqlite":
             return sql
 
@@ -171,7 +171,7 @@ async def get_db() -> AsyncIterator[_DbConnection]:
         try:
             import asyncpg  # type: ignore
         except ImportError:
-            raise RuntimeError("asyncpg nicht installiert. pip install asyncpg")
+            raise RuntimeError("asyncpg is not installed. Run: pip install asyncpg")
         dsn = _build_dsn()
         conn = await asyncpg.connect(dsn)
         try:
@@ -190,7 +190,7 @@ async def get_db() -> AsyncIterator[_DbConnection]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def _ensure_column(db: aiosqlite.Connection, table: str, column: str, definition: str):
-    """SQLite: Spalte hinzufügen wenn nicht vorhanden."""
+    """SQLite: add column if it does not exist."""
     cur = await db.execute(f"PRAGMA table_info({table})")
     existing = {row[1] for row in await cur.fetchall()}
     if column not in existing:
@@ -198,7 +198,7 @@ async def _ensure_column(db: aiosqlite.Connection, table: str, column: str, defi
 
 
 async def _ensure_column_pg(conn, table: str, column: str, definition: str):
-    """PostgreSQL: Spalte hinzufügen wenn nicht vorhanden."""
+    """PostgreSQL: add column if it does not exist."""
     import re
     row = await conn.fetchrow(
         "SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2",
@@ -232,7 +232,7 @@ _SCHEMA_COLUMNS_FILES = [
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def init_db():
-    """Initialisiert das Datenbankschema für das aktive Backend."""
+    """Initialises the database schema for the active backend."""
     if _is_postgres():
         await _init_db_postgres()
     else:
@@ -297,7 +297,7 @@ async def _init_db_sqlite():
         for col, defn in _SCHEMA_COLUMNS_FILES:
             await _ensure_column(db, "download_files", col, defn)
         await db.commit()
-    logger.info("SQLite-Datenbank initialisiert: %s", DB_PATH)
+    logger.info("SQLite database initialised: %s", DB_PATH)
 
 
 async def _init_db_postgres():
@@ -308,7 +308,7 @@ async def _init_db_postgres():
     try:
         import asyncpg  # type: ignore
     except ImportError:
-        raise RuntimeError("asyncpg nicht installiert. pip install asyncpg")
+        raise RuntimeError("asyncpg is not installed. Run: pip install asyncpg")
 
     dsn = _build_dsn()
     conn = await asyncpg.connect(dsn)
@@ -368,10 +368,10 @@ async def _init_db_postgres():
                 await _ensure_column_pg(conn, "download_files", col, defn)
     finally:
         await conn.close()
-    logger.info("PostgreSQL-Datenbank initialisiert")
+    logger.info("PostgreSQL database initialised")
 
 
 # Abwärtskompatibilität
 async def get_db_legacy():
-    """Veraltet: Verwende get_db()."""
+    """Deprecated: use get_db() instead."""
     return aiosqlite.connect(DB_PATH)

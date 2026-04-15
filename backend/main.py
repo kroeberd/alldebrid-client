@@ -18,22 +18,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger("alldebrid-client")
 
-# PostgreSQL Verbindungsversuche beim Start
+# PostgreSQL connection attempts on startup
 _PG_CONNECT_RETRIES = 15
 _PG_CONNECT_DELAY   = 2.0   # Sekunden zwischen Versuchen
 
 
 async def _wait_for_postgres() -> bool:
     """
-    Wartet bis PostgreSQL erreichbar ist.
-    Gibt True zurück wenn verbunden, False wenn nach allen Versuchen nicht erreichbar.
-    Wirft keine Exception — der Aufrufer entscheidet ob er auf SQLite wechselt.
+    Waits until PostgreSQL is reachable.
+    Returns True if connected, False after all retries are exhausted.
+    Never raises — the caller decides whether to fall back to SQLite.
     """
     from db.database import _build_dsn
     try:
         import asyncpg  # type: ignore
     except ImportError:
-        logger.error("asyncpg nicht installiert — kann nicht mit PostgreSQL verbinden")
+        logger.error("asyncpg not installed — cannot connect to PostgreSQL")
         return False
 
     dsn = _build_dsn()
@@ -41,18 +41,18 @@ async def _wait_for_postgres() -> bool:
         try:
             conn = await asyncpg.connect(dsn, timeout=5)
             await conn.close()
-            logger.info("PostgreSQL bereit (Versuch %d/%d)", attempt, _PG_CONNECT_RETRIES)
+            logger.info("PostgreSQL ready (attempt %d/%d)", attempt, _PG_CONNECT_RETRIES)
             return True
         except Exception as exc:
             remaining = _PG_CONNECT_RETRIES - attempt
             if remaining == 0:
                 logger.warning(
-                    "PostgreSQL nach %d Versuchen nicht erreichbar: %s",
+                    "PostgreSQL not reachable after %d attempts: %s",
                     _PG_CONNECT_RETRIES, exc,
                 )
                 return False
             logger.warning(
-                "Warte auf PostgreSQL (Versuch %d/%d, noch %d): %s",
+                "Waiting for PostgreSQL (attempt %d/%d, %d remaining): %s",
                 attempt, _PG_CONNECT_RETRIES, remaining, exc,
             )
             await asyncio.sleep(_PG_CONNECT_DELAY)
@@ -61,15 +61,15 @@ async def _wait_for_postgres() -> bool:
 
 def _fallback_to_sqlite():
     """
-    Schaltet die Anwendung auf SQLite um wenn PostgreSQL nicht erreichbar ist.
-    Ändert die laufenden Settings in-place und loggt eine klare Warnung.
+    Switches the application to SQLite when PostgreSQL is not reachable.
+    Updates the live settings in-place and logs a clear warning.
     """
     from core.config import get_settings, apply_settings
     cfg = get_settings()
     logger.warning(
-        "⚠️  PostgreSQL nicht erreichbar — Fallback auf SQLite. "
-        "Daten werden in %s gespeichert. "
-        "Starte neu mit erreichbarem PostgreSQL um PG zu nutzen.",
+        "⚠️  PostgreSQL unreachable — falling back to SQLite. "
+        "Data will be stored in %s. "
+        "Restart with a reachable PostgreSQL instance to use PG.",
         DB_PATH,
     )
     # Settings auf SQLite umschalten ohne config.json zu überschreiben
@@ -78,7 +78,7 @@ def _fallback_to_sqlite():
 
 
 async def _reset_stuck_downloads_sqlite():
-    """Setzt Torrents zurück die beim letzten Start im Status 'downloading' stecken geblieben sind."""
+    """Resets torrents that were stuck in 'downloading' state when the app last stopped."""
     import aiosqlite as _aiosqlite
     async with _aiosqlite.connect(DB_PATH) as _db:
         _db.row_factory = _aiosqlite.Row
@@ -102,7 +102,7 @@ async def _reset_stuck_downloads_sqlite():
 
 
 async def _reset_stuck_downloads_postgres():
-    """Gleiche Logik wie SQLite-Variante, via asyncpg."""
+    """Same logic as the SQLite variant, using asyncpg."""
     try:
         import asyncpg  # type: ignore
     except ImportError:
@@ -134,24 +134,24 @@ async def _reset_stuck_downloads_postgres():
 async def lifespan(app: FastAPI):
     logger.info("Starting AllDebrid-Client...")
 
-    # 1. PostgreSQL: Warten + ggf. auf SQLite zurückfallen
+    # 1. PostgreSQL: wait for readiness, fall back to SQLite if needed
     if _is_postgres():
         pg_ok = await _wait_for_postgres()
         if not pg_ok:
             _fallback_to_sqlite()
             # _is_postgres() gibt jetzt False zurück
 
-    # 2. Schema initialisieren (idempotent)
+    # 2. Initialise schema (idempotent — safe on restart)
     try:
         await init_db()
     except Exception as e:
-        logger.error("Datenbankinitialisierung fehlgeschlagen: %s", e)
+        logger.error("Database initialisation failed: %s", e)
         if _is_postgres():
-            # Letzter Ausweg: auf SQLite fallen
+            # Last resort: fall back to SQLite
             _fallback_to_sqlite()
             await init_db()
 
-    # 3. Stuck-Downloads zurücksetzen
+    # 3. Reset stuck downloads
     try:
         if _is_postgres():
             stuck = await _reset_stuck_downloads_postgres()
@@ -165,13 +165,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Startup stuck-download cleanup failed: %s", e)
 
-    # 4. Bestehende AllDebrid-Magnete importieren
+    # 4. Import existing AllDebrid magnets
     try:
         await manager.import_existing_magnets()
     except Exception as e:
         logger.warning("Initial AllDebrid import skipped: %s", e)
 
-    # 5. aria2-Zustand beim Start abgleichen
+    # 5. Reconcile aria2 state on startup
     try:
         await manager.reconcile_aria2_on_startup()
     except Exception as e:

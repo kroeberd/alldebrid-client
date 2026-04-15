@@ -20,7 +20,7 @@ import aiohttp
 
 logger = logging.getLogger("alldebrid.aria2")
 
-# Fehlermeldungen, die auf einen schließenden/geschlossenen Transport hinweisen
+# Error messages indicating a closing or closed transport
 _CLOSING_TRANSPORT_MSGS = frozenset({
     "Cannot write to closing transport",
     "Connection reset by peer",
@@ -31,7 +31,7 @@ _CLOSING_TRANSPORT_MSGS = frozenset({
 
 
 def _is_transient_connection_error(exc: Exception) -> bool:
-    """Prüft ob eine Exception ein erwarteter, transienter Verbindungsfehler ist."""
+    """Returns True if the exception is an expected transient connection error."""
     msg = str(exc)
     return any(m in msg for m in _CLOSING_TRANSPORT_MSGS) or isinstance(
         exc, (aiohttp.ServerDisconnectedError, aiohttp.ClientConnectorError)
@@ -39,7 +39,7 @@ def _is_transient_connection_error(exc: Exception) -> bool:
 
 
 class Aria2RPCError(Exception):
-    """RPC-Fehler von aria2 (z.B. ungültige Parameter, unbekannte GID)."""
+    """RPC error from aria2 (e.g. invalid parameters, unknown GID)."""
 
 
 class Aria2ConnectionError(Aria2RPCError):
@@ -94,7 +94,7 @@ class Aria2Service:
                 self._call("aria2.tellStopped", [0, 1000, self._keys()]),
             )
         except Aria2ConnectionError as exc:
-            logger.warning("aria2 nicht erreichbar (get_all): %s", exc)
+            logger.warning("aria2 unreachable (get_all): %s", exc)
             return []
         except Aria2RPCError as exc:
             logger.error("aria2 RPC-Fehler (get_all): %s", exc)
@@ -159,7 +159,7 @@ class Aria2Service:
             for attempt in range(1, max_retries + 1):
                 try:
                     gid = await self._call("aria2.addUri", [[normalized_uri], rpc_options])
-                    logger.info("aria2: Download eingereiht %s (%s)", normalized_uri, gid)
+                    logger.info("aria2: queued download %s (%s)", normalized_uri, gid)
                     return gid
                 except Aria2ConnectionError as exc:
                     last_error = exc
@@ -172,7 +172,7 @@ class Aria2Service:
                     )
                     await asyncio.sleep(delay)
                 except Aria2RPCError as exc:
-                    # RPC-Fehler sind nicht durch Retry behebbar
+                    # RPC errors cannot be resolved by retrying
                     raise
                 except Exception as exc:
                     last_error = exc
@@ -180,7 +180,7 @@ class Aria2Service:
                         break
                     delay = min(attempt * attempt, 10)
                     logger.warning(
-                        "Fehler beim Einreihen (Versuch %s/%s) für %s, Retry in %ss: %s",
+                        "Error queuing download (attempt %s/%s) for %s, retrying in %ss: %s",
                         attempt, max_retries, normalized_uri, delay, exc,
                     )
                     await asyncio.sleep(delay)
@@ -258,7 +258,7 @@ class Aria2Service:
         try:
             await self._call(method, params)
         except Aria2ConnectionError as exc:
-            logger.debug("aria2 %s nicht ausführbar (Verbindung): %s", method, exc)
+            logger.debug("aria2 %s skipped (connection error): %s", method, exc)
         except Exception as exc:
             logger.debug("aria2 %s fehlgeschlagen für %s: %s", method, params, exc)
 
@@ -281,8 +281,8 @@ class Aria2Service:
             "params": rpc_params,
         }
 
-        # force_close=True: Jede Session schließt die Verbindung nach der Anfrage.
-        # Das verhindert "Cannot write to closing transport" bei Folgeaufrufen.
+        # force_close=True: each session closes the connection after the request.
+        # This prevents 'Cannot write to closing transport' on subsequent calls.
         connector = aiohttp.TCPConnector(force_close=True)
         try:
             async with aiohttp.ClientSession(
@@ -299,14 +299,14 @@ class Aria2Service:
                     ConnectionResetError,
                 ) as exc:
                     raise Aria2ConnectionError(
-                        f"Verbindung zu aria2 unterbrochen: {exc}"
+                        f"Connection to aria2 lost: {exc}"
                     ) from exc
                 except aiohttp.ClientError as exc:
                     if _is_transient_connection_error(exc):
                         raise Aria2ConnectionError(
-                            f"Transiente Verbindungsunterbrechung zu aria2: {exc}"
+                            f"Transient connection error to aria2: {exc}"
                         ) from exc
-                    raise Aria2RPCError(f"Netzwerkfehler bei aria2-Kommunikation: {exc}") from exc
+                    raise Aria2RPCError(f"Network error communicating with aria2: {exc}") from exc
         finally:
             await connector.close()
 

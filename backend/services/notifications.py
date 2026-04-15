@@ -1,14 +1,14 @@
 """
-Discord-Webhook-Benachrichtigungen mit Rich Embeds.
+Discord webhook notifications with rich embeds.
 
 Features:
-- Strukturierte Embeds mit Feldern statt rohem Text
-- Klare Farbkodierung pro Event-Typ
-- Separater Webhook für torrent-added Events
-- Deduplizierung (gleiche Nachricht innerhalb 30s wird unterdrückt)
-- Rate-Limiting (mindestens 2s zwischen Nachrichten pro URL)
-- Discord 429 Rate-Limit-Handling mit retry_after
-- Lazy asyncio.Lock (kompatibel mit IsolatedAsyncioTestCase)
+- Structured embeds with fields instead of raw text
+- Clear color coding per event type
+- Separate webhook URL for torrent-added events
+- Deduplication: same message within 30s is suppressed (keyed on url+title+description)
+- Rate limiting: minimum 2s between messages per URL
+- Discord 429 handling with retry_after
+- Lazy asyncio.Lock (compatible with IsolatedAsyncioTestCase)
 """
 from __future__ import annotations
 
@@ -29,16 +29,16 @@ _VER_PATH   = Path(__file__).resolve().parents[2] / "VERSION"
 APP_VERSION = _VER_PATH.read_text(encoding="utf-8").strip() if _VER_PATH.exists() else "dev"
 APP_LOGO    = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
 
-# ── Farben ────────────────────────────────────────────────────────────────────
-COLOR_INFO    = 0x3B82F6   # Blau    — allgemein
-COLOR_SUCCESS = 0x22C55E   # Grün    — abgeschlossen
-COLOR_WARNING = 0xF59E0B   # Gelb    — Warnung / Teildownload
-COLOR_ERROR   = 0xEF4444   # Rot     — Fehler
-COLOR_ADDED   = 0x8B5CF6   # Lila    — Torrent hinzugefügt
-COLOR_PARTIAL = 0xF97316   # Orange  — Gefilterte Dateien
+# ── Colors ────────────────────────────────────────────────────────────────────
+COLOR_INFO    = 0x3B82F6   # Blue    — general
+COLOR_SUCCESS = 0x22C55E   # Green   — completed
+COLOR_WARNING = 0xF59E0B   # Yellow  — warning / partial
+COLOR_ERROR   = 0xEF4444   # Red     — error
+COLOR_ADDED   = 0x8B5CF6   # Purple  — torrent added
+COLOR_PARTIAL = 0xF97316   # Orange  — filtered files
 
 # ── Throttling ────────────────────────────────────────────────────────────────
-_RATE_LIMIT_SECONDS  = 2.0
+_RATE_LIMIT_SECONDS   = 2.0
 _DEDUP_WINDOW_SECONDS = 30.0
 
 
@@ -54,18 +54,29 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
+def _source_label(source: str) -> str:
+    """Maps internal source identifiers to readable labels."""
+    return {
+        "manual":             "Manual (UI)",
+        "watch_file":         "Watch folder (.magnet)",
+        "watch_torrent":      "Watch folder (.torrent)",
+        "alldebrid_existing": "AllDebrid import",
+        "api":                "API",
+    }.get(source, source)
+
+
 class NotificationService:
-    # Klassenweite Zustandsvariablen — alle Instanzen teilen diese
+    # Class-level state — shared across all instances
     _last_sent_at: Dict[str, float] = {}
     _sent_hashes:  Dict[str, float] = {}
-    _throttle_lock: Optional[asyncio.Lock] = None  # lazy — pro Event-Loop
+    _throttle_lock: Optional[asyncio.Lock] = None  # lazy — created per event loop
 
     def __init__(self, webhook_url: str = "", added_webhook_url: str = ""):
         self.webhook_url       = (webhook_url or "").strip()
-        # Separater Kanal für Added-Events; fällt auf Haupt-URL zurück
+        # Separate channel for added events; falls back to main webhook if not set
         self.added_webhook_url = (added_webhook_url or "").strip() or self.webhook_url
 
-    # ── Lock (lazy, thread-safe für Tests) ───────────────────────────────────
+    # ── Lock (lazy, safe for test isolation) ─────────────────────────────────
 
     @classmethod
     def _get_lock(cls) -> asyncio.Lock:
@@ -73,7 +84,7 @@ class NotificationService:
             cls._throttle_lock = asyncio.Lock()
         return cls._throttle_lock
 
-    # ── Öffentliche Event-Methoden ────────────────────────────────────────────
+    # ── Public event methods ──────────────────────────────────────────────────
 
     async def send_added(
         self,
@@ -82,13 +93,13 @@ class NotificationService:
         alldebrid_id: str = "",
         extra_fields: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
-        """Torrent wurde erfolgreich zu AllDebrid hochgeladen."""
+        """Torrent successfully uploaded to AllDebrid."""
         if not self.added_webhook_url:
             return
         fields: List[Dict[str, Any]] = [
-            {"name": "Quelle",  "value": _source_label(source), "inline": True},
-            {"name": "Status",  "value": "Hochgeladen zu AllDebrid", "inline": True},
-            {"name": "Zeit",    "value": _now_utc(), "inline": True},
+            {"name": "Source",  "value": _source_label(source),      "inline": True},
+            {"name": "Status",  "value": "Queued on AllDebrid",       "inline": True},
+            {"name": "Time",    "value": _now_utc(),                  "inline": True},
         ]
         if alldebrid_id:
             fields.append({"name": "AllDebrid ID", "value": str(alldebrid_id), "inline": True})
@@ -96,7 +107,7 @@ class NotificationService:
             fields.extend(extra_fields)
         await self._send(
             url=self.added_webhook_url,
-            title="📥 Torrent hinzugefügt",
+            title="📥 Torrent Added",
             description=f"**{name}**",
             color=COLOR_ADDED,
             fields=fields,
@@ -110,22 +121,22 @@ class NotificationService:
         destination: str = "",
         download_client: str = "",
     ) -> None:
-        """Download vollständig abgeschlossen."""
+        """Download fully completed."""
         if not self.webhook_url:
             return
         fields: List[Dict[str, Any]] = []
         if file_count:
-            fields.append({"name": "Dateien",  "value": str(file_count),       "inline": True})
+            fields.append({"name": "Files",       "value": str(file_count),       "inline": True})
         if size_bytes:
-            fields.append({"name": "Größe",    "value": _fmt_bytes(size_bytes), "inline": True})
+            fields.append({"name": "Size",        "value": _fmt_bytes(size_bytes), "inline": True})
         if download_client:
-            fields.append({"name": "Client",   "value": download_client,        "inline": True})
+            fields.append({"name": "Client",      "value": download_client,        "inline": True})
         if destination:
-            fields.append({"name": "Zielordner", "value": f"`{destination}`",   "inline": False})
-        fields.append(    {"name": "Zeit",     "value": _now_utc(),              "inline": True})
+            fields.append({"name": "Destination", "value": f"`{destination}`",     "inline": False})
+        fields.append(    {"name": "Time",        "value": _now_utc(),              "inline": True})
         await self._send(
             url=self.webhook_url,
-            title="✅ Download abgeschlossen",
+            title="✅ Download Complete",
             description=f"**{name}**",
             color=COLOR_SUCCESS,
             fields=fields,
@@ -137,18 +148,18 @@ class NotificationService:
         reason: str = "",
         context: str = "",
     ) -> None:
-        """Fehler beim Verarbeiten oder Herunterladen."""
+        """Error during processing or download."""
         if not self.webhook_url:
             return
         fields: List[Dict[str, Any]] = []
         if reason:
-            fields.append({"name": "Grund",    "value": reason[:1000],  "inline": False})
+            fields.append({"name": "Reason",  "value": reason[:1000],  "inline": False})
         if context:
-            fields.append({"name": "Kontext",  "value": context[:500],  "inline": False})
-        fields.append(    {"name": "Zeit",     "value": _now_utc(),      "inline": True})
+            fields.append({"name": "Context", "value": context[:500],   "inline": False})
+        fields.append(    {"name": "Time",    "value": _now_utc(),       "inline": True})
         await self._send(
             url=self.webhook_url,
-            title="❌ Fehler",
+            title="❌ Error",
             description=f"**{name}**",
             color=COLOR_ERROR,
             fields=fields,
@@ -163,29 +174,29 @@ class NotificationService:
         total_size: int = 0,
         downloaded_size: int = 0,
     ) -> None:
-        """Teildownload — manche Dateien wurden durch Filter blockiert."""
+        """Partial download — some files were blocked by filters."""
         if not self.webhook_url:
             return
         fields: List[Dict[str, Any]] = [
-            {"name": "Gesamt",            "value": str(total_files),         "inline": True},
-            {"name": "Heruntergeladen",   "value": str(downloaded_files),    "inline": True},
-            {"name": "Gefiltert",         "value": str(blocked_files),       "inline": True},
+            {"name": "Total",        "value": str(total_files),          "inline": True},
+            {"name": "Downloaded",   "value": str(downloaded_files),     "inline": True},
+            {"name": "Filtered",     "value": str(blocked_files),        "inline": True},
         ]
         if total_size:
-            fields.append({"name": "Gesamtgröße",          "value": _fmt_bytes(total_size),       "inline": True})
+            fields.append({"name": "Total Size",      "value": _fmt_bytes(total_size),       "inline": True})
         if downloaded_size:
-            fields.append({"name": "Heruntergeladene Größe", "value": _fmt_bytes(downloaded_size), "inline": True})
-        fields.append(    {"name": "Zeit",                 "value": _now_utc(),                   "inline": True})
+            fields.append({"name": "Downloaded Size", "value": _fmt_bytes(downloaded_size),  "inline": True})
+        fields.append(    {"name": "Time",            "value": _now_utc(),                   "inline": True})
         await self._send(
             url=self.webhook_url,
-            title="⚠️ Teildownload",
-            description=f"**{name}**\nEinige Dateien wurden gefiltert",
+            title="⚠️ Partial Download",
+            description=f"**{name}**\nSome files were filtered",
             color=COLOR_PARTIAL,
             fields=fields,
         )
 
     async def send(self, title: str, description: str, color: int = COLOR_INFO) -> None:
-        """Abwärtskompatibel — einfache Nachricht ohne Felder."""
+        """Backward-compatible simple message without fields."""
         if not self.webhook_url:
             return
         await self._send(
@@ -196,25 +207,25 @@ class NotificationService:
         )
 
     async def test(self) -> bool:
-        """Sendet eine Test-Nachricht. Gibt True zurück wenn erfolgreich."""
+        """Sends a test message. Returns True if successful."""
         if not self.webhook_url:
             return False
         try:
             await self._send(
                 url=self.webhook_url,
-                title="🔔 Test-Benachrichtigung",
-                description=f"**{APP_NAME}** ist verbunden und bereit.",
+                title="🔔 Test Notification",
+                description=f"**{APP_NAME}** is connected and ready.",
                 color=COLOR_INFO,
                 fields=[
                     {"name": "Version", "value": APP_VERSION, "inline": True},
-                    {"name": "Zeit",    "value": _now_utc(),  "inline": True},
+                    {"name": "Time",    "value": _now_utc(),  "inline": True},
                 ],
             )
             return True
         except Exception:
             return False
 
-    # ── Interne Implementierung ───────────────────────────────────────────────
+    # ── Internal implementation ───────────────────────────────────────────────
 
     async def _send(
         self,
@@ -227,9 +238,10 @@ class NotificationService:
         if not url:
             return
 
-        # Deduplizierung: gleicher Inhalt innerhalb von 30s → überspringen
+        # Deduplication: same content within 30s → skip
+        # Key includes description to avoid suppressing different torrents with same event type
         dedup_key = hashlib.md5(
-            f"{url}|{title}|{description[:100]}".encode()
+            f"{url}|{title}|{description[:200]}".encode()
         ).hexdigest()
 
         async with self._get_lock():
@@ -237,10 +249,10 @@ class NotificationService:
 
             last_hash = self._sent_hashes.get(dedup_key, 0.0)
             if now - last_hash < _DEDUP_WINDOW_SECONDS:
-                logger.debug("Discord: Duplikat unterdrückt (%s)", title)
+                logger.debug("Discord: duplicate suppressed (%s)", title)
                 return
 
-            # Rate-Limiting
+            # Rate limiting
             wait = max(0.0, _RATE_LIMIT_SECONDS - (now - self._last_sent_at.get(url, 0.0)))
             if wait > 0:
                 await asyncio.sleep(wait)
@@ -248,7 +260,7 @@ class NotificationService:
             self._last_sent_at[url] = time.monotonic()
             self._sent_hashes[dedup_key] = time.monotonic()
 
-            # Alte Einträge bereinigen (> 5 Minuten)
+            # Clean up old entries (> 5 minutes)
             cutoff = time.monotonic() - 300
             self._sent_hashes = {k: v for k, v in self._sent_hashes.items() if v > cutoff}
 
@@ -285,25 +297,13 @@ class NotificationService:
                     if resp.status == 429:
                         data = await resp.json(content_type=None)
                         retry_after = float(data.get("retry_after", 5))
-                        logger.warning("Discord Rate-Limit — warte %.1fs", retry_after)
+                        logger.warning("Discord rate limit — waiting %.1fs", retry_after)
                         await asyncio.sleep(retry_after)
-                        # Einmalig wiederholen
                         async with session.post(url, json=payload) as resp2:
                             if resp2.status not in (200, 204):
-                                logger.warning("Discord Retry status %d", resp2.status)
+                                logger.warning("Discord retry status %d", resp2.status)
                     elif resp.status not in (200, 204):
                         body = await resp.text()
-                        logger.warning("Discord Webhook %d: %s", resp.status, body[:200])
+                        logger.warning("Discord webhook %d: %s", resp.status, body[:200])
         except Exception as exc:
-            logger.error("Discord Benachrichtigung fehlgeschlagen: %s", exc)
-
-
-def _source_label(source: str) -> str:
-    """Wandelt interne Quell-Strings in lesbare Labels um."""
-    return {
-        "manual":             "Manuell (UI)",
-        "watch_file":         "Watch-Ordner (.magnet)",
-        "watch_torrent":      "Watch-Ordner (.torrent)",
-        "alldebrid_existing": "AllDebrid Import",
-        "api":                "API",
-    }.get(source, source)
+            logger.error("Discord notification failed: %s", exc)

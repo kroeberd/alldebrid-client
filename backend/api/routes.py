@@ -71,11 +71,11 @@ async def resume_processing():
 async def test_discord():
     cfg = get_settings()
     if not cfg.discord_webhook_url:
-        raise HTTPException(400, "Kein Discord-Webhook konfiguriert")
+        raise HTTPException(400, "No Discord webhook configured")
     svc = NotificationService(cfg.discord_webhook_url)
     ok = await svc.test()
     if not ok:
-        raise HTTPException(502, "Discord-Test fehlgeschlagen — Webhook-URL prüfen")
+        raise HTTPException(502, "Discord test failed — check webhook URL")
     return {"ok": True}
 
 
@@ -83,7 +83,7 @@ async def test_discord():
 async def test_alldebrid():
     cfg = get_settings()
     if not cfg.alldebrid_api_key:
-        raise HTTPException(400, "Kein API-Key konfiguriert")
+        raise HTTPException(400, "No API key configured")
     try:
         svc = AllDebridService(cfg.alldebrid_api_key, cfg.alldebrid_agent)
         user = await svc.get_user()
@@ -105,14 +105,14 @@ async def test_aria2():
 
 @router.post("/settings/test-postgres")
 async def test_postgres():
-    """Testet die PostgreSQL-Verbindung mit den aktuellen Einstellungen."""
+    """Tests the PostgreSQL connection with the current settings."""
     cfg = get_settings()
     if getattr(cfg, "db_type", "sqlite") not in ("postgres",):
-        raise HTTPException(400, "PostgreSQL ist nicht als Datenbanktyp konfiguriert")
+        raise HTTPException(400, "PostgreSQL is not configured as the database type")
     try:
         import asyncpg  # type: ignore
     except ImportError:
-        raise HTTPException(500, "asyncpg nicht installiert — pip install asyncpg")
+        raise HTTPException(500, "asyncpg is not installed — run: pip install asyncpg")
     try:
         ssl_val = "require" if cfg.postgres_ssl else "disable"
         dsn = (
@@ -133,7 +133,7 @@ async def test_postgres():
             "version": short_version,
         }
     except Exception as e:
-        raise HTTPException(502, f"PostgreSQL-Verbindung fehlgeschlagen: {e}")
+        raise HTTPException(502, f"PostgreSQL connection failed: {e}")
 
 
 # ─── Torrents ─────────────────────────────────────────────────────────────────
@@ -169,7 +169,7 @@ async def get_torrent(torrent_id: int):
         cur = await db.execute("SELECT * FROM torrents WHERE id=?", (torrent_id,))
         row = await cur.fetchone()
         if not row:
-            raise HTTPException(404, "Nicht gefunden")
+            raise HTTPException(404, "Not found")
         files = [dict(f) for f in await (await db.execute(
             "SELECT * FROM download_files WHERE torrent_id=?", (torrent_id,)
         )).fetchall()]
@@ -187,7 +187,7 @@ class MagnetRequest(BaseModel):
 @router.post("/torrents/add-magnet")
 async def add_magnet(req: MagnetRequest):
     if not get_settings().alldebrid_api_key:
-        raise HTTPException(400, "AllDebrid API-Key nicht konfiguriert")
+        raise HTTPException(400, "AllDebrid API key not configured")
     try:
         result = await manager.add_magnet_direct(req.magnet, source="manual")
         return result
@@ -200,7 +200,7 @@ async def add_magnet(req: MagnetRequest):
 @router.post("/torrents/import-existing")
 async def import_existing():
     if not get_settings().alldebrid_api_key:
-        raise HTTPException(400, "AllDebrid API-Key nicht konfiguriert")
+        raise HTTPException(400, "AllDebrid API key not configured")
     results = await manager.import_existing_magnets()
     return {"imported": len(results), "items": results}
 
@@ -224,7 +224,7 @@ async def retry_torrent(torrent_id: int):
             "SELECT alldebrid_id, name, provider_status FROM torrents WHERE id=?", (torrent_id,)
         )).fetchone()
         if not row:
-            raise HTTPException(404, "Torrent nicht gefunden")
+            raise HTTPException(404, "Torrent not found")
         await db.execute(
             "UPDATE torrents SET status='pending', error_message=NULL, polling_failures=0, updated_at=CURRENT_TIMESTAMP WHERE id=?",
             (torrent_id,),
@@ -328,11 +328,11 @@ async def get_stats():
         terminal = completed_count + error_count
         success_rate = round(completed_count / terminal * 100, 1) if terminal > 0 else None
 
-        # db_type: nach Fallback zeigt get_settings() den tatsächlich aktiven Wert
+        # db_type: after fallback, get_settings() reflects the actually active backend
         import os as _os
         env_db_type = _os.getenv("DB_TYPE", "").strip()
         active_db_type = getattr(get_settings(), "db_type", "sqlite")
-        # Wenn Env postgres_internal gesagt hat aber aktiv sqlite ist → Fallback passiert
+        # If env said postgres_internal but active is sqlite → fallback occurred
         if env_db_type == "postgres_internal" and active_db_type == "sqlite":
             db_type_display = "sqlite_fallback"
         elif env_db_type == "postgres_internal":
@@ -382,7 +382,7 @@ async def get_stats_detail():
                FROM torrents"""
         )).fetchone()
 
-        # Tägliche Trend-Daten (letzte 14 Tage)
+        # Daily trend data (last 14 days)
         daily_rows = await (await db.execute(
             """SELECT
                    date(completed_at) as day,
@@ -454,7 +454,7 @@ async def run_migration(req: MigrationRequest):
 
     cfg = get_settings()
     if not hasattr(cfg, "db_type"):
-        raise HTTPException(400, "PostgreSQL-Konfiguration nicht verfügbar")
+        raise HTTPException(400, "PostgreSQL configuration not available")
 
     # DSN aufbauen
     ssl = "require" if getattr(cfg, "postgres_ssl", False) else "disable"
@@ -473,10 +473,10 @@ async def run_migration(req: MigrationRequest):
             pg_dsn, _DB_PATH, force=req.force, dry_run=req.dry_run
         )
     else:
-        raise HTTPException(400, f"Unbekannte Richtung: {req.direction!r}")
+        raise HTTPException(400, f"Unknown direction: {req.direction!r}")
 
     if not result.success:
-        raise HTTPException(500, result.error or "Migration fehlgeschlagen")
+        raise HTTPException(500, result.error or "Migration failed")
 
     return {
         "ok": result.success,
@@ -490,7 +490,7 @@ async def run_migration(req: MigrationRequest):
 
 @router.get("/admin/migrate/validate")
 async def validate_migration(direction: str = "sqlite_to_postgres"):
-    """Validiert eine Migration (dry_run=True) ohne Daten zu schreiben."""
+    """Validates a migration (dry_run=True) without writing any data."""
     from db.migration import MigrationRequest as _MR
     fake_req = MigrationRequest(direction=direction, force=False, dry_run=True)
     return await run_migration(fake_req)

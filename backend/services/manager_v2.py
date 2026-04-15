@@ -181,7 +181,11 @@ class TorrentManager:
         return self._sem
 
     def notify(self) -> NotificationService:
-        cfg = get_settings(); return NotificationService(cfg.discord_webhook_url, getattr(cfg, "discord_webhook_added", ""))
+        cfg = get_settings()
+        return NotificationService(
+            webhook_url=cfg.discord_webhook_url,
+            added_webhook_url=getattr(cfg, "discord_webhook_added", ""),
+        )
 
     def download_client_name(self) -> str:
         client = (get_settings().download_client or "direct").strip().lower()
@@ -277,6 +281,8 @@ class TorrentManager:
         hash_value = result.get("hash", ad_id).lower()
         logger.info("Uploaded torrent %s (ad_id=%s)", name, ad_id)
         await self._upsert(hash_value, None, name, ad_id, "watch_torrent")
+        if get_settings().discord_notify_added:
+            await self.notify().send_added(name, source="watch_torrent", alldebrid_id=ad_id)
         shutil.move(str(path), str(processed / path.name))
 
     async def _handle_magnet_file(self, path: Path, processed: Path):
@@ -1233,15 +1239,15 @@ class TorrentManager:
         async with aiosqlite.connect(DB_PATH) as db:
             if deleted:
                 # Status bleibt 'completed' — kein Überschreiben zu 'deleted'!
-                # sync_alldebrid_status filtert bereits nach status NOT IN ('completed', 'deleted', 'error')
+                # sync_alldebrid_status already filters status NOT IN ('completed', 'deleted', 'error')
                 await db.execute(
                     "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
-                    (torrent_id, "info", "Von AllDebrid entfernt nach Abschluss"),
+                    (torrent_id, "info", "Removed from AllDebrid after completion"),
                 )
             else:
                 await db.execute(
                     "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
-                    (torrent_id, "warn", "Abgeschlossen, aber Entfernung von AllDebrid fehlgeschlagen"),
+                    (torrent_id, "warn", "Completed, but removal from AllDebrid failed"),
                 )
             await db.commit()
         return deleted

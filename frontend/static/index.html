@@ -846,7 +846,7 @@ async function loadStats() {
     if (dbEl && s.db_type) {
       const labels = {
         sqlite:            'SQLite',
-        postgres:          'PostgreSQL (extern)',
+        postgres:          'PostgreSQL (external)',
         postgres_internal: 'PostgreSQL (intern)',
         sqlite_fallback:   '⚠️ SQLite (PG Fallback)',
       };
@@ -1298,8 +1298,8 @@ function renderSettings() {
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Webhook URL — Torrent Added <span style="font-weight:400;color:var(--muted)">(optional, fällt auf Haupt-URL zurück)</span></label>
-          <input class="input" id="s-discord_webhook_added" value="${s.discord_webhook_added||''}" placeholder="https://discord.com/api/webhooks/… (separater Channel für hinzugefügte Torrents)"/>
+          <label class="form-label">Webhook URL — Torrent Added <span style="font-weight:400;color:var(--muted)">(optional, falls back to main webhook)</span></label>
+          <input class="input" id="s-discord_webhook_added" value="${s.discord_webhook_added||''}" placeholder="https://discord.com/api/webhooks/… (separate channel for added torrents)"/>
         </div>
         <div class="toggle-row">
           <div class="toggle-info"><div class="tl">Notify on Added</div></div>
@@ -1324,14 +1324,14 @@ function renderSettings() {
           <select class="input" id="s-db_type"
             onchange="document.getElementById('pg-settings').style.display=(this.value==='postgres'||this.value==='postgres_internal')?'block':'none'"
             ${s._db_type_locked?'disabled':''}>
-            <option value="sqlite" ${(s.db_type||'sqlite')==='sqlite'?'selected':''}>SQLite (Standard)</option>
-            <option value="postgres" ${s.db_type==='postgres'?'selected':''}>PostgreSQL (extern)</option>
-            <option value="postgres_internal" ${s.db_type==='postgres_internal'?'selected':''}>PostgreSQL (intern — Docker)</option>
+            <option value="sqlite" ${(s.db_type||'sqlite')==='sqlite'?'selected':''}>SQLite (default)</option>
+            <option value="postgres" ${s.db_type==='postgres'?'selected':''}>PostgreSQL (external)</option>
+            <option value="postgres_internal" ${s.db_type==='postgres_internal'?'selected':''}>PostgreSQL (internal — Docker)</option>
           </select>
-          ${s._db_type_locked ? '<span class="form-hint" style="color:var(--accent)">⚙️ DB_TYPE ist über docker-compose gesetzt und kann hier nicht geändert werden.</span>' : '<span class="form-hint">PostgreSQL (intern) erfordert das postgres-Profil in docker-compose. Siehe docs/postgresql.md.</span>'}
+          ${s._db_type_locked ? '<span class="form-hint" style="color:var(--accent)">⚙️ DB_TYPE is set via docker-compose and cannot be changed here.</span>' : '<span class="form-hint">PostgreSQL (internal) requires the postgres profile in docker-compose, or a shared Docker network for Bridge mode. See docs/postgresql.md.</span>'}
         </div>
         <div id="pg-settings" style="display:${(s.db_type==='postgres'||s.db_type==='postgres_internal')?'block':'none'}">
-          ${s.db_type==='postgres_internal' ? '<div class="form-hint" style="margin-bottom:8px;color:var(--accent)">⚙️ Verbindung wird automatisch konfiguriert (interner Container). <b>Bridge-Modus:</b> Setze PG_HOST=&lt;IP des PG-Containers&gt; als Umgebungsvariable.</div>' : ''}
+          ${s.db_type==='postgres_internal' ? '<div class="form-hint" style="margin-bottom:8px;color:var(--accent)">⚙️ Connection is configured automatically (internal container). <b>Bridge mode:</b> Set PG_HOST=&lt;IP of the PG container&gt; as an environment variable, or use a shared Docker network (see docs/postgresql.md).</div>' : ''}
           <div class="form-group">
             <label class="form-label">Host</label>
             <input class="input" id="s-postgres_host" value="${s.postgres_host||'localhost'}" ${s.db_type==='postgres_internal'?'readonly style="opacity:.5"':''}/>

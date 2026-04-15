@@ -1,12 +1,12 @@
 """
-Sichere bidirektionale Datenbankmigration: SQLite ↔ PostgreSQL.
+Safe bidirectional database migration: SQLite ↔ PostgreSQL.
 
-Sicherheitsgarantien:
-- Prüft Quelle und Ziel vor jeder Migration
-- Verweigert das Überschreiben bestehender Daten (außer --force)
-- Verwendet Transaktionen mit Rollback bei Fehler
-- Post-Migration-Validierung (Zeilenzählung)
-- Kein stiller Datenverlust
+Safety guarantees:
+- Validates source and target before migrating
+- Refuses to overwrite existing data (unless force=True)
+- Uses transactions with rollback on error
+- Post-migration row-count validation
+- No silent data loss
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ import aiosqlite  # Auf Modulebene damit Tests db.migration.aiosqlite patchen k�
 
 logger = logging.getLogger("alldebrid.migration")
 
-# Tabellen in Migrationsreihenfolge (Fremdschlüssel beachten)
+# Tables in migration order (respecting foreign keys)
 MIGRATION_TABLES = ["torrents", "download_files", "events"]
 
 
@@ -33,14 +33,14 @@ class MigrationResult:
 
     def summary(self) -> str:
         if not self.success:
-            return f"Migration fehlgeschlagen ({self.direction}): {self.error}"
+            return f"Migration failed ({self.direction}): {self.error}"
         rows = ", ".join(f"{t}: {n}" for t, n in self.tables_migrated.items())
-        warn_text = f" | Warnungen: {len(self.warnings)}" if self.warnings else ""
-        return f"Migration erfolgreich ({self.direction}): {rows}{warn_text}"
+        warn_text = f" | Warnings: {len(self.warnings)}" if self.warnings else ""
+        return f"Migration successful ({self.direction}): {rows}{warn_text}"
 
 
 class MigrationError(Exception):
-    """Wird bei kritischen Migrations-Fehlern ausgelöst."""
+    """Raised on critical migration errors."""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -70,8 +70,8 @@ async def migrate_sqlite_to_postgres(
     except MigrationError as e:
         result.error = str(e)
     except Exception as e:
-        result.error = f"Unerwarteter Fehler: {e}"
-        logger.exception("Migration sqlite→postgres fehlgeschlagen")
+        result.error = f"Unexpected error: {e}"
+        logger.exception("Migration sqlite→postgres failed")
     return result
 
 
@@ -98,8 +98,8 @@ async def migrate_postgres_to_sqlite(
     except MigrationError as e:
         result.error = str(e)
     except Exception as e:
-        result.error = f"Unerwarteter Fehler: {e}"
-        logger.exception("Migration postgres→sqlite fehlgeschlagen")
+        result.error = f"Unexpected error: {e}"
+        logger.exception("Migration postgres→sqlite failed")
     return result
 
 
@@ -118,46 +118,46 @@ async def _do_sqlite_to_pg(
     try:
         import asyncpg  # type: ignore
     except ImportError:
-        raise MigrationError("asyncpg nicht installiert. pip install asyncpg")
+        raise MigrationError("asyncpg is not installed. Run: pip install asyncpg")
 
     # ── Quell-Existenzprüfung (billig, vor allen Netzwerkoperationen) ─────
     if not sqlite_path.exists():
-        raise MigrationError(f"SQLite-Quelldatei nicht gefunden: {sqlite_path}")
+        raise MigrationError(f"SQLite source file not found: {sqlite_path}")
 
-    # ── Ziel-Validierung (zuerst — gibt sofortigen Fehler ohne DB zu öffnen) ──
+    # ── Target validation (first — fast-fail before opening any DB) ──────
     pg_conn = await _pg_connect(pg_dsn)
     try:
         pg_counts = await _count_rows_pg(pg_conn)
         total_existing = sum(pg_counts.values())
         if total_existing > 0 and not force:
             raise MigrationError(
-                f"PostgreSQL-Zieldatenbank enthält bereits Daten "
-                f"({total_existing} Zeilen in {list(pg_counts.keys())}). "
-                f"Verwende force=True um fortzufahren."
+                f"PostgreSQL target database already contains data "
+                f"({total_existing} rows in {list(pg_counts.keys())}). "
+                f"Use force=True to proceed."
             )
         if total_existing > 0:
             result.warnings.append(
-                f"Zieldatenbank enthält {total_existing} bestehende Zeilen — werden überschrieben (force=True)"
+                f"Target database contains {total_existing} existing rows — will be overwritten (force=True)"
             )
     finally:
         await pg_conn.close()
 
-    # ── Quell-Zeilenzählung ───────────────────────────────────────────────
+    # ── Source row count ──────────────────────────────────────────────────
     async with aiosqlite.connect(sqlite_path) as src_conn:
         src_counts = await _count_rows_sqlite(src_conn)
 
-    logger.info("SQLite-Quell-Zeilenzahlen: %s", src_counts)
+    logger.info("SQLite source row counts: %s", src_counts)
 
     if dry_run:
         result.tables_migrated = dict(src_counts)
-        logger.info("Dry-run: Keine Änderungen vorgenommen. Quell-Daten: %s", src_counts)
+        logger.info("Dry-run: no changes made. Source data: %s", src_counts)
         return
 
-    # ── Schema im Ziel initialisieren ─────────────────────────────────────
+    # ── Initialise target schema ──────────────────────────────────────────
     from db.database import _init_db_postgres  # type: ignore
     await _init_db_postgres()
 
-    # ── Daten übertragen ──────────────────────────────────────────────────
+    # ── Transfer data ─────────────────────────────────────────────────────
     pg_conn = await _pg_connect(pg_dsn)
     try:
         async with aiosqlite.connect(sqlite_path) as src:
@@ -175,7 +175,7 @@ async def _do_sqlite_to_pg(
 
                     count = await _insert_rows_pg(pg_conn, table, rows)
                     result.tables_migrated[table] = count
-                    logger.info("Migriert: %s → %d Zeilen nach PostgreSQL", table, count)
+                    logger.info("Migrated: %s → %d rows to PostgreSQL", table, count)
 
                 # Sequenzen zurücksetzen
                 for table in MIGRATION_TABLES:
@@ -186,7 +186,7 @@ async def _do_sqlite_to_pg(
     finally:
         await pg_conn.close()
 
-    # ── Post-Migration-Validierung ────────────────────────────────────────
+    # ── Post-migration validation ─────────────────────────────────────────
     pg_conn = await _pg_connect(pg_dsn)
     try:
         pg_counts_after = await _count_rows_pg(pg_conn)
@@ -198,10 +198,10 @@ async def _do_sqlite_to_pg(
         actual = pg_counts_after.get(table, 0)
         if expected != actual:
             result.warnings.append(
-                f"Zeilenzahl-Abweichung in '{table}': erwartet {expected}, gefunden {actual}"
+                f"Row count mismatch in '{table}': expected {expected}, got {actual}"
             )
         else:
-            logger.info("Validierung OK: %s — %d Zeilen", table, actual)
+            logger.info("Validation OK: %s — %d rows", table, actual)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -219,42 +219,42 @@ async def _do_pg_to_sqlite(
     try:
         import asyncpg  # type: ignore
     except ImportError:
-        raise MigrationError("asyncpg nicht installiert. pip install asyncpg")
+        raise MigrationError("asyncpg is not installed. Run: pip install asyncpg")
 
-    # ── Quell-Validierung ─────────────────────────────────────────────────
+    # ── Source validation ──────────────────────────────────────────────────
     pg_conn = await _pg_connect(pg_dsn)
     try:
         src_counts = await _count_rows_pg(pg_conn)
     finally:
         await pg_conn.close()
 
-    logger.info("PostgreSQL-Quell-Zeilenzahlen: %s", src_counts)
+    logger.info("PostgreSQL source row counts: %s", src_counts)
 
-    # ── Ziel-Validierung ──────────────────────────────────────────────────
+    # ── Target validation ─────────────────────────────────────────────────
     if sqlite_path.exists():
         async with aiosqlite.connect(sqlite_path) as db:
             sqlite_counts = await _count_rows_sqlite(db)
         total_existing = sum(sqlite_counts.values())
         if total_existing > 0 and not force:
             raise MigrationError(
-                f"SQLite-Zieldatenbank '{sqlite_path}' enthält bereits Daten "
-                f"({total_existing} Zeilen). Verwende force=True oder lösche die Datei."
+                f"SQLite target database '{sqlite_path}' already contains data "
+                f"({total_existing} rows). Use force=True or delete the file."
             )
         if total_existing > 0:
             result.warnings.append(
-                f"SQLite-Zieldatenbank enthält {total_existing} bestehende Zeilen — werden überschrieben (force=True)"
+                f"SQLite target database contains {total_existing} existing rows — will be overwritten (force=True)"
             )
 
     if dry_run:
         result.tables_migrated = dict(src_counts)
-        logger.info("Dry-run: Keine Änderungen vorgenommen. Quell-Daten: %s", src_counts)
+        logger.info("Dry-run: no changes made. Source data: %s", src_counts)
         return
 
-    # ── Schema im Ziel initialisieren ─────────────────────────────────────
+    # ── Initialise target schema ──────────────────────────────────────────
     from db.database import _init_db_sqlite  # type: ignore
     await _init_db_sqlite()
 
-    # ── Daten übertragen ──────────────────────────────────────────────────
+    # ── Transfer data ─────────────────────────────────────────────────────
     pg_conn = await _pg_connect(pg_dsn)
     try:
         async with aiosqlite.connect(sqlite_path) as dst:
@@ -269,13 +269,13 @@ async def _do_pg_to_sqlite(
 
                 count = await _insert_rows_sqlite(dst, table, rows)
                 result.tables_migrated[table] = count
-                logger.info("Migriert: %s → %d Zeilen nach SQLite", table, count)
+                logger.info("Migrated: %s → %d rows to SQLite", table, count)
 
             await dst.commit()
     finally:
         await pg_conn.close()
 
-    # ── Post-Migration-Validierung ────────────────────────────────────────
+    # ── Post-migration validation ─────────────────────────────────────────
     async with aiosqlite.connect(sqlite_path) as db:
         sqlite_counts_after = await _count_rows_sqlite(db)
 
@@ -284,10 +284,10 @@ async def _do_pg_to_sqlite(
         actual = sqlite_counts_after.get(table, 0)
         if expected != actual:
             result.warnings.append(
-                f"Zeilenzahl-Abweichung in '{table}': erwartet {expected}, gefunden {actual}"
+                f"Row count mismatch in '{table}': expected {expected}, got {actual}"
             )
         else:
-            logger.info("Validierung OK: %s — %d Zeilen", table, actual)
+            logger.info("Validation OK: %s — %d rows", table, actual)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -299,7 +299,7 @@ async def _pg_connect(dsn: str):
     try:
         return await asyncpg.connect(dsn)
     except Exception as e:
-        raise MigrationError(f"Kann nicht mit PostgreSQL verbinden: {e}")
+        raise MigrationError(f"Cannot connect to PostgreSQL: {e}")
 
 
 async def _count_rows_sqlite(db) -> Dict[str, int]:

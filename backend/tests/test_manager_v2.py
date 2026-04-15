@@ -64,7 +64,7 @@ from services.manager_v2 import normalize_provider_state, safe_rel_path, Torrent
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Basis-Tests (bereits vorhanden, erweitert)
+# Base tests (existing, extended)
 # ═════════════════════════════════════════════════════════════════════════════
 
 class ManagerV2Tests(unittest.TestCase):
@@ -113,7 +113,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
     """
 
     async def test_connection_error_classified_as_aria2_connection_error(self):
-        """Transiente Verbindungsfehler werden als Aria2ConnectionError klassifiziert."""
+        """Transient connection errors are classified as Aria2ConnectionError."""
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
 
         class FakeConnector:
@@ -139,7 +139,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
                 await service._call("aria2.getVersion")
 
     async def test_get_all_returns_empty_on_connection_error(self):
-        """get_all() gibt leere Liste zurück wenn aria2 nicht erreichbar ist."""
+        """get_all() returns empty list when aria2 is unreachable."""
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
 
         async def fake_call(method, params=None):
@@ -150,7 +150,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, [])
 
     async def test_get_all_returns_empty_on_rpc_error(self):
-        """get_all() gibt leere Liste zurück bei RPC-Fehler."""
+        """get_all() returns empty list on RPC error."""
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
 
         async def fake_call(method, params=None):
@@ -161,7 +161,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, [])
 
     async def test_get_all_aggregates_all_three_endpoints(self):
-        """get_all() kombiniert active, waiting und stopped Downloads."""
+        """get_all() aggregates active, waiting and stopped downloads."""
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
 
         async def fake_call(method, params=None):
@@ -182,7 +182,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({dl.gid for dl in result}, {"a1", "w1", "s1"})
 
     async def test_ensure_download_retry_on_connection_error(self):
-        """ensure_download() versucht Retry bei Verbindungsfehlern."""
+        """ensure_download() retries on connection errors."""
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
         attempt_count = {"n": 0}
 
@@ -207,7 +207,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attempt_count["n"], 3)
 
     async def test_ensure_download_deduplication_by_uri(self):
-        """ensure_download() erkennt bereits laufende Downloads per URI."""
+        """ensure_download() detects already running downloads by URI."""
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
         add_calls = {"n": 0}
 
@@ -235,7 +235,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(add_calls["n"], 0)
 
     async def test_ensure_download_deduplication_by_path(self):
-        """ensure_download() erkennt bereits laufende Downloads per Zielpfad."""
+        """ensure_download() detects already running downloads by target path."""
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
         add_calls = {"n": 0}
 
@@ -265,7 +265,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(add_calls["n"], 0)
 
     async def test_ensure_download_concurrent_same_uri_serialized(self):
-        """Gleichzeitige ensure_download-Aufrufe für die gleiche URI werden serialisiert."""
+        """Concurrent ensure_download calls for the same URI are serialised."""
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
         add_count = {"n": 0}
         state = {"added": False}
@@ -485,7 +485,7 @@ class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Dashboard-Datenfluss
+# Dashboard data flow
 # ═════════════════════════════════════════════════════════════════════════════
 
 class DashboardCompletedTests(unittest.IsolatedAsyncioTestCase):
@@ -519,7 +519,7 @@ class DashboardCompletedTests(unittest.IsolatedAsyncioTestCase):
         with patch("services.manager_v2.aiosqlite.connect", return_value=fake_db):
             await mgr._delete_magnet_after_completion(42, "ad-42")
 
-        # Kein UPDATE ... status='deleted' nach Abschluss
+        # No UPDATE ... status='deleted' after completion
         deleted_updates = [
             u for u in status_updates
             if "deleted" in str(u["params"])
@@ -601,10 +601,10 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
             await svc.send_added("Test Torrent", source="watch_torrent", alldebrid_id="ad-42")
 
         field_names = [f["name"] for f in captured_fields]
-        self.assertIn("Quelle", field_names)
-        source_field = next(f for f in captured_fields if f["name"] == "Quelle")
+        self.assertIn("Source", field_names)
+        source_field = next(f for f in captured_fields if f["name"] == "Source")
         # notifications.py mappt "watch_torrent" auf einen lesbaren Label
-        self.assertIn("torrent", source_field["value"].lower())
+        self.assertIn("watch", source_field["value"].lower())
 
     async def test_deduplication_suppresses_duplicate_within_window(self):
         """Gleiche Nachricht innerhalb des Deduplizierungsfensters wird unterdrückt."""
@@ -633,21 +633,21 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
 
         svc = NotificationService("https://hook.invalid/x")
 
-        # Erster Aufruf — kein hash vorhanden → HTTP wird abgesetzt
+        # First call — no hash present → HTTP request is sent
         with patch("services.notifications.aiohttp.ClientSession", FakeSession):
             await svc.send("Test", "Same content")
-        self.assertEqual(http_post_count["n"], 1, "Erster Aufruf sollte HTTP absetzen")
+        self.assertEqual(http_post_count["n"], 1, "First call should send HTTP request")
 
         # Dedup-Hash muss jetzt gesetzt sein
         key = _hl.md5("https://hook.invalid/x|Test|Same content".encode()).hexdigest()
         self.assertIn(key, NotificationService._sent_hashes,
-                      "Hash muss nach erstem Senden gesetzt sein")
+                      "Hash must be set after first send")
 
         # Zweiter Aufruf mit gleichem Inhalt → Dedup → kein weiterer HTTP-Post
         with patch("services.notifications.aiohttp.ClientSession", FakeSession):
             await svc.send("Test", "Same content")
         self.assertEqual(http_post_count["n"], 1,
-                         "Zweiter Aufruf mit gleichem Inhalt sollte kein HTTP absetzen (Dedup)")
+                         "Second call with same content should not send HTTP (dedup)")
 
     async def test_send_complete_includes_metadata_fields(self):
         """send_complete() enthält Metadaten-Felder im Embed."""
@@ -673,11 +673,11 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("✅", captured["title"])
         self.assertIn("My Show S01", captured["description"])
         field_names = [f["name"] for f in captured["fields"]]
-        self.assertIn("Dateien", field_names)
-        self.assertIn("Größe", field_names)
+        self.assertIn("Files", field_names)
+        self.assertIn("Size", field_names)
 
     async def test_send_error_includes_reason(self):
-        """send_error() übergibt Fehlergrund als Feld."""
+        """send_error() passes error reason as a field."""
         from services.notifications import NotificationService
 
         captured_fields = []
@@ -690,10 +690,10 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
             await svc.send_error("Failed Torrent", reason="AllDebrid error code 7")
 
         field_names = [f["name"] for f in captured_fields]
-        self.assertIn("Grund", field_names)
+        self.assertIn("Reason", field_names)
 
     async def test_no_send_when_webhook_empty(self):
-        """Keine Nachricht wenn webhook_url leer."""
+        """No message sent when webhook_url is empty."""
         from services.notifications import NotificationService
 
         send_count = {"n": 0}
@@ -721,7 +721,7 @@ class StatsCalculationTests(unittest.TestCase):
     """
 
     def test_success_rate_calculation(self):
-        """Erfolgsrate wird korrekt berechnet."""
+        """Success rate is calculated correctly."""
         completed = 8
         errors = 2
         terminal = completed + errors
@@ -729,7 +729,7 @@ class StatsCalculationTests(unittest.TestCase):
         self.assertEqual(rate, 80.0)
 
     def test_success_rate_zero_when_no_terminal(self):
-        """Erfolgsrate ist None wenn keine Terminal-Torrents vorhanden."""
+        """Success rate is None when no terminal torrents exist."""
         completed = 0
         errors = 0
         terminal = completed + errors
@@ -737,7 +737,7 @@ class StatsCalculationTests(unittest.TestCase):
         self.assertIsNone(rate)
 
     def test_success_rate_100_percent(self):
-        """100% Erfolgsrate wenn alle Torrents abgeschlossen."""
+        """Success rate is 100% when all torrents completed."""
         completed = 10
         errors = 0
         terminal = completed + errors
@@ -749,7 +749,7 @@ class StatsCalculationTests(unittest.TestCase):
         Abgeschlossene Torrents erscheinen als 'completed' in by_status
         (nicht als 'deleted' nach dem Löschen von AllDebrid).
         """
-        # Simuliert den Datenbankstand nach korrektem Abschluss
+        # Simulates correct completed state in the database
         by_status = {
             "completed": 15,
             "error": 2,
@@ -785,7 +785,7 @@ class PostgresConfigTests(unittest.TestCase):
         self.assertEqual(s.db_type, "sqlite")
 
     def test_postgres_config_fields_exist(self):
-        """Alle PostgreSQL-Konfigurationsfelder sind vorhanden."""
+        """All PostgreSQL configuration fields are present."""
         from core.config import AppSettings
         s = AppSettings()
         self.assertTrue(hasattr(s, "postgres_host"))
@@ -809,7 +809,7 @@ class PostgresConfigTests(unittest.TestCase):
         self.assertFalse(s.postgres_ssl)
 
     def test_discord_webhook_added_field_exists(self):
-        """discord_webhook_added-Feld ist vorhanden."""
+        """discord_webhook_added field is present."""
         from core.config import AppSettings
         s = AppSettings()
         self.assertTrue(hasattr(s, "discord_webhook_added"))
@@ -862,7 +862,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertFalse(result.success)
             self.assertIsNotNone(result.error)
-            self.assertIn("Daten", result.error)
+            self.assertIn("already contains data", result.error)
         finally:
             os.unlink(sqlite_path)
 
@@ -880,7 +880,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
         try:
             fake_pg = AsyncMock()
             fake_pg.close = AsyncMock()
-            # Simuliere: SQLite-Datei existiert und enthält Daten
+            # Simulate: SQLite file exists and contains data
             # _count_rows_sqlite wird VOR dem Öffnen der Datei gepatcht
             with patch("db.migration._count_rows_pg", AsyncMock(return_value={"torrents": 3, "download_files": 0, "events": 0})), \
                  patch("db.migration._count_rows_sqlite", AsyncMock(return_value={"torrents": 10, "download_files": 5, "events": 0})), \
@@ -898,7 +898,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
                 )
 
             self.assertFalse(result.success)
-            self.assertIn("Daten", result.error or "")
+            self.assertIn("already contains data", result.error or "")
         finally:
             os.unlink(sqlite_path)
 
@@ -950,7 +950,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertFalse(result.success)
         self.assertIsNotNone(result.error)
-        self.assertIn("nicht gefunden", result.error)
+        self.assertIn("not found", result.error)
 
     async def test_migration_result_summary_success(self):
         """MigrationResult.summary() gibt lesbaren Text zurück."""
@@ -966,7 +966,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("10", summary)
 
     async def test_migration_result_summary_failure(self):
-        """MigrationResult.summary() zeigt Fehler an."""
+        """MigrationResult.summary() shows error message."""
         from db.migration import MigrationResult
 
         r = MigrationResult(

@@ -1,25 +1,37 @@
 # AllDebrid-Client — docker-compose.yml
 #
-# Drei Betriebsmodi:
+# Three operating modes:
 #
-#   1. SQLite (Standard — kein Setup nötig):
+#   1. SQLite (default — no setup needed):
 #      docker compose up -d
 #
-#   2. PostgreSQL intern (beide Container im selben Compose-Netzwerk):
+#   2. PostgreSQL internal (both containers in the same Compose network):
 #      COMPOSE_PROFILES=postgres docker compose up -d
-#      Die Container kommunizieren über das interne "alldebrid-net" Netzwerk.
-#      Container-Name "alldebrid-postgres" ist als Hostname auflösbar.
+#      Containers communicate via the shared "alldebrid-net" bridge network.
+#      The container name "alldebrid-postgres" is resolvable as a hostname.
 #
-#   3. PostgreSQL extern (eigene Instanz):
-#      DB_TYPE=postgres + postgres_* in config.json oder Umgebungsvariablen.
+#   3. PostgreSQL external (own instance):
+#      Set DB_TYPE=postgres and fill postgres_* fields in config.json or env.
 #
-# WICHTIG für Unraid / Bridge-Modus:
-#   Wenn du die Container einzeln (nicht per Compose) betreibst, nutze
-#   PostgreSQL extern (Option 3) und trage die IP deines PG-Containers ein.
+# ── Unraid / Bridge mode ──────────────────────────────────────────────────────
+# When running containers individually (not via Compose), container names are
+# NOT resolvable across bridge networks.
+#
+# Option A — use this Compose file (recommended):
+#   Both containers join "alldebrid-net" automatically → name resolution works.
+#
+# Option B — standalone containers with --network bridge:
+#   1. Create a shared network:  docker network create alldebrid-net
+#   2. Start postgres with:      --network alldebrid-net --name alldebrid-postgres
+#   3. Start app with:           --network alldebrid-net -e DB_TYPE=postgres_internal
+#
+# Option C — truly isolated Bridge containers (no shared network):
+#   Use DB_TYPE=postgres and set PG_HOST to the postgres container's IP address.
+#   Find the IP with: docker inspect alldebrid-postgres | grep IPAddress
 
 services:
 
-  # ── Hauptanwendung ─────────────────────────────────────────────────────────
+  # ── Main application ────────────────────────────────────────────────────────
   alldebrid-client:
     image: kroeberd/alldebrid-client:latest
     build: .
@@ -43,8 +55,8 @@ services:
       retries: 3
       start_period: 20s
 
-  # ── Internes PostgreSQL (Profil: postgres) ─────────────────────────────────
-  # Aktivieren: COMPOSE_PROFILES=postgres docker compose up -d
+  # ── Internal PostgreSQL (profile: postgres) ─────────────────────────────────
+  # Enable with: COMPOSE_PROFILES=postgres docker compose up -d
   alldebrid-postgres:
     image: postgres:16-alpine
     container_name: alldebrid-postgres
@@ -67,6 +79,8 @@ services:
       start_period: 15s
 
 networks:
+  # Named bridge network — both containers can reach each other by container name.
+  # This is the fix for "container name not resolvable" in bridge mode.
   alldebrid-net:
     driver: bridge
 

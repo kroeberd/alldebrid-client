@@ -19,7 +19,7 @@ class AppSettings(BaseModel):
     #   "postgres_internal" → Interner Docker-Container über Compose-Netzwerk
     db_type: str = "sqlite"
 
-    # PostgreSQL — Defaults passen zum internen Container (alldebrid/alldebrid)
+    # PostgreSQL — defaults match the internal container (alldebrid/alldebrid)
     postgres_host: str = "alldebrid-postgres"   # Container-Name im Compose-Netzwerk
     postgres_port: int = 5432
     postgres_db: str = "alldebrid"
@@ -73,10 +73,10 @@ _settings: AppSettings = AppSettings()
 
 def _build_effective_settings(loaded: dict) -> AppSettings:
     """
-    Wendet Umgebungsvariablen-Overrides an und normalisiert postgres_internal.
-    Reihenfolge: Defaults → config.json → Umgebungsvariablen.
+    Applies environment variable overrides and normalises postgres_internal.
+    Priority order: defaults → config.json → environment variables.
     """
-    # DB_TYPE Env hat absoluten Vorrang vor config.json
+    # DB_TYPE env var takes absolute precedence over config.json
     env_db_type = os.getenv("DB_TYPE", "").strip()
     if env_db_type:
         loaded["db_type"] = env_db_type
@@ -85,17 +85,17 @@ def _build_effective_settings(loaded: dict) -> AppSettings:
 
     if db_type == "postgres_internal":
         pg_password = os.getenv("POSTGRES_PASSWORD", "alldebrid_internal")
-        # PG_HOST erlaubt Bridge-Override (z.B. IP statt Container-Name)
+        # PG_HOST allows bridge override (e.g. IP instead of container name)
         pg_host = os.getenv("PG_HOST", "alldebrid-postgres")
 
-        # Immer überschreiben (= nicht setdefault) — interne Werte sind fix
+        # Always overwrite (not setdefault) — internal values are fixed
         loaded["postgres_host"]     = pg_host
         loaded["postgres_port"]     = 5432
         loaded["postgres_db"]       = "alldebrid"
         loaded["postgres_user"]     = "alldebrid"
         loaded["postgres_password"] = pg_password
         loaded["postgres_ssl"]      = False
-        # postgres_internal → postgres (gleiche Datenbanklogik)
+        # postgres_internal → postgres (same database logic)
         loaded["db_type"] = "postgres"
 
     return AppSettings(**{k: v for k, v in loaded.items() if k in AppSettings.model_fields})
@@ -120,7 +120,7 @@ def load_settings() -> AppSettings:
 def save_settings(s: AppSettings):
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     data = s.model_dump()
-    # Passwort des internen PG nie in config.json — kommt aus Env
+    # Never store internal PG password in config.json — comes from env
     if os.getenv("DB_TYPE") == "postgres_internal":
         data.pop("postgres_password", None)
     with open(CONFIG_PATH, "w") as f:
