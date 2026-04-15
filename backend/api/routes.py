@@ -30,18 +30,18 @@ CHANGELOG_PATH = next(
 async def get_settings_ep():
     import os
     data = get_settings().model_dump()
-    # Wenn der Container mit DB_TYPE=postgres_internal läuft, UI darüber informieren
+    # If container runs with DB_TYPE=postgres_internal, inform the UI
     env_db_type = os.getenv("DB_TYPE", "").strip()
     if env_db_type == "postgres_internal":
         data["db_type"] = "postgres_internal"
-        data["_db_type_locked"] = True   # UI kann den Wert nicht ändern
+        data["_db_type_locked"] = True   # UI should show this as read-only
     return data
 
 
 @router.put("/settings")
 async def update_settings(new: AppSettings):
     import os
-    # DB_TYPE=postgres_internal kommt aus docker-compose Env — nicht durch UI überschreiben
+    # DB_TYPE=postgres_internal comes from docker-compose env — do not let UI override it
     env_db_type = os.getenv("DB_TYPE", "").strip()
     if env_db_type == "postgres_internal":
         new = new.model_copy(update={"db_type": "postgres"})
@@ -266,12 +266,12 @@ async def get_stats():
         cur = await db.execute("SELECT status, COUNT(*) as count FROM torrents GROUP BY status")
         by_status = {r["status"]: r["count"] for r in await cur.fetchall()}
 
-        # Abgeschlossene Größe
+        # Completed size
         size_row = await (await db.execute(
             "SELECT SUM(size_bytes) as total FROM torrents WHERE status='completed'"
         )).fetchone()
 
-        # Dateizähler
+        # File counters
         blocked = (await (await db.execute(
             "SELECT COUNT(*) as c FROM download_files WHERE blocked=1"
         )).fetchone())["c"]
@@ -308,7 +308,7 @@ async def get_stats():
             "SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now', '-7 days')"
         )).fetchone())["c"]
 
-        # Ø Download-Dauer (für Torrents mit completed_at und created_at)
+        # Avg download duration (for torrents with completed_at and created_at)
         avg_duration_row = await (await db.execute(
             """SELECT AVG(
                    CAST((julianday(completed_at) - julianday(created_at)) * 86400 AS INTEGER)
@@ -318,7 +318,7 @@ async def get_stats():
         )).fetchone()
         avg_duration_seconds = int(avg_duration_row["avg_secs"] or 0)
 
-        # Ø Dateigröße (abgeschlossene Torrents)
+        # Avg torrent size (completed torrents)
         avg_size_row = await (await db.execute(
             "SELECT AVG(size_bytes) as avg_bytes FROM torrents WHERE status='completed' AND size_bytes > 0"
         )).fetchone()
@@ -443,11 +443,11 @@ class MigrationRequest(BaseModel):
 @router.post("/admin/migrate")
 async def run_migration(req: MigrationRequest):
     """
-    Führt eine Datenbankmigration durch.
+    Runs a database migration.
 
     - direction: "sqlite_to_postgres" oder "postgres_to_sqlite"
     - dry_run: Nur validieren, keine Daten schreiben
-    - force: Bestehende Daten im Ziel überschreiben (Vorsicht!)
+    - force: overwrite existing data in target (use with caution)
     """
     from db.migration import migrate_sqlite_to_postgres, migrate_postgres_to_sqlite
     from db.database import DB_PATH as _DB_PATH

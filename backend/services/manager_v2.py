@@ -1228,12 +1228,11 @@ class TorrentManager:
 
     async def _delete_magnet_after_completion(self, torrent_id: int, ad_id: str) -> bool:
         """
-        Löscht den Magneten von AllDebrid nach erfolgreichem Download.
+        Deletes the magnet from AllDebrid after a successful download.
 
-        WICHTIG: Status bleibt 'completed' (nicht 'deleted'), damit das Dashboard
-        abgeschlossene Downloads korrekt zählt. Zur Vermeidung von erneutem Polling
-        wird der Torrent in sync_alldebrid_status durch completed_at IS NOT NULL
-        gefiltert.
+        IMPORTANT: Status stays 'completed' (not 'deleted') so the dashboard
+        correctly counts completed downloads. Re-polling is prevented because
+        sync_alldebrid_status already filters status NOT IN ('completed', 'deleted', 'error').
         """
         deleted = await self.ad().delete_magnet(ad_id)
         async with aiosqlite.connect(DB_PATH) as db:

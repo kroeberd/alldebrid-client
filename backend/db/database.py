@@ -1,21 +1,21 @@
 """
-Datenbank-Schicht für AllDebrid-Client.
+Database layer for AllDebrid-Client.
 
-Unterstützt drei Modi (gesteuert durch db_type in AppSettings):
-  sqlite            → Standard, abwärtskompatibel, kein Setup nötig
-  postgres          → Externe PostgreSQL-Instanz
-  postgres_internal → Interner Docker-Container (wird vor Nutzung auf "postgres" gemappt)
+Supports three modes (controlled by db_type in AppSettings):
+  sqlite            -> Default, fully backward compatible, no setup needed
+  postgres          -> External PostgreSQL instance
+  postgres_internal -> Internal Docker container (mapped to "postgres" before use)
 
-Alle drei Modi nutzen dieselbe _DbConnection-Abstraktion.
+All three modes use the same _DbConnection abstraction.
 
-Verwendung:
+Usage:
     async with get_db() as db:
         rows = await db.fetchall("SELECT * FROM torrents WHERE status=?", ("completed",))
         row  = await db.fetchone("SELECT * FROM torrents WHERE id=?", (1,))
         await db.execute("UPDATE torrents SET status=? WHERE id=?", ("done", 1))
         await db.commit()
 
-DB_PATH wird für Abwärtskompatibilität mit bestehendem Code exportiert.
+DB_PATH is exported for backward compatibility with existing code.
 """
 from __future__ import annotations
 
@@ -72,8 +72,8 @@ def _build_dsn() -> str:
 
 class _DbConnection:
     """
-    Einheitliche Verbindungs-API für SQLite und PostgreSQL.
-    Wandelt ? → $1/$2 und SQLite-Typen nach PostgreSQL um.
+    Unified connection API for SQLite and PostgreSQL.
+    Translates ? → $1/$2 and SQLite-specific types to PostgreSQL.
     """
 
     def __init__(self, backend: str, raw):

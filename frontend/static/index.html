@@ -854,7 +854,7 @@ async function loadStats() {
       // Fallback visuell hervorheben
       if (s.db_type === 'sqlite_fallback') {
         dbEl.style.color = 'var(--accent)';
-        dbEl.title = 'PostgreSQL war nicht erreichbar — die App läuft mit SQLite. Starte neu wenn PG verfügbar ist.';
+        dbEl.title = 'PostgreSQL was unreachable — the app is running with SQLite. Restart once PostgreSQL is available.';
       } else {
         dbEl.style.color = '';
         dbEl.title = '';

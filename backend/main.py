@@ -72,7 +72,7 @@ def _fallback_to_sqlite():
         "Restart with a reachable PostgreSQL instance to use PG.",
         DB_PATH,
     )
-    # Settings auf SQLite umschalten ohne config.json zu überschreiben
+    # Switch active settings to SQLite without touching config.json
     new_cfg = cfg.model_copy(update={"db_type": "sqlite"})
     apply_settings(new_cfg)
 
@@ -139,7 +139,7 @@ async def lifespan(app: FastAPI):
         pg_ok = await _wait_for_postgres()
         if not pg_ok:
             _fallback_to_sqlite()
-            # _is_postgres() gibt jetzt False zurück
+            # _is_postgres() now returns False
 
     # 2. Initialise schema (idempotent — safe on restart)
     try:

@@ -1,14 +1,14 @@
 """
 aria2 JSON-RPC Client mit robuster Verbindungsbehandlung.
 
-Verbesserungen gegenüber der ursprünglichen Version:
-- Jede HTTP-Anfrage erstellt eine eigene ClientSession mit force_close=True,
-  um "Cannot write to closing transport" vollständig zu vermeiden
-- Transiente Verbindungsfehler (Neustart von aria2, kurze Ausfälle) werden
-  als DEBUG/WARNING statt ERROR geloggt
-- Klar getrennte Fehlerklassen: Aria2RPCError (RPC-Logik) vs. Aria2ConnectionError (Netzwerk)
-- Retry-Logik mit Backoff für Verbindungsfehler
-- get_all() gibt bei Verbindungsfehler eine leere Liste zurück statt zu werfen
+Improvements over the original:
+- Each HTTP request creates its own ClientSession with force_close=True,
+  eliminating "Cannot write to closing transport" errors entirely
+- Transient connection errors (aria2 restart, brief outages) are logged
+  at DEBUG/WARNING instead of ERROR
+- Clear error classes: Aria2RPCError (RPC logic) vs Aria2ConnectionError (network)
+- Retry logic with backoff for connection errors
+- get_all() returns an empty list on connection error instead of raising
 """
 import asyncio
 import logging
@@ -44,8 +44,8 @@ class Aria2RPCError(Exception):
 
 class Aria2ConnectionError(Aria2RPCError):
     """
-    Verbindungsfehler zu aria2 (z.B. nicht erreichbar, Transport schließt).
-    Subklasse von Aria2RPCError für Abwärtskompatibilität.
+    Connection error to aria2 (e.g. unreachable, closing transport).
+    Subclass of Aria2RPCError for backward compatibility.
     """
 
 
@@ -84,8 +84,8 @@ class Aria2Service:
         """
         Ruft aktive, wartende und gestoppte Downloads ab.
 
-        Bei Verbindungsfehlern wird eine leere Liste zurückgegeben und der
-        Fehler als WARNING geloggt, damit der Scheduler weiterläuft.
+        On connection errors an empty list is returned and the error
+        is logged as WARNING so the scheduler keeps running.
         """
         try:
             results = await asyncio.gather(
@@ -118,9 +118,9 @@ class Aria2Service:
         max_retries: int = 5,
     ) -> str:
         """
-        Fügt einen Download zu aria2 hinzu, wenn er noch nicht vorhanden ist.
+        Adds a download to aria2 if not already present.
 
-        Deduplizierung erfolgt via URI und Zielpfad.
+        Deduplication is performed by URI and target path.
         """
         normalized_uri = uri.strip()
         target_path = self._target_path_from_options(options)
@@ -133,7 +133,7 @@ class Aria2Service:
                     for dup in matches:
                         if dup.gid != dl.gid and dup.status not in {"complete", "removed"}:
                             logger.warning(
-                                "Entferne veralteten aria2-Eintrag %s für %s", dup.gid, normalized_uri
+                                "Removing stale duplicate aria2 entry %s for %s", dup.gid, normalized_uri
                             )
                             await self.remove(dup.gid)
                     return dl.gid
@@ -141,7 +141,7 @@ class Aria2Service:
             if len(matches) > 1:
                 for dup in matches[1:]:
                     logger.warning(
-                        "Entferne doppelten aria2-Eintrag %s für %s", dup.gid, normalized_uri
+                        "Removing duplicate aria2 entry %s for %s", dup.gid, normalized_uri
                     )
                     await self.remove(dup.gid)
 
@@ -186,7 +186,7 @@ class Aria2Service:
                     await asyncio.sleep(delay)
 
         raise Aria2RPCError(
-            f"Download konnte nicht eingereiht werden für {normalized_uri}: {last_error}"
+            f"Unable to queue aria2 download for {normalized_uri}: {last_error}"
         )
 
     def _find_all_matches(
@@ -260,14 +260,14 @@ class Aria2Service:
         except Aria2ConnectionError as exc:
             logger.debug("aria2 %s skipped (connection error): %s", method, exc)
         except Exception as exc:
-            logger.debug("aria2 %s fehlgeschlagen für %s: %s", method, params, exc)
+            logger.debug("aria2 %s failed for %s: %s", method, params, exc)
 
     async def _call(self, method: str, params: Optional[List[Any]] = None) -> Any:
         """
-        Führt einen einzelnen JSON-RPC-Aufruf durch.
+        Executes a single JSON-RPC call.
 
-        Erstellt für jeden Aufruf eine neue ClientSession mit force_close=True,
-        damit kein Transport im schließenden Zustand beschrieben wird.
+        Creates a new ClientSession with force_close=True for each call
+        to ensure no transport is written to while closing.
         """
         self._request_id += 1
         rpc_params = list(params or [])

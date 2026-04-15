@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import aiosqlite  # Auf Modulebene damit Tests db.migration.aiosqlite patchen können
+import aiosqlite  # Module-level import so tests can patch db.migration.aiosqlite
 
 logger = logging.getLogger("alldebrid.migration")
 
@@ -59,8 +59,8 @@ async def migrate_sqlite_to_postgres(
 
     Args:
         sqlite_path: Pfad zur SQLite-Datenbankdatei
-        pg_dsn:      asyncpg-DSN für PostgreSQL
-        force:       Wenn True, werden bestehende Daten im Ziel überschrieben
+        pg_dsn:      asyncpg DSN for PostgreSQL
+        force:       If True, existing data in the target is overwritten
         dry_run:     Wenn True, wird nur validiert ohne zu schreiben
     """
     result = MigrationResult(success=False, direction="sqlite→postgres")
@@ -86,9 +86,9 @@ async def migrate_postgres_to_sqlite(
     Migriert Daten von PostgreSQL nach SQLite.
 
     Args:
-        pg_dsn:      asyncpg-DSN für PostgreSQL
-        sqlite_path: Pfad zur Ziel-SQLite-Datenbankdatei
-        force:       Wenn True, werden bestehende Daten im Ziel überschrieben
+        pg_dsn:      asyncpg DSN for PostgreSQL
+        sqlite_path: path to the target SQLite database file
+        force:       If True, existing data in the target is overwritten
         dry_run:     Wenn True, wird nur validiert ohne zu schreiben
     """
     result = MigrationResult(success=False, direction="postgres→sqlite")
