@@ -1267,6 +1267,10 @@ function renderSettings() {
             <button class="btn btn-blue btn-sm" onclick="testDiscord()">Test</button>
           </div>
         </div>
+        <div class="form-group">
+          <label class="form-label">Webhook URL — Torrent Added <span style="font-weight:400;color:var(--muted)">(optional, fällt auf Haupt-URL zurück)</span></label>
+          <input class="input" id="s-discord_webhook_added" value="${s.discord_webhook_added||''}" placeholder="https://discord.com/api/webhooks/… (separater Channel für hinzugefügte Torrents)"/>
+        </div>
         <div class="toggle-row">
           <div class="toggle-info"><div class="tl">Notify on Added</div></div>
           <label class="toggle"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added?'checked':''}><div class="ttrack"></div></label>
@@ -1278,6 +1282,50 @@ function renderSettings() {
         <div class="toggle-row">
           <div class="toggle-info"><div class="tl">Notify on Error</div></div>
           <label class="toggle"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error?'checked':''}><div class="ttrack"></div></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">🗄️ Database</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Database Type</label>
+          <select class="input" id="s-db_type" onchange="document.getElementById('pg-settings').style.display=this.value==='postgres'?'block':'none'">
+            <option value="sqlite" ${(s.db_type||'sqlite')==='sqlite'?'selected':''}>SQLite (default)</option>
+            <option value="postgres" ${(s.db_type||'sqlite')==='postgres'?'selected':''}>PostgreSQL</option>
+          </select>
+          <span class="form-hint">PostgreSQL requires asyncpg and a running PostgreSQL server. See docs/postgresql.md.</span>
+        </div>
+        <div id="pg-settings" style="display:${(s.db_type||'sqlite')==='postgres'?'block':'none'}">
+          <div class="form-group">
+            <label class="form-label">Host</label>
+            <input class="input" id="s-postgres_host" value="${s.postgres_host||'localhost'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Port</label>
+            <input class="input" type="number" id="s-postgres_port" value="${s.postgres_port||5432}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Database</label>
+            <input class="input" id="s-postgres_db" value="${s.postgres_db||'alldebrid'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">User</label>
+            <input class="input" id="s-postgres_user" value="${s.postgres_user||'alldebrid'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="input" type="password" id="s-postgres_password" value="${s.postgres_password||''}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Schema</label>
+            <input class="input" id="s-postgres_schema" value="${s.postgres_schema||'public'}"/>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">SSL</div><div class="ts">Use SSL for PostgreSQL connection</div></div>
+            <label class="toggle"><input type="checkbox" id="s-postgres_ssl" ${s.postgres_ssl?'checked':''}><span class="slider"></span></label>
+          </div>
         </div>
       </div>
     </div>
@@ -1346,7 +1394,13 @@ function getFormSettings() {
     aria2_max_active_downloads: n('aria2_max_active_downloads') || n('max_concurrent_downloads') || 3,
     aria2_start_paused: c('aria2_start_paused'),
     aria2_poll_interval_seconds: 5,
+    db_type: t('db_type'),
+    postgres_host: t('postgres_host'), postgres_port: n('postgres_port'),
+    postgres_db: t('postgres_db'), postgres_user: t('postgres_user'),
+    postgres_password: t('postgres_password'), postgres_schema: t('postgres_schema'),
+    postgres_ssl: c('postgres_ssl'),
     discord_webhook_url: t('discord_webhook_url'),
+    discord_webhook_added: t('discord_webhook_added'),
     discord_notify_added: c('discord_notify_added'), discord_notify_finished: c('discord_notify_finished'),
     discord_notify_error: c('discord_notify_error'),
     blocked_extensions: l('blocked_extensions'), blocked_keywords: l('blocked_keywords'),
