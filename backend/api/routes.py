@@ -28,11 +28,23 @@ CHANGELOG_PATH = next(
 
 @router.get("/settings")
 async def get_settings_ep():
-    return get_settings().model_dump()
+    import os
+    data = get_settings().model_dump()
+    # Wenn der Container mit DB_TYPE=postgres_internal läuft, UI darüber informieren
+    env_db_type = os.getenv("DB_TYPE", "").strip()
+    if env_db_type == "postgres_internal":
+        data["db_type"] = "postgres_internal"
+        data["_db_type_locked"] = True   # UI kann den Wert nicht ändern
+    return data
 
 
 @router.put("/settings")
 async def update_settings(new: AppSettings):
+    import os
+    # DB_TYPE=postgres_internal kommt aus docker-compose Env — nicht durch UI überschreiben
+    env_db_type = os.getenv("DB_TYPE", "").strip()
+    if env_db_type == "postgres_internal":
+        new = new.model_copy(update={"db_type": "postgres"})
     save_settings(new)
     apply_settings(new)
     manager.reset_services()

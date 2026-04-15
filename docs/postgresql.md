@@ -1,60 +1,75 @@
 # PostgreSQL-Konfiguration
 
-AllDebrid-Client unterstützt PostgreSQL als Alternative zu SQLite. SQLite bleibt der Standard und ist vollständig abwärtskompatibel.
+AllDebrid-Client unterstützt drei Datenbankoptionen. SQLite ist der Standard
+und benötigt kein Setup.
 
-## Aktivierung
+## Option 1 — SQLite (Standard)
 
-In der `config.json` oder über die Einstellungs-API:
+Kein Setup erforderlich. Funktioniert sofort nach dem Start.
+Geeignet für Einzelinstallationen und Homelab.
+
+```json
+{ "db_type": "sqlite" }
+```
+
+## Option 2 — PostgreSQL intern (empfohlen für neue Installationen)
+
+PostgreSQL läuft als separater Container in docker-compose.
+Daten werden in einem benannten Volume persistiert.
+
+### Setup
+
+```bash
+# .env anlegen
+cp .env.example .env
+# POSTGRES_PASSWORD in .env setzen
+
+# Mit internem PostgreSQL starten
+COMPOSE_PROFILES=postgres docker compose up -d
+```
+
+Alternativ mit Override-Datei:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d
+```
+
+Die App erkennt `DB_TYPE=postgres_internal` automatisch und konfiguriert
+die Verbindung ohne weiteres Zutun.
+
+### Vorteile
+- Zero-Config — kein externes Setup nötig
+- Daten in Docker-Volume, persistent über Container-Neustarts
+- Kein einzelner SPOF (SQLite-Datei)
+
+### Nachteile
+- Etwas mehr RAM (~50–80 MB für PostgreSQL)
+- Zwei Container statt einem
+
+## Option 3 — PostgreSQL extern
+
+Eigene PostgreSQL-Instanz (Synology, Proxmox, externer Server).
 
 ```json
 {
   "db_type": "postgres",
-  "postgres_host": "localhost",
+  "postgres_host": "192.168.1.10",
   "postgres_port": 5432,
   "postgres_db": "alldebrid",
   "postgres_user": "alldebrid",
-  "postgres_password": "geheimes-passwort",
-  "postgres_schema": "public",
-  "postgres_ssl": false,
-  "postgres_application_name": "alldebrid-client"
+  "postgres_password": "sicher",
+  "postgres_ssl": false
 }
 ```
 
-## Voraussetzungen
+## Abwärtskompatibilität
 
-```bash
-pip install asyncpg>=0.29.0
-```
+Bestehende SQLite-Installationen starten unverändert weiter.
+`db_type` fehlt in alten `config.json` → wird als `"sqlite"` interpretiert.
 
-Das Paket ist in `requirements.txt` enthalten und wird beim normalen Docker-Build installiert.
-
-## Docker-Compose Beispiel
-
-```yaml
-services:
-  alldebrid-client:
-    environment:
-      - CONFIG_PATH=/app/config/config.json
-    volumes:
-      - ./config:/app/config
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: alldebrid
-      POSTGRES_USER: alldebrid
-      POSTGRES_PASSWORD: geheimes-passwort
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-volumes:
-  pgdata:
-```
-
-## Schema-Initialisierung
-
-Das Schema wird beim Start automatisch erstellt. Es sind keine manuellen `CREATE TABLE`-Befehle notwendig.
-
-## Umschalten von SQLite auf PostgreSQL
+## Migration zwischen Backends
 
 Siehe [migration.md](migration.md).
+
+## Voraussetzungen
+
+`asyncpg>=0.29.0` — bereits in `requirements.txt` und `Dockerfile` enthalten.

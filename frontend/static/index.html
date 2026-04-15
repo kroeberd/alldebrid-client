@@ -1291,16 +1291,20 @@ function renderSettings() {
       <div class="scard-body">
         <div class="form-group">
           <label class="form-label">Database Type</label>
-          <select class="input" id="s-db_type" onchange="document.getElementById('pg-settings').style.display=this.value==='postgres'?'block':'none'">
-            <option value="sqlite" ${(s.db_type||'sqlite')==='sqlite'?'selected':''}>SQLite (default)</option>
-            <option value="postgres" ${(s.db_type||'sqlite')==='postgres'?'selected':''}>PostgreSQL</option>
+          <select class="input" id="s-db_type"
+            onchange="document.getElementById('pg-settings').style.display=(this.value==='postgres'||this.value==='postgres_internal')?'block':'none'"
+            ${s._db_type_locked?'disabled':''}>
+            <option value="sqlite" ${(s.db_type||'sqlite')==='sqlite'?'selected':''}>SQLite (Standard)</option>
+            <option value="postgres" ${s.db_type==='postgres'?'selected':''}>PostgreSQL (extern)</option>
+            <option value="postgres_internal" ${s.db_type==='postgres_internal'?'selected':''}>PostgreSQL (intern — Docker)</option>
           </select>
-          <span class="form-hint">PostgreSQL requires asyncpg and a running PostgreSQL server. See docs/postgresql.md.</span>
+          ${s._db_type_locked ? '<span class="form-hint" style="color:var(--accent)">⚙️ DB_TYPE ist über docker-compose gesetzt und kann hier nicht geändert werden.</span>' : '<span class="form-hint">PostgreSQL (intern) erfordert das postgres-Profil in docker-compose. Siehe docs/postgresql.md.</span>'}
         </div>
-        <div id="pg-settings" style="display:${(s.db_type||'sqlite')==='postgres'?'block':'none'}">
+        <div id="pg-settings" style="display:${(s.db_type==='postgres'||s.db_type==='postgres_internal')?'block':'none'}">
+          ${s.db_type==='postgres_internal' ? '<div class="form-hint" style="margin-bottom:8px;color:var(--accent)">⚙️ Verbindung wird automatisch konfiguriert (interner Container). Nur Passwort ist relevant.</div>' : ''}
           <div class="form-group">
             <label class="form-label">Host</label>
-            <input class="input" id="s-postgres_host" value="${s.postgres_host||'localhost'}"/>
+            <input class="input" id="s-postgres_host" value="${s.postgres_host||'localhost'}" ${s.db_type==='postgres_internal'?'readonly style="opacity:.5"':''}/>
           </div>
           <div class="form-group">
             <label class="form-label">Port</label>

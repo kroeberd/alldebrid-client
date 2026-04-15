@@ -1,61 +1,49 @@
-# Datenbankmigration: SQLite ↔ PostgreSQL
+# Datenbankmigration
 
 ## Überblick
 
-Die Migration ist bidirektional:
-- **SQLite → PostgreSQL**: Bei Umstieg auf PostgreSQL
-- **PostgreSQL → SQLite**: Für Backups oder Rückstufung
+Bidirektionale Migration zwischen SQLite und PostgreSQL über die REST-API.
 
-## Sicherheitsgarantien
+## Schritte (empfohlen)
 
-- Quelldatenbank wird nur gelesen (kein Schreiben)
-- Zieldatenbank darf keine Daten enthalten (außer `force=True`)
-- Vollständige Transaktion: bei Fehler wird alles zurückgerollt
-- Post-Migration-Validierung: Zeilenzahlen werden verglichen
-- `dry_run=True`: Nur validieren, nichts schreiben
-
-## Migrations-API
-
-### Validierung (ohne Schreiben)
-
+1. **Validieren** (kein Schreiben):
 ```bash
-curl http://localhost:8080/api/admin/migrate/validate?direction=sqlite_to_postgres
+curl "http://localhost:8080/api/admin/migrate/validate?direction=sqlite_to_postgres"
 ```
 
-### Migration durchführen
+2. **App stoppen**
 
+3. **Migration durchführen**:
 ```bash
 curl -X POST http://localhost:8080/api/admin/migrate \
   -H "Content-Type: application/json" \
   -d '{"direction": "sqlite_to_postgres", "dry_run": false, "force": false}'
 ```
 
-Mögliche Richtungen:
-- `sqlite_to_postgres`
-- `postgres_to_sqlite`
+4. **`db_type` in config.json** oder `DB_TYPE`-Env setzen
 
-### Parameter
+5. **App neu starten**
 
-| Parameter | Typ | Standard | Beschreibung |
-|-----------|-----|----------|--------------|
-| `direction` | string | — | Migrationsrichtung (erforderlich) |
-| `dry_run` | bool | `false` | Nur validieren, nichts schreiben |
-| `force` | bool | `false` | Zieldaten überschreiben (Vorsicht!) |
+## Parameter
 
-## Empfohlener Ablauf
+| Parameter   | Typ    | Standard | Beschreibung                                 |
+|-------------|--------|----------|----------------------------------------------|
+| `direction` | string | —        | `sqlite_to_postgres` oder `postgres_to_sqlite` |
+| `dry_run`   | bool   | `false`  | Nur validieren, nichts schreiben             |
+| `force`     | bool   | `false`  | Zieldaten überschreiben                      |
 
-1. **Validierung** mit `dry_run=true` durchführen
-2. Zeilenanzahl und Warnungen prüfen
-3. Anwendung stoppen
-4. Migration mit `dry_run=false` durchführen
-5. `db_type` in der Konfiguration ändern
-6. Anwendung neu starten
+## Sicherheitsgarantien
 
-## Fehlerbehandlung
+- Ziel darf keine Daten enthalten (außer `force=true`)
+- Vollständige Transaktion — Rollback bei Fehler
+- Post-Migration-Zeilenzählung
+- Quelldatenbank wird nie verändert
 
-| Fehler | Ursache | Lösung |
-|--------|---------|--------|
-| "Zieldatenbank enthält bereits Daten" | Ziel nicht leer | `force=true` oder Ziel leeren |
-| "Quelldatei nicht gefunden" | SQLite-Pfad falsch | `DB_PATH` env prüfen |
-| "asyncpg nicht installiert" | Paket fehlt | `pip install asyncpg` |
-| "Zeilenzahl-Abweichung" | Inkonsistenz | Migration wiederholen |
+## Fehlercodes
+
+| Fehler                              | Lösung                        |
+|-------------------------------------|-------------------------------|
+| Zieldatenbank enthält bereits Daten | `force: true` oder Ziel leeren |
+| Quelldatei nicht gefunden           | `DB_PATH` prüfen              |
+| asyncpg nicht installiert           | `pip install asyncpg`         |
+| Zeilenzahl-Abweichung               | Migration wiederholen         |

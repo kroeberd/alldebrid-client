@@ -557,10 +557,10 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
 
         sent_to = []
 
-        async def fake_send_embed(self, url, title, description, color, fields=None):
+        async def fake_send(self, url, title, description, color, fields=None):
             sent_to.append(url)
 
-        with patch.object(NotificationService, "_send_embed", fake_send_embed):
+        with patch.object(NotificationService, "_send", fake_send):
             svc = NotificationService(
                 webhook_url="https://main.discord.invalid/hook",
                 added_webhook_url="https://added.discord.invalid/hook",
@@ -575,10 +575,10 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
 
         sent_to = []
 
-        async def fake_send_embed(self, url, title, description, color, fields=None):
+        async def fake_send(self, url, title, description, color, fields=None):
             sent_to.append(url)
 
-        with patch.object(NotificationService, "_send_embed", fake_send_embed):
+        with patch.object(NotificationService, "_send", fake_send):
             svc = NotificationService(
                 webhook_url="https://main.discord.invalid/hook",
                 added_webhook_url="",
@@ -593,17 +593,18 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
 
         captured_fields = []
 
-        async def fake_send_embed(self, url, title, description, color, fields=None):
+        async def fake_send(self, url, title, description, color, fields=None):
             captured_fields.extend(fields or [])
 
-        with patch.object(NotificationService, "_send_embed", fake_send_embed):
+        with patch.object(NotificationService, "_send", fake_send):
             svc = NotificationService("https://hook.invalid/x")
             await svc.send_added("Test Torrent", source="watch_torrent", alldebrid_id="ad-42")
 
         field_names = [f["name"] for f in captured_fields]
         self.assertIn("Quelle", field_names)
         source_field = next(f for f in captured_fields if f["name"] == "Quelle")
-        self.assertEqual(source_field["value"], "watch_torrent")
+        # notifications.py mappt "watch_torrent" auf einen lesbaren Label
+        self.assertIn("torrent", source_field["value"].lower())
 
     async def test_deduplication_suppresses_duplicate_within_window(self):
         """Gleiche Nachricht innerhalb des Deduplizierungsfensters wird unterdrückt."""
@@ -654,12 +655,12 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
 
         captured = {}
 
-        async def fake_send_embed(self, url, title, description, color, fields=None):
+        async def fake_send(self, url, title, description, color, fields=None):
             captured["title"] = title
             captured["description"] = description
             captured["fields"] = fields or []
 
-        with patch.object(NotificationService, "_send_embed", fake_send_embed):
+        with patch.object(NotificationService, "_send", fake_send):
             svc = NotificationService("https://hook.invalid/x")
             await svc.send_complete(
                 "My Show S01",
@@ -681,10 +682,10 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
 
         captured_fields = []
 
-        async def fake_send_embed(self, url, title, description, color, fields=None):
+        async def fake_send(self, url, title, description, color, fields=None):
             captured_fields.extend(fields or [])
 
-        with patch.object(NotificationService, "_send_embed", fake_send_embed):
+        with patch.object(NotificationService, "_send", fake_send):
             svc = NotificationService("https://hook.invalid/x")
             await svc.send_error("Failed Torrent", reason="AllDebrid error code 7")
 
@@ -697,10 +698,10 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
 
         send_count = {"n": 0}
 
-        async def fake_send_embed(self, url, title, description, color, fields=None):
+        async def fake_send(self, url, title, description, color, fields=None):
             send_count["n"] += 1
 
-        with patch.object(NotificationService, "_send_embed", fake_send_embed):
+        with patch.object(NotificationService, "_send", fake_send):
             svc = NotificationService("")
             await svc.send("Title", "Description")
             await svc.send_added("Torrent")

@@ -1,6 +1,21 @@
+# AllDebrid-Client — docker-compose.yml
+#
+# Drei Betriebsmodi:
+#   1. SQLite (Standard, kein PG nötig):
+#      Einfach starten — keine Änderungen erforderlich.
+#
+#   2. PostgreSQL intern (empfohlen für neue Installationen):
+#      COMPOSE_PROFILES=postgres docker compose up -d
+#      Setzt DB_TYPE=postgres_internal automatisch.
+#
+#   3. PostgreSQL extern (eigene PG-Instanz):
+#      DB_TYPE=postgres in config.json + postgres_* Felder setzen.
+
 services:
+
+  # ── Hauptanwendung ──────────────────────────────────────────────────────────
   alldebrid-client:
-    image: kroeberd/alldebrid-client:v0.6.3
+    image: kroeberd/alldebrid-client:latest
     build: .
     container_name: alldebrid-client
     restart: unless-stopped
@@ -13,9 +28,36 @@ services:
       - CONFIG_PATH=/app/config/config.json
       - DB_PATH=/app/data/alldebrid.db
       - TZ=Europe/Berlin
+      # Wird automatisch gesetzt wenn das postgres-Profil aktiv ist:
+      # DB_TYPE=postgres_internal
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/stats"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 20s
+
+  # ── Internes PostgreSQL (optional, Profil: postgres) ────────────────────────
+  # Aktivieren mit: COMPOSE_PROFILES=postgres docker compose up -d
+  postgres:
+    image: postgres:16-alpine
+    container_name: alldebrid-postgres
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: alldebrid
+      POSTGRES_USER: alldebrid
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alldebrid_internal}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alldebrid -d alldebrid"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:
+    driver: local
