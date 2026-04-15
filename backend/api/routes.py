@@ -2,8 +2,8 @@ import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, HTTPException, UploadFile, File, Request
-from fastapi.responses import FileResponse, Query
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import aiosqlite
 
