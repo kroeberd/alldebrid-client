@@ -26,6 +26,10 @@ async def sync_status_loop():
             await manager.sync_alldebrid_status()
         except Exception as e:
             logger.error(f"Status sync error: {e}")
+        try:
+            await manager.cleanup_no_peer_errors()
+        except Exception as e:
+            logger.error(f"No-peer cleanup error: {e}")
         await asyncio.sleep(get_settings().poll_interval_seconds)
 
 

@@ -382,6 +382,49 @@ class TorrentManager:
 
         await self.sync_download_clients()
 
+    async def cleanup_no_peer_errors(self):
+        """
+        Finds torrents in 'error' status whose error_message contains 'No peer after'
+        and removes them from AllDebrid + marks as deleted.
+        These were already in error state before the auto-remove logic was added,
+        or arrived via a code path that bypassed it.
+        """
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            rows = await (await db.execute(
+                """SELECT id, name, alldebrid_id, error_message
+                   FROM torrents
+                   WHERE status = 'error'
+                     AND alldebrid_id IS NOT NULL AND alldebrid_id != ''
+                     AND (
+                       LOWER(error_message) LIKE '%no peer%'
+                       OR provider_status_code = 8
+                     )"""
+            )).fetchall()
+
+        if not rows:
+            return
+
+        logger.info("cleanup_no_peer_errors: found %d torrent(s) to clean up", len(rows))
+        for row in rows:
+            try:
+                logger.info("Removing no-peer torrent %s (%s)", row["id"], row["name"])
+                await self.ad().delete_magnet(str(row["alldebrid_id"]))
+            except Exception as exc:
+                logger.warning("Could not delete magnet %s from AllDebrid: %s",
+                               row["alldebrid_id"], exc)
+            # Mark deleted regardless — it failed, we don't want to retry
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "UPDATE torrents SET status='deleted', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (row["id"],)
+                )
+                await db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, 'warn', ?)",
+                    (row["id"], "Cleaned up: no peers after 30 minutes — removed from AllDebrid")
+                )
+                await db.commit()
+
     async def _apply_provider_update(self, row: aiosqlite.Row, magnet: Dict, normalized: Dict[str, object]):
         provider_status = str(normalized["provider_status"])
         local_status = str(normalized["local_status"])

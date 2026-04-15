@@ -2,7 +2,7 @@ import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 import aiosqlite
 
@@ -77,6 +77,38 @@ async def test_discord():
     if not ok:
         raise HTTPException(502, "Discord test failed — check webhook URL")
     return {"ok": True}
+
+
+@router.post("/settings/upload-avatar")
+async def upload_avatar(file: UploadFile = File(...)):
+    """
+    Accepts an image upload (PNG, JPG, GIF, WebP) and returns a data URI
+    that can be used as discord_avatar_url. Discord limits avatar payloads
+    to 8 MB; we enforce 4 MB to stay well within that.
+    """
+    import base64
+
+    ALLOWED_TYPES = {
+        "image/png":  "png",
+        "image/jpeg": "jpeg",
+        "image/gif":  "gif",
+        "image/webp": "webp",
+    }
+    MAX_BYTES = 4 * 1024 * 1024  # 4 MB
+
+    content_type = (file.content_type or "").lower().split(";")[0].strip()
+    if content_type not in ALLOWED_TYPES:
+        raise HTTPException(400,
+            f"Unsupported file type '{content_type}'. Allowed: PNG, JPG, GIF, WebP")
+
+    data = await file.read()
+    if len(data) > MAX_BYTES:
+        raise HTTPException(413,
+            f"File too large ({len(data)//1024} KB). Discord allows up to 4 MB for avatars.")
+
+    b64 = base64.b64encode(data).decode()
+    data_uri = f"data:{content_type};base64,{b64}"
+    return {"ok": True, "data_uri": data_uri, "size_bytes": len(data), "content_type": content_type}
 
 
 @router.post("/settings/test-alldebrid")

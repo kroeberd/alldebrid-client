@@ -659,6 +659,7 @@ textarea.input { resize: vertical; }
         <button class="btn btn-ghost" onclick="testDiscord()">🔔 Test Discord</button>
         <button class="btn btn-ghost" onclick="testAD()">🔑 Test AllDebrid</button>
         <button class="btn btn-ghost" onclick="testAria2()">⬇️ Test aria2</button>
+        <button class="btn btn-ghost" id="btn-test-postgres" style="display:none" onclick="testPostgres()">🗄️ Test DB</button>
         <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
       </div>
     </div>
@@ -1186,6 +1187,11 @@ async function loadSettings() {
   } catch(e) { toast(e.message,'error'); }
   // Activate first tab by default
   switchSettingsTab('tab-general');
+  // Avatar preview: show if current value is a data URI
+  const avatarUrl = settingsData.discord_avatar_url || '';
+  if (avatarUrl.startsWith('data:')) {
+    showAvatarPreview(avatarUrl, 'Uploaded avatar', 0);
+  }
   // Initialer Zustand: Test-PostgreSQL Button und pg-settings Sichtbarkeit
   const dbTypeEl = document.getElementById('s-db_type');
   if (dbTypeEl) {
@@ -1340,8 +1346,20 @@ function renderSettings() {
           <input class="input" id="s-discord_username" value="${s.discord_username||'AllDebrid-Client'}" placeholder="AllDebrid-Client"/>
         </div>
         <div class="form-group">
-          <label class="form-label">Bot Avatar URL <span style="font-weight:400;color:var(--muted)">(leave empty for default logo)</span></label>
-          <input class="input" id="s-discord_avatar_url" value="${s.discord_avatar_url||''}" placeholder="https://… (image URL, leave empty for default)"/>
+          <label class="form-label">Bot Avatar <span style="font-weight:400;color:var(--muted)">(URL or upload — PNG/JPG/GIF/WebP, max 4 MB)</span></label>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <input class="input" id="s-discord_avatar_url" value="${s.discord_avatar_url||''}" placeholder="https://… or leave empty for default logo" style="flex:1"/>
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;white-space:nowrap">
+              📎 Upload
+              <input type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+                style="display:none" onchange="uploadDiscordAvatar(this)"/>
+            </label>
+          </div>
+          <div id="avatar-preview" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
+            <img id="avatar-preview-img" src="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--border)"/>
+            <span id="avatar-preview-label"></span>
+            <button class="btn btn-ghost btn-sm" onclick="clearDiscordAvatar()" style="font-size:11px">✕ Remove</button>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Webhook URL</label>
@@ -1580,6 +1598,38 @@ async function testAria2() {
     toast('aria2: '+e.message,'error');
     setDot('aria2','error','aria2: error');
   }
+}
+
+async function uploadDiscordAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const resp = await fetch('/api/settings/upload-avatar', {method:'POST', body: formData});
+    const data = await resp.json();
+    if (!resp.ok) { toast(data.detail || 'Upload failed', 'error'); return; }
+    document.getElementById('s-discord_avatar_url').value = data.data_uri;
+    showAvatarPreview(data.data_uri, file.name, data.size_bytes);
+    toast('Avatar uploaded ✓', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+  input.value = '';
+}
+
+function showAvatarPreview(src, name, bytes) {
+  const preview = document.getElementById('avatar-preview');
+  const img = document.getElementById('avatar-preview-img');
+  const lbl = document.getElementById('avatar-preview-label');
+  if (!preview) return;
+  img.src = src;
+  lbl.textContent = name + (bytes ? ' (' + Math.round(bytes/1024) + ' KB)' : '');
+  preview.style.display = 'flex';
+}
+
+function clearDiscordAvatar() {
+  document.getElementById('s-discord_avatar_url').value = '';
+  const preview = document.getElementById('avatar-preview');
+  if (preview) preview.style.display = 'none';
 }
 
 async function testPostgres() {
