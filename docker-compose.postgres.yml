@@ -1,18 +1,18 @@
-# Convenience-Override für internen PostgreSQL-Betrieb.
+# Override für internen PostgreSQL-Betrieb.
 #
 # Verwendung:
 #   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d
 #
-# Oder mit dem Profil (einfacher):
+# Einfacher (bevorzugt):
 #   COMPOSE_PROFILES=postgres docker compose up -d
 
 services:
   alldebrid-client:
     environment:
-      # Teilt der App mit, dass der interne PG-Container genutzt werden soll.
-      # Die Verbindungsdaten werden automatisch aus den PG-Container-Defaults gebaut.
       - DB_TYPE=postgres_internal
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-alldebrid_internal}
+      # PG_HOST kann überschrieben werden wenn Container außerhalb des Compose-Netzwerks läuft:
+      # - PG_HOST=192.168.1.100
     depends_on:
-      postgres:
+      alldebrid-postgres:
         condition: service_healthy

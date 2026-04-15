@@ -844,8 +844,21 @@ async function loadStats() {
     nb.textContent = active; nb.style.display = active > 0 ? '' : 'none';
     const dbEl = document.getElementById('i-db-type');
     if (dbEl && s.db_type) {
-      const labels = {sqlite:'SQLite', postgres:'PostgreSQL (extern)', postgres_internal:'PostgreSQL (intern)'};
+      const labels = {
+        sqlite:            'SQLite',
+        postgres:          'PostgreSQL (extern)',
+        postgres_internal: 'PostgreSQL (intern)',
+        sqlite_fallback:   '⚠️ SQLite (PG Fallback)',
+      };
       dbEl.textContent = labels[s.db_type] || s.db_type;
+      // Fallback visuell hervorheben
+      if (s.db_type === 'sqlite_fallback') {
+        dbEl.style.color = 'var(--accent)';
+        dbEl.title = 'PostgreSQL war nicht erreichbar — die App läuft mit SQLite. Starte neu wenn PG verfügbar ist.';
+      } else {
+        dbEl.style.color = '';
+        dbEl.title = '';
+      }
     }
   } catch(e) { /* silent */ }
 }
@@ -1318,7 +1331,7 @@ function renderSettings() {
           ${s._db_type_locked ? '<span class="form-hint" style="color:var(--accent)">⚙️ DB_TYPE ist über docker-compose gesetzt und kann hier nicht geändert werden.</span>' : '<span class="form-hint">PostgreSQL (intern) erfordert das postgres-Profil in docker-compose. Siehe docs/postgresql.md.</span>'}
         </div>
         <div id="pg-settings" style="display:${(s.db_type==='postgres'||s.db_type==='postgres_internal')?'block':'none'}">
-          ${s.db_type==='postgres_internal' ? '<div class="form-hint" style="margin-bottom:8px;color:var(--accent)">⚙️ Verbindung wird automatisch konfiguriert (interner Container). Nur Passwort ist relevant.</div>' : ''}
+          ${s.db_type==='postgres_internal' ? '<div class="form-hint" style="margin-bottom:8px;color:var(--accent)">⚙️ Verbindung wird automatisch konfiguriert (interner Container). <b>Bridge-Modus:</b> Setze PG_HOST=&lt;IP des PG-Containers&gt; als Umgebungsvariable.</div>' : ''}
           <div class="form-group">
             <label class="form-label">Host</label>
             <input class="input" id="s-postgres_host" value="${s.postgres_host||'localhost'}" ${s.db_type==='postgres_internal'?'readonly style="opacity:.5"':''}/>

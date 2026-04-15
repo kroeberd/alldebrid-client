@@ -18,47 +18,67 @@ logging.basicConfig(
 )
 logger = logging.getLogger("alldebrid-client")
 
-# Wie oft und wie lange auf PostgreSQL warten (wichtig beim Docker-Start)
+# PostgreSQL Verbindungsversuche beim Start
 _PG_CONNECT_RETRIES = 15
-_PG_CONNECT_DELAY = 2.0   # Sekunden
+_PG_CONNECT_DELAY   = 2.0   # Sekunden zwischen Versuchen
 
 
-async def _wait_for_postgres():
+async def _wait_for_postgres() -> bool:
     """
     Wartet bis PostgreSQL erreichbar ist.
-    Notwendig weil der PG-Container beim gemeinsamen Start langsamer hochfährt
-    als die Python-App. Gibt nach _PG_CONNECT_RETRIES Versuchen auf.
+    Gibt True zurück wenn verbunden, False wenn nach allen Versuchen nicht erreichbar.
+    Wirft keine Exception — der Aufrufer entscheidet ob er auf SQLite wechselt.
     """
     from db.database import _build_dsn
     try:
         import asyncpg  # type: ignore
     except ImportError:
-        raise RuntimeError("asyncpg nicht installiert — pip install asyncpg")
+        logger.error("asyncpg nicht installiert — kann nicht mit PostgreSQL verbinden")
+        return False
 
     dsn = _build_dsn()
     for attempt in range(1, _PG_CONNECT_RETRIES + 1):
         try:
-            conn = await asyncpg.connect(dsn)
+            conn = await asyncpg.connect(dsn, timeout=5)
             await conn.close()
             logger.info("PostgreSQL bereit (Versuch %d/%d)", attempt, _PG_CONNECT_RETRIES)
-            return
+            return True
         except Exception as exc:
-            if attempt >= _PG_CONNECT_RETRIES:
-                raise RuntimeError(
-                    f"PostgreSQL nach {_PG_CONNECT_RETRIES} Versuchen nicht erreichbar: {exc}"
+            remaining = _PG_CONNECT_RETRIES - attempt
+            if remaining == 0:
+                logger.warning(
+                    "PostgreSQL nach %d Versuchen nicht erreichbar: %s",
+                    _PG_CONNECT_RETRIES, exc,
                 )
+                return False
             logger.warning(
-                "Warte auf PostgreSQL (Versuch %d/%d): %s",
-                attempt, _PG_CONNECT_RETRIES, exc,
+                "Warte auf PostgreSQL (Versuch %d/%d, noch %d): %s",
+                attempt, _PG_CONNECT_RETRIES, remaining, exc,
             )
             await asyncio.sleep(_PG_CONNECT_DELAY)
+    return False
+
+
+def _fallback_to_sqlite():
+    """
+    Schaltet die Anwendung auf SQLite um wenn PostgreSQL nicht erreichbar ist.
+    Ändert die laufenden Settings in-place und loggt eine klare Warnung.
+    """
+    from core.config import get_settings, apply_settings
+    cfg = get_settings()
+    logger.warning(
+        "⚠️  PostgreSQL nicht erreichbar — Fallback auf SQLite. "
+        "Daten werden in %s gespeichert. "
+        "Starte neu mit erreichbarem PostgreSQL um PG zu nutzen.",
+        DB_PATH,
+    )
+    # Settings auf SQLite umschalten ohne config.json zu überschreiben
+    new_cfg = cfg.model_copy(update={"db_type": "sqlite"})
+    apply_settings(new_cfg)
 
 
 async def _reset_stuck_downloads_sqlite():
-    """
-    SQLite: Torrents im Status 'downloading' ohne download_files-Einträge
-    zurücksetzen (App-Absturz während _download()).
-    """
+    """Setzt Torrents zurück die beim letzten Start im Status 'downloading' stecken geblieben sind."""
     import aiosqlite as _aiosqlite
     async with _aiosqlite.connect(DB_PATH) as _db:
         _db.row_factory = _aiosqlite.Row
@@ -82,9 +102,7 @@ async def _reset_stuck_downloads_sqlite():
 
 
 async def _reset_stuck_downloads_postgres():
-    """
-    PostgreSQL: Gleiche Logik wie SQLite-Variante, aber via asyncpg.
-    """
+    """Gleiche Logik wie SQLite-Variante, via asyncpg."""
     try:
         import asyncpg  # type: ignore
     except ImportError:
@@ -116,16 +134,22 @@ async def _reset_stuck_downloads_postgres():
 async def lifespan(app: FastAPI):
     logger.info("Starting AllDebrid-Client...")
 
-    # 1. Auf Datenbank warten (PostgreSQL kann beim Docker-Start langsam sein)
+    # 1. PostgreSQL: Warten + ggf. auf SQLite zurückfallen
     if _is_postgres():
-        try:
-            await _wait_for_postgres()
-        except Exception as e:
-            logger.error("Datenbankverbindung fehlgeschlagen: %s", e)
-            raise
+        pg_ok = await _wait_for_postgres()
+        if not pg_ok:
+            _fallback_to_sqlite()
+            # _is_postgres() gibt jetzt False zurück
 
-    # 2. Schema initialisieren (idempotent — sicher bei Neustart)
-    await init_db()
+    # 2. Schema initialisieren (idempotent)
+    try:
+        await init_db()
+    except Exception as e:
+        logger.error("Datenbankinitialisierung fehlgeschlagen: %s", e)
+        if _is_postgres():
+            # Letzter Ausweg: auf SQLite fallen
+            _fallback_to_sqlite()
+            await init_db()
 
     # 3. Stuck-Downloads zurücksetzen
     try:
@@ -141,7 +165,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Startup stuck-download cleanup failed: %s", e)
 
-    # 4. Bestehende Magnete von AllDebrid importieren
+    # 4. Bestehende AllDebrid-Magnete importieren
     try:
         await manager.import_existing_magnets()
     except Exception as e:
@@ -199,8 +223,7 @@ if _static is None:
     tried = ", ".join(str(p) for p in _candidates)
     raise RuntimeError(
         f"Frontend index.html not found. Tried: [{tried}]. "
-        "Fix your Docker build (COPY frontend/ /app/frontend/) "
-        "or set the STATIC_DIR environment variable."
+        "Fix your Docker build or set STATIC_DIR."
     )
 
 logger.info("Serving static files from: %s", _static)

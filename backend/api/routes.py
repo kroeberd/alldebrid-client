@@ -328,8 +328,17 @@ async def get_stats():
         terminal = completed_count + error_count
         success_rate = round(completed_count / terminal * 100, 1) if terminal > 0 else None
 
+        # db_type: nach Fallback zeigt get_settings() den tatsächlich aktiven Wert
         import os as _os
-        db_type_display = _os.getenv("DB_TYPE", "") or getattr(get_settings(), "db_type", "sqlite")
+        env_db_type = _os.getenv("DB_TYPE", "").strip()
+        active_db_type = getattr(get_settings(), "db_type", "sqlite")
+        # Wenn Env postgres_internal gesagt hat aber aktiv sqlite ist → Fallback passiert
+        if env_db_type == "postgres_internal" and active_db_type == "sqlite":
+            db_type_display = "sqlite_fallback"
+        elif env_db_type == "postgres_internal":
+            db_type_display = "postgres_internal"
+        else:
+            db_type_display = active_db_type
         return {
             "by_status": by_status,
             "total_completed_bytes": size_row["total"] or 0,
