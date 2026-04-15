@@ -49,12 +49,15 @@ class AppSettings(BaseModel):
     # ── Discord ────────────────────────────────────────────────────────────────
     discord_webhook_url: str = ""
     discord_webhook_added: str = ""
+    # Discord bot identity — shown in all webhook messages
+    discord_username: str = "AllDebrid-Client"
+    discord_avatar_url: str = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
     discord_notify_added: bool = True
     discord_notify_finished: bool = True
     discord_notify_error: bool = True
 
     # Filters
-    filters_enabled: bool = True
+    filters_enabled: bool = False
     blocked_extensions: List[str] = [
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
         ".svg", ".ico", ".tiff", ".heic", ".nfo", ".sfv"
@@ -82,21 +85,6 @@ def _build_effective_settings(loaded: dict) -> AppSettings:
         loaded["db_type"] = env_db_type
 
     db_type = loaded.get("db_type", "sqlite")
-
-    if db_type == "postgres_internal":
-        pg_password = os.getenv("POSTGRES_PASSWORD", "alldebrid_internal")
-        # PG_HOST allows bridge override (e.g. IP instead of container name)
-        pg_host = os.getenv("PG_HOST", "alldebrid-postgres")
-
-        # Always overwrite (not setdefault) — internal values are fixed
-        loaded["postgres_host"]     = pg_host
-        loaded["postgres_port"]     = 5432
-        loaded["postgres_db"]       = "alldebrid"
-        loaded["postgres_user"]     = "alldebrid"
-        loaded["postgres_password"] = pg_password
-        loaded["postgres_ssl"]      = False
-        # postgres_internal → postgres (same database logic)
-        loaded["db_type"] = "postgres"
 
     return AppSettings(**{k: v for k, v in loaded.items() if k in AppSettings.model_fields})
 

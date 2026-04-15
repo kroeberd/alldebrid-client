@@ -27,7 +27,20 @@ logger = logging.getLogger("alldebrid.notify")
 APP_NAME    = "AllDebrid-Client"
 _VER_PATH   = Path(__file__).resolve().parents[2] / "VERSION"
 APP_VERSION = _VER_PATH.read_text(encoding="utf-8").strip() if _VER_PATH.exists() else "dev"
-APP_LOGO    = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+# Default logo — overridden at runtime by discord_avatar_url from settings
+_DEFAULT_LOGO = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+
+
+def _get_discord_identity() -> tuple[str, str]:
+    """Returns (username, avatar_url) from settings, with safe defaults."""
+    try:
+        from core.config import get_settings
+        cfg = get_settings()
+        name   = (getattr(cfg, "discord_username",   "") or APP_NAME).strip() or APP_NAME
+        avatar = (getattr(cfg, "discord_avatar_url", "") or _DEFAULT_LOGO).strip() or _DEFAULT_LOGO
+        return name, avatar
+    except Exception:
+        return APP_NAME, _DEFAULT_LOGO
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 COLOR_INFO    = 0x3B82F6   # Blue    — general
@@ -270,7 +283,7 @@ class NotificationService:
             "color":       color,
             "footer": {
                 "text":     f"{APP_NAME} v{APP_VERSION}",
-                "icon_url": APP_LOGO,
+                "icon_url": _DEFAULT_LOGO,
             },
         }
         if fields:
@@ -283,9 +296,10 @@ class NotificationService:
                 for f in fields[:25]
             ]
 
+        _bot_name, _bot_avatar = _get_discord_identity()
         payload = {
-            "username":   APP_NAME,
-            "avatar_url": APP_LOGO,
+            "username":   _bot_name,
+            "avatar_url": _bot_avatar,
             "embeds":     [embed],
         }
 

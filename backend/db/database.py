@@ -4,9 +4,9 @@ Database layer for AllDebrid-Client.
 Supports three modes (controlled by db_type in AppSettings):
   sqlite            -> Default, fully backward compatible, no setup needed
   postgres          -> External PostgreSQL instance
-  postgres_internal -> Internal Docker container (mapped to "postgres" before use)
 
-All three modes use the same _DbConnection abstraction.
+
+Both modes use the same _DbConnection abstraction.
 
 Usage:
     async with get_db() as db:

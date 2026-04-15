@@ -461,7 +461,7 @@ class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
         ]
 
         fake_cfg = types.SimpleNamespace(
-            download_client="direct",
+            download_client="aria2",
             download_folder=str(Path.cwd() / "tmp_test_dl"),
             filters_enabled=True, blocked_extensions=[], blocked_keywords=[],
             min_file_size_mb=0, aria2_start_paused=False,

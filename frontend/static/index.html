@@ -369,7 +369,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver">v0.7.0</div>
+      <div class="logo-ver" id="sidebar-version">v0.8.0</div>
     </div>
   </div>
   <nav>
@@ -418,7 +418,7 @@ textarea.input { resize: vertical; }
 
     <!-- Dashboard -->
     <div class="view active" id="view-dashboard">
-      <div class="beta-banner">v0.7.0 stops pre-creating destination folders in the aria2 path so directory creation is left entirely to aria2.</div>
+      <div class="beta-banner">v0.8.0 stops pre-creating destination folders in the aria2 path so directory creation is left entirely to aria2.</div>
 
       <div class="insight-grid" style="margin-bottom:18px">
         <div class="insight-card">
@@ -844,22 +844,19 @@ async function loadStats() {
     nb.textContent = active; nb.style.display = active > 0 ? '' : 'none';
     const dbEl = document.getElementById('i-db-type');
     if (dbEl && s.db_type) {
-      const labels = {
-        sqlite:            'SQLite',
-        postgres:          'PostgreSQL (external)',
-        postgres_internal: 'PostgreSQL (intern)',
-        sqlite_fallback:   '⚠️ SQLite (PG Fallback)',
-      };
-      dbEl.textContent = labels[s.db_type] || s.db_type;
-      // Fallback visuell hervorheben
+      const dbLabels = {sqlite:'SQLite', postgres:'PostgreSQL', sqlite_fallback:'⚠️ SQLite (fallback)'};
+      dbEl.textContent = dbLabels[s.db_type] || s.db_type;
       if (s.db_type === 'sqlite_fallback') {
         dbEl.style.color = 'var(--accent)';
-        dbEl.title = 'PostgreSQL was unreachable — the app is running with SQLite. Restart once PostgreSQL is available.';
-      } else {
-        dbEl.style.color = '';
-        dbEl.title = '';
-      }
+        dbEl.title = 'PostgreSQL unreachable — running on SQLite fallback.';
+      } else { dbEl.style.color = ''; dbEl.title = ''; }
     }
+    setDot('db',
+      s.db_type === 'sqlite_fallback' ? 'error' : 'ok',
+      s.db_type === 'sqlite_fallback' ? 'DB: SQLite (fallback)'
+        : s.db_type === 'postgres'    ? 'DB: PostgreSQL'
+        : 'DB: SQLite'
+    );
   } catch(e) { /* silent */ }
 }
 
@@ -1153,7 +1150,7 @@ async function loadSettings() {
   // Initialer Zustand: Test-PostgreSQL Button und pg-settings Sichtbarkeit
   const dbTypeEl = document.getElementById('s-db_type');
   if (dbTypeEl) {
-    const isPg = dbTypeEl.value === 'postgres' || dbTypeEl.value === 'postgres_internal';
+    const isPg = dbTypeEl.value === 'postgres';
     const pgBtn = document.getElementById('btn-test-postgres');
     if (pgBtn) pgBtn.style.display = isPg ? '' : 'none';
   }
@@ -1209,23 +1206,12 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">Delivery Mode</label>
           <select class="input" id="s-download_client">
-            <option value="direct" ${(s.download_client||'direct')==='direct'?'selected':''}>Direct download</option>
-            <option value="aria2" ${(s.download_client||'direct')==='aria2'?'selected':''}>aria2</option>
+            <option value="aria2" selected>aria2 (via JSON-RPC)</option>
           </select>
-          <span class="form-hint">Use direct downloads inside the app or hand off links to aria2 via JSON-RPC.</span>
+          <span class="form-hint">Downloads are handed off to aria2 via JSON-RPC. Configure the RPC URL below.</span>
           <details class="info-details">
             <summary>How do the delivery modes work?</summary>
             <div class="info-details-body">
-              <div class="info-mode">
-                <div class="info-mode-title">⬇️ Direct download</div>
-                <div class="info-mode-desc">
-                  The app fetches each file itself, streaming it directly to the configured download folder.
-                  No external tool is needed. The app unlocks the AllDebrid link, opens an HTTP connection, and writes the data chunk by chunk.
-                  Progress is tracked internally and the torrent is marked complete once all files are written.
-                </div>
-                <div class="info-mode-pros">✔ Zero setup — works out of the box · no extra container needed</div>
-                <div class="info-mode-cons">✖ Slower for large batches · no resume on app restart · ties up app memory during download</div>
-              </div>
               <div class="info-mode">
                 <div class="info-mode-title">⚡ aria2</div>
                 <div class="info-mode-desc">
@@ -1291,6 +1277,14 @@ function renderSettings() {
       <div class="scard-header">🔔 Discord Notifications</div>
       <div class="scard-body">
         <div class="form-group">
+          <label class="form-label">Bot Name <span style="font-weight:400;color:var(--muted)">(shown as sender in Discord)</span></label>
+          <input class="input" id="s-discord_username" value="${s.discord_username||'AllDebrid-Client'}" placeholder="AllDebrid-Client"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bot Avatar URL <span style="font-weight:400;color:var(--muted)">(leave empty for default logo)</span></label>
+          <input class="input" id="s-discord_avatar_url" value="${s.discord_avatar_url||''}" placeholder="https://… (image URL, leave empty for default)"/>
+        </div>
+        <div class="form-group">
           <label class="form-label">Webhook URL</label>
           <div class="test-row">
             <input class="input" id="s-discord_webhook_url" value="${s.discord_webhook_url||''}" placeholder="https://discord.com/api/webhooks/…"/>
@@ -1319,6 +1313,9 @@ function renderSettings() {
     <div class="scard">
       <div class="scard-header">🗄️ Database</div>
       <div class="scard-body">
+        <div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--text2)">
+          💾 <b>Save settings first</b>, then use <b>Test DB</b> to verify the connection.
+        </div>
         <div class="form-group">
           <label class="form-label">Database Type</label>
           <select class="input" id="s-db_type"
@@ -1326,12 +1323,10 @@ function renderSettings() {
             ${s._db_type_locked?'disabled':''}>
             <option value="sqlite" ${(s.db_type||'sqlite')==='sqlite'?'selected':''}>SQLite (default)</option>
             <option value="postgres" ${s.db_type==='postgres'?'selected':''}>PostgreSQL (external)</option>
-            <option value="postgres_internal" ${s.db_type==='postgres_internal'?'selected':''}>PostgreSQL (internal — Docker)</option>
           </select>
-          ${s._db_type_locked ? '<span class="form-hint" style="color:var(--accent)">⚙️ DB_TYPE is set via docker-compose and cannot be changed here.</span>' : '<span class="form-hint">PostgreSQL (internal) requires the postgres profile in docker-compose, or a shared Docker network for Bridge mode. See docs/postgresql.md.</span>'}
+          ${s._db_type_locked ? '<span class="form-hint" style="color:var(--accent)">⚙️ DB_TYPE is set via docker-compose and cannot be changed here.</span>' : '<span class="form-hint">Use PostgreSQL to connect to an external database server. See docs/postgresql.md.</span>'}
         </div>
-        <div id="pg-settings" style="display:${(s.db_type==='postgres'||s.db_type==='postgres_internal')?'block':'none'}">
-          ${s.db_type==='postgres_internal' ? '<div class="form-hint" style="margin-bottom:8px;color:var(--accent)">⚙️ Connection is configured automatically (internal container). <b>Bridge mode:</b> Set PG_HOST=&lt;IP of the PG container&gt; as an environment variable, or use a shared Docker network (see docs/postgresql.md).</div>' : ''}
+        <div id="pg-settings" style="display:${s.db_type==='postgres'?'block':'none'}">
           <div class="form-group">
             <label class="form-label">Host</label>
             <input class="input" id="s-postgres_host" value="${s.postgres_host||'localhost'}" ${s.db_type==='postgres_internal'?'readonly style="opacity:.5"':''}/>
@@ -1433,6 +1428,8 @@ function getFormSettings() {
     postgres_db: t('postgres_db'), postgres_user: t('postgres_user'),
     postgres_password: t('postgres_password'), postgres_schema: t('postgres_schema'),
     postgres_ssl: c('postgres_ssl'),
+    discord_username: t('discord_username') || 'AllDebrid-Client',
+    discord_avatar_url: t('discord_avatar_url'),
     discord_webhook_url: t('discord_webhook_url'),
     discord_webhook_added: t('discord_webhook_added'),
     discord_notify_added: c('discord_notify_added'), discord_notify_finished: c('discord_notify_finished'),

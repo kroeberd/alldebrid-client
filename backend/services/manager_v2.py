@@ -188,8 +188,8 @@ class TorrentManager:
         )
 
     def download_client_name(self) -> str:
-        client = (get_settings().download_client or "direct").strip().lower()
-        return client if client in {"direct", "aria2"} else "direct"
+        # Direct download mode has been removed — aria2 is the only supported client
+        return "aria2"
 
     def _watch_error_dir(self, watch: Path) -> Path:
         return watch / "error"
@@ -453,7 +453,7 @@ class TorrentManager:
     async def _download(self, torrent_id: int, ad_id: str, name: str):
         cfg = get_settings()
         client_name = self.download_client_name()
-        initial_status = "queued" if client_name == "aria2" else "downloading"
+        initial_status = "queued"  # aria2 is the only download client
 
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("DELETE FROM download_files WHERE torrent_id=?", (torrent_id,))
@@ -468,8 +468,7 @@ class TorrentManager:
             raise Exception("No downloadable files returned from AllDebrid")
 
         destination_root = Path(cfg.download_folder) / safe_name(name)
-        if client_name != "aria2":
-            destination_root.mkdir(parents=True, exist_ok=True)
+        # Directory creation is left to aria2
 
         total_files = len(flat_files)
         blocked_items: List[dict] = []
@@ -513,32 +512,18 @@ class TorrentManager:
                     await self._log_file(torrent_id, display_name, download_url, str(local_path), "completed", None, file_size)
                     continue
 
-                if client_name == "aria2":
-                    queued_items.append({"filename": display_name, "size_bytes": file_size})
-                    await self._log_file(
-                        torrent_id,
-                        display_name,
-                        source_link,
-                        str(local_path),
-                        "pending",
-                        None,
-                        file_size,
-                        download_client="aria2",
-                    )
-                else:
-                    local_path.parent.mkdir(parents=True, exist_ok=True)
-                    await _retry_async(self._download_direct, download_url, local_path)
-                    transferred_items.append({"filename": display_name, "size_bytes": file_size})
-                    await self._log_file(
-                        torrent_id,
-                        display_name,
-                        download_url,
-                        str(local_path),
-                        "completed",
-                        None,
-                        file_size,
-                        download_client="direct",
-                    )
+                # Queue for aria2 delivery
+                queued_items.append({"filename": display_name, "size_bytes": file_size})
+                await self._log_file(
+                    torrent_id,
+                    display_name,
+                    source_link,
+                    str(local_path),
+                    "pending",
+                    None,
+                    file_size,
+                    download_client="aria2",
+                )
             except Exception as exc:
                 logger.error("File failed [%s]: %s", display_name, exc)
                 failed_items.append({"filename": display_name, "size_bytes": file_size, "reason": str(exc)})
@@ -554,11 +539,11 @@ class TorrentManager:
         # AllDebrid magnet-status value which is often 0 until the torrent is ready.
         total_size_bytes = _size_sum(blocked_items + transferred_items + queued_items + failed_items)
 
-        if failed_count == 0 and completed_count == downloadable_count and downloadable_count > 0:
-            final_status = "completed"
-        elif failed_count == 0 and completed_count + queued_count == downloadable_count and queued_count > 0:
-            final_status = "queued"
-        elif blocked_count > 0 and failed_count == 0 and completed_count + queued_count > 0:
+        # All files go through aria2 — final_status is queued or error
+        if failed_count == 0 and (completed_count + queued_count) == downloadable_count and downloadable_count > 0:
+            # completed_count > 0 means files already existed on disk (skipped)
+            final_status = "queued" if queued_count > 0 else "completed"
+        elif blocked_count > 0 and failed_count == 0 and (completed_count + queued_count) > 0:
             final_status = "queued" if queued_count > 0 else "completed"
         else:
             final_status = "error"
@@ -589,7 +574,7 @@ class TorrentManager:
             await self._delete_magnet_after_completion(torrent_id, ad_id)
             await self._mark_finished(torrent_id)
             if cfg.discord_notify_finished:
-                await self.notify().send_complete(name, file_count=completed_count, destination=str(destination_root), download_client=client_name)
+                await self.notify().send_complete(name, file_count=completed_count, destination=str(destination_root), download_client="aria2")
         elif final_status in {"queued", "paused"}:
             await self._log_event(
                 torrent_id,
@@ -1179,15 +1164,7 @@ class TorrentManager:
                 downloaded_size=downloaded_size,
             )
 
-    async def _download_direct(self, url: str, local_path: Path) -> str:
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=3600)) as response:
-                response.raise_for_status()
-                async with aiofiles.open(local_path, "wb") as file_handle:
-                    async for chunk in response.content.iter_chunked(1024 * 1024):
-                        await file_handle.write(chunk)
-        return str(local_path)
+    # Direct download mode removed — aria2 handles all transfers
 
     async def _log_file(
         self,

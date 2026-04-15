@@ -333,10 +333,9 @@ async def get_stats():
         env_db_type = _os.getenv("DB_TYPE", "").strip()
         active_db_type = getattr(get_settings(), "db_type", "sqlite")
         # If env said postgres_internal but active is sqlite → fallback occurred
-        if env_db_type == "postgres_internal" and active_db_type == "sqlite":
+        # postgres_internal mode is no longer supported in UI — treat as postgres
+        if active_db_type == "sqlite" and env_db_type in ("postgres", "postgres_internal"):
             db_type_display = "sqlite_fallback"
-        elif env_db_type == "postgres_internal":
-            db_type_display = "postgres_internal"
         else:
             db_type_display = active_db_type
         return {
