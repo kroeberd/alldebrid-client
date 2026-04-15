@@ -15,10 +15,12 @@ class AppSettings(BaseModel):
     # ── Datenbank ──────────────────────────────────────────────────────────────
     # db_type:
     #   "sqlite"            → SQLite (Standard, abwärtskompatibel)
-    #   "postgres"          → Externe PostgreSQL-Instanz (postgres_* Felder)
-    #   "postgres_internal" → Interner PG-Container aus docker-compose (auto-config)
+    #   "postgres"          → Externe PostgreSQL-Instanz
+    #   "postgres_internal" → Interner Docker-Container (auto-config via Env)
     db_type: str = "sqlite"
-    postgres_host: str = "localhost"
+
+    # PostgreSQL-Verbindung — Defaults entsprechen dem internen Container
+    postgres_host: str = "postgres"       # "postgres" = interner Container-Name
     postgres_port: int = 5432
     postgres_db: str = "alldebrid"
     postgres_user: str = "alldebrid"
@@ -46,7 +48,6 @@ class AppSettings(BaseModel):
 
     # ── Discord ────────────────────────────────────────────────────────────────
     discord_webhook_url: str = ""
-    # Separater Webhook für "Torrent hinzugefügt"; fällt auf discord_webhook_url zurück
     discord_webhook_added: str = ""
     discord_notify_added: bool = True
     discord_notify_finished: bool = True
@@ -70,16 +71,39 @@ class AppSettings(BaseModel):
 _settings: AppSettings = AppSettings()
 
 
+def _build_effective_settings(loaded: dict) -> AppSettings:
+    """
+    Wendet Umgebungsvariablen-Overrides an und normalisiert postgres_internal.
+    Wird sowohl von load_settings() als auch apply_settings() genutzt.
+    """
+    # DB_TYPE Env hat Vorrang vor config.json
+    env_db_type = os.getenv("DB_TYPE", "").strip()
+    if env_db_type:
+        loaded["db_type"] = env_db_type
+
+    db_type = loaded.get("db_type", "sqlite")
+
+    # Interner PG-Container: Verbindungsdaten aus Env — immer, egal was in config.json steht
+    if db_type == "postgres_internal":
+        pg_password = os.getenv("POSTGRES_PASSWORD", "alldebrid_internal")
+        # Diese Werte immer setzen (nicht setdefault) — interne Verbindung ist fest definiert
+        loaded["postgres_host"]     = "postgres"   # Docker-Netzwerk-Name des PG-Containers
+        loaded["postgres_port"]     = 5432
+        loaded["postgres_db"]       = "alldebrid"
+        loaded["postgres_user"]     = "alldebrid"
+        loaded["postgres_password"] = pg_password
+        loaded["postgres_ssl"]      = False
+        # Intern → nach außen als "postgres" behandeln (gleiche Logik)
+        loaded["db_type"] = "postgres"
+
+    return AppSettings(**{k: v for k, v in loaded.items() if k in AppSettings.model_fields})
+
+
 def get_settings() -> AppSettings:
     return _settings
 
 
 def load_settings() -> AppSettings:
-    """
-    Lädt Einstellungen aus config.json.
-    Umgebungsvariablen (DB_TYPE, POSTGRES_PASSWORD) überschreiben gespeicherte Werte,
-    damit docker-compose-Override ohne config.json-Änderung funktioniert.
-    """
     loaded: dict = {}
     if CONFIG_PATH.exists():
         try:
@@ -88,32 +112,13 @@ def load_settings() -> AppSettings:
             loaded = {k: v for k, v in data.items() if k in AppSettings.model_fields}
         except Exception:
             pass
-
-    # Umgebungsvariablen haben Vorrang (für Docker-Compose-Integration)
-    env_db_type = os.getenv("DB_TYPE", "").strip()
-    if env_db_type:
-        loaded["db_type"] = env_db_type
-
-    # Interner PG-Container: Verbindungsdaten automatisch aus Umgebung befüllen
-    if loaded.get("db_type") == "postgres_internal":
-        pg_password = os.getenv("POSTGRES_PASSWORD", "alldebrid_internal")
-        loaded.setdefault("postgres_host", "postgres")   # Service-Name im Compose-Netzwerk
-        loaded.setdefault("postgres_port", 5432)
-        loaded.setdefault("postgres_db", "alldebrid")
-        loaded.setdefault("postgres_user", "alldebrid")
-        loaded["postgres_password"] = pg_password         # immer aus Env, nie aus config.json
-        loaded.setdefault("postgres_ssl", False)
-        # Intern wird "postgres_internal" auf "postgres" gemappt — gleiche Logik
-        loaded["db_type"] = "postgres"
-
-    return AppSettings(**loaded)
+    return _build_effective_settings(loaded)
 
 
 def save_settings(s: AppSettings):
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     data = s.model_dump()
-    # Passwort des internen PG nicht in config.json speichern
-    # (kommt aus Umgebungsvariable, nicht aus Benutzereingabe)
+    # Passwort des internen PG nicht in config.json speichern — kommt aus Env
     if os.getenv("DB_TYPE") == "postgres_internal":
         data.pop("postgres_password", None)
     with open(CONFIG_PATH, "w") as f:

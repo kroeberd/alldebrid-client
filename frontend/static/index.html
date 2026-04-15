@@ -451,6 +451,11 @@ textarea.input { resize: vertical; }
           <div class="insight-v" id="i-avg-size">—</div>
           <div class="insight-s">Per completed torrent</div>
         </div>
+        <div class="insight-card">
+          <div class="insight-k">Database</div>
+          <div class="insight-v" id="i-db-type" style="font-size:13px;padding-top:6px">—</div>
+          <div class="insight-s">Active backend</div>
+        </div>
       </div>
         
 
@@ -837,6 +842,11 @@ async function loadStats() {
     const active = s.active_downloads || 0;
     const nb = document.getElementById('nb-active');
     nb.textContent = active; nb.style.display = active > 0 ? '' : 'none';
+    const dbEl = document.getElementById('i-db-type');
+    if (dbEl && s.db_type) {
+      const labels = {sqlite:'SQLite', postgres:'PostgreSQL (extern)', postgres_internal:'PostgreSQL (intern)'};
+      dbEl.textContent = labels[s.db_type] || s.db_type;
+    }
   } catch(e) { /* silent */ }
 }
 
@@ -1127,6 +1137,13 @@ async function loadSettings() {
     settingsData = await api('GET','/settings');
     renderSettings();
   } catch(e) { toast(e.message,'error'); }
+  // Initialer Zustand: Test-PostgreSQL Button und pg-settings Sichtbarkeit
+  const dbTypeEl = document.getElementById('s-db_type');
+  if (dbTypeEl) {
+    const isPg = dbTypeEl.value === 'postgres' || dbTypeEl.value === 'postgres_internal';
+    const pgBtn = document.getElementById('btn-test-postgres');
+    if (pgBtn) pgBtn.style.display = isPg ? '' : 'none';
+  }
 }
 
 function renderSettings() {
@@ -1460,6 +1477,13 @@ async function testAria2() {
     toast('aria2: '+e.message,'error');
     setDot('aria2','error','aria2: error');
   }
+}
+
+async function testPostgres() {
+  try {
+    const r = await api('POST', '/settings/test-postgres');
+    toast(`PostgreSQL ${r.version} — ${r.host}:${r.port}/${r.database} ✓`, 'success');
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────

@@ -103,6 +103,39 @@ async def test_aria2():
         raise HTTPException(502, str(e))
 
 
+@router.post("/settings/test-postgres")
+async def test_postgres():
+    """Testet die PostgreSQL-Verbindung mit den aktuellen Einstellungen."""
+    cfg = get_settings()
+    if getattr(cfg, "db_type", "sqlite") not in ("postgres",):
+        raise HTTPException(400, "PostgreSQL ist nicht als Datenbanktyp konfiguriert")
+    try:
+        import asyncpg  # type: ignore
+    except ImportError:
+        raise HTTPException(500, "asyncpg nicht installiert — pip install asyncpg")
+    try:
+        ssl_val = "require" if cfg.postgres_ssl else "disable"
+        dsn = (
+            f"postgresql://{cfg.postgres_user}:{cfg.postgres_password}"
+            f"@{cfg.postgres_host}:{cfg.postgres_port}/{cfg.postgres_db}"
+            f"?sslmode={ssl_val}"
+        )
+        conn = await asyncpg.connect(dsn, timeout=10)
+        version = await conn.fetchval("SELECT version()")
+        await conn.close()
+        short_version = version.split(",")[0] if version else "unbekannt"
+        return {
+            "ok": True,
+            "host": cfg.postgres_host,
+            "port": cfg.postgres_port,
+            "database": cfg.postgres_db,
+            "user": cfg.postgres_user,
+            "version": short_version,
+        }
+    except Exception as e:
+        raise HTTPException(502, f"PostgreSQL-Verbindung fehlgeschlagen: {e}")
+
+
 # ─── Torrents ─────────────────────────────────────────────────────────────────
 
 @router.get("/torrents")
@@ -295,9 +328,12 @@ async def get_stats():
         terminal = completed_count + error_count
         success_rate = round(completed_count / terminal * 100, 1) if terminal > 0 else None
 
+        import os as _os
+        db_type_display = _os.getenv("DB_TYPE", "") or getattr(get_settings(), "db_type", "sqlite")
         return {
             "by_status": by_status,
             "total_completed_bytes": size_row["total"] or 0,
+            "db_type": db_type_display,
             "total_blocked_files": blocked,
             "active_downloads": active,
             "queued_downloads": queued,
