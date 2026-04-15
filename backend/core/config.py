@@ -37,7 +37,7 @@ class AppSettings(BaseModel):
     max_speed_mbps: int = 0
 
     # Download delivery
-    download_client: str = "direct"
+    download_client: str = "aria2"
     aria2_url: str = "http://127.0.0.1:6800/jsonrpc"
     aria2_secret: str = ""
     aria2_download_path: str = ""

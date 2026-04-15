@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1] — 2026-04-15
+
+### Fixed
+- `Test Discord` now saves the current Discord settings first, so changed username/avatar values are actually used for the test webhook.
+- Avatar upload now warns when the generated `/api/avatar` URL points to a private or LAN-only host that Discord cannot reach.
+- Remaining aria2-only cleanup: removed stale `direct` defaults and UI fallbacks that no longer matched the current downloader architecture.
+
 ## [0.8.0] — 2026-04-15
 
 ### Removed

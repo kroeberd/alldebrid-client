@@ -1230,7 +1230,7 @@ class TorrentManager:
         reason: Optional[str],
         size_bytes: int = 0,
         download_id: Optional[str] = None,
-        download_client: str = "direct",
+        download_client: str = "aria2",
     ):
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(

@@ -138,7 +138,7 @@ class NotificationService:
         file_count: int = 0,
         size_bytes: int = 0,
         destination: str = "",
-        download_client: str = "",
+        download_client: str = "aria2",
     ) -> None:
         """Download fully completed."""
         if not self.webhook_url:

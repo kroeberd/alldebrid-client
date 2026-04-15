@@ -13,6 +13,20 @@ Für alle Benachrichtigungen:
 }
 ```
 
+## Discord-Identität
+
+```json
+{
+  "discord_username": "AllDebrid-Client",
+  "discord_avatar_url": "https://example.com/avatar.png"
+}
+```
+
+Hinweis:
+- `discord_avatar_url` muss für Discord über eine echte HTTP- oder HTTPS-URL erreichbar sein.
+- Lokale URLs wie `http://192.168.x.x/...`, `http://localhost/...` oder `.local` funktionieren für Discord in der Regel nicht.
+- Für hochgeladene Avatare kann optional `PUBLIC_BASE_URL` gesetzt werden, damit die App statt einer lokalen Adresse eine öffentliche URL wie `https://example.com/api/avatar` zurückgibt.
+
 ## Separater Webhook für "Torrent hinzugefügt"
 
 ```json
@@ -45,7 +59,7 @@ Für alle Benachrichtigungen:
 - Torrent-Name
 - Anzahl Dateien
 - Gesamtgröße
-- Download-Client (direct / aria2)
+- Download-Client (aria2)
 - Zielordner
 - Zeitstempel
 

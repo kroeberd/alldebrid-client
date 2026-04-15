@@ -1,7 +1,10 @@
 import asyncio
+import ipaddress
 import logging
+import os
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -23,6 +26,23 @@ CHANGELOG_PATH = next(
     ] if p.exists()),
     Path("/app/CHANGELOG.md"),
 )
+
+
+def _is_publicly_reachable_host(host: str) -> bool:
+    host = (host or "").strip()
+    if not host:
+        return False
+
+    hostname = host.split(":", 1)[0].strip("[]").lower()
+    if hostname in {"localhost"} or hostname.endswith(".local"):
+        return False
+
+    try:
+        ip = ipaddress.ip_address(hostname)
+        return not (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved)
+    except ValueError:
+        # For normal DNS names we assume public reachability.
+        return True
 
 
 # ─── Settings ─────────────────────────────────────────────────────────────────
@@ -88,8 +108,6 @@ async def upload_avatar(request: Request, file: UploadFile = File(...)):
     Discord requires an actual HTTPS/HTTP URL — data URIs are rejected.
     Max 8 MB (Discord limit); we enforce 4 MB.
     """
-    import os
-
     ALLOWED_TYPES = {
         "image/png":  "png",
         "image/jpeg": "jpg",
@@ -120,16 +138,33 @@ async def upload_avatar(request: Request, file: UploadFile = File(...)):
     avatar_path.write_bytes(data)
 
     # Build public URL from the incoming request
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "localhost:8080"
-    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme or "http"
-    public_url = f"{scheme}://{host}/api/avatar"
+    public_base_url = (os.getenv("PUBLIC_BASE_URL", "") or "").strip().rstrip("/")
+    warning = ""
+    if public_base_url:
+        parsed = urlparse(public_base_url)
+        if not parsed.scheme or not parsed.netloc:
+            raise HTTPException(500, "PUBLIC_BASE_URL must be a full URL like https://example.com")
+        public_url = f"{public_base_url}/api/avatar"
+    else:
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "localhost:8080"
+        scheme = request.headers.get("x-forwarded-proto") or request.url.scheme or "http"
+        public_url = f"{scheme}://{host}/api/avatar"
+        if not _is_publicly_reachable_host(host):
+            warning = (
+                "Avatar uploaded, but the generated URL points to a private/local host. "
+                "Discord usually cannot fetch avatars from LAN-only addresses. "
+                "Set PUBLIC_BASE_URL to a public HTTPS URL if you want Discord to display the uploaded avatar."
+            )
 
-    return {
+    response = {
         "ok":          True,
         "url":         public_url,
         "size_bytes":  len(data),
         "content_type": content_type,
     }
+    if warning:
+        response["warning"] = warning
+    return response
 
 
 @router.get("/avatar")

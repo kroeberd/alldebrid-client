@@ -217,12 +217,12 @@ _SCHEMA_COLUMNS_TORRENTS = [
     ("provider_status",      "TEXT"),
     ("provider_status_code", "INTEGER"),
     ("polling_failures",     "INTEGER DEFAULT 0"),
-    ("download_client",      "TEXT DEFAULT 'direct'"),
+    ("download_client",      "TEXT DEFAULT 'aria2'"),
 ]
 
 _SCHEMA_COLUMNS_FILES = [
     ("download_id",     "TEXT"),
-    ("download_client", "TEXT DEFAULT 'direct'"),
+    ("download_client", "TEXT DEFAULT 'aria2'"),
     ("updated_at",      "DATETIME DEFAULT CURRENT_TIMESTAMP"),
 ]
 
@@ -258,7 +258,7 @@ async def _init_db_sqlite():
                 provider_status TEXT,
                 provider_status_code INTEGER,
                 polling_failures INTEGER DEFAULT 0,
-                download_client TEXT DEFAULT 'direct',
+                download_client TEXT DEFAULT 'aria2',
                 error_message TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -275,7 +275,7 @@ async def _init_db_sqlite():
                 local_path TEXT,
                 status TEXT DEFAULT 'pending',
                 download_id TEXT,
-                download_client TEXT DEFAULT 'direct',
+                download_client TEXT DEFAULT 'aria2',
                 blocked INTEGER DEFAULT 0,
                 block_reason TEXT,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -330,7 +330,7 @@ async def _init_db_postgres():
                     provider_status TEXT,
                     provider_status_code INTEGER,
                     polling_failures INTEGER DEFAULT 0,
-                    download_client TEXT DEFAULT 'direct',
+                    download_client TEXT DEFAULT 'aria2',
                     error_message TEXT,
                     created_at TIMESTAMPTZ DEFAULT NOW(),
                     updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -347,7 +347,7 @@ async def _init_db_postgres():
                     local_path TEXT,
                     status TEXT DEFAULT 'pending',
                     download_id TEXT,
-                    download_client TEXT DEFAULT 'direct',
+                    download_client TEXT DEFAULT 'aria2',
                     blocked INTEGER DEFAULT 0,
                     block_reason TEXT,
                     updated_at TIMESTAMPTZ DEFAULT NOW()
