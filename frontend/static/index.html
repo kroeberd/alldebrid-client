@@ -279,6 +279,17 @@ td { padding: 11px 16px; vertical-align: middle; }
   font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text2);
   display: flex; align-items: center; gap: 8px; }
 .scard-body { padding: 16px; display: flex; flex-direction: column; gap: 13px; }
+/* Settings tabs */
+.stabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:18px; overflow-x:auto; }
+.stab  { padding:9px 18px; font-size:13px; font-weight:500; color:var(--text2); cursor:pointer;
+         border-bottom:2px solid transparent; white-space:nowrap; transition:all .15s; }
+.stab:hover { color:var(--text); }
+.stab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+.stab-panel { display:none; flex-direction:column; gap:14px; }
+.stab-panel.active { display:flex; }
+/* Event search */
+.ev-search-row { display:flex; gap:8px; margin-bottom:10px; }
+.ev-search-row .input { flex:1; }
 .form-group { display: flex; flex-direction: column; gap: 5px; }
 .form-label { font-size: 11px; font-weight: 600; color: var(--text2); letter-spacing: .04em; }
 .form-hint  { font-size: 10px; color: var(--text3); margin-top: 3px; }
@@ -404,8 +415,10 @@ textarea.input { resize: vertical; }
     </div>
   </nav>
   <div class="sidebar-footer">
+    <div class="conn-row" id="premium-row" style="display:none"><span id="lbl-premium" style="font-size:10px;color:var(--text3)"></span></div>
     <div class="conn-row"><div class="dot" id="dot-api"></div><span id="lbl-api">AllDebrid: checking…</span></div>
     <div class="conn-row"><div class="dot" id="dot-aria2"></div><span id="lbl-aria2">aria2: —</span></div>
+    <div class="conn-row"><div class="dot" id="dot-db"></div><span id="lbl-db">DB: —</span></div>
   </div>
 </aside>
 
@@ -418,8 +431,6 @@ textarea.input { resize: vertical; }
 
     <!-- Dashboard -->
     <div class="view active" id="view-dashboard">
-      <div class="beta-banner">v0.8.0 stops pre-creating destination folders in the aria2 path so directory creation is left entirely to aria2.</div>
-
       <div class="insight-grid" style="margin-bottom:18px">
         <div class="insight-card">
           <div class="insight-k">Queue Health</div>
@@ -534,6 +545,17 @@ textarea.input { resize: vertical; }
           <span class="card-title">Event Log</span>
           <button class="btn btn-ghost btn-sm" onclick="loadEvents()">↻ Refresh</button>
         </div>
+        <div style="padding:10px 14px 0">
+          <div class="ev-search-row">
+            <input class="input" id="ev-search" placeholder="Search by torrent name or message…" oninput="filterEvents()"/>
+            <select class="input" id="ev-level" onchange="filterEvents()" style="max-width:120px">
+              <option value="">All levels</option>
+              <option value="info">Info</option>
+              <option value="warn">Warn</option>
+              <option value="error">Error</option>
+            </select>
+          </div>
+        </div>
         <div id="event-list"><div class="empty">Loading…</div></div>
       </div>
     </div>
@@ -630,7 +652,8 @@ textarea.input { resize: vertical; }
 
     <!-- Settings -->
     <div class="view" id="view-settings">
-      <div class="settings-grid" id="settings-form"></div>
+      <div class="stabs" id="settings-tabs"></div>
+      <div id="settings-form"></div>
       <div class="save-bar">
         <span class="save-hint">Settings are applied immediately after saving.</span>
         <button class="btn btn-ghost" onclick="testDiscord()">🔔 Test Discord</button>
@@ -1038,18 +1061,32 @@ function closeModal(e) {
 }
 
 // ── Events ─────────────────────────────────────────────────────────────────
+let _allEvents = [];
+
 async function loadEvents() {
   try {
-    const evs = await api('GET','/events?limit=200');
-    const el = document.getElementById('event-list');
-    if (!evs.length) { el.innerHTML='<div class="empty">No events yet.</div>'; return; }
-    el.innerHTML = evs.map(ev=>`
-      <div class="event-item">
-        <div class="elevel ${ev.level}"></div>
-        <div><div class="emsg">${ev.message}</div>${ev.torrent_name?`<div class="ename">${ev.torrent_name}</div>`:''}</div>
-        <div class="etime">${fmtDate(ev.created_at)}</div>
-      </div>`).join('');
+    _allEvents = await api('GET','/events?limit=500');
+    filterEvents();
   } catch(e) { toast(e.message,'error'); }
+}
+
+function filterEvents() {
+  const el = document.getElementById('event-list');
+  const q   = (document.getElementById('ev-search')?.value || '').toLowerCase();
+  const lvl = document.getElementById('ev-level')?.value || '';
+  const evs = _allEvents.filter(ev => {
+    if (lvl && ev.level !== lvl) return false;
+    if (!q) return true;
+    return (ev.message||'').toLowerCase().includes(q) ||
+           (ev.torrent_name||'').toLowerCase().includes(q);
+  });
+  if (!evs.length) { el.innerHTML='<div class="empty">No events match the filter.</div>'; return; }
+  el.innerHTML = evs.map(ev=>`
+    <div class="event-item">
+      <div class="elevel ${ev.level}"></div>
+      <div><div class="emsg">${ev.message}</div>${ev.torrent_name?`<div class="ename">${ev.torrent_name}</div>`:''}</div>
+      <div class="etime">${fmtDate(ev.created_at)}</div>
+    </div>`).join('');
 }
 
 // ── Settings ───────────────────────────────────────────────────────────────
@@ -1147,6 +1184,8 @@ async function loadSettings() {
     settingsData = await api('GET','/settings');
     renderSettings();
   } catch(e) { toast(e.message,'error'); }
+  // Activate first tab by default
+  switchSettingsTab('tab-general');
   // Initialer Zustand: Test-PostgreSQL Button und pg-settings Sichtbarkeit
   const dbTypeEl = document.getElementById('s-db_type');
   if (dbTypeEl) {
@@ -1158,7 +1197,21 @@ async function loadSettings() {
 
 function renderSettings() {
   const s = settingsData;
+  // Define tabs
+  const tabs = [
+    { id:'tab-general',  label:'⚡ General' },
+    { id:'tab-download', label:'⬇️ Download' },
+    { id:'tab-discord',  label:'🔔 Discord' },
+    { id:'tab-database', label:'🗄️ Database' },
+    { id:'tab-filters',  label:'🚫 Filters' },
+    { id:'tab-polling',  label:'⏱ Polling' },
+  ];
+  document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
+    `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${t.label}</div>`
+  ).join('');
   document.getElementById('settings-form').innerHTML = `
+
+    <div class="stab-panel active" id="tab-general">
 
     <div class="scard">
       <div class="scard-header">🔑 AllDebrid</div>
@@ -1199,6 +1252,9 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    </div>
+
+    <div class="stab-panel" id="tab-download">
 
     <div class="scard">
       <div class="scard-header">⬇️ Download Client</div>
@@ -1272,6 +1328,9 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    </div>
+
+    <div class="stab-panel" id="tab-discord">
 
     <div class="scard">
       <div class="scard-header">🔔 Discord Notifications</div>
@@ -1309,6 +1368,9 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    </div>
+
+    <div class="stab-panel" id="tab-database">
 
     <div class="scard">
       <div class="scard-header">🗄️ Database</div>
@@ -1358,6 +1420,9 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    </div>
+
+    <div class="stab-panel" id="tab-filters">
 
     <div class="scard">
       <div class="scard-header">🚫 File Filters</div>
@@ -1386,6 +1451,9 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    </div>
+
+    <div class="stab-panel" id="tab-polling">
 
     <div class="scard">
       <div class="scard-header">⏱ Polling Intervals</div>
@@ -1400,6 +1468,8 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    </div>
+
   `;
 }
 
@@ -1472,7 +1542,30 @@ async function testAD() {
     const r = await api('POST','/settings/test-alldebrid');
     toast(`AllDebrid: connected as ${r.username} ${r.isPremium?'(Premium)':'(Free)'}✓`,'success');
     setDot('api','ok',`AllDebrid: ${r.username}`);
+    _updatePremiumLabel(r);
   } catch(e) { toast('AllDebrid: '+e.message,'error'); setDot('api','error','AllDebrid: error'); }
+}
+
+function _updatePremiumLabel(r) {
+  const row = document.getElementById('premium-row');
+  const lbl = document.getElementById('lbl-premium');
+  if (!row || !lbl) return;
+  if (!r || !r.isPremium) { row.style.display = 'none'; return; }
+  // AllDebrid user object has premiumUntil as unix timestamp
+  const until = r.premiumUntil || r.premium_until || 0;
+  if (!until) { row.style.display = 'none'; return; }
+  const d = new Date(until * 1000);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  const days = Math.ceil((d - Date.now()) / 86400000);
+  lbl.textContent = `Premium until ${dd}.${mm}.${yyyy} (${days} days)`;
+  row.style.display = '';
+}
+
+function switchSettingsTab(id) {
+  document.querySelectorAll('.stab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  document.querySelectorAll('.stab-panel').forEach(p => p.classList.toggle('active', p.id === id));
 }
 
 async function testAria2() {

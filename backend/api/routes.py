@@ -89,7 +89,12 @@ async def test_alldebrid():
         user = await svc.get_user()
         await svc.close()
         u = user.get("user", user)
-        return {"ok": True, "username": u.get("username", ""), "isPremium": u.get("isPremium", False)}
+        return {
+            "ok":           True,
+            "username":     u.get("username", ""),
+            "isPremium":    u.get("isPremium", False),
+            "premiumUntil": u.get("premiumUntil", u.get("premium_until", 0)),
+        }
     except Exception as e:
         raise HTTPException(502, str(e))
 

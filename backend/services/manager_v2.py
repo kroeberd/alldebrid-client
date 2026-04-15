@@ -412,7 +412,18 @@ class TorrentManager:
             asyncio.create_task(self._start_download(row["id"], str(row["alldebrid_id"]), str(name)))
         elif provider_status == "error" and current_status != "error":
             error_message = f"AllDebrid error code {status_code}: {provider_message}".strip()
-            await self._fail_torrent(row["id"], error_message, notify=True)
+            # statusCode 8 = "No peer after 30 minutes" — auto-remove from AllDebrid silently
+            if status_code == 8 or "no peer" in provider_message.lower():
+                logger.info(
+                    "Auto-removing torrent %s (id=%s): no peers after 30 min",
+                    row["id"], row.get("alldebrid_id", "?"),
+                )
+                await self._log_event(row["id"], "warn",
+                    f"Auto-removed: no peers found after 30 minutes (code {status_code})")
+                await self.ad().delete_magnet(str(row["alldebrid_id"]))
+                await self._set_deleted(row["id"], "Auto-removed: no peers after 30 minutes")
+            else:
+                await self._fail_torrent(row["id"], error_message, notify=True)
 
     async def _increment_poll_failure(self, torrent_id: int, name: str, reason: str):
         async with aiosqlite.connect(DB_PATH) as db:
