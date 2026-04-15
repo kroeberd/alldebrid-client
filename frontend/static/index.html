@@ -1187,10 +1187,10 @@ async function loadSettings() {
   } catch(e) { toast(e.message,'error'); }
   // Activate first tab by default
   switchSettingsTab('tab-general');
-  // Avatar preview: show if current value is a data URI
+  // Avatar preview: show if a custom avatar URL is set
   const avatarUrl = settingsData.discord_avatar_url || '';
-  if (avatarUrl.startsWith('data:')) {
-    showAvatarPreview(avatarUrl, 'Uploaded avatar', 0);
+  if (avatarUrl && !avatarUrl.includes('github') && !avatarUrl.includes('_DEFAULT')) {
+    showAvatarPreview(avatarUrl, 'Custom avatar', 0);
   }
   // Initialer Zustand: Test-PostgreSQL Button und pg-settings Sichtbarkeit
   const dbTypeEl = document.getElementById('s-db_type');
@@ -1346,7 +1346,7 @@ function renderSettings() {
           <input class="input" id="s-discord_username" value="${s.discord_username||'AllDebrid-Client'}" placeholder="AllDebrid-Client"/>
         </div>
         <div class="form-group">
-          <label class="form-label">Bot Avatar <span style="font-weight:400;color:var(--muted)">(URL or upload — PNG/JPG/GIF/WebP, max 4 MB)</span></label>
+          <label class="form-label">Bot Avatar <span style="font-weight:400;color:var(--muted)">(Discord requires a public URL — use Upload to host via this app)</span></label>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
             <input class="input" id="s-discord_avatar_url" value="${s.discord_avatar_url||''}" placeholder="https://… or leave empty for default logo" style="flex:1"/>
             <label class="btn btn-ghost btn-sm" style="cursor:pointer;white-space:nowrap">
@@ -1609,9 +1609,11 @@ async function uploadDiscordAvatar(input) {
     const resp = await fetch('/api/settings/upload-avatar', {method:'POST', body: formData});
     const data = await resp.json();
     if (!resp.ok) { toast(data.detail || 'Upload failed', 'error'); return; }
-    document.getElementById('s-discord_avatar_url').value = data.data_uri;
-    showAvatarPreview(data.data_uri, file.name, data.size_bytes);
-    toast('Avatar uploaded ✓', 'success');
+    // Discord requires a real HTTP URL, not a data URI
+    // The server saves the file and returns the public URL
+    document.getElementById('s-discord_avatar_url').value = data.url;
+    showAvatarPreview(data.url, file.name, data.size_bytes);
+    toast('Avatar uploaded — URL: ' + data.url, 'success');
   } catch(e) { toast(e.message, 'error'); }
   input.value = '';
 }
@@ -1622,7 +1624,7 @@ function showAvatarPreview(src, name, bytes) {
   const lbl = document.getElementById('avatar-preview-label');
   if (!preview) return;
   img.src = src;
-  lbl.textContent = name + (bytes ? ' (' + Math.round(bytes/1024) + ' KB)' : '');
+  lbl.textContent = (name || 'Custom avatar') + (bytes > 0 ? ' (' + Math.round(bytes/1024) + ' KB)' : '');
   preview.style.display = 'flex';
 }
 

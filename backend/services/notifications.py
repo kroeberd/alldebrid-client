@@ -32,12 +32,18 @@ _DEFAULT_LOGO = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/mai
 
 
 def _get_discord_identity() -> tuple[str, str]:
-    """Returns (username, avatar_url) from settings, with safe defaults."""
+    """Returns (username, avatar_url) from settings, with safe defaults.
+    Discord requires an HTTPS/HTTP URL for avatar_url — data URIs are rejected
+    with a 400 error. If a data URI is stored (legacy), fall back to the default logo.
+    """
     try:
         from core.config import get_settings
         cfg = get_settings()
         name   = (getattr(cfg, "discord_username",   "") or APP_NAME).strip() or APP_NAME
-        avatar = (getattr(cfg, "discord_avatar_url", "") or _DEFAULT_LOGO).strip() or _DEFAULT_LOGO
+        avatar = (getattr(cfg, "discord_avatar_url", "") or "").strip()
+        # Reject data URIs — Discord only accepts real HTTP(S) URLs
+        if not avatar or avatar.startswith("data:"):
+            avatar = _DEFAULT_LOGO
         return name, avatar
     except Exception:
         return APP_NAME, _DEFAULT_LOGO

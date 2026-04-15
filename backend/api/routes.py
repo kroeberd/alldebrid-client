@@ -2,7 +2,8 @@ import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request
+from fastapi.responses import FileResponse, Query
 from pydantic import BaseModel
 import aiosqlite
 
@@ -80,17 +81,18 @@ async def test_discord():
 
 
 @router.post("/settings/upload-avatar")
-async def upload_avatar(file: UploadFile = File(...)):
+async def upload_avatar(request: Request, file: UploadFile = File(...)):
     """
-    Accepts an image upload (PNG, JPG, GIF, WebP) and returns a data URI
-    that can be used as discord_avatar_url. Discord limits avatar payloads
-    to 8 MB; we enforce 4 MB to stay well within that.
+    Saves the avatar image to /app/config/avatar.<ext> and returns the
+    public URL (http://<host>/api/avatar) that Discord can fetch.
+    Discord requires an actual HTTPS/HTTP URL — data URIs are rejected.
+    Max 8 MB (Discord limit); we enforce 4 MB.
     """
-    import base64
+    import os
 
     ALLOWED_TYPES = {
         "image/png":  "png",
-        "image/jpeg": "jpeg",
+        "image/jpeg": "jpg",
         "image/gif":  "gif",
         "image/webp": "webp",
     }
@@ -99,16 +101,49 @@ async def upload_avatar(file: UploadFile = File(...)):
     content_type = (file.content_type or "").lower().split(";")[0].strip()
     if content_type not in ALLOWED_TYPES:
         raise HTTPException(400,
-            f"Unsupported file type '{content_type}'. Allowed: PNG, JPG, GIF, WebP")
+            f"Unsupported type '{content_type}'. Allowed: PNG, JPG, GIF, WebP")
 
     data = await file.read()
     if len(data) > MAX_BYTES:
         raise HTTPException(413,
-            f"File too large ({len(data)//1024} KB). Discord allows up to 4 MB for avatars.")
+            f"File too large ({len(data)//1024} KB). Limit: 4 MB")
 
-    b64 = base64.b64encode(data).decode()
-    data_uri = f"data:{content_type};base64,{b64}"
-    return {"ok": True, "data_uri": data_uri, "size_bytes": len(data), "content_type": content_type}
+    ext = ALLOWED_TYPES[content_type]
+    config_dir = Path(os.getenv("CONFIG_PATH", "/app/config/config.json")).parent
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    # Remove old avatar files
+    for old in config_dir.glob("avatar.*"):
+        old.unlink(missing_ok=True)
+
+    avatar_path = config_dir / f"avatar.{ext}"
+    avatar_path.write_bytes(data)
+
+    # Build public URL from the incoming request
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "localhost:8080"
+    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme or "http"
+    public_url = f"{scheme}://{host}/api/avatar"
+
+    return {
+        "ok":          True,
+        "url":         public_url,
+        "size_bytes":  len(data),
+        "content_type": content_type,
+    }
+
+
+@router.get("/avatar")
+async def serve_avatar():
+    """Serves the uploaded avatar image so Discord can fetch it via HTTP."""
+    import os
+    config_dir = Path(os.getenv("CONFIG_PATH", "/app/config/config.json")).parent
+    for ext in ("png", "jpg", "gif", "webp"):
+        p = config_dir / f"avatar.{ext}"
+        if p.exists():
+            media = {"png":"image/png","jpg":"image/jpeg","gif":"image/gif","webp":"image/webp"}[ext]
+            return FileResponse(str(p), media_type=media,
+                                headers={"Cache-Control": "public, max-age=3600"})
+    raise HTTPException(404, "No avatar uploaded")
 
 
 @router.post("/settings/test-alldebrid")
