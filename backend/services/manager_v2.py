@@ -181,7 +181,7 @@ class TorrentManager:
         return self._sem
 
     def notify(self) -> NotificationService:
-        return NotificationService(get_settings().discord_webhook_url)
+        cfg = get_settings(); return NotificationService(cfg.discord_webhook_url, getattr(cfg, "discord_webhook_added", ""))
 
     def download_client_name(self) -> str:
         client = (get_settings().download_client or "direct").strip().lower()
@@ -315,7 +315,7 @@ class TorrentManager:
         logger.info("Magnet uploaded %s (ad_id=%s)", name, ad_id)
         row = await self._upsert(normalized_hash, magnet, name, ad_id, source)
         if get_settings().discord_notify_added:
-            await self.notify().send("Added", f"**{name}**\nQueued on AllDebrid", 0x3B82F6)
+            await self.notify().send_added(name, source=source, alldebrid_id=ad_id)
         return row
 
     async def _upsert(self, hash_value: str, magnet: Optional[str], name: str, ad_id: str, source: str) -> dict:
@@ -429,7 +429,7 @@ class TorrentManager:
             await db.commit()
 
         if failures >= PROVIDER_FAILURE_THRESHOLD and get_settings().discord_notify_error:
-            await self.notify().send("Error", f"**{name}**\n{reason}", 0xEF4444)
+            await self.notify().send_error(name, reason=reason)
 
     async def _start_download(self, torrent_id: int, ad_id: str, name: str):
         if self.is_paused() or torrent_id in self._active:
@@ -583,7 +583,7 @@ class TorrentManager:
             await self._delete_magnet_after_completion(torrent_id, ad_id)
             await self._mark_finished(torrent_id)
             if cfg.discord_notify_finished:
-                await self.notify().send("Complete", f"**{name}**\n{completed_count} files -> `{destination_root}`", 0x22C55E)
+                await self.notify().send_complete(name, file_count=completed_count, destination=str(destination_root), download_client=client_name)
         elif final_status in {"queued", "paused"}:
             await self._log_event(
                 torrent_id,
@@ -593,7 +593,7 @@ class TorrentManager:
             await self._dispatch_pending_aria2_queue()
         else:
             if cfg.discord_notify_error:
-                await self.notify().send("Error", f"**{name}**\nKept on AllDebrid for inspection", 0xEF4444)
+                await self.notify().send_error(name, reason="Kept on AllDebrid for inspection")
 
     async def _fetch_ready_files(self, ad_id: str) -> List[Dict]:
         for attempt in range(1, READY_FILE_RETRIES + 1):
@@ -1083,7 +1083,7 @@ class TorrentManager:
                 )
                 await db.commit()
                 if get_settings().discord_notify_error:
-                    await self.notify().send("Error", f"**{torrent_dict['name']}**\nOne or more aria2 transfers failed", 0xEF4444)
+                    await self.notify().send_error(torrent_dict["name"], reason="One or more aria2 transfers failed")
                 return
             elif active_count > 0:
                 new_status = "paused" if paused_count == active_count and active_count > 0 else "queued"
@@ -1117,7 +1117,7 @@ class TorrentManager:
         await self._delete_magnet_after_completion(torrent_id, torrent_dict["alldebrid_id"])
         await self._mark_finished(torrent_id)
         if get_settings().discord_notify_finished:
-            await self.notify().send("Complete", f"**{torrent_dict['name']}**\n{completed_count} files finished via aria2", 0x22C55E)
+            await self.notify().send_complete(torrent_dict["name"], file_count=completed_count, download_client="aria2")
 
     async def pause_torrent(self, torrent_id: int):
         if self.download_client_name() != "aria2":
@@ -1161,18 +1161,17 @@ class TorrentManager:
         if not blocked_items:
             return
         total_size = _size_sum([{"size_bytes": int(item.get("size", 0) or 0)} for item in flat_files])
-        lines = [
-            f"**{torrent_name}**",
-            f"Total files: {len(flat_files)} ({fmt_bytes(total_size)})",
-            f"Will be downloaded: {len(transferred_items)} ({fmt_bytes(_size_sum(transferred_items))})",
-            f"Not downloaded: {len(blocked_items) + len(failed_items)} ({fmt_bytes(_size_sum(blocked_items + failed_items))})",
-            f"Excluded: {len(blocked_items)} ({fmt_bytes(_size_sum(blocked_items))})",
-        ]
-        if failed_items:
-            lines.append(f"Failed: {len(failed_items)} ({fmt_bytes(_size_sum(failed_items))})")
+        downloaded_size = _size_sum(transferred_items)
         await self._log_event(torrent_id, "warn", "Filtered files were skipped while the remaining files continued normally")
         if get_settings().discord_webhook_url:
-            await self.notify().send("Partial", "\n".join(lines), 0x8B5CF6)
+            await self.notify().send_partial(
+                name=torrent_name,
+                total_files=len(flat_files),
+                downloaded_files=len(transferred_items),
+                blocked_files=len(blocked_items) + len(failed_items),
+                total_size=total_size,
+                downloaded_size=downloaded_size,
+            )
 
     async def _download_direct(self, url: str, local_path: Path) -> str:
         local_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1222,23 +1221,27 @@ class TorrentManager:
             await db.commit()
 
     async def _delete_magnet_after_completion(self, torrent_id: int, ad_id: str) -> bool:
+        """
+        Löscht den Magneten von AllDebrid nach erfolgreichem Download.
+
+        WICHTIG: Status bleibt 'completed' (nicht 'deleted'), damit das Dashboard
+        abgeschlossene Downloads korrekt zählt. Zur Vermeidung von erneutem Polling
+        wird der Torrent in sync_alldebrid_status durch completed_at IS NOT NULL
+        gefiltert.
+        """
         deleted = await self.ad().delete_magnet(ad_id)
         async with aiosqlite.connect(DB_PATH) as db:
             if deleted:
-                # Mark as deleted so import_existing_magnets and sync_alldebrid_status
-                # never pick this torrent up again, even if AllDebrid still lists it briefly.
-                await db.execute(
-                    "UPDATE torrents SET status='deleted', updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    (torrent_id,),
-                )
+                # Status bleibt 'completed' — kein Überschreiben zu 'deleted'!
+                # sync_alldebrid_status filtert bereits nach status NOT IN ('completed', 'deleted', 'error')
                 await db.execute(
                     "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
-                    (torrent_id, "info", "Removed from AllDebrid after completion"),
+                    (torrent_id, "info", "Von AllDebrid entfernt nach Abschluss"),
                 )
             else:
                 await db.execute(
                     "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
-                    (torrent_id, "warn", "Finished, but removal from AllDebrid failed — will retry next cycle"),
+                    (torrent_id, "warn", "Abgeschlossen, aber Entfernung von AllDebrid fehlgeschlagen"),
                 )
             await db.commit()
         return deleted
@@ -1257,7 +1260,7 @@ class TorrentManager:
             await db.execute("INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)", (torrent_id, "error", message))
             await db.commit()
         if notify and row and get_settings().discord_notify_error:
-            await self.notify().send("Error", f"**{row['name']}**\n{message}", 0xEF4444)
+            await self.notify().send_error(row["name"], reason=message)
 
     async def _set_deleted(self, torrent_id: int, message: str):
         async with aiosqlite.connect(DB_PATH) as db:

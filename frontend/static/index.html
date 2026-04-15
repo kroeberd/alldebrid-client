@@ -427,14 +427,29 @@ textarea.input { resize: vertical; }
           <div class="insight-s" id="i-queue-copy">Waiting for stats</div>
         </div>
         <div class="insight-card">
-          <div class="insight-k">Finished</div>
-          <div class="insight-v" id="i-finished">—</div>
-          <div class="insight-s">Monitor events completed</div>
-        </div>
-        <div class="insight-card">
           <div class="insight-k">Last 24h</div>
           <div class="insight-v" id="i-last-day">—</div>
           <div class="insight-s">Completed torrents</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Last 7 days</div>
+          <div class="insight-v" id="i-last-week">—</div>
+          <div class="insight-s">Completed torrents</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Success Rate</div>
+          <div class="insight-v" id="i-success-rate">—</div>
+          <div class="insight-s">Of all finished</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Avg Duration</div>
+          <div class="insight-v" id="i-avg-duration">—</div>
+          <div class="insight-s">Per torrent</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Avg Size</div>
+          <div class="insight-v" id="i-avg-size">—</div>
+          <div class="insight-s">Per completed torrent</div>
         </div>
       </div>
         
@@ -788,6 +803,13 @@ async function resumeProcessing() {
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
+function fmtDuration(secs) {
+  if (!secs || secs <= 0) return '—';
+  if (secs < 60) return secs + 's';
+  if (secs < 3600) return Math.round(secs/60) + 'm';
+  return (secs/3600).toFixed(1) + 'h';
+}
+
 async function loadStats() {
   try {
     const s = await api('GET', '/stats');
@@ -795,19 +817,23 @@ async function loadStats() {
     renderTopbarActions();
     const bs = s.by_status || {};
     const total = Object.values(bs).reduce((a,b)=>a+b,0);
-    const completed = bs.completed || 0;
+    // completed_count kommt direkt vom API (nicht aus by_status, damit der Dashboard-Fix greift)
+    const completed = s.completed_count ?? bs.completed ?? 0;
     const queuePct = pct(completed, total || 0);
     document.getElementById('s-total').textContent = total;
     document.getElementById('s-completed').textContent = completed;
     document.getElementById('s-active').textContent = s.active_downloads||0;
     document.getElementById('s-processing').textContent = s.paused ? 'Paused' : (bs.processing||0)+(bs.uploading||0);
-    document.getElementById('s-error').textContent = bs.error||0;
+    document.getElementById('s-error').textContent = s.error_count ?? bs.error ?? 0;
     document.getElementById('s-size').textContent = fmtSize(s.total_completed_bytes);
     document.getElementById('s-blocked').textContent = `${s.total_blocked_files||0} blocked files`;
     document.getElementById('i-queue-health').textContent = `${queuePct}%`;
     document.getElementById('i-queue-copy').textContent = `${s.active_downloads||0} active / ${s.queued_downloads||0} queued`;
-    document.getElementById('i-finished').textContent = s.finished_events||0;
     document.getElementById('i-last-day').textContent = s.completed_last_24h||0;
+    document.getElementById('i-last-week').textContent = s.completed_last_7d||0;
+    document.getElementById('i-success-rate').textContent = s.success_rate_pct != null ? s.success_rate_pct+'%' : '—';
+    document.getElementById('i-avg-duration').textContent = fmtDuration(s.avg_download_duration_seconds);
+    document.getElementById('i-avg-size').textContent = s.avg_torrent_size_bytes ? fmtSize(s.avg_torrent_size_bytes) : '—';
     const active = s.active_downloads || 0;
     const nb = document.getElementById('nb-active');
     nb.textContent = active; nb.style.display = active > 0 ? '' : 'none';

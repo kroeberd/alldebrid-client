@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 CONFIG_PATH = Path(os.getenv("CONFIG_PATH", "/app/config/config.json"))
@@ -11,6 +11,18 @@ class AppSettings(BaseModel):
     # AllDebrid
     alldebrid_api_key: str = ""
     alldebrid_agent: str = "AllDebrid-Client"
+
+    # ── Datenbank ──────────────────────────────────────────────────────────────
+    # db_type = "sqlite" (Standard, abwärtskompatibel) oder "postgres"
+    db_type: str = "sqlite"
+    postgres_host: str = "localhost"
+    postgres_port: int = 5432
+    postgres_db: str = "alldebrid"
+    postgres_user: str = "alldebrid"
+    postgres_password: str = ""
+    postgres_schema: str = "public"
+    postgres_ssl: bool = False
+    postgres_application_name: str = "alldebrid-client"
 
     # Folders
     watch_folder: str = "/app/data/watch"
@@ -29,8 +41,10 @@ class AppSettings(BaseModel):
     aria2_poll_interval_seconds: int = 5
     aria2_max_active_downloads: int = 3
 
-    # Discord
+    # ── Discord ────────────────────────────────────────────────────────────────
     discord_webhook_url: str = ""
+    # Separater Webhook für "Torrent hinzugefügt"; fällt auf discord_webhook_url zurück
+    discord_webhook_added: str = ""
     discord_notify_added: bool = True
     discord_notify_finished: bool = True
     discord_notify_error: bool = True
@@ -62,7 +76,6 @@ def load_settings() -> AppSettings:
         try:
             with open(CONFIG_PATH, "r") as f:
                 data = json.load(f)
-            # Drop unknown keys gracefully
             valid = {k: v for k, v in data.items() if k in AppSettings.model_fields}
             return AppSettings(**valid)
         except Exception:
@@ -83,4 +96,3 @@ def apply_settings(s: AppSettings):
 
 _settings = load_settings()
 settings = _settings
-

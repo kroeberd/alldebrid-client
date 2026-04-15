@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Python deps
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir "asyncpg>=0.29.0"
 
 # App
 COPY backend/ /app/

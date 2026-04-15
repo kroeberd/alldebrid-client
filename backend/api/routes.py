@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
@@ -15,11 +16,11 @@ router = APIRouter()
 logger = logging.getLogger("alldebrid.api")
 CHANGELOG_PATH = next(
     (p for p in [
-        Path(__file__).resolve().parents[2] / "CHANGELOG.md",  # repo layout: backend/api/ → root
-        Path("/app/CHANGELOG.md"),                              # Docker: copied to /app/
-        Path(__file__).resolve().parent / "CHANGELOG.md",      # fallback: same dir as routes.py
+        Path(__file__).resolve().parents[2] / "CHANGELOG.md",
+        Path("/app/CHANGELOG.md"),
+        Path(__file__).resolve().parent / "CHANGELOG.md",
     ] if p.exists()),
-    Path("/app/CHANGELOG.md"),  # default for error message
+    Path("/app/CHANGELOG.md"),
 )
 
 
@@ -58,11 +59,11 @@ async def resume_processing():
 async def test_discord():
     cfg = get_settings()
     if not cfg.discord_webhook_url:
-        raise HTTPException(400, "No Discord webhook URL configured")
+        raise HTTPException(400, "Kein Discord-Webhook konfiguriert")
     svc = NotificationService(cfg.discord_webhook_url)
     ok = await svc.test()
     if not ok:
-        raise HTTPException(502, "Discord test failed — check webhook URL")
+        raise HTTPException(502, "Discord-Test fehlgeschlagen — Webhook-URL prüfen")
     return {"ok": True}
 
 
@@ -70,7 +71,7 @@ async def test_discord():
 async def test_alldebrid():
     cfg = get_settings()
     if not cfg.alldebrid_api_key:
-        raise HTTPException(400, "No API key configured")
+        raise HTTPException(400, "Kein API-Key konfiguriert")
     try:
         svc = AllDebridService(cfg.alldebrid_api_key, cfg.alldebrid_agent)
         user = await svc.get_user()
@@ -115,6 +116,7 @@ async def list_torrents(
         total = (await cur2.fetchone())[0]
         return {"items": [dict(r) for r in rows], "total": total}
 
+
 @router.get("/torrents/{torrent_id}")
 async def get_torrent(torrent_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
@@ -122,7 +124,7 @@ async def get_torrent(torrent_id: int):
         cur = await db.execute("SELECT * FROM torrents WHERE id=?", (torrent_id,))
         row = await cur.fetchone()
         if not row:
-            raise HTTPException(404, "Not found")
+            raise HTTPException(404, "Nicht gefunden")
         files = [dict(f) for f in await (await db.execute(
             "SELECT * FROM download_files WHERE torrent_id=?", (torrent_id,)
         )).fetchall()]
@@ -140,7 +142,7 @@ class MagnetRequest(BaseModel):
 @router.post("/torrents/add-magnet")
 async def add_magnet(req: MagnetRequest):
     if not get_settings().alldebrid_api_key:
-        raise HTTPException(400, "AllDebrid API key not configured")
+        raise HTTPException(400, "AllDebrid API-Key nicht konfiguriert")
     try:
         result = await manager.add_magnet_direct(req.magnet, source="manual")
         return result
@@ -153,7 +155,7 @@ async def add_magnet(req: MagnetRequest):
 @router.post("/torrents/import-existing")
 async def import_existing():
     if not get_settings().alldebrid_api_key:
-        raise HTTPException(400, "AllDebrid API key not configured")
+        raise HTTPException(400, "AllDebrid API-Key nicht konfiguriert")
     results = await manager.import_existing_magnets()
     return {"imported": len(results), "items": results}
 
@@ -177,20 +179,15 @@ async def retry_torrent(torrent_id: int):
             "SELECT alldebrid_id, name, provider_status FROM torrents WHERE id=?", (torrent_id,)
         )).fetchone()
         if not row:
-            raise HTTPException(404, "Torrent not found")
+            raise HTTPException(404, "Torrent nicht gefunden")
         await db.execute(
             "UPDATE torrents SET status='pending', error_message=NULL, polling_failures=0, updated_at=CURRENT_TIMESTAMP WHERE id=?",
             (torrent_id,),
         )
-        await db.execute(
-            "DELETE FROM download_files WHERE torrent_id=?", (torrent_id,)
-        )
+        await db.execute("DELETE FROM download_files WHERE torrent_id=?", (torrent_id,))
         await db.commit()
 
-    # If AllDebrid already has the files ready, kick off the download immediately
-    # rather than waiting for the next sync_alldebrid_status cycle.
     if row["provider_status"] == "ready" and row["alldebrid_id"]:
-        import asyncio
         asyncio.create_task(manager._start_download(torrent_id, str(row["alldebrid_id"]), str(row["name"] or "")))
 
     return {"ok": True}
@@ -220,26 +217,72 @@ async def resume_torrent(torrent_id: int):
 async def get_stats():
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
+
         cur = await db.execute("SELECT status, COUNT(*) as count FROM torrents GROUP BY status")
         by_status = {r["status"]: r["count"] for r in await cur.fetchall()}
+
+        # Abgeschlossene Größe
         size_row = await (await db.execute(
             "SELECT SUM(size_bytes) as total FROM torrents WHERE status='completed'"
         )).fetchone()
+
+        # Dateizähler
         blocked = (await (await db.execute(
             "SELECT COUNT(*) as c FROM download_files WHERE blocked=1"
         )).fetchone())["c"]
+
         active = (await (await db.execute(
             "SELECT COUNT(*) as c FROM torrents WHERE status IN ('downloading','processing','uploading','paused')"
         )).fetchone())["c"]
+
         queued = (await (await db.execute(
             "SELECT COUNT(*) as c FROM torrents WHERE status='queued'"
         )).fetchone())["c"]
+
         finished = (await (await db.execute(
             "SELECT COUNT(*) as c FROM events WHERE message='Finished'"
         )).fetchone())["c"]
+
+        error_count = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM torrents WHERE status='error'"
+        )).fetchone())["c"]
+
+        completed_count = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM torrents WHERE status='completed'"
+        )).fetchone())["c"]
+
+        total_count = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM torrents"
+        )).fetchone())["c"]
+
         last_day_completed = (await (await db.execute(
             "SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now', '-1 day')"
         )).fetchone())["c"]
+
+        last_week_completed = (await (await db.execute(
+            "SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now', '-7 days')"
+        )).fetchone())["c"]
+
+        # Ø Download-Dauer (für Torrents mit completed_at und created_at)
+        avg_duration_row = await (await db.execute(
+            """SELECT AVG(
+                   CAST((julianday(completed_at) - julianday(created_at)) * 86400 AS INTEGER)
+               ) as avg_secs
+               FROM torrents
+               WHERE completed_at IS NOT NULL AND created_at IS NOT NULL"""
+        )).fetchone()
+        avg_duration_seconds = int(avg_duration_row["avg_secs"] or 0)
+
+        # Ø Dateigröße (abgeschlossene Torrents)
+        avg_size_row = await (await db.execute(
+            "SELECT AVG(size_bytes) as avg_bytes FROM torrents WHERE status='completed' AND size_bytes > 0"
+        )).fetchone()
+        avg_size_bytes = int(avg_size_row["avg_bytes"] or 0)
+
+        # Erfolgsrate
+        terminal = completed_count + error_count
+        success_rate = round(completed_count / terminal * 100, 1) if terminal > 0 else None
+
         return {
             "by_status": by_status,
             "total_completed_bytes": size_row["total"] or 0,
@@ -248,6 +291,13 @@ async def get_stats():
             "queued_downloads": queued,
             "finished_events": finished,
             "completed_last_24h": last_day_completed,
+            "completed_last_7d": last_week_completed,
+            "error_count": error_count,
+            "completed_count": completed_count,
+            "total_count": total_count,
+            "success_rate_pct": success_rate,
+            "avg_download_duration_seconds": avg_duration_seconds,
+            "avg_torrent_size_bytes": avg_size_bytes,
             "paused": bool(get_settings().paused),
         }
 
@@ -260,26 +310,56 @@ async def get_stats_detail():
         torrent_status_rows = await (await db.execute(
             "SELECT status, COUNT(*) as count FROM torrents GROUP BY status"
         )).fetchall()
+
         file_status_rows = await (await db.execute(
             "SELECT status, COUNT(*) as count, COALESCE(SUM(size_bytes), 0) as size FROM download_files GROUP BY status"
         )).fetchall()
+
         totals = await (await db.execute(
             """SELECT
                    COUNT(*) as torrent_total,
                    COALESCE(SUM(size_bytes), 0) as torrent_size_total,
-                   COALESCE(SUM(CASE WHEN completed_at IS NOT NULL THEN size_bytes ELSE 0 END), 0) as completed_size,
-                   COALESCE(SUM(CASE WHEN status='partial' THEN 1 ELSE 0 END), 0) as partial_total
+                   COALESCE(SUM(CASE WHEN status='completed' THEN size_bytes ELSE 0 END), 0) as completed_size,
+                   COALESCE(SUM(CASE WHEN status='error' THEN 1 ELSE 0 END), 0) as error_total,
+                   COALESCE(SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END), 0) as completed_total
                FROM torrents"""
         )).fetchone()
+
+        # Tägliche Trend-Daten (letzte 14 Tage)
+        daily_rows = await (await db.execute(
+            """SELECT
+                   date(completed_at) as day,
+                   COUNT(*) as count,
+                   COALESCE(SUM(size_bytes), 0) as size_bytes
+               FROM torrents
+               WHERE completed_at IS NOT NULL
+                 AND completed_at >= datetime('now', '-14 days')
+               GROUP BY date(completed_at)
+               ORDER BY day ASC"""
+        )).fetchall()
+
         event_levels = await (await db.execute(
             "SELECT level, COUNT(*) as count FROM events GROUP BY level"
         )).fetchall()
+
         latest_events = await (await db.execute(
             """SELECT e.level, e.message, e.created_at, t.name as torrent_name
                FROM events e
                LEFT JOIN torrents t ON e.torrent_id = t.id
-               ORDER BY e.created_at DESC LIMIT 8"""
+               ORDER BY e.created_at DESC LIMIT 10"""
         )).fetchall()
+
+        # Top-Quellen
+        source_rows = await (await db.execute(
+            "SELECT source, COUNT(*) as count FROM torrents GROUP BY source ORDER BY count DESC LIMIT 10"
+        )).fetchall()
+
+    totals_dict = dict(totals)
+    terminal = totals_dict.get("completed_total", 0) + totals_dict.get("error_total", 0)
+    totals_dict["success_rate_pct"] = (
+        round(totals_dict["completed_total"] / terminal * 100, 1)
+        if terminal > 0 else None
+    )
 
     return {
         "torrent_status": {row["status"]: row["count"] for row in torrent_status_rows},
@@ -287,21 +367,88 @@ async def get_stats_detail():
             row["status"]: {"count": row["count"], "size_bytes": row["size"]}
             for row in file_status_rows
         },
-        "totals": dict(totals),
+        "totals": totals_dict,
+        "daily_completions": [dict(r) for r in daily_rows],
         "event_levels": {row["level"]: row["count"] for row in event_levels},
         "latest_events": [dict(row) for row in latest_events],
+        "sources": {row["source"]: row["count"] for row in source_rows},
     }
 
+
+# ─── Migration ────────────────────────────────────────────────────────────────
+
+class MigrationRequest(BaseModel):
+    direction: str   # "sqlite_to_postgres" | "postgres_to_sqlite"
+    force: bool = False
+    dry_run: bool = False
+
+
+@router.post("/admin/migrate")
+async def run_migration(req: MigrationRequest):
+    """
+    Führt eine Datenbankmigration durch.
+
+    - direction: "sqlite_to_postgres" oder "postgres_to_sqlite"
+    - dry_run: Nur validieren, keine Daten schreiben
+    - force: Bestehende Daten im Ziel überschreiben (Vorsicht!)
+    """
+    from db.migration import migrate_sqlite_to_postgres, migrate_postgres_to_sqlite
+    from db.database import DB_PATH as _DB_PATH
+
+    cfg = get_settings()
+    if not hasattr(cfg, "db_type"):
+        raise HTTPException(400, "PostgreSQL-Konfiguration nicht verfügbar")
+
+    # DSN aufbauen
+    ssl = "require" if getattr(cfg, "postgres_ssl", False) else "disable"
+    pg_dsn = (
+        f"postgresql://{cfg.postgres_user}:{cfg.postgres_password}"
+        f"@{cfg.postgres_host}:{cfg.postgres_port}/{cfg.postgres_db}"
+        f"?sslmode={ssl}"
+    )
+
+    if req.direction == "sqlite_to_postgres":
+        result = await migrate_sqlite_to_postgres(
+            _DB_PATH, pg_dsn, force=req.force, dry_run=req.dry_run
+        )
+    elif req.direction == "postgres_to_sqlite":
+        result = await migrate_postgres_to_sqlite(
+            pg_dsn, _DB_PATH, force=req.force, dry_run=req.dry_run
+        )
+    else:
+        raise HTTPException(400, f"Unbekannte Richtung: {req.direction!r}")
+
+    if not result.success:
+        raise HTTPException(500, result.error or "Migration fehlgeschlagen")
+
+    return {
+        "ok": result.success,
+        "direction": result.direction,
+        "tables_migrated": result.tables_migrated,
+        "warnings": result.warnings,
+        "summary": result.summary(),
+        "dry_run": req.dry_run,
+    }
+
+
+@router.get("/admin/migrate/validate")
+async def validate_migration(direction: str = "sqlite_to_postgres"):
+    """Validiert eine Migration (dry_run=True) ohne Daten zu schreiben."""
+    from db.migration import MigrationRequest as _MR
+    fake_req = MigrationRequest(direction=direction, force=False, dry_run=True)
+    return await run_migration(fake_req)
+
+
+# ─── Meta ─────────────────────────────────────────────────────────────────────
 
 @router.get("/meta/changelog")
 async def get_changelog():
     if not CHANGELOG_PATH.exists():
-        raise HTTPException(404, "CHANGELOG.md not found")
+        raise HTTPException(404, "CHANGELOG.md nicht gefunden")
     return {"content": CHANGELOG_PATH.read_text(encoding="utf-8", errors="replace")}
 
 
 # ─── Events ───────────────────────────────────────────────────────────────────
-
 
 @router.get("/events")
 async def get_events(limit: int = Query(100, le=500)):
