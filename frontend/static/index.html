@@ -50,22 +50,30 @@ body.light {
 
 /* ── Mobile responsive (max 700px) ─────────────────────────────────────── */
 @media (max-width: 700px) {
-  /* Sidebar: off-screen slide-in overlay */
+  /* Body: column layout so sidebar doesn't affect main flow */
+  body { font-size: 13px; }
+
+  /* Sidebar: off-screen, slides in as overlay */
   #sidebar {
     position: fixed; left: 0; top: 0; bottom: 0; z-index: 200;
-    width: 260px; min-width: unset; height: 100vh;
+    width: 80vw; max-width: 280px; min-width: unset; height: 100vh;
     transform: translateX(-100%); transition: transform .25s ease;
+    overflow-y: auto;
   }
   #sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,.5); }
+
+  /* Overlay behind open sidebar */
   #mobile-overlay {
     display: none; position: fixed; inset: 0; z-index: 199;
     background: rgba(0,0,0,.5); backdrop-filter: blur(2px);
   }
   #mobile-overlay.open { display: block; }
 
-  /* Main: full width, remove sidebar space */
-  #main { width: 100vw; min-width: 0; }
-  body { font-size: 13px; }
+  /* Main: full screen width, independent of sidebar */
+  #main {
+    width: 100vw !important; min-width: 0;
+    height: 100vh; overflow-y: auto;
+  }
 
   /* Topbar */
   #topbar { padding: 10px 14px; }
@@ -73,15 +81,15 @@ body.light {
 
   /* Hamburger button — shown only on mobile */
   .mobile-menu-btn {
-    display: flex; align-items: center; justify-content: center;
-    width: 34px; height: 34px; border: 1px solid var(--border);
+    display: flex !important; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border: 1px solid var(--border);
     border-radius: 8px; background: var(--surface); cursor: pointer;
-    font-size: 18px; flex-shrink: 0; margin-right: 8px;
+    font-size: 20px; flex-shrink: 0; margin-right: 10px;
   }
 
   /* Views */
   .view { padding: 10px !important; gap: 10px !important; }
-  .tab-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+  .tab-grid  { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
   .stat-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
   .stat-card { padding: 12px !important; }
   .stat-value { font-size: 22px !important; }
@@ -105,7 +113,7 @@ body.light {
   .bulk-bar { flex-wrap: wrap; gap: 6px; font-size: 12px; }
 
   /* Settings */
-  .stabs { gap: 0; flex-wrap: wrap; }
+  .stabs { flex-wrap: wrap; gap: 0; }
   .stab  { padding: 8px 10px; font-size: 11px; }
   .scard-body { padding: 12px; gap: 10px; }
   .save-bar { flex-wrap: wrap; gap: 6px; }
@@ -120,6 +128,12 @@ body.light {
 
   /* Theme toggle */
   .theme-toggle { bottom: 10px; right: 10px; width: 32px; height: 32px; font-size: 14px; }
+
+  /* Chart */
+  .chart-wrap { height: 120px; }
+}
+@media (min-width: 701px) {
+  .mobile-menu-btn { display: none !important; }
 }
 @media (min-width: 701px) {
   .mobile-menu-btn { display: none; }
@@ -497,7 +511,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.7</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.8</div>
     </div>
   </div>
   <nav>

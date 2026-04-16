@@ -1607,26 +1607,39 @@ class TorrentManager:
     async def _delete_magnet_after_completion(self, torrent_id: int, ad_id: str) -> bool:
         """
         Deletes the magnet from AllDebrid after a successful download.
-
-        IMPORTANT: Status stays 'completed' (not 'deleted') so the dashboard
-        correctly counts completed downloads. Re-polling is prevented because
-        sync_alldebrid_status already filters status NOT IN ('completed', 'deleted', 'error').
+        Status stays 'completed' so the dashboard counts it correctly.
+        sync_alldebrid_status already filters status NOT IN ('completed','deleted','error').
         """
+        ad_id = str(ad_id or "").strip()
+        if not ad_id or ad_id.lower() in ("none", "null", ""):
+            logger.warning(
+                "torrent %s: skipping AllDebrid deletion — no alldebrid_id", torrent_id
+            )
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, 'warn', ?)",
+                    (torrent_id, "Completed locally, but no AllDebrid ID — cannot remove from AllDebrid"),
+                )
+                await db.commit()
+            return False
+
+        logger.info("torrent %s: removing from AllDebrid (id=%s)", torrent_id, ad_id)
         deleted = await self.ad().delete_magnet(ad_id)
         async with aiosqlite.connect(DB_PATH) as db:
-            if deleted:
-                # Status bleibt 'completed' — kein Überschreiben zu 'deleted'!
-                # sync_alldebrid_status already filters status NOT IN ('completed', 'deleted', 'error')
-                await db.execute(
-                    "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
-                    (torrent_id, "info", "Removed from AllDebrid after completion"),
-                )
-            else:
-                await db.execute(
-                    "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
-                    (torrent_id, "warn", "Completed, but removal from AllDebrid failed"),
-                )
+            msg = ("Removed from AllDebrid after completion" if deleted
+                   else f"Completed, but AllDebrid removal failed (id={ad_id})")
+            level = "info" if deleted else "warn"
+            await db.execute(
+                "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
+                (torrent_id, level, msg),
+            )
             await db.commit()
+        if not deleted:
+            logger.warning(
+                "torrent %s: failed to remove from AllDebrid (id=%s) — "
+                "it may have already been deleted or the API key lacks permission",
+                torrent_id, ad_id,
+            )
         return deleted
 
     async def _mark_finished(self, torrent_id: int, name: str = ""):
