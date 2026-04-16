@@ -467,6 +467,16 @@ async def list_backups():
     return {"backups": _list()}
 
 
+@router.post("/admin/deep-sync")
+async def trigger_deep_sync():
+    """Manually triggers a filesystem-based deep sync of aria2 downloads."""
+    import time
+    t0 = time.monotonic()
+    await manager.deep_sync_aria2_finished()
+    elapsed = round(time.monotonic() - t0, 2)
+    return {"ok": True, "elapsed_seconds": elapsed}
+
+
 @router.get("/stats")
 async def get_stats():
     async with aiosqlite.connect(DB_PATH) as db:
