@@ -13,6 +13,7 @@
 
 
 
+
 :root {
   --bg:       #080c14;
   --bg2:      #0d1220;
@@ -158,8 +159,8 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ── Views ── */
-.view { display: none; }
-.view.active { display: block; }
+.view { display: none !important; }
+.view.active { display: block !important; }
 
 /* ── Stat Cards ── */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: 14px; margin-bottom: 22px; }
@@ -515,6 +516,7 @@ textarea.input { resize: vertical; }
 
 
 
+
 </style>
 </head>
 <body>
@@ -524,7 +526,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.15</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.16</div>
     </div>
   </div>
   <nav>
@@ -874,14 +876,11 @@ function nav(el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
   const v = el.dataset.view;
-  // Hide all views explicitly — don't rely on CSS alone (Firefox animation bug)
-  document.querySelectorAll('.view').forEach(x => {
-    x.classList.remove('active');
-    x.style.display = 'none';
-  });
+  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
   const activeView = document.getElementById('view-' + v);
+  if (!activeView) { console.error('nav: view not found:', v); return; }
   activeView.classList.add('active');
-  activeView.style.display = 'block';
+  console.log('nav: activated', v, 'computed display:', window.getComputedStyle(activeView).display);
   const titles = {
     dashboard:'Dashboard',
     torrents:'Torrents',
