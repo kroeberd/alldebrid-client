@@ -50,17 +50,38 @@ body.light {
 
 /* ── Mobile responsive (max 700px) ─────────────────────────────────────── */
 @media (max-width: 700px) {
-  /* Body: column layout so sidebar doesn't affect main flow */
-  body { font-size: 13px; }
+  /* Critical: body must not be flex on mobile — sidebar is fixed/out of flow */
+  body {
+    display: block !important;
+    font-size: 13px;
+    overflow: hidden;
+  }
 
-  /* Sidebar: off-screen, slides in as overlay */
+  /* Main fills the full screen from x=0 */
+  #main {
+    width: 100vw !important;
+    min-width: 0;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin-left: 0 !important;
+  }
+
+  /* Sidebar: fixed overlay, slides in from left */
   #sidebar {
-    position: fixed; left: 0; top: 0; bottom: 0; z-index: 200;
-    width: 80vw; max-width: 280px; min-width: unset; height: 100vh;
-    transform: translateX(-100%); transition: transform .25s ease;
+    position: fixed !important;
+    left: 0; top: 0; bottom: 0;
+    z-index: 200;
+    width: 80vw; max-width: 280px; min-width: unset;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
     overflow-y: auto;
   }
-  #sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,.5); }
+  #sidebar.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0,0,0,.5);
+  }
 
   /* Overlay behind open sidebar */
   #mobile-overlay {
@@ -69,23 +90,20 @@ body.light {
   }
   #mobile-overlay.open { display: block; }
 
-  /* Main: full screen width, independent of sidebar */
-  #main {
-    width: 100vw !important; min-width: 0;
-    height: 100vh; overflow-y: auto;
+  /* Hamburger button */
+  .mobile-menu-btn {
+    display: flex !important;
+    align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px; background: var(--surface);
+    cursor: pointer; font-size: 20px;
+    flex-shrink: 0; margin-right: 10px;
   }
 
   /* Topbar */
-  #topbar { padding: 10px 14px; }
-  #topbar h1 { font-size: 15px; }
-
-  /* Hamburger button — shown only on mobile */
-  .mobile-menu-btn {
-    display: flex !important; align-items: center; justify-content: center;
-    width: 36px; height: 36px; border: 1px solid var(--border);
-    border-radius: 8px; background: var(--surface); cursor: pointer;
-    font-size: 20px; flex-shrink: 0; margin-right: 10px;
-  }
+  #topbar { padding: 10px 14px; display: flex; align-items: center; }
+  #topbar h1 { font-size: 15px; flex: 1; }
 
   /* Views */
   .view { padding: 10px !important; gap: 10px !important; }
@@ -132,12 +150,8 @@ body.light {
   /* Chart */
   .chart-wrap { height: 120px; }
 }
-@media (min-width: 701px) {
-  .mobile-menu-btn { display: none !important; }
-}
-@media (min-width: 701px) {
-  .mobile-menu-btn { display: none; }
-}
+
+
 /* Label badge */
 .lbl-badge { display:inline-flex; align-items:center; padding:1px 7px;
   border-radius:10px; font-size:10px; font-weight:700;
@@ -511,7 +525,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.8</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.9</div>
     </div>
   </div>
   <nav>
