@@ -837,7 +837,7 @@ function progress(pct, status) {
 }
 
 // ── Status Bar ─────────────────────────────────────────────────────────────
-async async function checkConnections() {
+async function checkConnections() {
   // AllDebrid — check via /stats (lightweight)
   try {
     const s = await api('GET', '/stats');
