@@ -50,17 +50,10 @@ body.light {
 
 /* ── Mobile responsive (max 700px) ─────────────────────────────────────── */
 @media (max-width: 700px) {
-  /* Body: block so sidebar doesn't affect layout */
+  /* Body: block layout — sidebar is fixed/out of flow */
   body { display: block !important; font-size: 13px; overflow: hidden; }
 
-  /* Main: full viewport, independent scroll */
-  #main {
-    width: 100vw !important; min-width: 0;
-    height: 100vh; overflow-y: auto; overflow-x: hidden;
-    margin-left: 0 !important;
-  }
-
-  /* Sidebar: fixed overlay from left */
+  /* Sidebar: fixed overlay */
   #sidebar {
     position: fixed !important;
     left: 0; top: 0; bottom: 0; z-index: 200;
@@ -69,12 +62,26 @@ body.light {
     overflow-y: auto;
   }
   #sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,.5); }
-
   #mobile-overlay {
     display: none; position: fixed; inset: 0; z-index: 199;
     background: rgba(0,0,0,.5); backdrop-filter: blur(2px);
   }
   #mobile-overlay.open { display: block; }
+
+  /* Main + Content: full viewport scroll */
+  #main {
+    width: 100vw !important; min-width: 0;
+    height: 100vh !important;
+    display: flex !important; flex-direction: column;
+    overflow: hidden;
+    margin-left: 0 !important;
+  }
+  #content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px !important;
+  }
 
   /* Hamburger */
   .mobile-menu-btn {
@@ -85,39 +92,46 @@ body.light {
   }
 
   /* Topbar */
-  #topbar { padding: 8px 12px; display: flex; align-items: center; }
-  #topbar h1 { font-size: 15px; flex: 1; }
+  #topbar {
+    padding: 8px 12px !important;
+    display: flex; align-items: center;
+    min-height: auto !important; flex-shrink: 0;
+  }
+  #topbar h1 { font-size: 15px; }
+
+  /* Views — ensure active view shows */
+  .view.active { display: block !important; }
 
   /* Dashboard stat cards: 2 columns */
   .stats-grid {
     grid-template-columns: 1fr 1fr !important;
-    gap: 8px !important;
+    gap: 8px !important; margin-bottom: 12px !important;
   }
   .stat-card { padding: 10px 12px !important; }
   .stat-value { font-size: 24px !important; }
   .stat-label { font-size: 9px !important; }
+  .hero-grid { grid-template-columns: 1fr !important; }
+  .insight-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
 
-  /* Views */
-  .view { padding: 8px !important; gap: 8px !important; }
+  /* Tab grids */
   .tab-grid   { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
   .stat-grid  { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
   .detail-grid { grid-template-columns: 1fr !important; }
   .split-grid  { grid-template-columns: 1fr !important; gap: 8px !important; }
   .dash-grid   { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .mini-stat-row { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
 
   /* Cards */
-  .card { border-radius: 8px !important; }
+  .card { border-radius: 8px !important; margin-bottom: 10px !important; }
   .card-header { padding: 8px 12px !important; }
   .card-body   { padding: 8px 12px !important; }
   .scard-body  { padding: 10px !important; gap: 8px !important; }
 
-  /* Torrent table: horizontal scroll, compact */
+  /* Torrent table: horizontal scroll */
   .t-table { font-size: 12px; width: 100%; }
   .t-hash  { display: none; }
-  /* Keep: checkbox, name, status, actions — hide size+date on very narrow */
   .t-table th:nth-child(5), .t-table td:nth-child(5),
   .t-table th:nth-child(6), .t-table td:nth-child(6) { display: none; }
-  /* Actions column: compact buttons */
   .actions { display: flex; gap: 4px; flex-wrap: nowrap; }
   .actions .btn { padding: 4px 6px !important; font-size: 10px !important; }
 
@@ -127,7 +141,10 @@ body.light {
   /* Settings */
   .stabs { flex-wrap: wrap; gap: 0; }
   .stab  { padding: 7px 9px; font-size: 11px; }
-  .save-bar { flex-wrap: wrap; gap: 6px; }
+  .save-bar {
+    flex-wrap: wrap; gap: 6px;
+    margin: 0 !important; position: static !important;
+  }
   .save-bar .btn { font-size: 11px; padding: 6px 10px; }
 
   /* Event log */
@@ -136,6 +153,7 @@ body.light {
 
   /* Modal */
   .modal-box { width: 95vw !important; margin: 10px auto; max-height: 90vh; overflow-y: auto; }
+  #modal { width: 95vw !important; max-height: 85vh; }
 
   /* Theme toggle */
   .theme-toggle { bottom: 10px; right: 10px; width: 32px; height: 32px; font-size: 14px; }
@@ -518,7 +536,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.10</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.11</div>
     </div>
   </div>
   <nav>
