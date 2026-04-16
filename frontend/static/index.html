@@ -11,6 +11,8 @@
 
 
 
+
+
 :root {
   --bg:       #080c14;
   --bg2:      #0d1220;
@@ -157,8 +159,7 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 
 /* ── Views ── */
 .view { display: none; }
-.view.active { display: block; animation: fadeIn .2s ease; }
-@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+.view.active { display: block; }
 
 /* ── Stat Cards ── */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: 14px; margin-bottom: 22px; }
@@ -512,6 +513,8 @@ textarea.input { resize: vertical; }
 
 
 
+
+
 </style>
 </head>
 <body>
@@ -521,7 +524,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.14</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.15</div>
     </div>
   </div>
   <nav>
