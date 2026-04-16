@@ -120,7 +120,7 @@ async def _do_sqlite_to_pg(
     except ImportError:
         raise MigrationError("asyncpg is not installed. Run: pip install asyncpg")
 
-    # ── Quell-Existenzprüfung (billig, vor allen Netzwerkoperationen) ─────
+    # ── Source existence check (cheap, before any network operations) ─────
     if not sqlite_path.exists():
         raise MigrationError(f"SQLite source file not found: {sqlite_path}")
 
@@ -169,7 +169,7 @@ async def _do_sqlite_to_pg(
                         result.tables_migrated[table] = 0
                         continue
 
-                    # PostgreSQL: TRUNCATE vor dem Befüllen wenn force
+                    # PostgreSQL: TRUNCATE before inserting when force
                     if force:
                         await pg_conn.execute(f"TRUNCATE TABLE {table} CASCADE")
 
@@ -177,7 +177,7 @@ async def _do_sqlite_to_pg(
                     result.tables_migrated[table] = count
                     logger.info("Migrated: %s → %d rows to PostgreSQL", table, count)
 
-                # Sequenzen zurücksetzen
+                # Reset sequences
                 for table in MIGRATION_TABLES:
                     await pg_conn.execute(
                         f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
@@ -379,7 +379,7 @@ async def _insert_rows_sqlite(db, table: str, rows: List[Dict[str, Any]]) -> int
         values = []
         for col in columns:
             val = row[col]
-            # asyncpg gibt datetime-Objekte zurück — in ISO-String konvertieren
+            # asyncpg gibt returns datetime objects — convert to ISO string
             if hasattr(val, "isoformat"):
                 val = val.isoformat()
             values.append(val)

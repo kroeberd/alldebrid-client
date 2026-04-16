@@ -1,5 +1,5 @@
 """
-aria2 JSON-RPC Client mit robuster Verbindungsbehandlung.
+aria2 JSON-RPC client with robust connection handling.
 
 Improvements over the original:
 - Each HTTP request creates its own ClientSession with force_close=True,
@@ -82,7 +82,7 @@ class Aria2Service:
 
     async def get_all(self) -> List[Aria2DownloadStatus]:
         """
-        Ruft aktive, wartende und gestoppte Downloads ab.
+        Fetches active, waiting and stopped downloads.
 
         On connection errors an empty list is returned and the error
         is logged as WARNING so the scheduler keeps running.
@@ -97,7 +97,7 @@ class Aria2Service:
             logger.warning("aria2 unreachable (get_all): %s", exc)
             return []
         except Aria2RPCError as exc:
-            logger.error("aria2 RPC-Fehler (get_all): %s", exc)
+            logger.error("aria2 RPC error (get_all): %s", exc)
             return []
 
         downloads: List[Aria2DownloadStatus] = []
@@ -167,7 +167,7 @@ class Aria2Service:
                         break
                     delay = min(attempt * attempt, 10)
                     logger.warning(
-                        "aria2 nicht erreichbar (Versuch %s/%s), Retry in %ss: %s",
+                        "aria2 unreachable (attempt %s/%s), retrying in %ss: %s",
                         attempt, max_retries, delay, exc,
                     )
                     await asyncio.sleep(delay)
