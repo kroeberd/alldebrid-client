@@ -530,7 +530,9 @@ async def get_stats_detail():
         )).fetchall()]
 
         file_status = [dict(r) for r in await (await db.execute(
-            "SELECT status, COUNT(*) as count FROM download_files GROUP BY status ORDER BY count DESC"
+            """SELECT status, COUNT(*) as count,
+                      COALESCE(SUM(size_bytes),0) as size_bytes
+               FROM download_files GROUP BY status ORDER BY count DESC"""
         )).fetchall()]
 
         event_levels = [dict(r) for r in await (await db.execute(

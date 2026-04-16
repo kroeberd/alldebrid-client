@@ -27,6 +27,7 @@ logger = logging.getLogger("alldebrid.notify")
 APP_NAME    = "AllDebrid-Client"
 _VER_PATH   = Path(__file__).resolve().parents[2] / "VERSION"
 APP_VERSION = _VER_PATH.read_text(encoding="utf-8").strip() if _VER_PATH.exists() else "dev"
+REPO_URL    = "https://github.com/kroeberd/alldebrid-client"
 # Default logo — overridden at runtime by discord_avatar_url from settings
 _DEFAULT_LOGO = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
 
@@ -288,7 +289,7 @@ class NotificationService:
             "description": description[:4096],
             "color":       color,
             "footer": {
-                "text":     f"{APP_NAME} v{APP_VERSION}",
+                "text":     f"{APP_NAME} v{APP_VERSION} — {REPO_URL}",
                 "icon_url": _DEFAULT_LOGO,
             },
         }

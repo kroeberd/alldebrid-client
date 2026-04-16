@@ -204,7 +204,7 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 .mini-stat .value { font-size:18px; font-weight:800; margin-top:6px; }
 .tab-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-bottom:18px; }
 .metric-card {
-  background: linear-gradient(180deg, rgba(17,24,39,.98), rgba(22,31,48,.92));
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px;
@@ -231,7 +231,7 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 .link-card-title { font-size:18px; font-weight:800; margin-bottom:8px; }
 .link-card-copy { color:var(--text2); line-height:1.6; font-size:13px; }
 .changelog-shell {
-  background: #09101d;
+  background: var(--bg2);
   border:1px solid var(--border);
   border-radius: var(--radius);
   padding:20px 24px;
@@ -412,7 +412,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.1</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.2</div>
     </div>
   </div>
   <nav>
@@ -817,11 +817,20 @@ function pct(part, total) {
   if (!total) return 0;
   return Math.round((part / total) * 100);
 }
-function renderKvMap(map, formatter) {
-  const entries = Object.entries(map || {});
-  if (!entries.length) return '<div class="empty">No data available.</div>';
+function renderKvMap(arr, formatter) {
+  // arr is an array of {status/level, count} objects from the API
+  if (!arr || !arr.length) return '<div class="empty">No data available.</div>';
+  const entries = Array.isArray(arr)
+    ? arr.map(item => {
+        const key = item.status ?? item.level ?? item.source ?? Object.keys(item).find(k => k !== 'count') ?? '?';
+        return [key, item];
+      })
+    : Object.entries(arr);
   return `<div class="kv-list">${entries.map(([key, value]) => `
-    <div class="kv-row"><span>${key}</span><strong>${formatter ? formatter(value, key) : value}</strong></div>
+    <div class="kv-row">
+      <span>${key}</span>
+      <strong>${formatter ? formatter(value, key) : (value && typeof value === 'object' ? value.count ?? '—' : value)}</strong>
+    </div>
   `).join('')}</div>`;
 }
 function badge(s) {
@@ -1275,7 +1284,7 @@ async function loadDetailedStats() {
     document.getElementById('detail-torrent-status').innerHTML = renderKvMap(stats.torrent_status);
     document.getElementById('detail-file-status').innerHTML = renderKvMap(
       stats.file_status,
-      (value) => `${value.count} / ${fmtSize(value.size_bytes)}`
+      (value) => value.count ?? value
     );
     document.getElementById('detail-event-levels').innerHTML = renderKvMap(stats.event_levels);
     const latest = stats.latest_events || [];
@@ -1304,8 +1313,11 @@ async function loadDetailedStats() {
         options: { responsive:true, maintainAspectRatio:false,
           plugins:{legend:{display:false}},
           scales:{
-            x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#64748b',font:{size:10}}},
-            y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#64748b',font:{size:10}},beginAtZero:true,precision:0}
+            x:{grid:{color: document.body.classList.contains('light') ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.04)'},
+               ticks:{color: document.body.classList.contains('light') ? '#6b7280' : '#64748b', font:{size:10}}},
+            y:{grid:{color: document.body.classList.contains('light') ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.04)'},
+               ticks:{color: document.body.classList.contains('light') ? '#6b7280' : '#64748b', font:{size:10}},
+               beginAtZero:true, precision:0}
           }
         }
       });
