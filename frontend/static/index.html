@@ -10,6 +10,7 @@
 
 
 
+
 :root {
   --bg:       #080c14;
   --bg2:      #0d1220;
@@ -155,8 +156,8 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ── Views ── */
-.view { display: none; animation: fadeIn .2s ease; }
-.view.active { display: block; }
+.view { display: none; }
+.view.active { display: block; animation: fadeIn .2s ease; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
 
 /* ── Stat Cards ── */
@@ -510,6 +511,7 @@ textarea.input { resize: vertical; }
 
 
 
+
 </style>
 </head>
 <body>
@@ -519,7 +521,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.13</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.14</div>
     </div>
   </div>
   <nav>
@@ -869,8 +871,14 @@ function nav(el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
   const v = el.dataset.view;
-  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
-  document.getElementById('view-' + v).classList.add('active');
+  // Hide all views explicitly — don't rely on CSS alone (Firefox animation bug)
+  document.querySelectorAll('.view').forEach(x => {
+    x.classList.remove('active');
+    x.style.display = 'none';
+  });
+  const activeView = document.getElementById('view-' + v);
+  activeView.classList.add('active');
+  activeView.style.display = 'block';
   const titles = {
     dashboard:'Dashboard',
     torrents:'Torrents',
