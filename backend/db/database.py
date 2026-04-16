@@ -152,10 +152,16 @@ async def get_db() -> AsyncIterator[_DbConnection]:
 
 
 async def _ensure_column(db: aiosqlite.Connection, table: str, column: str, definition: str):
-    cur = await db.execute(f"PRAGMA table_info({table})")
-    existing = {row[1] for row in await cur.fetchall()}
-    if column not in existing:
-        await db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    """Adds column to table if it does not exist. Safe to call repeatedly."""
+    try:
+        cur = await db.execute(f"PRAGMA table_info({table})")
+        existing = {row[1] for row in await cur.fetchall()}
+        if column not in existing:
+            await db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+            await db.commit()
+            logger.debug("Added column %s.%s (%s)", table, column, definition)
+    except Exception as exc:
+        logger.warning("_ensure_column %s.%s failed (ignored): %s", table, column, exc)
 
 
 async def _ensure_column_pg(conn, table: str, column: str, definition: str):
@@ -256,6 +262,17 @@ async def _init_db_sqlite():
         for col, defn in _SCHEMA_COLUMNS_FILES:
             await _ensure_column(db, "download_files", col, defn)
         await db.commit()
+
+    # Verify critical columns are present after migration
+    async with aiosqlite.connect(DB_PATH) as verify_db:
+        cur = await verify_db.execute("PRAGMA table_info(torrents)")
+        cols = {row[1] for row in await cur.fetchall()}
+        critical = {"priority", "label", "provider_status", "polling_failures"}
+        missing = critical - cols
+        if missing:
+            logger.error("CRITICAL: columns still missing after migration: %s", missing)
+        else:
+            logger.info("SQLite schema verified — all critical columns present")
     logger.info("SQLite database initialised: %s", DB_PATH)
 
 

@@ -438,7 +438,7 @@ class TorrentManager:
             rows = await (await db.execute(
                 """SELECT f.id AS file_id, f.torrent_id, f.local_path,
                           f.size_bytes, f.download_id, f.download_url, f.filename,
-                          f.status, COALESCE(f.retry_count, 0) AS retry_count,
+                          f.status,
                           t.name AS torrent_name, t.alldebrid_id, t.status AS torrent_status
                    FROM download_files f
                    JOIN torrents t ON t.id = f.torrent_id
@@ -1033,7 +1033,7 @@ class TorrentManager:
                              AND f.blocked=0
                              AND f.status='pending'
                              AND t.status NOT IN ('completed','deleted','error')
-                           ORDER BY COALESCE(t.priority, 0) DESC, f.id ASC
+                           ORDER BY f.id ASC
                            LIMIT ?""",
                         (available_slots,),
                     )
