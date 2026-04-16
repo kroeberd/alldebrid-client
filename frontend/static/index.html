@@ -50,90 +50,83 @@ body.light {
 
 /* ── Mobile responsive (max 700px) ─────────────────────────────────────── */
 @media (max-width: 700px) {
-  /* Critical: body must not be flex on mobile — sidebar is fixed/out of flow */
-  body {
-    display: block !important;
-    font-size: 13px;
-    overflow: hidden;
-  }
+  /* Body: block so sidebar doesn't affect layout */
+  body { display: block !important; font-size: 13px; overflow: hidden; }
 
-  /* Main fills the full screen from x=0 */
+  /* Main: full viewport, independent scroll */
   #main {
-    width: 100vw !important;
-    min-width: 0;
-    height: 100vh;
-    overflow-y: auto;
-    overflow-x: hidden;
+    width: 100vw !important; min-width: 0;
+    height: 100vh; overflow-y: auto; overflow-x: hidden;
     margin-left: 0 !important;
   }
 
-  /* Sidebar: fixed overlay, slides in from left */
+  /* Sidebar: fixed overlay from left */
   #sidebar {
     position: fixed !important;
-    left: 0; top: 0; bottom: 0;
-    z-index: 200;
-    width: 80vw; max-width: 280px; min-width: unset;
-    height: 100vh;
-    transform: translateX(-100%);
-    transition: transform .25s ease;
+    left: 0; top: 0; bottom: 0; z-index: 200;
+    width: 80vw; max-width: 280px; min-width: unset; height: 100vh;
+    transform: translateX(-100%); transition: transform .25s ease;
     overflow-y: auto;
   }
-  #sidebar.open {
-    transform: translateX(0);
-    box-shadow: 4px 0 24px rgba(0,0,0,.5);
-  }
+  #sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,.5); }
 
-  /* Overlay behind open sidebar */
   #mobile-overlay {
     display: none; position: fixed; inset: 0; z-index: 199;
     background: rgba(0,0,0,.5); backdrop-filter: blur(2px);
   }
   #mobile-overlay.open { display: block; }
 
-  /* Hamburger button */
+  /* Hamburger */
   .mobile-menu-btn {
-    display: flex !important;
-    align-items: center; justify-content: center;
-    width: 36px; height: 36px;
-    border: 1px solid var(--border);
+    display: flex !important; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border: 1px solid var(--border);
     border-radius: 8px; background: var(--surface);
-    cursor: pointer; font-size: 20px;
-    flex-shrink: 0; margin-right: 10px;
+    cursor: pointer; font-size: 20px; flex-shrink: 0; margin-right: 10px;
   }
 
   /* Topbar */
-  #topbar { padding: 10px 14px; display: flex; align-items: center; }
+  #topbar { padding: 8px 12px; display: flex; align-items: center; }
   #topbar h1 { font-size: 15px; flex: 1; }
 
+  /* Dashboard stat cards: 2 columns */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .stat-card { padding: 10px 12px !important; }
+  .stat-value { font-size: 24px !important; }
+  .stat-label { font-size: 9px !important; }
+
   /* Views */
-  .view { padding: 10px !important; gap: 10px !important; }
-  .tab-grid  { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
-  .stat-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
-  .stat-card { padding: 12px !important; }
-  .stat-value { font-size: 22px !important; }
+  .view { padding: 8px !important; gap: 8px !important; }
+  .tab-grid   { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .stat-grid  { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
   .detail-grid { grid-template-columns: 1fr !important; }
-  .split-grid  { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .split-grid  { grid-template-columns: 1fr !important; gap: 8px !important; }
   .dash-grid   { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
 
   /* Cards */
   .card { border-radius: 8px !important; }
-  .card-header { padding: 10px 12px !important; }
-  .card-body   { padding: 10px 12px !important; }
+  .card-header { padding: 8px 12px !important; }
+  .card-body   { padding: 8px 12px !important; }
+  .scard-body  { padding: 10px !important; gap: 8px !important; }
 
-  /* Torrent table */
-  table { font-size: 12px; }
-  .t-hash { display: none; }
-  .t-table th:nth-child(1), .t-table td:nth-child(1) { width: 24px; }
-  .t-table th:nth-child(6), .t-table td:nth-child(6),
-  .t-table th:nth-child(7), .t-table td:nth-child(7) { display: none; }
+  /* Torrent table: horizontal scroll, compact */
+  .t-table { font-size: 12px; width: 100%; }
+  .t-hash  { display: none; }
+  /* Keep: checkbox, name, status, actions — hide size+date on very narrow */
+  .t-table th:nth-child(5), .t-table td:nth-child(5),
+  .t-table th:nth-child(6), .t-table td:nth-child(6) { display: none; }
+  /* Actions column: compact buttons */
+  .actions { display: flex; gap: 4px; flex-wrap: nowrap; }
+  .actions .btn { padding: 4px 6px !important; font-size: 10px !important; }
 
   /* Bulk bar */
   .bulk-bar { flex-wrap: wrap; gap: 6px; font-size: 12px; }
 
   /* Settings */
   .stabs { flex-wrap: wrap; gap: 0; }
-  .stab  { padding: 8px 10px; font-size: 11px; }
-  .scard-body { padding: 12px; gap: 10px; }
+  .stab  { padding: 7px 9px; font-size: 11px; }
   .save-bar { flex-wrap: wrap; gap: 6px; }
   .save-bar .btn { font-size: 11px; padding: 6px 10px; }
 
@@ -142,7 +135,7 @@ body.light {
   .etime { font-size: 10px; }
 
   /* Modal */
-  .modal-box { width: 95vw !important; margin: 10px auto; }
+  .modal-box { width: 95vw !important; margin: 10px auto; max-height: 90vh; overflow-y: auto; }
 
   /* Theme toggle */
   .theme-toggle { bottom: 10px; right: 10px; width: 32px; height: 32px; font-size: 14px; }
@@ -525,7 +518,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.9</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.10</div>
     </div>
   </div>
   <nav>
@@ -665,7 +658,8 @@ textarea.input { resize: vertical; }
           <span class="card-title">Recent Activity</span>
           <button class="btn btn-ghost btn-sm" onclick="nav(document.querySelector('[data-view=torrents]'))">All →</button>
         </div>
-        <table>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="t-table" style="min-width:500px">
           <thead><tr><th>Name</th><th>Status</th><th>Progress</th><th>Size</th><th>Added</th></tr></thead>
           <tbody id="dash-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
         </table>
@@ -695,10 +689,12 @@ textarea.input { resize: vertical; }
           </div>
           <button class="btn btn-ghost btn-sm" onclick="loadTorrents()" style="margin-left:8px">↻</button>
         </div>
-        <table>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="t-table" style="min-width:500px">
           <thead><tr><th style="width:32px"><input type="checkbox" id="chk-all" onchange="toggleAllCheckboxes(this)"/></th><th>Name</th><th>Source / Label</th><th>Status</th><th>Progress</th><th class="sz">Size</th><th class="sz">Added</th><th>Actions</th></tr></thead>
           <tbody id="t-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
 
