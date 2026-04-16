@@ -400,6 +400,109 @@ class TorrentManager:
 
         await self.sync_download_clients()
 
+    async def deep_sync_aria2_finished(self):
+        """
+        Filesystem-based deep sync for aria2 downloads.
+
+        Problem this solves:
+        - aria2 keeps completed entries in tellStopped for a limited time.
+          After restart or memory pressure, entries vanish → files that ARE on
+          disk are never marked completed in our DB.
+        - Two torrents can have files with identical names in different folders
+          (e.g. /TorrentA/movie.mkv and /TorrentB/movie.mkv). The GID+URI based
+          sync can match the wrong entry if filenames collide.
+
+        Solution:
+        - Query all download_files in pending/queued/downloading state that
+          have a local_path assigned.
+        - For each file: check if the file exists on disk AND its size matches
+          (within 1 KB tolerance — handles aria2 temp trailer bytes).
+        - If the file is present and complete: mark as 'completed' regardless
+          of what aria2 says about its GID.
+        - Matching is done on full absolute path (folder + filename), so two
+          files with the same name in different directories are never confused.
+        - After marking files complete, run _finalize_aria2_torrent() to
+          complete/close the parent torrent if all files are done.
+        """
+        if self.is_paused() or self.download_client_name() != "aria2":
+            return
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            rows = await (await db.execute(
+                """SELECT f.id AS file_id, f.torrent_id, f.local_path,
+                          f.size_bytes, f.download_id, f.status,
+                          t.name AS torrent_name, t.alldebrid_id, t.status AS torrent_status
+                   FROM download_files f
+                   JOIN torrents t ON t.id = f.torrent_id
+                   WHERE f.download_client = 'aria2'
+                     AND f.blocked = 0
+                     AND f.local_path IS NOT NULL
+                     AND f.local_path != ''
+                     AND f.status IN ('pending', 'queued', 'downloading', 'paused')
+                     AND t.status NOT IN ('completed', 'deleted', 'error')"""
+            )).fetchall()
+
+        if not rows:
+            return
+
+        touched: Set[int] = set()
+        completed_count = 0
+
+        for row in rows:
+            local_path = Path(row["local_path"])
+            # ── Full-path match: folder + filename must both match ──────────
+            # This is intentional — never use basename-only matching.
+            if not local_path.exists():
+                continue
+
+            actual_size = local_path.stat().st_size
+            expected_size = int(row["size_bytes"] or 0)
+
+            # Size check: file must be at least (expected - 1 KB).
+            # expected_size == 0 means we don't know the size yet → trust presence.
+            size_ok = (
+                expected_size <= 0
+                or actual_size >= max(expected_size - 1024, 0)
+            )
+            if not size_ok:
+                continue  # file exists but still incomplete
+
+            # File is present and complete — mark it
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    """UPDATE download_files
+                       SET status='completed', updated_at=CURRENT_TIMESTAMP
+                       WHERE id=?""",
+                    (row["file_id"],)
+                )
+                await db.commit()
+
+            # Best-effort: remove the aria2 entry if we know the GID
+            if row["download_id"]:
+                try:
+                    await self.aria2().remove(str(row["download_id"]))
+                except Exception:
+                    pass  # entry may already be gone — that's fine
+
+            touched.add(row["torrent_id"])
+            completed_count += 1
+            logger.info(
+                "deep_sync: marked completed — torrent %s, file %s (path=%s, size=%s/%s)",
+                row["torrent_id"],
+                row["file_id"],
+                local_path.name,
+                actual_size,
+                expected_size or "unknown",
+            )
+
+        if completed_count:
+            logger.info("deep_sync_aria2_finished: %d file(s) resolved via filesystem", completed_count)
+
+        # Finalize any torrents where all files are now done
+        for torrent_id in touched:
+            await self._finalize_aria2_torrent(torrent_id)
+
     async def cleanup_stuck_downloads(self):
         """
         Resets torrents that have been stuck in queued/downloading for longer

@@ -68,6 +68,11 @@ class AppSettings(BaseModel):
     blocked_keywords: List[str] = []
     min_file_size_mb: int = 0
 
+    # Deep aria2 filesystem sync
+    # Interval in minutes (0 = disabled). Checks actual file presence on disk
+    # independently of aria2 GID/status, resolving same-filename-different-folder issues.
+    aria2_deep_sync_interval_minutes: int = 10
+
     # Polling
     poll_interval_seconds: int = 30
     watch_interval_seconds: int = 10

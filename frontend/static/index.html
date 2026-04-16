@@ -1467,6 +1467,15 @@ function renderSettings() {
           <input class="input" type="number" id="s-aria2_max_active_downloads" value="${s.aria2_max_active_downloads||s.max_concurrent_downloads||3}" min="1" max="50"/>
           <span class="form-hint">Only this many files are handed to aria2 at once. Remaining files stay pending until a slot becomes free.</span>
         </div>
+        <div class="form-group">
+          <label class="form-label">Deep Filesystem Sync Interval (minutes)</label>
+          <input class="input" type="number" id="s-aria2_deep_sync_interval_minutes" value="${s.aria2_deep_sync_interval_minutes||10}" min="0" max="1440"/>
+          <span class="form-hint">
+            Periodically checks if downloaded files exist on disk — independent of aria2 GID or status.
+            Resolves stuck downloads where aria2 lost track of the entry or the same filename appears in different folders.
+            <b>0 = disabled.</b> Default: 10 minutes.
+          </span>
+        </div>
         <div class="toggle-row">
           <div class="toggle-info">
             <div class="tl">Start aria2 Jobs Paused</div>
