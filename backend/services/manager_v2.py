@@ -496,8 +496,11 @@ class TorrentManager:
                 expected_size or "unknown",
             )
 
-        if completed_count:
-            logger.info("deep_sync_aria2_finished: %d file(s) resolved via filesystem", completed_count)
+        # Always log the result so operators can see the sync ran
+        logger.info(
+            "deep_sync_aria2_finished: checked %d file(s), resolved %d via filesystem (%d torrent(s) finalized)",
+            len(rows), completed_count, len(touched),
+        )
 
         # Finalize any torrents where all files are now done
         for torrent_id in touched:

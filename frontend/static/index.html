@@ -844,6 +844,7 @@ async function checkConnections() {
 function setDot(id, state, label) {
   const d = document.getElementById('dot-'+id);
   const l = document.getElementById('lbl-'+id);
+  if (!d || !l) return;  // element not in DOM yet
   d.className = 'dot' + (state ? ' '+state : '');
   l.textContent = label;
 }
@@ -1110,15 +1111,13 @@ function toggleTheme() {
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
   document.getElementById('theme-toggle').textContent = isLight ? '🌙' : '☀️';
 }
-(function() {
+document.addEventListener('DOMContentLoaded', () => {
   if (localStorage.getItem('theme') === 'light') {
     document.body.classList.add('light');
-    document.addEventListener('DOMContentLoaded', () => {
-      const btn = document.getElementById('theme-toggle');
-      if (btn) btn.textContent = '☀️';
-    });
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = '☀️';
   }
-})();
+});
 
 // ── Bulk selection ────────────────────────────────────────────────────────────
 let _selectedIds = new Set();
@@ -1347,12 +1346,14 @@ function renderSettings() {
   const s = settingsData;
   // Define tabs
   const tabs = [
-    { id:'tab-general',  label:'⚡ General' },
-    { id:'tab-download', label:'⬇️ Download' },
-    { id:'tab-discord',  label:'🔔 Discord' },
-    { id:'tab-database', label:'🗄️ Database' },
-    { id:'tab-filters',  label:'🚫 Filters' },
-    { id:'tab-polling',  label:'⏱ Polling' },
+    { id:'tab-general',      label:'⚡ General' },
+    { id:'tab-download',     label:'⬇️ Download' },
+    { id:'tab-discord',      label:'🔔 Discord' },
+    { id:'tab-integrations', label:'🔗 Integrations' },
+    { id:'tab-database',     label:'🗄️ Database' },
+    { id:'tab-filters',      label:'🚫 Filters' },
+    { id:'tab-polling',      label:'⏱ Polling' },
+    { id:'tab-backup',       label:'💾 Backup' },
   ];
   document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
     `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${t.label}</div>`
@@ -1959,5 +1960,6 @@ async function testPostgres() {
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
 </body>
 </html>
