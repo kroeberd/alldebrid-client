@@ -1033,7 +1033,7 @@ class TorrentManager:
                              AND f.blocked=0
                              AND f.status='pending'
                              AND t.status NOT IN ('completed','deleted','error')
-                           ORDER BY t.priority DESC, f.id ASC
+                           ORDER BY COALESCE(t.priority, 0) DESC, f.id ASC
                            LIMIT ?""",
                         (available_slots,),
                     )

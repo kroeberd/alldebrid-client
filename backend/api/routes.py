@@ -320,19 +320,30 @@ async def retry_torrent(torrent_id: int):
             raise HTTPException(404, "Torrent not found")
         if not row["magnet"] and not row["alldebrid_id"]:
             raise HTTPException(400, "No magnet or AllDebrid ID — cannot retry")
+        # If we already have an AllDebrid ID, skip re-uploading and go straight
+        # to polling (status=ready triggers _start_download on next sync cycle)
+        new_status = "ready" if row["alldebrid_id"] else "uploading"
         await db.execute(
             """UPDATE torrents
-               SET status='uploading', error_message=NULL,
+               SET status=?, error_message=NULL,
                    polling_failures=0, updated_at=CURRENT_TIMESTAMP
                WHERE id=?""",
+            (new_status, torrent_id),
+        )
+        # Reset any error-state download_files so they re-enter the queue
+        await db.execute(
+            """UPDATE download_files
+               SET status='pending', download_id=NULL, retry_count=0,
+                   updated_at=CURRENT_TIMESTAMP
+               WHERE torrent_id=? AND status='error'""",
             (torrent_id,),
         )
         await db.execute(
-            "INSERT INTO events (torrent_id, level, message) VALUES (?, 'info', 'Manual retry')",
-            (torrent_id,),
+            "INSERT INTO events (torrent_id, level, message) VALUES (?, 'info', ?)",
+            (torrent_id, f"Manual retry — resetting to {new_status}"),
         )
         await db.commit()
-    return {"ok": True}
+    return {"ok": True, "new_status": new_status}
 
 
 @router.post("/torrents/{torrent_id}/pause")
