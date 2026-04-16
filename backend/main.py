@@ -142,8 +142,12 @@ async def lifespan(app: FastAPI):
             # _is_postgres() now returns False
 
     # 2. Initialise schema (idempotent — safe on restart)
+    # Note: init_db() always runs _init_db_sqlite() even in PG mode,
+    # because manager_v2 uses aiosqlite directly for all DB operations.
     try:
         await init_db()
+        logger.info("Database schema initialised (SQLite + %s)",
+                    "PostgreSQL" if _is_postgres() else "SQLite only")
     except Exception as e:
         logger.error("Database initialisation failed: %s", e)
         if _is_postgres():
@@ -186,7 +190,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AllDebrid-Client",
     description="Automated torrent downloading via AllDebrid",
-    version="0.9.5",
+    version="0.9.6",
     lifespan=lifespan,
 )
 

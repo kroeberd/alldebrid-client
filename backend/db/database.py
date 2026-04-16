@@ -189,8 +189,10 @@ _SCHEMA_COLUMNS_FILES = [
 async def init_db():
     if _is_postgres():
         await _init_db_postgres()
-    else:
-        await _init_db_sqlite()
+    # Always initialise SQLite too — manager_v2 uses aiosqlite directly
+    # regardless of the active backend, so the SQLite file must have all
+    # columns even when PostgreSQL is the primary database.
+    await _init_db_sqlite()
 
 
 async def _init_db_sqlite():
