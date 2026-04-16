@@ -1,10 +1,9 @@
 """
 Database layer for AllDebrid-Client.
 
-Supports three modes (controlled by db_type in AppSettings):
-  sqlite            -> Default, fully backward compatible, no setup needed
-  postgres          -> External PostgreSQL instance
-
+Supports two modes (controlled by db_type in AppSettings):
+  sqlite   -> Default, fully backward compatible, no setup needed
+  postgres -> External PostgreSQL instance
 
 Both modes use the same _DbConnection abstraction.
 
@@ -29,16 +28,10 @@ import aiosqlite
 
 logger = logging.getLogger("alldebrid.db")
 
-# Abwärtskompatibel — bestehender Code importiert DB_PATH direkt
 DB_PATH = Path(os.getenv("DB_PATH", "/app/data/alldebrid.db"))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Interne Hilfsfunktionen
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _get_settings():
-    """Lazy-imports settings to avoid circular imports."""
     try:
         from core.config import get_settings
         return get_settings()
@@ -47,13 +40,11 @@ def _get_settings():
 
 
 def _is_postgres() -> bool:
-    """Returns True when PostgreSQL (internal or external) is configured."""
     cfg = _get_settings()
     return cfg is not None and getattr(cfg, "db_type", "sqlite") == "postgres"
 
 
 def _build_dsn() -> str:
-    """Builds an asyncpg DSN from AppSettings."""
     cfg = _get_settings()
     if cfg is None:
         raise RuntimeError("Settings not available")
@@ -66,18 +57,11 @@ def _build_dsn() -> str:
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Abstraktions-Wrapper
-# ─────────────────────────────────────────────────────────────────────────────
-
 class _DbConnection:
-    """
-    Unified connection API for SQLite and PostgreSQL.
-    Translates ? → $1/$2 and SQLite-specific types to PostgreSQL.
-    """
+    """Unified connection API for SQLite and PostgreSQL."""
 
     def __init__(self, backend: str, raw):
-        self._backend = backend  # "sqlite" | "postgres"
+        self._backend = backend
         self._raw = raw
 
     @property
@@ -85,25 +69,18 @@ class _DbConnection:
         return self._backend
 
     def _adapt(self, sql: str) -> str:
-        """Translates SQLite SQL to PostgreSQL-compatible SQL."""
         if self._backend == "sqlite":
             return sql
-
         import re
-
         counter = 0
         def _repl(_m):
             nonlocal counter
             counter += 1
             return f"${counter}"
-
         sql = re.sub(r"\?", _repl, sql)
         sql = sql.replace("CURRENT_TIMESTAMP", "NOW()")
-        sql = re.sub(
-            r"datetime\('now',\s*'(-?\d+)\s+(\w+)'\)",
-            lambda m: f"(NOW() + INTERVAL '{m.group(1)} {m.group(2)}')",
-            sql,
-        )
+        sql = re.sub(r"datetime\('now',\s*'(-?\d+)\s+(\w+)'\)",
+                     lambda m: f"(NOW() + INTERVAL '{m.group(1)} {m.group(2)}')", sql)
         sql = re.sub(r"datetime\('now'\)", "NOW()", sql)
         sql = re.sub(r"INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY", sql, flags=re.IGNORECASE)
         sql = re.sub(r"\bDATETIME\b", "TIMESTAMPTZ", sql, flags=re.IGNORECASE)
@@ -154,22 +131,11 @@ class _DbConnection:
             await self._raw.rollback()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Context-Manager-Factory
-# ─────────────────────────────────────────────────────────────────────────────
-
 @asynccontextmanager
 async def get_db() -> AsyncIterator[_DbConnection]:
-    """
-    Liefert eine Datenbankverbindung als async context manager.
-
-    Beispiel:
-        async with get_db() as db:
-            rows = await db.fetchall("SELECT * FROM torrents")
-    """
     if _is_postgres():
         try:
-            import asyncpg  # type: ignore
+            import asyncpg
         except ImportError:
             raise RuntimeError("asyncpg is not installed. Run: pip install asyncpg")
         dsn = _build_dsn()
@@ -185,12 +151,7 @@ async def get_db() -> AsyncIterator[_DbConnection]:
             yield _DbConnection("sqlite", conn)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Schema-Migration-Hilfsfunktionen
-# ─────────────────────────────────────────────────────────────────────────────
-
 async def _ensure_column(db: aiosqlite.Connection, table: str, column: str, definition: str):
-    """SQLite: add column if it does not exist."""
     cur = await db.execute(f"PRAGMA table_info({table})")
     existing = {row[1] for row in await cur.fetchall()}
     if column not in existing:
@@ -198,7 +159,6 @@ async def _ensure_column(db: aiosqlite.Connection, table: str, column: str, defi
 
 
 async def _ensure_column_pg(conn, table: str, column: str, definition: str):
-    """PostgreSQL: add column if it does not exist."""
     import re
     row = await conn.fetchrow(
         "SELECT 1 FROM information_schema.columns WHERE table_name=$1 AND column_name=$2",
@@ -209,15 +169,13 @@ async def _ensure_column_pg(conn, table: str, column: str, definition: str):
         await conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {definition}")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Schema-Definition
-# ─────────────────────────────────────────────────────────────────────────────
-
 _SCHEMA_COLUMNS_TORRENTS = [
     ("provider_status",      "TEXT"),
     ("provider_status_code", "INTEGER"),
     ("polling_failures",     "INTEGER DEFAULT 0"),
     ("download_client",      "TEXT DEFAULT 'aria2'"),
+    ("label",                "TEXT DEFAULT ''"),
+    ("priority",             "INTEGER DEFAULT 0"),
 ]
 
 _SCHEMA_COLUMNS_FILES = [
@@ -227,12 +185,7 @@ _SCHEMA_COLUMNS_FILES = [
 ]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Initialisierung
-# ─────────────────────────────────────────────────────────────────────────────
-
 async def init_db():
-    """Initialises the database schema for the active backend."""
     if _is_postgres():
         await _init_db_postgres()
     else:
@@ -259,6 +212,8 @@ async def _init_db_sqlite():
                 provider_status_code INTEGER,
                 polling_failures INTEGER DEFAULT 0,
                 download_client TEXT DEFAULT 'aria2',
+                label TEXT DEFAULT '',
+                priority INTEGER DEFAULT 0,
                 error_message TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -301,15 +256,10 @@ async def _init_db_sqlite():
 
 
 async def _init_db_postgres():
-    """
-    Initialisiert PostgreSQL-Schema. Wird auch beim ersten Start mit internem
-    PG-Container aufgerufen — idempotent dank IF NOT EXISTS / IF NOT EXISTS.
-    """
     try:
-        import asyncpg  # type: ignore
+        import asyncpg
     except ImportError:
         raise RuntimeError("asyncpg is not installed. Run: pip install asyncpg")
-
     dsn = _build_dsn()
     conn = await asyncpg.connect(dsn)
     try:
@@ -331,6 +281,8 @@ async def _init_db_postgres():
                     provider_status_code INTEGER,
                     polling_failures INTEGER DEFAULT 0,
                     download_client TEXT DEFAULT 'aria2',
+                    label TEXT DEFAULT '',
+                    priority INTEGER DEFAULT 0,
                     error_message TEXT,
                     created_at TIMESTAMPTZ DEFAULT NOW(),
                     updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -371,7 +323,6 @@ async def _init_db_postgres():
     logger.info("PostgreSQL database initialised")
 
 
-# Abwärtskompatibilität
 async def get_db_legacy():
     """Deprecated: use get_db() instead."""
     return aiosqlite.connect(DB_PATH)

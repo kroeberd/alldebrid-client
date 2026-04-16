@@ -20,6 +20,24 @@ logger = logging.getLogger("alldebrid.manager")
 
 READY_CODE = 4
 ERROR_CODES = set(range(5, 16))
+
+# AllDebrid API rate limiter — shared across all manager instances
+_ad_rate_sem: asyncio.Semaphore | None = None
+_ad_rate_lock = asyncio.Lock()
+
+
+async def _get_ad_semaphore() -> asyncio.Semaphore:
+    """Returns a semaphore that enforces alldebrid_rate_limit_per_minute."""
+    global _ad_rate_sem
+    async with _ad_rate_lock:
+        try:
+            from core.config import get_settings
+            limit = max(1, get_settings().alldebrid_rate_limit_per_minute)
+        except Exception:
+            limit = 60
+        if _ad_rate_sem is None or _ad_rate_sem._value != limit:
+            _ad_rate_sem = asyncio.Semaphore(limit)
+    return _ad_rate_sem
 MAX_FILE_RETRIES = 3
 READY_FILE_RETRIES = 5
 PROVIDER_FAILURE_THRESHOLD = 6
@@ -382,6 +400,44 @@ class TorrentManager:
 
         await self.sync_download_clients()
 
+    async def cleanup_stuck_downloads(self):
+        """
+        Resets torrents that have been stuck in queued/downloading for longer
+        than stuck_download_timeout_hours. Configurable in settings (0 = disabled).
+        """
+        from core.config import get_settings
+        cfg = get_settings()
+        timeout_hours = getattr(cfg, "stuck_download_timeout_hours", 6)
+        if not timeout_hours or timeout_hours <= 0:
+            return
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            rows = await (await db.execute(
+                """SELECT id, name, alldebrid_id FROM torrents
+                   WHERE status IN ('queued', 'downloading', 'processing', 'uploading')
+                     AND updated_at < datetime('now', ? || ' hours')""",
+                (f"-{timeout_hours}",)
+            )).fetchall()
+
+        if not rows:
+            return
+
+        logger.info("cleanup_stuck_downloads: %d stuck torrent(s) found", len(rows))
+        for row in rows:
+            logger.info("Resetting stuck torrent %s (%s)", row["id"], row["name"])
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "UPDATE torrents SET status='ready', polling_failures=0, "
+                    "updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (row["id"],)
+                )
+                await db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, 'warn', ?)",
+                    (row["id"], f"Auto-reset: stuck in download for >{timeout_hours}h")
+                )
+                await db.commit()
+
     async def cleanup_no_peer_errors(self):
         """
         Finds torrents in 'error' status whose error_message contains 'No peer after'
@@ -626,7 +682,7 @@ class TorrentManager:
 
         if final_status == "completed":
             await self._delete_magnet_after_completion(torrent_id, ad_id)
-            await self._mark_finished(torrent_id)
+            await self._mark_finished(torrent_id, name=name)
             if cfg.discord_notify_finished:
                 await self.notify().send_complete(name, file_count=completed_count, destination=str(destination_root), download_client="aria2")
         elif final_status in {"queued", "paused"}:
@@ -1160,7 +1216,7 @@ class TorrentManager:
                 await db.commit()
 
         await self._delete_magnet_after_completion(torrent_id, torrent_dict["alldebrid_id"])
-        await self._mark_finished(torrent_id)
+        await self._mark_finished(torrent_id, name=torrent_dict.get("name",""))
         if get_settings().discord_notify_finished:
             await self.notify().send_complete(torrent_dict["name"], file_count=completed_count, download_client="aria2")
 
@@ -1282,8 +1338,18 @@ class TorrentManager:
             await db.commit()
         return deleted
 
-    async def _mark_finished(self, torrent_id: int):
+    async def _mark_finished(self, torrent_id: int, name: str = ""):
         await self._log_event(torrent_id, "info", "Finished")
+        # Notify Sonarr + Radarr after completion
+        try:
+            from services.integrations import notify_sonarr, notify_radarr
+            await asyncio.gather(
+                notify_sonarr(name),
+                notify_radarr(name),
+                return_exceptions=True,
+            )
+        except Exception as exc:
+            logger.warning("Integration notify failed: %s", exc)
 
     async def _fail_torrent(self, torrent_id: int, message: str, notify: bool = False):
         async with aiosqlite.connect(DB_PATH) as db:

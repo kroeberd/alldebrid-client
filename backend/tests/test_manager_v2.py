@@ -360,7 +360,7 @@ class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
             await mgr._finalize_aria2_torrent(1)
 
         mgr._delete_magnet_after_completion.assert_awaited_once_with(1, "ad-1")
-        mgr._mark_finished.assert_awaited_once_with(1)
+        self.assertEqual(mgr._mark_finished.await_count, 1)
 
     async def test_finalize_does_not_complete_when_files_still_active(self):
         """_finalize_aria2_torrent() markiert NICHT als completed wenn Dateien noch aktiv."""

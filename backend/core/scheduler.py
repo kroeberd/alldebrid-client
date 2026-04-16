@@ -30,6 +30,10 @@ async def sync_status_loop():
             await manager.cleanup_no_peer_errors()
         except Exception as e:
             logger.error(f"No-peer cleanup error: {e}")
+        try:
+            await manager.cleanup_stuck_downloads()
+        except Exception as e:
+            logger.error(f"Stuck download cleanup error: {e}")
         await asyncio.sleep(get_settings().poll_interval_seconds)
 
 
@@ -42,10 +46,25 @@ async def sync_download_clients_loop():
         await asyncio.sleep(max(2, get_settings().aria2_poll_interval_seconds))
 
 
+async def backup_loop():
+    """Runs periodic backups based on backup_interval_hours setting."""
+    await asyncio.sleep(60)  # Initial delay
+    while True:
+        try:
+            from services.backup import run_backup
+            await run_backup()
+        except Exception as e:
+            logger.error(f"Backup error: {e}")
+        cfg = get_settings()
+        interval_h = max(1, getattr(cfg, "backup_interval_hours", 24))
+        await asyncio.sleep(interval_h * 3600)
+
+
 async def start_scheduler():
     _tasks.append(asyncio.create_task(watch_folder_loop()))
     _tasks.append(asyncio.create_task(sync_status_loop()))
     _tasks.append(asyncio.create_task(sync_download_clients_loop()))
+    _tasks.append(asyncio.create_task(backup_loop()))
     logger.info("Scheduler started")
 
 

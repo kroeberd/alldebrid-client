@@ -58,3 +58,58 @@
 ## [0.6.3] and earlier
 
 See git log for earlier history.
+
+---
+
+## [0.9.0] — 2026-04-16
+
+### Added
+
+**Sonarr / Radarr Integration** (Settings → Integrations)
+- After every completed download: `RescanSeries` sent to Sonarr, `RescanMovie` to Radarr
+- Per-service enable/disable toggles + Test button
+- Connection test via `/api/v3/system/status`
+
+**Torrent Labels** (Settings → Integrations)
+- Optional label per torrent, shown as purple badge in the torrent list
+- Predefined label list (comma-separated), empty by default
+- Set/clear via Details modal; bulk-clear via bulk action bar
+
+**Bulk Actions**
+- Checkbox per torrent row + select-all header checkbox
+- Bulk Retry / Delete / Clear Label via the orange action bar
+- `POST /api/torrents/bulk`
+
+**Auto-Restart Stuck Downloads** (Settings → Integrations)
+- Configurable timeout (hours, default 6h, 0 = disabled)
+- Torrents stuck in queued/downloading auto-reset to ready
+
+**AllDebrid Rate Limit** (Settings → Integrations)
+- Configurable API calls per minute (default 60)
+- Semaphore enforced across all manager instances
+
+**Automatic Backups** (Settings → Backup)
+- Backs up config.json + SQLite DB + avatar image
+- Default: every 24h, kept for 7 days, stored in `/app/data/backups`
+- Manual trigger + backup list in Settings
+- `POST /api/admin/backup`, `GET /api/admin/backups`
+
+**Statistics Chart**
+- Bar chart showing daily completions over the last 14 days
+- Rendered via Chart.js (loaded from CDN)
+
+**Light / Dark Mode Toggle**
+- 🌙/☀️ button fixed at bottom-right corner
+- Preference stored in localStorage
+
+**Retry Button for Error Torrents** *(existing, now works with bulk)*
+- Already present in the actions column
+
+### Changed
+- Torrent table: added Checkbox column and Label sub-column in Source column
+- DB schema: `label TEXT DEFAULT ''` and `priority INTEGER DEFAULT 0` added to torrents table (migration-safe via ALTER TABLE)
+- Settings tabs: added Integrations and Backup tabs
+
+### Fixed
+- `_mark_finished()` now passes `name` to Sonarr/Radarr integrations
+- 50/50 tests passing

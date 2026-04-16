@@ -365,6 +365,108 @@ async def resume_torrent(torrent_id: int):
 
 # ─── Stats ────────────────────────────────────────────────────────────────────
 
+# ── Label / Priority ─────────────────────────────────────────────────────────
+
+class LabelUpdate(BaseModel):
+    label: str = ""
+    priority: int = 0
+
+
+@router.put("/torrents/{torrent_id}/label")
+async def set_torrent_label(torrent_id: int, body: LabelUpdate):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE torrents SET label=?, priority=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (body.label.strip(), body.priority, torrent_id)
+        )
+        await db.commit()
+    return {"ok": True}
+
+
+# ── Bulk actions ──────────────────────────────────────────────────────────────
+
+class BulkAction(BaseModel):
+    ids: list
+    action: str  # "delete" | "retry" | "remove_label"
+
+
+@router.post("/torrents/bulk")
+async def bulk_action(body: BulkAction):
+    if not body.ids:
+        raise HTTPException(400, "No IDs provided")
+    results = {"ok": 0, "failed": 0}
+    for tid in body.ids:
+        try:
+            if body.action == "delete":
+                await manager.delete_torrent(int(tid), delete_from_ad=True)
+            elif body.action == "retry":
+                async with aiosqlite.connect(DB_PATH) as db:
+                    db.row_factory = aiosqlite.Row
+                    row = await (await db.execute(
+                        "SELECT * FROM torrents WHERE id=?", (int(tid),)
+                    )).fetchone()
+                    if row and row["magnet"]:
+                        await db.execute(
+                            "UPDATE torrents SET status='uploading', error_message=NULL, "
+                            "polling_failures=0, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                            (int(tid),)
+                        )
+                        await db.commit()
+            elif body.action == "remove_label":
+                async with aiosqlite.connect(DB_PATH) as db:
+                    await db.execute(
+                        "UPDATE torrents SET label='', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                        (int(tid),)
+                    )
+                    await db.commit()
+            results["ok"] += 1
+        except Exception:
+            results["failed"] += 1
+    return results
+
+
+# ── Sonarr / Radarr test ──────────────────────────────────────────────────────
+
+@router.post("/settings/test-sonarr")
+async def test_sonarr():
+    cfg = get_settings()
+    if not cfg.sonarr_enabled or not cfg.sonarr_url:
+        raise HTTPException(400, "Sonarr not configured")
+    from services.integrations import test_connection
+    result = await test_connection(cfg.sonarr_url, cfg.sonarr_api_key)
+    if not result["ok"]:
+        raise HTTPException(502, result.get("error", "Connection failed"))
+    return result
+
+
+@router.post("/settings/test-radarr")
+async def test_radarr():
+    cfg = get_settings()
+    if not cfg.radarr_enabled or not cfg.radarr_url:
+        raise HTTPException(400, "Radarr not configured")
+    from services.integrations import test_connection
+    result = await test_connection(cfg.radarr_url, cfg.radarr_api_key)
+    if not result["ok"]:
+        raise HTTPException(502, result.get("error", "Connection failed"))
+    return result
+
+
+# ── Backups ───────────────────────────────────────────────────────────────────
+
+@router.post("/admin/backup")
+async def trigger_backup():
+    """Manually trigger a backup."""
+    from services.backup import run_backup
+    result = await run_backup()
+    return result
+
+
+@router.get("/admin/backups")
+async def list_backups():
+    from services.backup import list_backups as _list
+    return {"backups": _list()}
+
+
 @router.get("/stats")
 async def get_stats():
     async with aiosqlite.connect(DB_PATH) as db:

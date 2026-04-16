@@ -12,15 +12,9 @@ class AppSettings(BaseModel):
     alldebrid_api_key: str = ""
     alldebrid_agent: str = "AllDebrid-Client"
 
-    # ── Datenbank ──────────────────────────────────────────────────────────────
-    # db_type:
-    #   "sqlite"            → Standard, abwärtskompatibel (Default)
-    #   "postgres"          → Externe PostgreSQL-Instanz
-    #   "postgres_internal" → Interner Docker-Container über Compose-Netzwerk
+    # Database
     db_type: str = "sqlite"
-
-    # PostgreSQL — defaults match the internal container (alldebrid/alldebrid)
-    postgres_host: str = "alldebrid-postgres"   # Container-Name im Compose-Netzwerk
+    postgres_host: str = "alldebrid-postgres"
     postgres_port: int = 5432
     postgres_db: str = "alldebrid"
     postgres_user: str = "alldebrid"
@@ -46,10 +40,19 @@ class AppSettings(BaseModel):
     aria2_poll_interval_seconds: int = 5
     aria2_max_active_downloads: int = 3
 
-    # ── Discord ────────────────────────────────────────────────────────────────
+    # Sonarr integration
+    sonarr_enabled: bool = False
+    sonarr_url: str = ""
+    sonarr_api_key: str = ""
+
+    # Radarr integration
+    radarr_enabled: bool = False
+    radarr_url: str = ""
+    radarr_api_key: str = ""
+
+    # Discord
     discord_webhook_url: str = ""
     discord_webhook_added: str = ""
-    # Discord bot identity — shown in all webhook messages
     discord_username: str = "AllDebrid-Client"
     discord_avatar_url: str = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
     discord_notify_added: bool = True
@@ -70,22 +73,34 @@ class AppSettings(BaseModel):
     watch_interval_seconds: int = 10
     paused: bool = False
 
+    # Rate limiting — AllDebrid API calls per minute (0 = unlimited)
+    alldebrid_rate_limit_per_minute: int = 60
+
+    # Auto-restart stuck downloads
+    # Torrents stuck in queued/downloading for longer than this are reset (0 = disabled)
+    stuck_download_timeout_hours: int = 6
+
+    # Backups
+    backup_enabled: bool = True
+    backup_folder: str = "/app/data/backups"
+    backup_keep_days: int = 7
+    backup_interval_hours: int = 24
+
+    # Notifications for other providers (comma-separated URLs for Pushover/Gotify/etc.)
+    # Kept empty by default
+    notification_urls: str = ""
+
+    # Labels / categories (comma-separated, empty = disabled)
+    torrent_labels: List[str] = []
+
 
 _settings: AppSettings = AppSettings()
 
 
 def _build_effective_settings(loaded: dict) -> AppSettings:
-    """
-    Applies environment variable overrides and normalises postgres_internal.
-    Priority order: defaults → config.json → environment variables.
-    """
-    # DB_TYPE env var takes absolute precedence over config.json
     env_db_type = os.getenv("DB_TYPE", "").strip()
     if env_db_type:
         loaded["db_type"] = env_db_type
-
-    db_type = loaded.get("db_type", "sqlite")
-
     return AppSettings(**{k: v for k, v in loaded.items() if k in AppSettings.model_fields})
 
 
@@ -108,7 +123,6 @@ def load_settings() -> AppSettings:
 def save_settings(s: AppSettings):
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     data = s.model_dump()
-    # Never store internal PG password in config.json — comes from env
     if os.getenv("DB_TYPE") == "postgres_internal":
         data.pop("postgres_password", None)
     with open(CONFIG_PATH, "w") as f:

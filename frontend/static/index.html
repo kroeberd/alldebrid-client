@@ -30,6 +30,38 @@
   --mono:     'JetBrains Mono', monospace;
   --sidebar:  240px;
 }
+body.light {
+  --bg:       #f3f4f6;
+  --bg2:      #ffffff;
+  --surface:  #ffffff;
+  --surface2: #f9fafb;
+  --border:   #e5e7eb;
+  --border2:  #d1d5db;
+  --text:     #111827;
+  --text2:    #6b7280;
+  --text3:    #9ca3af;
+}
+/* Theme toggle */
+.theme-toggle { position:fixed; bottom:16px; right:16px; z-index:100;
+  background:var(--surface); border:1px solid var(--border); border-radius:50%;
+  width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size:16px; box-shadow:0 2px 10px rgba(0,0,0,.3); transition:all .2s; }
+.theme-toggle:hover { transform:scale(1.1); }
+/* Label badge */
+.lbl-badge { display:inline-flex; align-items:center; padding:1px 7px;
+  border-radius:10px; font-size:10px; font-weight:700;
+  background:rgba(168,85,247,.15); color:var(--purple);
+  border:1px solid rgba(168,85,247,.25); white-space:nowrap; }
+/* Bulk bar */
+.bulk-bar { display:none; background:var(--accent); color:#fff; padding:9px 16px;
+  border-radius:var(--radius); margin-bottom:10px; gap:12px; font-size:13px;
+  font-weight:600; align-items:center; }
+.bulk-bar.visible { display:flex; }
+/* Stat trend chart */
+.chart-wrap { position:relative; height:140px; margin-top:8px; }
+/* Priority */
+.prio-high { color:var(--red); font-weight:700; }
+.prio-mid  { color:var(--yellow); font-weight:600; }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; overflow: hidden; }
 body { background: var(--bg); color: var(--text); font-family: var(--font); display: flex; font-size: 14px; }
@@ -380,7 +412,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.8.1</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.0</div>
     </div>
   </div>
   <nav>
@@ -532,7 +564,7 @@ textarea.input { resize: vertical; }
           <button class="btn btn-ghost btn-sm" onclick="loadTorrents()" style="margin-left:8px">↻</button>
         </div>
         <table>
-          <thead><tr><th>Name / Hash</th><th>Source</th><th>Status</th><th>Progress</th><th>Size</th><th>Added</th><th>Actions</th></tr></thead>
+          <thead><tr><th style="width:32px"><input type="checkbox" id="chk-all" onchange="toggleAllCheckboxes(this)"/></th><th>Name</th><th>Source / Label</th><th>Status</th><th>Progress</th><th class="sz">Size</th><th class="sz">Added</th><th>Actions</th></tr></thead>
           <tbody id="t-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
         </table>
       </div>
@@ -567,6 +599,13 @@ textarea.input { resize: vertical; }
           <div class="metric-label">Library</div>
           <div class="metric-value">â€”</div>
           <div class="metric-sub">Loading detailed statistics…</div>
+        </div>
+      </div>
+
+      <div class="scard" style="margin-bottom:14px">
+        <div class="scard-header">📈 Daily Completions (14 days)</div>
+        <div class="scard-body" style="padding:12px">
+          <div class="chart-wrap"><canvas id="daily-chart"></canvas></div>
         </div>
       </div>
 
@@ -931,11 +970,15 @@ async function loadTorrents() {
       return;
     }
     tb.innerHTML = items.map(t => `<tr>
-      <td>
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="t-chk" data-id="${t.id}" onchange="onCheckboxChange()"/></td>
+      <td onclick="showDetail(${t.id})" style="cursor:pointer">
         <div class="t-name">${t.name||'(unnamed)'}</div>
         <div class="t-hash">${(t.hash||'').substring(0,16)}${t.hash?'…':''}</div>
       </td>
-      <td class="sz">${t.source||'—'}</td>
+      <td class="sz">
+        <div>${t.source||'—'}</div>
+        ${t.label?`<span class="lbl-badge">🏷 ${t.label}</span>`:''}
+      </td>
       <td>${badge(t.status)}</td>
       <td>${progress(t.progress,t.status)}</td>
       <td class="sz">${fmtSize(t.size_bytes)}</td>
@@ -1061,6 +1104,80 @@ function closeModal(e) {
     document.getElementById('overlay').classList.remove('open');
 }
 
+// ── Theme toggle ─────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  document.getElementById('theme-toggle').textContent = isLight ? '🌙' : '☀️';
+}
+(function() {
+  if (localStorage.getItem('theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('theme-toggle');
+      if (btn) btn.textContent = '☀️';
+    });
+  }
+})();
+
+// ── Bulk selection ────────────────────────────────────────────────────────────
+let _selectedIds = new Set();
+
+function onCheckboxChange() {
+  _selectedIds = new Set(
+    [...document.querySelectorAll('.t-chk:checked')].map(el => parseInt(el.dataset.id))
+  );
+  const bar = document.getElementById('bulk-bar');
+  const cnt = document.getElementById('bulk-count');
+  if (_selectedIds.size > 0) {
+    bar.classList.add('visible');
+    cnt.textContent = _selectedIds.size + ' selected';
+  } else {
+    bar.classList.remove('visible');
+  }
+  const all = document.getElementById('chk-all');
+  const total = document.querySelectorAll('.t-chk').length;
+  if (all) all.indeterminate = _selectedIds.size > 0 && _selectedIds.size < total;
+}
+
+function toggleAllCheckboxes(el) {
+  document.querySelectorAll('.t-chk').forEach(c => {
+    c.checked = el.checked;
+  });
+  onCheckboxChange();
+}
+
+function clearSelection() {
+  _selectedIds.clear();
+  document.querySelectorAll('.t-chk').forEach(c => c.checked = false);
+  const all = document.getElementById('chk-all');
+  if (all) { all.checked = false; all.indeterminate = false; }
+  document.getElementById('bulk-bar').classList.remove('visible');
+}
+
+async function bulkAction(action) {
+  if (!_selectedIds.size) return;
+  const ids = [..._selectedIds];
+  if (action === 'delete' && !confirm(`Delete ${ids.length} torrents?`)) return;
+  try {
+    const r = await api('POST', '/torrents/bulk', {ids, action});
+    toast(`Done: ${r.ok} ok, ${r.failed} failed`, r.failed ? 'warn' : 'success');
+    clearSelection();
+    loadTorrents(); loadStats();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Label management ─────────────────────────────────────────────────────────
+async function setLabel(id) {
+  const label = prompt('Label (leave empty to clear):') ?? null;
+  if (label === null) return;
+  try {
+    await api('PUT', `/torrents/${id}/label`, {label: label.trim(), priority: 0});
+    toast('Label updated', 'success');
+    loadTorrents();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
 // ── Events ─────────────────────────────────────────────────────────────────
 let _allEvents = [];
 
@@ -1131,6 +1248,31 @@ async function loadDetailedStats() {
         <div class="etime">${fmtDate(ev.created_at)}</div>
       </div>`).join('') : '<div class="empty">No recent signals yet.</div>';
   } catch(e) { toast(e.message,'error'); }
+  // Daily completions chart
+  try {
+    const detail = await api('GET', '/stats/detail');
+    const daily = (detail.daily_completions || []).slice(-14);
+    const ctx = document.getElementById('daily-chart');
+    if (ctx && typeof Chart !== 'undefined') {
+      if (ctx._ci) ctx._ci.destroy();
+      ctx._ci = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: daily.map(d => (d.date||'').substring(5)),
+          datasets: [{ label: 'Completions', data: daily.map(d=>d.count||0),
+            backgroundColor:'rgba(249,115,22,.55)', borderColor:'#f97316',
+            borderWidth:1, borderRadius:4 }]
+        },
+        options: { responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
+          scales:{
+            x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#64748b',font:{size:10}}},
+            y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#64748b',font:{size:10}},beginAtZero:true,precision:0}
+          }
+        }
+      });
+    }
+  } catch(_) {}
 }
 
 async function loadChangelog() {
@@ -1484,6 +1626,108 @@ function renderSettings() {
           <label class="form-label">Watch Folder Scan (seconds)</label>
           <input class="input" type="number" id="s-watch_interval_seconds" value="${s.watch_interval_seconds||10}" min="5"/>
         </div>
+
+    <div class="stab-panel" id="tab-integrations">
+      <div class="scard">
+        <div class="scard-header">📺 Sonarr</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Sonarr</div><div class="ts">Trigger RescanSeries after download completes</div></div>
+            <label class="toggle"><input type="checkbox" id="s-sonarr_enabled" ${s.sonarr_enabled?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sonarr URL</label>
+            <div class="test-row">
+              <input class="input" id="s-sonarr_url" value="${s.sonarr_url||''}" placeholder="http://sonarr:8989"/>
+              <button class="btn btn-blue btn-sm" onclick="testSonarr()">Test</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" type="password" id="s-sonarr_api_key" value="${s.sonarr_api_key||''}" placeholder="Sonarr API key"/>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">🎬 Radarr</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Radarr</div><div class="ts">Trigger RescanMovie after download completes</div></div>
+            <label class="toggle"><input type="checkbox" id="s-radarr_enabled" ${s.radarr_enabled?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Radarr URL</label>
+            <div class="test-row">
+              <input class="input" id="s-radarr_url" value="${s.radarr_url||''}" placeholder="http://radarr:7878"/>
+              <button class="btn btn-blue btn-sm" onclick="testRadarr()">Test</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" type="password" id="s-radarr_api_key" value="${s.radarr_api_key||''}" placeholder="Radarr API key"/>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">🏷 Labels</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Predefined Labels <span style="font-weight:400;color:var(--text2)">(comma-separated)</span></label>
+            <input class="input" id="s-torrent_labels_raw" value="${(s.torrent_labels||[]).join(', ')}" placeholder="Movies, Series, 4K, Anime"/>
+            <span class="form-hint">Leave empty — labels are optional per torrent.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">⚠️ Auto-Restart Stuck Downloads</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Stuck timeout (hours)</label>
+            <input class="input" type="number" id="s-stuck_download_timeout_hours" value="${s.stuck_download_timeout_hours||6}" min="0" max="168"/>
+            <span class="form-hint">Torrents stuck in queued/downloading for longer than this are automatically reset. Set to 0 to disable.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">🚦 AllDebrid Rate Limit</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">API calls per minute</label>
+            <input class="input" type="number" id="s-alldebrid_rate_limit_per_minute" value="${s.alldebrid_rate_limit_per_minute||60}" min="1" max="300"/>
+            <span class="form-hint">Default: 60 req/min. Increase if you have many concurrent torrents, lower if you get rate-limited.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stab-panel" id="tab-backup">
+      <div class="scard">
+        <div class="scard-header">💾 Automatic Backups</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Backups</div><div class="ts">Automatically back up config and database</div></div>
+            <label class="toggle"><input type="checkbox" id="s-backup_enabled" ${s.backup_enabled!==false?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Backup Folder</label>
+            <input class="input" id="s-backup_folder" value="${s.backup_folder||'/app/data/backups'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Interval (hours)</label>
+            <input class="input" type="number" id="s-backup_interval_hours" value="${s.backup_interval_hours||24}" min="1" max="168"/>
+            <span class="form-hint">Default: 24h. Backup runs once per interval.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Keep backups for (days)</label>
+            <input class="input" type="number" id="s-backup_keep_days" value="${s.backup_keep_days||7}" min="1" max="90"/>
+            <span class="form-hint">Default: 7 days. Older backups are deleted automatically.</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-ghost" onclick="triggerBackup()">💾 Run Backup Now</button>
+            <button class="btn btn-ghost" onclick="loadBackupList()">📋 List Backups</button>
+          </div>
+          <div id="backup-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        </div>
       </div>
     </div>
     </div>
@@ -1522,6 +1766,13 @@ function getFormSettings() {
     discord_webhook_added: t('discord_webhook_added'),
     discord_notify_added: c('discord_notify_added'), discord_notify_finished: c('discord_notify_finished'),
     discord_notify_error: c('discord_notify_error'),
+    sonarr_enabled: c('sonarr_enabled'), sonarr_url: t('sonarr_url'), sonarr_api_key: t('sonarr_api_key'),
+    radarr_enabled: c('radarr_enabled'), radarr_url: t('radarr_url'), radarr_api_key: t('radarr_api_key'),
+    torrent_labels: (t('torrent_labels_raw')||'').split(',').map(s=>s.trim()).filter(Boolean),
+    stuck_download_timeout_hours: n('stuck_download_timeout_hours'),
+    alldebrid_rate_limit_per_minute: n('alldebrid_rate_limit_per_minute'),
+    backup_enabled: c('backup_enabled'), backup_folder: t('backup_folder'),
+    backup_interval_hours: n('backup_interval_hours'), backup_keep_days: n('backup_keep_days'),
     blocked_extensions: l('blocked_extensions'), blocked_keywords: l('blocked_keywords'),
     min_file_size_mb: n('min_file_size_mb'), poll_interval_seconds: n('poll_interval_seconds')||30,
     watch_interval_seconds: n('watch_interval_seconds')||10,
@@ -1638,6 +1889,45 @@ function clearDiscordAvatar() {
   if (preview) preview.style.display = 'none';
 }
 
+async function testSonarr() {
+  try {
+    const r = await api('POST', '/settings/test-sonarr');
+    toast(`Sonarr ${r.app_name} v${r.version} ✓`, 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function testRadarr() {
+  try {
+    const r = await api('POST', '/settings/test-radarr');
+    toast(`Radarr ${r.app_name} v${r.version} ✓`, 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function triggerBackup() {
+  try {
+    toast('Running backup…', 'info');
+    const r = await api('POST', '/admin/backup');
+    if (r.skipped) { toast('Backup disabled in settings', 'warn'); return; }
+    toast(`Backup done: ${r.backed_up.join(', ')} (${r.rotated} old removed)`, 'success');
+    loadBackupList();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function loadBackupList() {
+  try {
+    const r = await api('GET', '/admin/backups');
+    const el = document.getElementById('backup-list');
+    if (!el) return;
+    if (!r.backups.length) { el.textContent = 'No backups found.'; return; }
+    el.innerHTML = r.backups.map(b =>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span>${b.name}</span>
+        <span style="color:var(--text3)">${b.files.join(', ')} — ${Math.round(b.size_bytes/1024)} KB</span>
+      </div>`
+    ).join('');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
 async function testPostgres() {
   try {
     const r = await api('POST', '/settings/test-postgres');
@@ -1659,5 +1949,6 @@ async function testPostgres() {
   setInterval(checkConnections, 60000);
 })();
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </body>
 </html>
