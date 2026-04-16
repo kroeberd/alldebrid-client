@@ -526,7 +526,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.19</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.20</div>
     </div>
   </div>
   <nav>
@@ -671,6 +671,7 @@ textarea.input { resize: vertical; }
           <thead><tr><th>Name</th><th>Status</th><th>Progress</th><th>Size</th><th>Added</th></tr></thead>
           <tbody id="dash-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -880,16 +881,7 @@ function nav(el) {
   const activeView = document.getElementById('view-' + v);
   if (!activeView) { console.error('nav: view not found:', v); return; }
   activeView.classList.add('active');
-  // Measure immediately and after reflow
-  const measureView = (label) => {
-    const r = activeView.getBoundingClientRect();
-    const c = document.getElementById('content').getBoundingClientRect();
-    console.log(label, v, '| view:', r.width.toFixed(0)+'x'+r.height.toFixed(0),
-      '@', r.top.toFixed(0)+','+r.left.toFixed(0), '| content:', c.width.toFixed(0)+'x'+c.height.toFixed(0));
-  };
-  measureView('nav-sync:');
-  requestAnimationFrame(() => measureView('nav-raf:'));
-  setTimeout(() => measureView('nav-500ms:'), 500);
+
   const titles = {
     dashboard:'Dashboard',
     torrents:'Torrents',
