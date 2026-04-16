@@ -66,6 +66,107 @@ body.light {
 html, body { height: 100%; overflow: hidden; }
 body { background: var(--bg); color: var(--text); font-family: var(--font); display: flex; font-size: 14px; }
 
+/* ── Mobile ── */
+@media (max-width: 700px) {
+  :root { --sidebar: 100vw; }
+  #sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; z-index: 200;
+    transform: translateX(-100%); transition: transform .25s ease;
+    width: var(--sidebar); min-width: unset; height: 100vh;
+  }
+  #sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,.5); }
+  #main { width: 100vw; min-width: 0; }
+  #topbar { padding: 10px 14px; }
+  #topbar h1 { font-size: 15px; }
+  .mobile-menu-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--surface); cursor: pointer;
+    font-size: 18px; flex-shrink: 0; margin-right: 8px;
+  }
+  #mobile-overlay {
+    display: none; position: fixed; inset: 0; z-index: 199;
+    background: rgba(0,0,0,.5); backdrop-filter: blur(2px);
+  }
+  #mobile-overlay.open { display: block; }
+  .tab-grid { grid-template-columns: 1fr 1fr !important; }
+  .stat-row  { grid-template-columns: repeat(2, 1fr) !important; }
+  .split-grid { grid-template-columns: 1fr !important; }
+  table { font-size: 12px; }
+  table th:nth-child(6), table td:nth-child(6),
+  table th:nth-child(7), table td:nth-child(7) { display: none; }
+  .stabs { flex-wrap: wrap; }
+  .stab  { font-size: 11px; padding: 7px 10px; }
+  .bulk-bar { flex-wrap: wrap; font-size: 12px; }
+  .theme-toggle { bottom: 12px; right: 12px; width: 34px; height: 34px; font-size: 14px; }
+  .save-bar { flex-wrap: wrap; gap: 6px; }
+}
+@media (min-width: 701px) {
+  .mobile-menu-btn { display: none; }
+}
+
+/* ── Mobile layout ── */
+@media (max-width: 700px) {
+  body { flex-direction: column; font-size: 13px; }
+  #sidebar {
+    width: 100% !important; min-width: unset; height: auto;
+    border-right: none; border-bottom: 1px solid var(--border);
+    position: relative; flex-direction: row; flex-wrap: wrap;
+    overflow-x: auto;
+  }
+  .logo { padding: 10px 14px; border-bottom: none; }
+  .logo-icon { width: 28px; height: 28px; }
+  .logo-name { font-size: 13px; }
+  .logo-ver  { display: none; }
+  nav { display: flex; flex-direction: row; padding: 0; overflow-x: auto;
+        flex: 1; align-items: center; }
+  .nav-group { display: none; }
+  .nav-item { padding: 8px 12px; border-left: none !important;
+              border-bottom: 3px solid transparent; font-size: 12px;
+              white-space: nowrap; flex-direction: column; gap: 2px;
+              align-items: center; min-width: 52px; text-align: center; }
+  .nav-item.active { border-bottom-color: var(--accent); background: rgba(249,115,22,.07); }
+  .nav-item .icon { font-size: 18px; width: auto; }
+  .nav-badge { position: absolute; top: 4px; right: 4px; font-size: 8px; min-width: 14px; padding: 0 3px; }
+  .sidebar-footer { display: none; }
+  #main { height: calc(100vh - 80px); overflow-y: auto; }
+  #topbar { padding: 10px 14px; }
+  #topbar h1 { font-size: 16px; }
+  .view { padding: 10px !important; gap: 10px !important; }
+  .tab-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+  .stat-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .stat-card { padding: 12px !important; }
+  .stat-value { font-size: 22px !important; }
+  .detail-grid { grid-template-columns: 1fr !important; }
+  .split-grid  { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .card { border-radius: 8px !important; }
+  .card-header { padding: 10px 12px !important; }
+  .card-body { padding: 10px 12px !important; }
+  .t-hash { display: none; }
+  /* Torrent table: hide less important columns on mobile */
+  .t-table th:nth-child(1),
+  .t-table td:nth-child(1) { width: 24px; }
+  .t-table th:nth-child(6),
+  .t-table td:nth-child(6),
+  .t-table th:nth-child(7),
+  .t-table td:nth-child(7) { display: none; }
+  /* Bulk bar */
+  .bulk-bar { flex-wrap: wrap; gap: 6px; font-size: 12px; }
+  /* Settings */
+  .stabs { gap: 0; }
+  .stab { padding: 8px 10px; font-size: 11px; }
+  .scard-body { padding: 12px; gap: 10px; }
+  .save-bar { flex-wrap: wrap; gap: 6px; }
+  .save-bar .btn { font-size: 11px; padding: 6px 10px; }
+  /* Event log */
+  .ev-search-row { flex-direction: column; }
+  .etime { font-size: 10px; }
+  .theme-toggle { bottom: 10px; right: 10px; width: 32px; height: 32px; font-size: 14px; }
+  /* Modal */
+  .modal-box { width: 95vw !important; margin: 10px auto; }
+  .dash-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+}
+
 /* ── Sidebar ── */
 #sidebar {
   width: var(--sidebar); min-width: var(--sidebar);
@@ -99,6 +200,11 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
   transition: all .15s; margin: 1px 0;
 }
 .nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+.nav-label { flex: 1; }
+@media (max-width: 700px) {
+  .nav-label { font-size: 9px; color: var(--text2); margin-top: 1px; line-height: 1.1; }
+  .nav-item.active .nav-label { color: var(--accent); }
+}
 .nav-item:hover { color: var(--text); background: rgba(255,255,255,.03); }
 .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(249,115,22,.07); font-weight: 600; }
 .nav-badge { margin-left: auto; background: var(--accent); color: #fff;
@@ -412,38 +518,38 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.2</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.3</div>
     </div>
   </div>
   <nav>
     <div class="nav-group">Queue</div>
     <div class="nav-item active" data-view="dashboard" onclick="nav(this)">
-      <span class="icon">&#9889;</span>Dashboard
+      <span class="icon">&#9889;</span><span class="nav-label">Dashboard</span>
     </div>
     <div class="nav-item" data-view="torrents" onclick="nav(this)">
-      <span class="icon">&#129522;</span>Torrents
+      <span class="icon">&#129522;</span><span class="nav-label">Torrents</span>
       <span class="nav-badge" id="nb-active" style="display:none">0</span>
     </div>
     <div class="nav-group">Monitor</div>
     <div class="nav-item" data-view="events" onclick="nav(this)">
-      <span class="icon">&#128203;</span>Event Log
+      <span class="icon">&#128203;</span><span class="nav-label">Event Log</span>
     </div>
     <div class="nav-item" data-view="stats" onclick="nav(this)">
-      <span class="icon">&#128202;</span>Statistics
+      <span class="icon">&#128202;</span><span class="nav-label">Statistics</span>
     </div>
     <div class="nav-item" data-view="changelog" onclick="nav(this)">
-      <span class="icon">&#128214;</span>Changelog
+      <span class="icon">&#128214;</span><span class="nav-label">Changelog</span>
     </div>
     <div class="nav-group">Project</div>
     <div class="nav-item" data-view="github" onclick="nav(this)">
-      <span class="icon">&#128279;</span>GitHub
+      <span class="icon">&#128279;</span><span class="nav-label">GitHub</span>
     </div>
     <div class="nav-item" data-view="coffee" onclick="nav(this)">
-      <span class="icon">&#9749;</span>Coffee
+      <span class="icon">&#9749;</span><span class="nav-label">Coffee</span>
     </div>
     <div class="nav-group">System</div>
     <div class="nav-item" data-view="settings" onclick="nav(this)">
-      <span class="icon">&#9881;</span>Settings
+      <span class="icon">&#9881;</span><span class="nav-label">Settings</span>
     </div>
   </nav>
   <div class="sidebar-footer">
@@ -474,6 +580,7 @@ textarea.input { resize: vertical; }
 
 <div id="main">
   <div id="topbar">
+    <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
     <h1 id="page-title">Dashboard</h1>
     <div id="topbar-actions"></div>
   </div>
@@ -777,6 +884,7 @@ function nav(el) {
   if (v === 'stats')     loadDetailedStats();
   if (v === 'changelog') loadChangelog();
   if (v === 'settings')  loadSettings();
+  closeSidebar();
 }
 
 // ── API ────────────────────────────────────────────────────────────────────
@@ -1154,6 +1262,15 @@ function closeModal(e) {
 }
 
 // ── Theme toggle ─────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('mobile-overlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('mobile-overlay').classList.remove('open');
+}
+
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light');
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
@@ -1329,7 +1446,7 @@ async function loadChangelog() {
   const el = document.getElementById('changelog-content');
   el.innerHTML = '<p style="color:var(--text3)">Loading…</p>';
   try {
-    const data = await api('GET', '/meta/changelog');
+    const data = await api('GET', '/changelog');
     const md = data.content || 'No changelog content found.';
     el.innerHTML = renderMarkdown(md);
   } catch(e) {
@@ -1340,24 +1457,36 @@ async function loadChangelog() {
 
 function renderMarkdown(md) {
   const escape = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Inline formatting: **bold**, `code`, [text](url)
+  const inline = s => escape(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   const lines = md.split('\n');
   let html = '';
   let inList = false;
+  let inCode = false;
   for (let raw of lines) {
     const line = raw.trimEnd();
-    // Check from most specific (###) to least (# ) to avoid false matches
+    if (line.startsWith('```')) {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (inCode) { html += '</code></pre>'; inCode = false; }
+      else { html += '<pre><code>'; inCode = true; }
+      continue;
+    }
+    if (inCode) { html += escape(line) + '\n'; continue; }
     if (/^#{3,}\s/.test(line)) {
       if (inList) { html += '</ul>'; inList = false; }
-      html += `<h3>${escape(line.replace(/^#+\s*/,''))}</h3>`;
+      html += `<h3>${inline(line.replace(/^#+\s*/,''))}</h3>`;
     } else if (/^#{2}\s/.test(line)) {
       if (inList) { html += '</ul>'; inList = false; }
-      html += `<h2>${escape(line.replace(/^#+\s*/,''))}</h2>`;
+      html += `<h2>${inline(line.replace(/^#+\s*/,''))}</h2>`;
     } else if (/^#\s/.test(line)) {
       if (inList) { html += '</ul>'; inList = false; }
-      html += `<h1>${escape(line.replace(/^#+\s*/,''))}</h1>`;
+      html += `<h1>${inline(line.replace(/^#+\s*/,''))}</h1>`;
     } else if (/^[-*]\s/.test(line)) {
       if (!inList) { html += '<ul>'; inList = true; }
-      html += `<li>${escape(line.replace(/^[-*]\s+/,''))}</li>`;
+      html += `<li>${inline(line.replace(/^[-*]\s+/,''))}</li>`;
     } else if (line === '---') {
       if (inList) { html += '</ul>'; inList = false; }
       html += '<hr>';
@@ -1365,9 +1494,10 @@ function renderMarkdown(md) {
       if (inList) { html += '</ul>'; inList = false; }
     } else {
       if (inList) { html += '</ul>'; inList = false; }
-      html += `<p>${escape(line)}</p>`;
+      html += `<p>${inline(line)}</p>`;
     }
   }
+  if (inCode) html += '</code></pre>';
   if (inList) html += '</ul>';
   return html;
 }
@@ -1844,6 +1974,9 @@ function getFormSettings() {
     min_file_size_mb: n('min_file_size_mb'), poll_interval_seconds: n('poll_interval_seconds')||30,
     watch_interval_seconds: n('watch_interval_seconds')||10,
     filters_enabled: c('filters_enabled'),
+    aria2_deep_sync_interval_minutes: n('aria2_deep_sync_interval_minutes'),
+    aria2_error_retry_count: n('aria2_error_retry_count'),
+    aria2_error_retry_delay_seconds: n('aria2_error_retry_delay_seconds'),
   };
 }
 
@@ -2033,6 +2166,7 @@ async function testPostgres() {
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<div id="mobile-overlay" onclick="closeSidebar()"></div>
 <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
 </body>
 </html>

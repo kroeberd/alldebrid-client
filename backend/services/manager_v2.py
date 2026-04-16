@@ -437,14 +437,15 @@ class TorrentManager:
             db.row_factory = aiosqlite.Row
             rows = await (await db.execute(
                 """SELECT f.id AS file_id, f.torrent_id, f.local_path,
-                          f.size_bytes, f.download_id, f.download_url, f.filename, f.status,
+                          f.size_bytes, f.download_id, f.download_url, f.filename,
+                          f.status, COALESCE(f.retry_count, 0) AS retry_count,
                           t.name AS torrent_name, t.alldebrid_id, t.status AS torrent_status
                    FROM download_files f
                    JOIN torrents t ON t.id = f.torrent_id
                    WHERE f.download_client = 'aria2'
                      AND f.blocked = 0
-                     AND f.status IN ('pending', 'queued', 'downloading', 'paused')
-                     AND t.status NOT IN ('completed', 'deleted', 'error')"""
+                     AND f.status IN ('pending', 'queued', 'downloading', 'paused', 'error')
+                     AND t.status NOT IN ('completed', 'deleted')"""
             )).fetchall()
 
         if not rows:
@@ -507,56 +508,79 @@ class TorrentManager:
                 )
 
             elif dl.status == "error":
-                # aria2 reports error — restart the download
+                # aria2 reports error — check retry count before restarting
                 reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
-                logger.warning(
-                    "deep_sync: error in aria2 for torrent %s file %s — restarting. Reason: %s",
-                    torrent_id, file_id, reason,
-                )
-                await self._log_event(
-                    torrent_id, "warn",
-                    f"deep_sync: aria2 reported error for {row['filename']!r} — restarting. {reason}",
-                )
+                max_retries = int(getattr(cfg, "aria2_error_retry_count", 3))
+                current_retry = int(row.get("retry_count") or 0)
 
-                # Remove the failed entry and re-add with same URL
                 await self.aria2().remove(dl.gid)
-                new_gid = None
-                if url:
-                    try:
-                        # Build options matching original download path
-                        local_path = row["local_path"] or ""
-                        options: dict = {}
-                        if local_path:
-                            from pathlib import PurePosixPath as _PPP
-                            lp = Path(local_path)
-                            options["dir"]  = str(_PPP(str(lp.parent).replace(chr(92), "/")))
-                            options["out"]  = lp.name
-                        new_gid = await self.aria2().ensure_download(url, options, start_paused=False)
-                        async with aiosqlite.connect(DB_PATH) as db:
-                            await db.execute(
-                                "UPDATE download_files SET download_id=?, status='queued', updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                                (new_gid, file_id),
-                            )
-                            await db.commit()
-                        restarted_count += 1
-                        logger.info(
-                            "deep_sync: restarted download for file %s (torrent %s) → new GID %s",
-                            file_id, torrent_id, new_gid,
-                        )
-                    except Exception as exc:
-                        logger.error(
-                            "deep_sync: failed to restart download for file %s: %s",
-                            file_id, exc,
-                        )
 
-                # Discord notification for restarted error
-                if cfg.discord_notify_error:
-                    torrent_name = row["torrent_name"] or f"torrent {torrent_id}"
-                    await self.notify().send_error(
-                        torrent_name,
-                        reason=f"aria2 error on {row['filename']!r}: {reason}",
-                        context="deep_sync auto-restarted the download" if new_gid else "restart failed — check aria2 logs",
+                if current_retry < max_retries:
+                    # Still have retries left — restart
+                    logger.warning(
+                        "deep_sync: aria2 error torrent %s file %s (retry %d/%d) — restarting. %s",
+                        torrent_id, file_id, current_retry + 1, max_retries, reason,
                     )
+                    await self._log_event(
+                        torrent_id, "warn",
+                        f"deep_sync: aria2 error retry {current_retry+1}/{max_retries} for {row['filename']!r}: {reason}",
+                    )
+                    new_gid = None
+                    if url:
+                        try:
+                            local_path_str = row["local_path"] or ""
+                            options: dict = {}
+                            if local_path_str:
+                                from pathlib import PurePosixPath as _PPP
+                                lp = Path(local_path_str)
+                                options["dir"] = str(_PPP(str(lp.parent).replace(chr(92), "/")))
+                                options["out"] = lp.name
+                            new_gid = await self.aria2().ensure_download(url, options, start_paused=False)
+                            async with aiosqlite.connect(DB_PATH) as db:
+                                await db.execute(
+                                    """UPDATE download_files
+                                       SET download_id=?, status='queued',
+                                           retry_count=?, updated_at=CURRENT_TIMESTAMP
+                                       WHERE id=?""",
+                                    (new_gid, current_retry + 1, file_id),
+                                )
+                                await db.commit()
+                            restarted_count += 1
+                        except Exception as exc:
+                            logger.error("deep_sync: restart failed for file %s: %s", file_id, exc)
+
+                    if cfg.discord_notify_error:
+                        torrent_name = row["torrent_name"] or f"torrent {torrent_id}"
+                        await self.notify().send_error(
+                            torrent_name,
+                            reason=f"aria2 error (retry {current_retry+1}/{max_retries}): {reason}",
+                            context=f"File: {row['filename']!r} — auto-restarted" if new_gid else "restart failed",
+                        )
+                else:
+                    # Max retries exhausted — mark as error, notify, remove from aria2
+                    logger.error(
+                        "deep_sync: max retries (%d) exhausted for torrent %s file %s — marking error. %s",
+                        max_retries, torrent_id, file_id, reason,
+                    )
+                    await self._log_event(
+                        torrent_id, "error",
+                        f"deep_sync: max retries ({max_retries}) exhausted for {row['filename']!r}: {reason}",
+                    )
+                    async with aiosqlite.connect(DB_PATH) as db:
+                        await db.execute(
+                            "UPDATE download_files SET status='error', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                            (file_id,),
+                        )
+                        await db.commit()
+                    touched.add(torrent_id)
+
+                    if cfg.discord_notify_error:
+                        torrent_name = row["torrent_name"] or f"torrent {torrent_id}"
+                        await self.notify().send_error(
+                            torrent_name,
+                            reason=f"aria2 download failed after {max_retries} retries: {reason}",
+                            context=f"File: {row['filename']!r} — removed from queue",
+                        )
 
             elif dl.status == "active":
                 # Update progress in DB

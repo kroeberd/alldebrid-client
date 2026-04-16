@@ -95,6 +95,12 @@ class AppSettings(BaseModel):
     # Kept empty by default
     notification_urls: str = ""
 
+    # aria2 download retry on error
+    # How many times to retry a failed aria2 download before giving up (0 = no retry)
+    aria2_error_retry_count: int = 3
+    # Seconds to wait between retries
+    aria2_error_retry_delay_seconds: int = 60
+
     # Labels / categories (comma-separated, empty = disabled)
     torrent_labels: List[str] = []
 

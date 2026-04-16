@@ -181,6 +181,7 @@ _SCHEMA_COLUMNS_TORRENTS = [
 _SCHEMA_COLUMNS_FILES = [
     ("download_id",     "TEXT"),
     ("download_client", "TEXT DEFAULT 'aria2'"),
+    ("retry_count",     "INTEGER DEFAULT 0"),
     ("updated_at",      "DATETIME DEFAULT CURRENT_TIMESTAMP"),
 ]
 
@@ -233,6 +234,7 @@ async def _init_db_sqlite():
                 download_client TEXT DEFAULT 'aria2',
                 blocked INTEGER DEFAULT 0,
                 block_reason TEXT,
+                retry_count INTEGER DEFAULT 0,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (torrent_id) REFERENCES torrents(id)
             )
@@ -302,6 +304,7 @@ async def _init_db_postgres():
                     download_client TEXT DEFAULT 'aria2',
                     blocked INTEGER DEFAULT 0,
                     block_reason TEXT,
+                    retry_count INTEGER DEFAULT 0,
                     updated_at TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
