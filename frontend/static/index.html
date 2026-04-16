@@ -854,7 +854,7 @@ async async function checkConnections() {
   } catch {
     setDot('api', 'error', 'AllDebrid: offline');
   }
-  const cfg = settingsData;
+  const cfg = settingsData || {};
   // aria2
   if (cfg.aria2_url) {
     try {
@@ -960,7 +960,7 @@ async function loadStats() {
         : s.db_type === 'postgres'    ? 'DB: PostgreSQL'
         : 'DB: SQLite'
     );
-  } catch(e) { /* silent */ }
+  } catch(e) { console.warn('loadStats error:', e); }
 }
 
 async function loadRecent() {
@@ -2002,21 +2002,22 @@ async function testPostgres() {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 (async()=>{
-  try { settingsData = await api('GET','/settings'); } catch{}
+  try { settingsData = await api('GET','/settings'); } catch(e){ console.warn('Settings load failed:', e); }
   renderTopbarActions();
-  loadStats(); loadRecent();
+  // Await both so errors are caught and dashboard populates before proceeding
+  await Promise.allSettled([loadStats(), loadRecent()]);
   await checkConnections();
 
-  // Premium: once on startup, then every 12 hours
+  // Premium: once on startup (only if API key configured), then every 12 hours
   await checkPremiumStatus();
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
 
   setInterval(()=>{
-    loadStats();
-    if (document.getElementById('view-dashboard').classList.contains('active')) loadRecent();
-    if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
+    loadStats().catch(()=>{});
+    if (document.getElementById('view-dashboard')?.classList.contains('active')) loadRecent().catch(()=>{});
+    if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
   }, 15000);
-  setInterval(checkConnections, 60000);
+  setInterval(()=>checkConnections().catch(()=>{}), 60000);
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
