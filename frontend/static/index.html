@@ -447,10 +447,28 @@ textarea.input { resize: vertical; }
     </div>
   </nav>
   <div class="sidebar-footer">
-    <div class="conn-row" id="premium-row" style="display:none"><span id="lbl-premium" style="font-size:10px;color:var(--text3)"></span></div>
-    <div class="conn-row"><div class="dot" id="dot-api"></div><span id="lbl-api">AllDebrid: checking…</span></div>
-    <div class="conn-row"><div class="dot" id="dot-aria2"></div><span id="lbl-aria2">aria2: —</span></div>
-    <div class="conn-row"><div class="dot" id="dot-db"></div><span id="lbl-db">DB: —</span></div>
+    <div class="conn-row" id="premium-row" style="display:none">
+      <span id="lbl-premium" style="font-size:10px;color:var(--accent);line-height:1.4"></span>
+    </div>
+    <div class="conn-row">
+      <div class="dot" id="dot-api"></div>
+      <span id="lbl-api">AllDebrid: checking…</span>
+    </div>
+    <div class="conn-row">
+      <div class="dot" id="dot-aria2"></div>
+      <span id="lbl-aria2">aria2: —</span>
+    </div>
+    <div class="conn-row">
+      <div class="dot" id="dot-db"></div>
+      <span id="lbl-db">DB: —</span>
+    </div>
+    <div class="conn-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+      <a href="https://alldebrid.com" target="_blank" rel="noopener"
+         style="font-size:10px;color:var(--text3);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .15s"
+         onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">
+        ↗ alldebrid.com
+      </a>
+    </div>
   </div>
 </aside>
 
@@ -819,13 +837,22 @@ function progress(pct, status) {
 }
 
 // ── Status Bar ─────────────────────────────────────────────────────────────
-async function checkConnections() {
-  // API/AllDebrid
+async async function checkConnections() {
+  // AllDebrid — check via /stats (lightweight)
   try {
-    await api('GET', '/stats');
+    const s = await api('GET', '/stats');
     setDot('api', 'ok', 'AllDebrid: online');
+    // Update DB dot from stats
+    if (s.db_type) {
+      setDot('db',
+        s.db_type === 'sqlite_fallback' ? 'error' : 'ok',
+        s.db_type === 'sqlite_fallback' ? 'DB: SQLite (fallback)'
+          : s.db_type === 'postgres'    ? 'DB: PostgreSQL'
+          : 'DB: SQLite'
+      );
+    }
   } catch {
-    setDot('api', 'error', 'AllDebrid: error');
+    setDot('api', 'error', 'AllDebrid: offline');
   }
   const cfg = settingsData;
   // aria2
@@ -834,11 +861,23 @@ async function checkConnections() {
       const result = await api('POST', '/settings/test-aria2');
       setDot('aria2', 'ok', `aria2: ${result.version||'online'}`);
     } catch {
-      setDot('aria2', 'error', 'aria2: error');
+      setDot('aria2', 'error', 'aria2: offline');
     }
   } else {
     setDot('aria2', '', 'aria2: not configured');
   }
+}
+
+// Premium status — called once on startup, then every 12 hours
+let _premiumCheckInterval = null;
+async function checkPremiumStatus() {
+  try {
+    const cfg = settingsData;
+    if (!cfg || !cfg.alldebrid_api_key) return;
+    const r = await api('POST', '/settings/test-alldebrid');
+    _updatePremiumLabel(r);
+    setDot('api', 'ok', `AllDebrid: ${r.username||'online'}`);
+  } catch { /* silent — dot already set by checkConnections */ }
 }
 
 function setDot(id, state, label) {
@@ -1847,7 +1886,8 @@ function _updatePremiumLabel(r) {
   const mm = String(d.getMonth()+1).padStart(2,'0');
   const yyyy = d.getFullYear();
   const days = Math.ceil((d - Date.now()) / 86400000);
-  lbl.textContent = `Premium until ${dd}.${mm}.${yyyy} (${days} days)`;
+  const daysLabel = days > 0 ? `${days} days` : 'expired';
+  lbl.innerHTML = `Premium until ${dd}.${mm}.${yyyy} (${daysLabel})`;
   row.style.display = '';
 }
 
@@ -1965,7 +2005,12 @@ async function testPostgres() {
   try { settingsData = await api('GET','/settings'); } catch{}
   renderTopbarActions();
   loadStats(); loadRecent();
-  checkConnections();
+  await checkConnections();
+
+  // Premium: once on startup, then every 12 hours
+  await checkPremiumStatus();
+  setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
+
   setInterval(()=>{
     loadStats();
     if (document.getElementById('view-dashboard').classList.contains('active')) loadRecent();
