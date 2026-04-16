@@ -203,7 +203,11 @@ async def init_db():
 
 async def _init_db_sqlite():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        # Enable WAL mode and busy timeout — prevents "database is locked" under concurrent load
+        await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA busy_timeout=5000")
+        await db.commit()
         await db.execute("""
             CREATE TABLE IF NOT EXISTS torrents (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

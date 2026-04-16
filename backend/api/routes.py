@@ -239,7 +239,7 @@ async def list_torrents(
     limit: int = Query(50, le=200),
     offset: int = 0,
 ):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
         db.row_factory = aiosqlite.Row
         where  = "WHERE t.status = ?" if status else ""
         params = [status] if status else []
@@ -277,7 +277,7 @@ async def import_existing():
 
 @router.get("/torrents/{torrent_id}")
 async def get_torrent(torrent_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
         db.row_factory = aiosqlite.Row
         row = await (await db.execute(
             "SELECT * FROM torrents WHERE id=?", (torrent_id,)
@@ -311,7 +311,7 @@ async def delete_torrent(torrent_id: int, from_alldebrid: bool = True):
 
 @router.post("/torrents/{torrent_id}/retry")
 async def retry_torrent(torrent_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
         db.row_factory = aiosqlite.Row
         row = await (await db.execute(
             "SELECT * FROM torrents WHERE id=?", (torrent_id,)
@@ -371,7 +371,7 @@ class LabelUpdate(BaseModel):
 
 @router.put("/torrents/{torrent_id}/label")
 async def set_torrent_label(torrent_id: int, body: LabelUpdate):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
         await db.execute(
             "UPDATE torrents SET label=?, priority=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
             (body.label.strip(), body.priority, torrent_id),
@@ -396,7 +396,7 @@ async def bulk_action(body: BulkAction):
             if body.action == "delete":
                 await manager.delete_torrent(tid, delete_from_ad=True)
             elif body.action == "retry":
-                async with aiosqlite.connect(DB_PATH) as db:
+                async with aiosqlite.connect(DB_PATH, timeout=30) as db:
                     await db.execute(
                         """UPDATE torrents
                            SET status='uploading', error_message=NULL,
@@ -406,7 +406,7 @@ async def bulk_action(body: BulkAction):
                     )
                     await db.commit()
             elif body.action == "remove_label":
-                async with aiosqlite.connect(DB_PATH) as db:
+                async with aiosqlite.connect(DB_PATH, timeout=30) as db:
                     await db.execute(
                         "UPDATE torrents SET label='', updated_at=CURRENT_TIMESTAMP WHERE id=?",
                         (tid,),
@@ -422,7 +422,7 @@ async def bulk_action(body: BulkAction):
 
 @router.get("/events")
 async def get_events(limit: int = Query(200, le=500)):
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
         db.row_factory = aiosqlite.Row
         rows = await (await db.execute(
             """SELECT e.*, t.name AS torrent_name
@@ -438,7 +438,7 @@ async def get_events(limit: int = Query(200, le=500)):
 
 @router.get("/stats")
 async def get_stats():
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
         db.row_factory = aiosqlite.Row
 
         by_status = {r["status"]: r["count"] for r in await (
@@ -517,7 +517,7 @@ async def get_stats():
 
 @router.get("/stats/detail")
 async def get_stats_detail():
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
         db.row_factory = aiosqlite.Row
 
         totals_row = (await (await db.execute(

@@ -80,7 +80,7 @@ def _fallback_to_sqlite():
 async def _reset_stuck_downloads_sqlite():
     """Resets torrents that were stuck in 'downloading' state when the app last stopped."""
     import aiosqlite as _aiosqlite
-    async with _aiosqlite.connect(DB_PATH) as _db:
+    async with _aiosqlite.connect(DB_PATH, timeout=30) as _db:
         _db.row_factory = _aiosqlite.Row
         stuck = await (await _db.execute(
             """SELECT id, alldebrid_id, name FROM torrents
@@ -190,7 +190,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AllDebrid-Client",
     description="Automated torrent downloading via AllDebrid",
-    version="0.9.20",
+    version="0.9.21",
     lifespan=lifespan,
 )
 
