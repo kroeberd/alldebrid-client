@@ -957,13 +957,67 @@ class TorrentManager:
         return max(1, value)
 
     async def _dispatch_pending_aria2_queue(self, all_downloads=None):
+        """
+        The single authoritative gate between our DB and aria2.
+
+        Invariant: at any point, at most aria2_max_active_downloads files
+        may have status active/waiting/paused in aria2 at the same time.
+
+        Steps:
+        1. Fetch current aria2 state once.
+        2. Count in-flight entries (active + waiting + paused).
+        3. If over the limit (e.g. settings were reduced): remove the
+           excess entries from aria2 and reset those download_files to
+           pending so they are re-queued in order on the next cycle.
+        4. Fill available slots from pending download_files, oldest first.
+        """
         if self.download_client_name() != "aria2" or self.is_paused():
             return
 
         async with self._aria2_dispatch_lock:
-            current_downloads = all_downloads if all_downloads is not None else await self.aria2().get_all()
-            in_flight = [dl for dl in current_downloads if dl.status in {"active", "waiting", "paused"}]
-            available_slots = max(0, self._aria2_slot_limit() - len(in_flight))
+            current_downloads = (
+                all_downloads if all_downloads is not None
+                else await self.aria2().get_all()
+            )
+            limit = self._aria2_slot_limit()
+            in_flight = [
+                dl for dl in current_downloads
+                if dl.status in {"active", "waiting", "paused"}
+            ]
+
+            # ── Step 3: trim excess if limit was lowered ─────────────────────
+            if len(in_flight) > limit:
+                excess = in_flight[limit:]  # oldest are last — remove from end
+                excess_gids = {dl.gid for dl in excess}
+                logger.info(
+                    "aria2 queue trim: %d in-flight > limit %d, removing %d",
+                    len(in_flight), limit, len(excess),
+                )
+                # Find download_files rows for these GIDs and reset to pending
+                async with aiosqlite.connect(DB_PATH) as db:
+                    db.row_factory = aiosqlite.Row
+                    gid_placeholders = ",".join("?" * len(excess_gids))
+                    stale = await (await db.execute(
+                        f"SELECT id FROM download_files WHERE download_id IN ({gid_placeholders})",
+                        list(excess_gids),
+                    )).fetchall()
+                    if stale:
+                        ids = [r["id"] for r in stale]
+                        id_placeholders = ",".join("?" * len(ids))
+                        await db.execute(
+                            f"""UPDATE download_files
+                               SET status='pending', download_id=NULL,
+                                   updated_at=CURRENT_TIMESTAMP
+                               WHERE id IN ({id_placeholders})""",
+                            ids,
+                        )
+                        await db.commit()
+                for dl in excess:
+                    await self.aria2().remove(dl.gid)
+                in_flight = in_flight[:limit]
+
+            # ── Step 4: fill available slots ─────────────────────────────────
+            available_slots = max(0, limit - len(in_flight))
             if available_slots <= 0:
                 return
 
@@ -971,18 +1025,27 @@ class TorrentManager:
                 db.row_factory = aiosqlite.Row
                 pending_rows = await (
                     await db.execute(
-                        """SELECT f.id AS file_id, f.torrent_id, f.filename, f.download_url, f.local_path, t.name AS torrent_name
+                        """SELECT f.id AS file_id, f.torrent_id, f.filename,
+                                  f.download_url, f.local_path, t.name AS torrent_name
                            FROM download_files f
                            JOIN torrents t ON t.id = f.torrent_id
                            WHERE f.download_client='aria2'
                              AND f.blocked=0
                              AND f.status='pending'
                              AND t.status NOT IN ('completed','deleted','error')
-                           ORDER BY f.id ASC
+                           ORDER BY t.priority DESC, f.id ASC
                            LIMIT ?""",
                         (available_slots,),
                     )
                 ).fetchall()
+
+            if not pending_rows:
+                return
+
+            logger.info(
+                "aria2 dispatch: %d slot(s) free, dispatching %d file(s)",
+                available_slots, len(pending_rows),
+            )
 
             for row in pending_rows:
                 source_link = str(row["download_url"] or "").strip()
@@ -994,7 +1057,7 @@ class TorrentManager:
                         raise Exception("Empty download URL from unlock")
 
                     remote_path = self._remote_aria2_path(local_path)
-                    remote_dir = str(PurePosixPath(remote_path).parent)
+                    remote_dir  = str(PurePosixPath(remote_path).parent)
                     remote_name = PurePosixPath(remote_path).name
                     gid = await _retry_async(
                         self.aria2().ensure_download,
@@ -1006,15 +1069,21 @@ class TorrentManager:
                     async with aiosqlite.connect(DB_PATH) as db:
                         await db.execute(
                             """UPDATE download_files
-                               SET status=?, download_id=?, download_url=?, updated_at=CURRENT_TIMESTAMP
+                               SET status=?, download_id=?, download_url=?,
+                                   updated_at=CURRENT_TIMESTAMP
                                WHERE id=?""",
                             (queued_status, gid, download_url, row["file_id"]),
                         )
                         await db.execute(
-                            "UPDATE torrents SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status NOT IN ('completed','deleted','error')",
-                            (queued_status if get_settings().aria2_start_paused else "queued", row["torrent_id"]),
+                            """UPDATE torrents SET status=?, updated_at=CURRENT_TIMESTAMP
+                               WHERE id=? AND status NOT IN ('completed','deleted','error')""",
+                            (queued_status, row["torrent_id"]),
                         )
                         await db.commit()
+                    logger.info(
+                        "aria2 dispatch: %s → GID %s (torrent %s)",
+                        row["filename"], gid, row["torrent_id"],
+                    )
                 except Exception as exc:
                     logger.error("aria2 dispatch failed [%s]: %s", row["filename"], exc)
                     await self._update_file_state(row["file_id"], "error", row["local_path"], reason=str(exc))
@@ -1023,6 +1092,8 @@ class TorrentManager:
     async def sync_download_clients(self):
         if self.download_client_name() == "aria2":
             await self.sync_aria2_downloads()
+            # After syncing, enforce the slot limit (in case settings changed)
+            await self._dispatch_pending_aria2_queue()
 
     async def sync_aria2_downloads(self):
         if self.is_paused() or self.download_client_name() != "aria2":
