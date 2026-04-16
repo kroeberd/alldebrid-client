@@ -526,7 +526,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.17</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.18</div>
     </div>
   </div>
   <nav>
@@ -881,10 +881,15 @@ function nav(el) {
   if (!activeView) { console.error('nav: view not found:', v); return; }
   activeView.classList.add('active');
   const rect = activeView.getBoundingClientRect();
-  console.log('nav:', v, 'display:', window.getComputedStyle(activeView).display, 
-    'rect:', rect.top.toFixed(0), rect.left.toFixed(0), rect.width.toFixed(0)+'x'+rect.height.toFixed(0),
-    'opacity:', window.getComputedStyle(activeView).opacity,
-    'visibility:', window.getComputedStyle(activeView).visibility);
+  const content = document.getElementById('content');
+  const main = document.getElementById('main');
+  const cRect = content ? content.getBoundingClientRect() : {};
+  const mRect = main ? main.getBoundingClientRect() : {};
+  console.log('nav:', v,
+    '| view:', rect.width.toFixed(0)+'x'+rect.height.toFixed(0), '@', rect.top.toFixed(0)+','+rect.left.toFixed(0),
+    '| #content:', (cRect.width||0).toFixed(0)+'x'+(cRect.height||0).toFixed(0),
+    '| #main:', (mRect.width||0).toFixed(0)+'x'+(mRect.height||0).toFixed(0),
+    '| body:', document.body.offsetWidth+'x'+document.body.offsetHeight);
   const titles = {
     dashboard:'Dashboard',
     torrents:'Torrents',
