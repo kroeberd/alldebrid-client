@@ -84,6 +84,8 @@ class AppSettings(BaseModel):
     # Auto-restart stuck downloads
     # Torrents stuck in queued/downloading for longer than this are reset (0 = disabled)
     stuck_download_timeout_hours: int = 6
+    # Full AllDebrid reconciliation interval (minutes) — syncs ALL torrents incl. error/queued
+    full_sync_interval_minutes: int = 5
 
     # Backups
     backup_enabled: bool = True

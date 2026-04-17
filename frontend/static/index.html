@@ -526,7 +526,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.31</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.32</div>
     </div>
   </div>
   <nav>
@@ -1683,6 +1683,7 @@ function renderSettings() {
           </span>
         </div>
         <div class="form-group">
+          <button class="btn btn-ghost" onclick="triggerFullSync()">🔄 Full AllDebrid Sync Now</button>
           <button class="btn btn-ghost" onclick="runDeepSync()">🔍 Run Deep Sync Now</button>
           <span class="form-hint" style="margin-top:6px;display:block">Immediately checks all pending aria2 files on disk and marks completed ones.</span>
         </div>
@@ -2191,6 +2192,14 @@ function toggleFilterFields() {
     fields.style.opacity = enabled ? '' : '0.4';
     fields.style.pointerEvents = enabled ? '' : 'none';
   }
+}
+
+async function triggerFullSync() {
+  try {
+    const r = await api('POST', '/admin/full-sync');
+    toast('Full sync: ' + r.updated + ' torrent(s) updated', r.updated > 0 ? 'success' : 'info');
+    setTimeout(() => { loadStats(); loadRecent(); }, 1500);
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 async function saveSettings() {

@@ -17,11 +17,11 @@ async def watch_folder_loop():
 
 
 async def sync_status_loop():
+    """
+    Regular AllDebrid poll: syncs active (non-terminal) torrents every poll_interval_seconds.
+    Also runs cleanup tasks each cycle.
+    """
     while True:
-        try:
-            await manager.import_existing_magnets()
-        except Exception as e:
-            logger.debug(f"Existing magnet import skipped: {e}")
         try:
             await manager.sync_alldebrid_status()
         except Exception as e:
@@ -35,6 +35,28 @@ async def sync_status_loop():
         except Exception as e:
             logger.error(f"Stuck download cleanup error: {e}")
         await asyncio.sleep(get_settings().poll_interval_seconds)
+
+
+async def full_sync_loop():
+    """
+    Full AllDebrid reconciliation: runs every full_sync_interval_minutes (default 5).
+    Catches torrents in 'error'/'queued' that are actually 'ready' on AllDebrid,
+    and any status drift between local DB and AllDebrid.
+    Also imports new magnets added directly on AllDebrid.
+    """
+    await asyncio.sleep(10)  # short initial delay after startup
+    while True:
+        cfg = get_settings()
+        interval = max(1, int(getattr(cfg, "full_sync_interval_minutes", 5) or 5))
+        try:
+            await manager.import_existing_magnets()
+        except Exception as e:
+            logger.debug(f"Existing magnet import skipped: {e}")
+        try:
+            await manager.full_alldebrid_sync()
+        except Exception as e:
+            logger.error(f"Full sync error: {e}")
+        await asyncio.sleep(interval * 60)
 
 
 async def sync_download_clients_loop():
@@ -83,6 +105,7 @@ async def backup_loop():
 async def start_scheduler():
     _tasks.append(asyncio.create_task(watch_folder_loop()))
     _tasks.append(asyncio.create_task(sync_status_loop()))
+    _tasks.append(asyncio.create_task(full_sync_loop()))
     _tasks.append(asyncio.create_task(sync_download_clients_loop()))
     _tasks.append(asyncio.create_task(deep_sync_loop()))
     _tasks.append(asyncio.create_task(backup_loop()))

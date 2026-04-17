@@ -689,6 +689,15 @@ async def export_stats(hours: int = Query(24, ge=1, le=8760)):
         headers={"Content-Disposition": f"attachment; filename=stats_{hours}h.json"},
     )
 
+
+@router.post("/admin/full-sync")
+async def trigger_full_sync():
+    """Manually trigger a full AllDebrid reconciliation (all torrents incl. error/queued)."""
+    from services.manager_v2 import manager
+    updated = await manager.full_alldebrid_sync()
+    return {"ok": True, "updated": updated, "message": f"{updated} torrents updated"}
+
+
 @router.post("/admin/deep-sync")
 async def trigger_deep_sync():
     t0 = time.monotonic()

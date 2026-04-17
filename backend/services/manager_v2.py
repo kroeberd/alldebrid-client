@@ -365,6 +365,97 @@ class TorrentManager:
             row = await (await db.execute("SELECT * FROM torrents WHERE hash=?", (hash_value,))).fetchone()
         return dict(row) if row else {}
 
+    async def full_alldebrid_sync(self) -> int:
+        """
+        Full reconciliation: fetches all magnets from AllDebrid and syncs
+        every known torrent — including those marked 'completed' or 'error'.
+
+        Returns number of torrents updated.
+
+        This catches cases where:
+        - A torrent is 'ready' on AllDebrid but locally stuck as 'error'
+        - A torrent is in an unexpected state after restart
+        - 100+ queued torrents that were never picked up
+        """
+        if self.is_paused() or not get_settings().alldebrid_api_key:
+            return 0
+
+        try:
+            all_magnets = await self.ad().get_magnet_status()
+        except Exception as exc:
+            logger.warning("full_alldebrid_sync: could not fetch magnets: %s", exc)
+            return 0
+
+        if not all_magnets:
+            return 0
+
+        # Index by alldebrid_id
+        ad_by_id: dict = {str(m.get("id", "")): m for m in all_magnets}
+
+        # Fetch all torrents that have an alldebrid_id (any status)
+        async with get_db() as db:
+            rows = await db.fetchall(
+                """SELECT id, name, alldebrid_id, status, provider_status, provider_status_code, polling_failures
+                   FROM torrents
+                   WHERE alldebrid_id IS NOT NULL AND alldebrid_id != ''"""
+            )
+
+        updated = 0
+        for row in rows:
+            ad_id = str(row["alldebrid_id"])
+            magnet = ad_by_id.get(ad_id)
+
+            if not magnet:
+                # No longer on AllDebrid — mark deleted if not already terminal
+                if row["status"] not in ("completed", "deleted", "error"):
+                    logger.info("full_alldebrid_sync: magnet %s gone from AllDebrid → deleted", ad_id)
+                    await self._set_deleted(row["id"], "Magnet no longer exists on AllDebrid")
+                    updated += 1
+                continue
+
+            normalized = normalize_provider_state(magnet)
+            provider_status = normalized["provider_status"]
+            local_status = row["status"]
+
+            # Ready on AllDebrid but locally stuck — trigger download
+            if provider_status == "ready" and local_status in ("error", "pending", "uploading", "processing", "ready", "queued"):
+                if local_status in ("error", "queued"):
+                    logger.info(
+                        "full_alldebrid_sync: torrent %s (local=%s) is ready on AllDebrid → starting download",
+                        row["id"], local_status,
+                    )
+                    async with get_db() as db:
+                        await db.execute(
+                            """UPDATE torrents
+                               SET status='ready', error_message=NULL, polling_failures=0,
+                                   provider_status=?, provider_status_code=?, updated_at=CURRENT_TIMESTAMP
+                               WHERE id=?""",
+                            (provider_status, int(normalized["status_code"]), row["id"]),
+                        )
+                        await db.commit()
+                    name = magnet.get("filename") or magnet.get("name") or row["name"]
+                    asyncio.create_task(self._start_download(row["id"], ad_id, str(name)))
+                    updated += 1
+                else:
+                    # Let normal _apply_provider_update handle it
+                    try:
+                        await self._apply_provider_update(row, magnet, normalized)
+                        updated += 1
+                    except Exception as exc:
+                        logger.error("full_alldebrid_sync: update failed for %s: %s", ad_id, exc)
+
+            elif local_status not in ("completed", "deleted") and provider_status != (row["provider_status"] or ""):
+                # Status changed — apply update
+                try:
+                    await self._apply_provider_update(row, magnet, normalized)
+                    updated += 1
+                except Exception as exc:
+                    logger.error("full_alldebrid_sync: update failed for %s: %s", ad_id, exc)
+
+        if updated:
+            logger.info("full_alldebrid_sync: %d torrents updated", updated)
+        return updated
+
     async def sync_alldebrid_status(self):
         if self.is_paused() or not get_settings().alldebrid_api_key:
             return
@@ -375,7 +466,7 @@ class TorrentManager:
                     """SELECT id, name, alldebrid_id, status, provider_status, provider_status_code, polling_failures
                        FROM torrents
                        WHERE alldebrid_id IS NOT NULL AND alldebrid_id != ''
-                         AND status NOT IN ('completed', 'deleted', 'error')"""
+                         AND status NOT IN ('completed', 'deleted')"""
                 )
             ).fetchall()
 
@@ -740,8 +831,18 @@ class TorrentManager:
             )
             await db.commit()
 
-        if provider_status == "ready" and current_status in {"pending", "uploading", "processing", "ready"}:
+        if provider_status == "ready" and current_status in {"pending", "uploading", "processing", "ready", "error"}:
+            # Also restart if local status is 'error' but AllDebrid reports ready —
+            # the torrent may have recovered or been re-uploaded
             name = magnet.get("filename") or magnet.get("name") or row["name"]
+            if current_status == "error":
+                logger.info("Torrent %s recovered on AllDebrid (was error, now ready) — restarting download", row["id"])
+                async with get_db() as _db:
+                    await _db.execute(
+                        "UPDATE torrents SET status='ready', error_message=NULL, polling_failures=0, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                        (row["id"],),
+                    )
+                    await _db.commit()
             asyncio.create_task(self._start_download(row["id"], str(row["alldebrid_id"]), str(name)))
         elif provider_status == "error" and current_status != "error":
             error_message = f"AllDebrid error code {status_code}: {provider_message}".strip()
