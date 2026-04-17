@@ -2,7 +2,7 @@
 REST API routes for AllDebrid-Client.
 
 Conventions:
-- All DB access uses aiosqlite directly (routes layer is intentionally thin).
+- All DB access uses get_db() (supports both SQLite and PostgreSQL).
 - Pydantic models for request bodies are defined inline.
 - No inline `import` statements — all imports are at module level.
 """
@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
-import aiosqlite
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel

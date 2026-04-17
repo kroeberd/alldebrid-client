@@ -58,22 +58,32 @@ def _build_dsn() -> str:
 
 
 class _CursorWrapper:
-    """Wraps a cursor so (await db.execute(...)).fetchall() works like aiosqlite."""
-    def __init__(self, backend: str, cursor):
-        self._backend = backend
-        self._cursor  = cursor
+    """
+    Wraps cursor results so (await db.execute(...)).fetchall() works for both backends.
+
+    SQLite:     wraps the aiosqlite cursor, calls fetchall/fetchone on it.
+    PostgreSQL: asyncpg has no cursor from execute(); instead we store the
+                pre-fetched rows at construction time (passed in by _DbConnection.execute).
+    """
+    def __init__(self, backend: str, cursor, pg_rows=None):
+        self._backend  = backend
+        self._cursor   = cursor
+        self._pg_rows  = pg_rows or []   # pre-fetched rows for PostgreSQL
+        self._pg_index = 0
 
     async def fetchall(self):
         if self._backend == "sqlite" and self._cursor is not None:
             rows = await self._cursor.fetchall()
             return [dict(r) for r in rows]
-        return []
+        # PostgreSQL: return pre-fetched rows
+        return self._pg_rows
 
     async def fetchone(self):
         if self._backend == "sqlite" and self._cursor is not None:
             row = await self._cursor.fetchone()
             return dict(row) if row else None
-        return None
+        # PostgreSQL: return first row
+        return self._pg_rows[0] if self._pg_rows else None
 
     def __getitem__(self, key):
         return None  # safe fallback
@@ -156,9 +166,16 @@ class _DbConnection:
             cursor = await self._raw.execute(sql, params)
             return _CursorWrapper("sqlite", cursor)
         else:
-            # For PostgreSQL, execute returns None — use fetchall/fetchone directly
-            await self._raw.execute(sql, *params)
-            return _CursorWrapper("postgres", None)
+            # For PostgreSQL: use fetch() for SELECT (returns rows), execute() for DML.
+            # We detect SELECT by looking at the first non-whitespace keyword.
+            stripped = sql.lstrip()
+            if stripped.upper().startswith("SELECT") or stripped.upper().startswith("WITH"):
+                rows = await self._raw.fetch(sql, *params)
+                pg_rows = [dict(r) for r in rows]
+            else:
+                await self._raw.execute(sql, *params)
+                pg_rows = []
+            return _CursorWrapper("postgres", None, pg_rows=pg_rows)
 
     async def executemany(self, sql: str, params_list: List[Sequence[Any]]):
         sql = self._adapt(sql)
