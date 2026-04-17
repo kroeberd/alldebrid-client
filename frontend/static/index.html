@@ -526,7 +526,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.27</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.28</div>
     </div>
   </div>
   <nav>
@@ -1603,27 +1603,7 @@ function renderSettings() {
       </div>
     </div>
 
-    <div class="scard" style="border-color:rgba(249,115,22,.3)">
-      <div class="scard-header">🔄 Data Migration</div>
-      <div class="scard-body">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
-          Migrate all data between SQLite and PostgreSQL. <b>Save settings first</b> before running migration.<br>
-          <span style="color:var(--accent)">⚠️ This will overwrite all data in the target database.</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', false)">
-            📤 SQLite → PostgreSQL
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('postgres_to_sqlite', false)">
-            📥 PostgreSQL → SQLite
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', true)" style="opacity:.6">
-            🔍 Dry Run (SQLite→PG)
-          </button>
-        </div>
-        <div id="migration-result" style="margin-top:10px;font-size:12px;display:none"></div>
-      </div>
-    </div>
+
     </div>
 
     <div class="stab-panel" id="tab-download">
@@ -1719,27 +1699,7 @@ function renderSettings() {
       </div>
     </div>
 
-    <div class="scard" style="border-color:rgba(249,115,22,.3)">
-      <div class="scard-header">🔄 Data Migration</div>
-      <div class="scard-body">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
-          Migrate all data between SQLite and PostgreSQL. <b>Save settings first</b> before running migration.<br>
-          <span style="color:var(--accent)">⚠️ This will overwrite all data in the target database.</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', false)">
-            📤 SQLite → PostgreSQL
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('postgres_to_sqlite', false)">
-            📥 PostgreSQL → SQLite
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', true)" style="opacity:.6">
-            🔍 Dry Run (SQLite→PG)
-          </button>
-        </div>
-        <div id="migration-result" style="margin-top:10px;font-size:12px;display:none"></div>
-      </div>
-    </div>
+
     </div>
 
     <div class="stab-panel" id="tab-discord">
@@ -1798,27 +1758,7 @@ function renderSettings() {
       </div>
     </div>
 
-    <div class="scard" style="border-color:rgba(249,115,22,.3)">
-      <div class="scard-header">🔄 Data Migration</div>
-      <div class="scard-body">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
-          Migrate all data between SQLite and PostgreSQL. <b>Save settings first</b> before running migration.<br>
-          <span style="color:var(--accent)">⚠️ This will overwrite all data in the target database.</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', false)">
-            📤 SQLite → PostgreSQL
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('postgres_to_sqlite', false)">
-            📥 PostgreSQL → SQLite
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', true)" style="opacity:.6">
-            🔍 Dry Run (SQLite→PG)
-          </button>
-        </div>
-        <div id="migration-result" style="margin-top:10px;font-size:12px;display:none"></div>
-      </div>
-    </div>
+
     </div>
 
     <div class="stab-panel" id="tab-database">
@@ -1935,27 +1875,7 @@ function renderSettings() {
       </div>
     </div>
 
-    <div class="scard" style="border-color:rgba(249,115,22,.3)">
-      <div class="scard-header">🔄 Data Migration</div>
-      <div class="scard-body">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
-          Migrate all data between SQLite and PostgreSQL. <b>Save settings first</b> before running migration.<br>
-          <span style="color:var(--accent)">⚠️ This will overwrite all data in the target database.</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', false)">
-            📤 SQLite → PostgreSQL
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('postgres_to_sqlite', false)">
-            📥 PostgreSQL → SQLite
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', true)" style="opacity:.6">
-            🔍 Dry Run (SQLite→PG)
-          </button>
-        </div>
-        <div id="migration-result" style="margin-top:10px;font-size:12px;display:none"></div>
-      </div>
-    </div>
+
     </div>
 
     <div class="stab-panel" id="tab-polling">
@@ -1979,27 +1899,7 @@ function renderSettings() {
       </div>
     </div>
 
-    <div class="scard" style="border-color:rgba(249,115,22,.3)">
-      <div class="scard-header">🔄 Data Migration</div>
-      <div class="scard-body">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
-          Migrate all data between SQLite and PostgreSQL. <b>Save settings first</b> before running migration.<br>
-          <span style="color:var(--accent)">⚠️ This will overwrite all data in the target database.</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', false)">
-            📤 SQLite → PostgreSQL
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('postgres_to_sqlite', false)">
-            📥 PostgreSQL → SQLite
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', true)" style="opacity:.6">
-            🔍 Dry Run (SQLite→PG)
-          </button>
-        </div>
-        <div id="migration-result" style="margin-top:10px;font-size:12px;display:none"></div>
-      </div>
-    </div>
+
     </div>
 
     <div class="stab-panel" id="tab-integrations">
