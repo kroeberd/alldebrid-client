@@ -526,7 +526,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.28</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.29</div>
     </div>
   </div>
   <nav>
@@ -1550,6 +1550,8 @@ function renderSettings() {
     { id:'tab-filters',      label:'🚫 Filters' },
     { id:'tab-polling',      label:'⏱ Polling' },
     { id:'tab-backup',       label:'💾 Backup' },
+    { id:'tab-flexget',      label:'🤖 FlexGet' },
+    { id:'tab-automations',  label:'📊 Reporting' },
   ];
   document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
     `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${t.label}</div>`
@@ -2009,6 +2011,24 @@ function renderSettings() {
     <!-- ── FlexGet Tab ─────────────────────────────────────────────────────── -->
     <div class="stab-panel" id="tab-flexget">
 
+    <div class="scard" style="border-color:rgba(59,130,246,.3)">
+      <div class="scard-header">ℹ️ FlexGet Setup</div>
+      <div class="scard-body">
+        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+          FlexGet must be running with its <b>web server enabled</b>.
+          Add this to your <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">config.yml</code>:
+          <pre style="background:var(--surface2);border-radius:6px;padding:10px 12px;margin:8px 0;font-size:11px;overflow-x:auto">web_server:
+  bind: 0.0.0.0
+  port: 5050</pre>
+          <b>Creating an API Key:</b><br>
+          Run <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">flexget web passwd &lt;username&gt;</code> to set a password,
+          then use <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">flexget web gentoken</code> to generate a token.
+          Paste that token as API Key below.<br><br>
+          <b>Docker note:</b> Make sure the FlexGet port (5050) is reachable from this container.
+        </div>
+      </div>
+    </div>
+
     <div class="scard">
       <div class="scard-header">🤖 FlexGet Integration</div>
       <div class="scard-body">
@@ -2060,6 +2080,19 @@ function renderSettings() {
 
     <!-- ── Reporting Tab ─────────────────────────────────────────────────────── -->
     <div class="stab-panel" id="tab-automations">
+
+    <div class="scard" style="border-color:rgba(59,130,246,.3)">
+      <div class="scard-header">ℹ️ About Reporting</div>
+      <div class="scard-body">
+        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+          The reporting module captures <b>comprehensive metrics</b> across all client activity automatically.<br><br>
+          <b>Snapshots</b> are periodic point-in-time captures stored in the database for trend analysis.
+          Set an interval to enable automatic snapshots (recommended: 60 min).<br><br>
+          <b>Export</b> downloads a full JSON report for the selected time window — useful for external analysis or archiving.<br><br>
+          <b>Time windows</b>: select the period in the dropdown below, then click <i>Load Report</i>.
+        </div>
+      </div>
+    </div>
 
     <div class="scard">
       <div class="scard-header">📊 Statistics Reporting</div>
