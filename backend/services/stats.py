@@ -61,12 +61,15 @@ async def collect_all_metrics(
 
     # Build time filter
     time_filter = ""
-    params_base: list = []
+    params_base: tuple = ()
     if since:
         time_filter = "AND created_at >= ?"
-        params_base = [since.isoformat()]
+        params_base = (since.isoformat(),)
     elif hours:
         time_filter = f"AND created_at >= datetime('now', '-{hours} hours')"
+
+    def _i(v): return int(v or 0)
+    def _f(v): return float(v or 0)
 
     async with get_db() as db:
         # ── Torrent summary ──────────────────────────────────────────────────
@@ -180,7 +183,7 @@ async def collect_all_metrics(
             pass  # Table may not exist yet
 
         # ── Assemble result ───────────────────────────────────────────────────
-        total_bytes = int(vol.get("total_bytes") or 0)
+        total_bytes = _i(vol.get("total_bytes"))
 
         return {
             "window": {
@@ -200,20 +203,20 @@ async def collect_all_metrics(
             "downloads": {
                 "total_bytes":      total_bytes,
                 "total_gb":         round(total_bytes / 1e9, 2),
-                "avg_bytes":        int(vol.get("avg_bytes") or 0),
-                "max_bytes":        int(vol.get("max_bytes") or 0),
-                "avg_duration_sec": int(dur.get("avg_secs") or 0),
-                "min_duration_sec": int(dur.get("min_secs") or 0),
-                "max_duration_sec": int(dur.get("max_secs") or 0),
+                "avg_bytes":        _i(vol.get("avg_bytes")),
+                "max_bytes":        _i(vol.get("max_bytes")),
+                "avg_duration_sec": _i(dur.get("avg_secs")),
+                "min_duration_sec": _i(dur.get("min_secs")),
+                "max_duration_sec": _i(dur.get("max_secs")),
             },
             "files": {
                 "total":           total_files,
                 "by_status":       files_by_status,
-                "blocked":         int(blocked_files.get("c") or 0),
-                "retry_total":     int(retry.get("total_retries") or 0),
-                "retry_avg":       round(float(retry.get("avg_retries") or 0), 2),
-                "retry_max":       int(retry.get("max_retries") or 0),
-                "files_with_retries": int(retry.get("files_with_retries") or 0),
+                "blocked":         _i(blocked_files.get("c")),
+                "retry_total":     _i(retry.get("total_retries")),
+                "retry_avg":       round(_f(retry.get("avg_retries")), 2),
+                "retry_max":       _i(retry.get("max_retries")),
+                "files_with_retries": _i(retry.get("files_with_retries")),
             },
             "events": event_counts,
             "daily_trend": daily,

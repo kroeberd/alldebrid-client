@@ -425,6 +425,24 @@ async def _init_db_postgres():
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS flexget_runs (
+                    id SERIAL PRIMARY KEY,
+                    task_name TEXT NOT NULL,
+                    status TEXT DEFAULT 'unknown',
+                    elapsed_seconds REAL DEFAULT 0,
+                    result_json TEXT DEFAULT '{}',
+                    triggered_by TEXT DEFAULT 'manual',
+                    ran_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS stats_snapshots (
+                    id SERIAL PRIMARY KEY,
+                    snapshot_json TEXT NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
             for col, defn in _SCHEMA_COLUMNS_TORRENTS:
                 await _ensure_column_pg(conn, "torrents", col, defn)
             for col, defn in _SCHEMA_COLUMNS_FILES:
