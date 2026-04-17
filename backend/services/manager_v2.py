@@ -1271,7 +1271,7 @@ class TorrentManager:
                        JOIN download_files f ON f.torrent_id = t.id
                        WHERE f.download_client='aria2'
                          AND f.blocked=0
-                         AND f.status IN ('pending', 'queued', 'downloading', 'paused', 'completed')
+                         AND f.status IN ('queued', 'downloading', 'paused')
                          AND f.download_id IS NOT NULL"""
                 )
             ).fetchall()
@@ -1352,14 +1352,41 @@ class TorrentManager:
 
         # Reset torrents whose entries are gone from aria2 (can't confirm completion)
         for torrent_id in reset_on_sync - touched:
+            async with get_db() as db:
+                t = await (await db.execute(
+                    """SELECT t.id, t.alldebrid_id, t.name, t.status,
+                              COUNT(CASE WHEN f.blocked=0 AND f.status='completed' THEN 1 END) AS done,
+                              COUNT(CASE WHEN f.blocked=0 THEN 1 END) AS total
+                       FROM torrents t
+                       LEFT JOIN download_files f ON f.torrent_id=t.id
+                       WHERE t.id=? GROUP BY t.id""",
+                    (torrent_id,),
+                )).fetchone()
+            if not t:
+                continue
+            # Don't reset if torrent is already in a terminal state
+            if t["status"] in ("completed", "deleted", "error"):
+                logger.debug(
+                    "sync_aria2: skip reset for torrent %s — already %s",
+                    torrent_id, t["status"],
+                )
+                continue
+            # Don't reset if all non-blocked files are already completed
+            if t["total"] > 0 and t["done"] >= t["total"]:
+                logger.info(
+                    "sync_aria2: torrent %s — all %d files completed, finalising instead of reset",
+                    torrent_id, t["total"],
+                )
+                await self._finalize_aria2_torrent(torrent_id)
+                continue
+            logger.info(
+                "sync_aria2: resetting torrent %s (aria2 entry lost, %d/%d files done)",
+                torrent_id, t["done"], t["total"],
+            )
             await self._reset_torrent_for_redownload(
                 torrent_id, "aria2 entry lost during sync — reset for re-download"
             )
-            async with get_db() as db:
-                t = await (await db.execute(
-                    "SELECT alldebrid_id, name FROM torrents WHERE id=?", (torrent_id,)
-                )).fetchone()
-            if t and t["alldebrid_id"]:
+            if t["alldebrid_id"]:
                 asyncio.create_task(
                     self._start_download(torrent_id, str(t["alldebrid_id"]), str(t["name"] or ""))
                 )
