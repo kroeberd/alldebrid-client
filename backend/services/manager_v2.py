@@ -1877,14 +1877,13 @@ class TorrentManager:
                     else:
                         should_queue = False
                 else:
-                    cur = await db.execute(
+                    torrent_id = await db.execute_returning_id(
                         """INSERT INTO torrents
                            (hash, name, alldebrid_id, status, source, provider_status, provider_status_code, download_client)
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                         (hash_value, name, ad_id, normalized["local_status"], "alldebrid_existing",
                          normalized["provider_status"], normalized["status_code"], self.download_client_name()),
                     )
-                    torrent_id = cur.lastrowid
                 results.append({
                     "hash": hash_value,
                     "name": name,

@@ -206,6 +206,18 @@ class _DbConnection:
             row = await self._raw.fetchrow(sql, *params)
             return dict(row) if row else None
 
+    async def execute_returning_id(self, sql: str, params: tuple = ()) -> Optional[int]:
+        """Execute an INSERT and return the generated row id (works for both backends)."""
+        sql_adapted = self._adapt(sql)
+        if self._backend == "sqlite":
+            cur = await self._raw.execute(sql_adapted, params)
+            return cur.lastrowid
+        else:
+            # PostgreSQL: append RETURNING id
+            pg_sql = sql_adapted.rstrip().rstrip(";") + " RETURNING id"
+            row = await self._raw.fetchrow(pg_sql, *params)
+            return int(row["id"]) if row else None
+
     async def commit(self):
         if self._backend == "sqlite":
             await self._raw.commit()
