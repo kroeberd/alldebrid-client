@@ -1159,6 +1159,12 @@ class TorrentManager:
                 available_slots, len(pending_rows),
             )
 
+            # Snapshot of aria2 state for the whole dispatch batch.
+            # Passing this to ensure_download() avoids one get_all() call per
+            # file, which would cause a burst of rapid RPC requests that aria2
+            # may drop or answer inconsistently.
+            dispatch_snapshot = await self.aria2().get_all()
+
             for row in pending_rows:
                 source_link = str(row["download_url"] or "").strip()
                 local_path = Path(row["local_path"])
@@ -1171,11 +1177,11 @@ class TorrentManager:
                     remote_path = self._remote_aria2_path(local_path)
                     remote_dir  = str(PurePosixPath(remote_path).parent)
                     remote_name = PurePosixPath(remote_path).name
-                    gid = await _retry_async(
-                        self.aria2().ensure_download,
+                    gid = await self.aria2().ensure_download(
                         download_url,
                         {"dir": remote_dir, "out": remote_name},
                         get_settings().aria2_start_paused,
+                        cached_downloads=dispatch_snapshot,
                     )
                     queued_status = "paused" if get_settings().aria2_start_paused else "queued"
                     async with get_db() as db:

@@ -68,6 +68,8 @@ class Aria2Service:
         self.timeout = aiohttp.ClientTimeout(total=max(5, int(timeout_seconds or 15)))
         self._request_id = 0
         self._uri_locks: Dict[str, asyncio.Lock] = {}
+        self._rpc_lock = asyncio.Lock()   # serialises concurrent RPC calls
+        self._last_call_time: float = 0.0 # for min-interval enforcement
 
     # ─────────────────────────────────────────────────────────────────────────
     # Öffentliche API
@@ -116,16 +118,19 @@ class Aria2Service:
         options: Optional[Dict[str, Any]] = None,
         start_paused: bool = False,
         max_retries: int = 5,
+        cached_downloads: Optional[List["Aria2DownloadStatus"]] = None,
     ) -> str:
         """
         Adds a download to aria2 if not already present.
 
         Deduplication is performed by URI and target path.
+        Pass cached_downloads to skip an extra get_all() call when dispatching
+        multiple files in the same cycle (avoids aria2 request storms).
         """
         normalized_uri = uri.strip()
         target_path = self._target_path_from_options(options)
         async with self._lock_for_uri(normalized_uri):
-            all_downloads = await self.get_all()
+            all_downloads = cached_downloads if cached_downloads is not None else await self.get_all()
             matches = self._find_all_matches(normalized_uri, target_path, all_downloads)
 
             for dl in matches:
@@ -268,7 +273,19 @@ class Aria2Service:
 
         Creates a new ClientSession with force_close=True for each call
         to ensure no transport is written to while closing.
+        Serialises concurrent calls via _rpc_lock and enforces a minimum
+        50ms inter-request interval to prevent aria2 from dropping requests
+        under rapid sequential load.
         """
+        import time as _time
+        async with self._rpc_lock:
+            # Enforce minimum interval between aria2 RPC calls
+            now = _time.monotonic()
+            gap = now - self._last_call_time
+            if gap < 0.05:  # 50ms minimum
+                await asyncio.sleep(0.05 - gap)
+            self._last_call_time = _time.monotonic()
+
         self._request_id += 1
         rpc_params = list(params or [])
         if self.secret:
