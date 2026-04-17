@@ -143,7 +143,7 @@ async def lifespan(app: FastAPI):
 
     # 2. Initialise schema (idempotent — safe on restart)
     # Note: init_db() always runs _init_db_sqlite() even in PG mode,
-    # because manager_v2 uses aiosqlite directly for all DB operations.
+    # for WAL setup and backward compatibility with SQLite fallback operations.
     try:
         await init_db()
         logger.info("Database schema initialised (SQLite + %s)",

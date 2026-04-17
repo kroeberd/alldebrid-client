@@ -480,7 +480,3 @@ async def _init_db_postgres():
         await conn.close()
     logger.info("PostgreSQL database initialised")
 
-
-async def get_db_legacy():
-    """Deprecated: use get_db() instead."""
-    return aiosqlite.connect(DB_PATH)
