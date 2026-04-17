@@ -101,9 +101,51 @@ class _DbConnection:
             return f"${counter}"
         sql = re.sub(r"\?", _repl, sql)
         sql = sql.replace("CURRENT_TIMESTAMP", "NOW()")
-        sql = re.sub(r"datetime\('now',\s*'(-?\d+)\s+(\w+)'\)",
-                     lambda m: f"(NOW() + INTERVAL '{m.group(1)} {m.group(2)}')", sql)
+
+        # datetime('now', '-N unit') → (NOW() + INTERVAL 'N unit')
+        sql = re.sub(
+            r"datetime\('now',\s*'(-?\d+)\s+(\w+)'\)",
+            lambda m: f"(NOW() + INTERVAL '{m.group(1)} {m.group(2)}')",
+            sql,
+        )
+        # datetime('now', ? || ' hours') → (NOW() - INTERVAL ... ) handled via param
+        # Simpler form: datetime('now') → NOW()
         sql = re.sub(r"datetime\('now'\)", "NOW()", sql)
+
+        # datetime('now', ? || ' hours') — dynamic interval with parameter
+        # SQLite: datetime('now', ? || ' hours')  e.g. param = '-6'
+        # PG:     (NOW() + ($N || ' hours')::interval)
+        sql = re.sub(
+            r"datetime\('now',\s*(\$\d+)\s*\|\|\s*'(\s*\w+\s*)'\)",
+            lambda m: f"(NOW() + ({m.group(1)} || ' {m.group(2).strip()}')::interval)",
+            sql,
+        )
+
+        # CAST((julianday(a)-julianday(b))*86400 AS INTEGER)
+        # → CAST(EXTRACT(EPOCH FROM (a::timestamptz - b::timestamptz)) AS INTEGER)
+        # julianday difference * 86400 = seconds; EXTRACT(EPOCH) already = seconds
+        sql = re.sub(
+            r"CAST\(\(julianday\((\w+)\)\s*-\s*julianday\((\w+)\)\)\s*\*\s*86400\s*AS\s*INTEGER\)",
+            lambda m: (
+                f"CAST(EXTRACT(EPOCH FROM "
+                f"({m.group(1)}::timestamptz - {m.group(2)}::timestamptz)) AS INTEGER)"
+            ),
+            sql,
+        )
+        # Standalone julianday(a) - julianday(b) (not wrapped in CAST*86400)
+        sql = re.sub(
+            r"julianday\((\w+)\)\s*-\s*julianday\((\w+)\)",
+            lambda m: (
+                f"(EXTRACT(EPOCH FROM "
+                f"({m.group(1)}::timestamptz - {m.group(2)}::timestamptz)) / 86400.0)"
+            ),
+            sql,
+        )
+
+        # DATE(col) → col::date
+        sql = re.sub(r"\bDATE\(([^)]+)\)", lambda m: f"({m.group(1)})::date", sql)
+
+        # Schema changes
         sql = re.sub(r"INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY", sql, flags=re.IGNORECASE)
         sql = re.sub(r"\bDATETIME\b", "TIMESTAMPTZ", sql, flags=re.IGNORECASE)
         return sql
