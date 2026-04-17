@@ -86,6 +86,8 @@ async def start_scheduler():
     _tasks.append(asyncio.create_task(sync_download_clients_loop()))
     _tasks.append(asyncio.create_task(deep_sync_loop()))
     _tasks.append(asyncio.create_task(backup_loop()))
+    _tasks.append(asyncio.create_task(flexget_loop()))
+    _tasks.append(asyncio.create_task(stats_snapshot_loop()))
     logger.info("Scheduler started")
 
 
@@ -93,3 +95,39 @@ async def stop_scheduler():
     for t in _tasks:
         t.cancel()
     _tasks.clear()
+
+
+async def flexget_loop():
+    """Runs FlexGet tasks on a configurable interval."""
+    await asyncio.sleep(30)  # initial delay
+    while True:
+        cfg = get_settings()
+        interval_min = max(0, int(getattr(cfg, "flexget_schedule_minutes", 0) or 0))
+        if interval_min <= 0:
+            await asyncio.sleep(60)
+            continue
+        await asyncio.sleep(interval_min * 60)
+        if not getattr(cfg, "flexget_enabled", False):
+            continue
+        try:
+            from services.flexget import run_flexget_tasks
+            await run_flexget_tasks(triggered_by="schedule")
+        except Exception as e:
+            logger.error(f"FlexGet scheduled run error: {e}")
+
+
+async def stats_snapshot_loop():
+    """Periodically takes a stats snapshot."""
+    await asyncio.sleep(120)  # initial delay
+    while True:
+        cfg = get_settings()
+        interval_min = max(0, int(getattr(cfg, "stats_snapshot_interval_minutes", 60) or 60))
+        if interval_min <= 0:
+            await asyncio.sleep(300)
+            continue
+        await asyncio.sleep(interval_min * 60)
+        try:
+            from services.stats import take_stats_snapshot
+            await take_stats_snapshot()
+        except Exception as e:
+            logger.error(f"Stats snapshot error: {e}")

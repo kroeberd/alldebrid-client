@@ -104,6 +104,25 @@ class AppSettings(BaseModel):
     # Labels / categories (comma-separated, empty = disabled)
     torrent_labels: List[str] = []
 
+    # ── FlexGet integration ───────────────────────────────────────────────────
+    flexget_enabled: bool = False
+    flexget_url: str = "http://localhost:5050"
+    flexget_api_key: str = ""
+    # Comma-separated task names to run (empty = all tasks)
+    flexget_tasks_raw: str = ""
+    # Webhook URL for FlexGet events (separate from Discord)
+    flexget_webhook_url: str = ""
+    # Schedule: interval in minutes (0 = disabled)
+    flexget_schedule_minutes: int = 0
+
+    # ── Statistics & Reporting ────────────────────────────────────────────────
+    # How often to take a stats snapshot (minutes, 0 = disabled)
+    stats_snapshot_interval_minutes: int = 60
+    # How many days to keep snapshots
+    stats_snapshot_keep_days: int = 30
+    # Auto-report: interval in hours (0 = disabled)
+    stats_report_interval_hours: int = 0
+
 
 _settings: AppSettings = AppSettings()
 

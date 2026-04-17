@@ -601,6 +601,94 @@ async def list_backups():
     return {"backups": _list()}
 
 
+
+# ── FlexGet ────────────────────────────────────────────────────────────────────
+
+@router.get("/flexget/tasks")
+async def flexget_list_tasks():
+    """List available FlexGet tasks."""
+    cfg = get_settings()
+    if not getattr(cfg, "flexget_enabled", False):
+        return {"tasks": [], "enabled": False}
+    from services.flexget import FlexGetClient
+    client = FlexGetClient(
+        getattr(cfg, "flexget_url", "http://localhost:5050"),
+        getattr(cfg, "flexget_api_key", ""),
+    )
+    tasks = await client.list_tasks()
+    return {"tasks": tasks, "enabled": True}
+
+
+@router.post("/flexget/run")
+async def flexget_run(body: dict = {}):
+    """Trigger FlexGet task execution manually."""
+    cfg = get_settings()
+    if not getattr(cfg, "flexget_enabled", False):
+        raise HTTPException(400, "FlexGet integration is not enabled")
+    tasks = body.get("tasks") or None  # None = all tasks
+    from services.flexget import run_flexget_tasks
+    results = await run_flexget_tasks(tasks=tasks, triggered_by="manual")
+    ok    = sum(1 for r in results if r.get("status") == "ok")
+    errs  = len(results) - ok
+    return {"ok": True, "tasks_total": len(results), "tasks_ok": ok, "tasks_error": errs, "results": results}
+
+
+@router.get("/flexget/history")
+async def flexget_history(limit: int = Query(50, le=200)):
+    """Return recent FlexGet run history."""
+    async with get_db() as db:
+        rows = await db.fetchall(
+            "SELECT * FROM flexget_runs ORDER BY ran_at DESC LIMIT ?", (limit,)
+        )
+    return {"runs": rows}
+
+
+# ── Statistics & Reporting ──────────────────────────────────────────────────────
+
+@router.get("/stats/comprehensive")
+async def get_comprehensive_stats(hours: int = Query(24, ge=1, le=8760)):
+    """Comprehensive stats for a given time window (hours)."""
+    from services.stats import collect_all_metrics
+    return await collect_all_metrics(hours=hours)
+
+
+@router.get("/stats/report")
+async def get_stats_report(hours: int = Query(24, ge=1, le=8760)):
+    """Formatted report for a given time window."""
+    from services.stats import generate_report
+    return await generate_report(hours=hours)
+
+
+@router.post("/stats/snapshot")
+async def trigger_stats_snapshot():
+    """Manually trigger a stats snapshot."""
+    from services.stats import take_stats_snapshot
+    await take_stats_snapshot()
+    return {"ok": True, "message": "Snapshot taken"}
+
+
+@router.get("/stats/snapshots")
+async def list_stats_snapshots(limit: int = Query(30, le=100)):
+    """Return recent stats snapshots."""
+    async with get_db() as db:
+        rows = await db.fetchall(
+            "SELECT id, created_at FROM stats_snapshots ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        )
+    return {"snapshots": rows}
+
+
+@router.get("/stats/export")
+async def export_stats(hours: int = Query(24, ge=1, le=8760)):
+    """Export comprehensive stats as JSON."""
+    from services.stats import collect_all_metrics
+    from fastapi.responses import JSONResponse
+    data = await collect_all_metrics(hours=hours)
+    return JSONResponse(
+        content=data,
+        headers={"Content-Disposition": f"attachment; filename=stats_{hours}h.json"},
+    )
+
 @router.post("/admin/deep-sync")
 async def trigger_deep_sync():
     t0 = time.monotonic()

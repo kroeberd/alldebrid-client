@@ -328,6 +328,24 @@ async def _init_db_sqlite():
                 FOREIGN KEY (torrent_id) REFERENCES torrents(id)
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS flexget_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_name TEXT NOT NULL,
+                status TEXT DEFAULT 'unknown',
+                elapsed_seconds REAL DEFAULT 0,
+                result_json TEXT DEFAULT '{}',
+                triggered_by TEXT DEFAULT 'manual',
+                ran_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS stats_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                snapshot_json TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         for col, defn in _SCHEMA_COLUMNS_TORRENTS:
             await _ensure_column(db, "torrents", col, defn)
         for col, defn in _SCHEMA_COLUMNS_FILES:
