@@ -1112,8 +1112,50 @@ class TorrentManager:
     async def sync_download_clients(self):
         if self.download_client_name() == "aria2":
             await self.sync_aria2_downloads()
-            # After syncing, enforce the slot limit (in case settings changed)
+            # Enforce slot limit and clean up orphaned finished entries
             await self._dispatch_pending_aria2_queue()
+            await self._cleanup_aria2_orphans()
+
+    async def _cleanup_aria2_orphans(self):
+        """
+        Removes 'complete' or 'error' entries from aria2 that either:
+        - Have no matching download_files row (orphaned GID)
+        - Correspond to a download_files row already marked 'completed'
+        This prevents aria2's stopped list from accumulating stale entries.
+        """
+        if self.download_client_name() != "aria2" or self.is_paused():
+            return
+        try:
+            all_downloads = await self.aria2().get_all()
+        except Exception:
+            return
+
+        stopped = [dl for dl in all_downloads if dl.status in {"complete", "removed", "error"}]
+        if not stopped:
+            return
+
+        # Collect all known GIDs from DB that are still active
+        try:
+            async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                db.row_factory = aiosqlite.Row
+                rows = await (await db.execute(
+                    """SELECT download_id, status FROM download_files
+                       WHERE download_id IS NOT NULL
+                         AND status NOT IN ('completed', 'error', 'blocked')"""
+                )).fetchall()
+            active_gids = {str(r["download_id"]) for r in rows}
+        except Exception as exc:
+            logger.debug("_cleanup_aria2_orphans: DB query failed: %s", exc)
+            return
+
+        removed = 0
+        for dl in stopped:
+            if dl.gid not in active_gids:
+                await self.aria2().remove(dl.gid)
+                removed += 1
+
+        if removed:
+            logger.info("aria2 orphan cleanup: removed %d stale finished/error entries", removed)
 
     async def sync_aria2_downloads(self):
         if self.is_paused() or self.download_client_name() != "aria2":
@@ -1133,7 +1175,8 @@ class TorrentManager:
                        JOIN download_files f ON f.torrent_id = t.id
                        WHERE f.download_client='aria2'
                          AND f.blocked=0
-                         AND f.status IN ('pending', 'queued', 'downloading', 'paused')"""
+                         AND f.status IN ('pending', 'queued', 'downloading', 'paused', 'completed')
+                         AND f.download_id IS NOT NULL"""
                 )
             ).fetchall()
 
@@ -1198,9 +1241,13 @@ class TorrentManager:
             elif dl.status == "active":
                 await self._update_file_state(row["file_id"], "downloading", row["local_path"], size_bytes=sz)
             elif dl.status in {"complete", "removed"}:
-                await self._update_file_state(row["file_id"], "completed", row["local_path"], size_bytes=sz)
+                if row["status"] != "completed":
+                    await self._update_file_state(row["file_id"], "completed", row["local_path"], size_bytes=sz)
+                    touched.add(row["torrent_id"])
+                # Always remove from aria2 — catches leftover 'finished' entries
                 await self.aria2().remove(dl.gid)
-                touched.add(row["torrent_id"])
+                logger.debug("aria2 cleanup: removed GID %s for file %s (torrent %s)",
+                             dl.gid, row["file_id"], row["torrent_id"])
             elif dl.status == "error":
                 reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
                 await self._update_file_state(row["file_id"], "error", row["local_path"], reason=reason, size_bytes=sz)
