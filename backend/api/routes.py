@@ -27,7 +27,7 @@ from core.config import (
     load_settings,
     save_settings,
 )
-from db.database import DB_PATH, _is_postgres
+from db.database import DB_PATH, _is_postgres, get_db
 from services.manager_v2 import manager
 
 logger = logging.getLogger("alldebrid.routes")
@@ -239,22 +239,22 @@ async def list_torrents(
     limit: int = Query(50, le=200),
     offset: int = 0,
 ):
-    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-        db.row_factory = aiosqlite.Row
+    async with get_db() as db:
         where  = "WHERE t.status = ?" if status else ""
         params = [status] if status else []
-        rows = await (await db.execute(
+        rows = await db.fetchall(
             f"""SELECT t.*,
                 (SELECT COUNT(*) FROM download_files WHERE torrent_id=t.id) as file_count,
                 (SELECT COUNT(*) FROM download_files WHERE torrent_id=t.id AND blocked=1) as blocked_count
                 FROM torrents t {where}
                 ORDER BY t.created_at DESC LIMIT ? OFFSET ?""",
             params + [limit, offset],
-        )).fetchall()
-        total = (await (await db.execute(
-            f"SELECT COUNT(*) FROM torrents t {where}", params
-        )).fetchone())[0]
-        return {"items": [dict(r) for r in rows], "total": total}
+        )
+        total_row = await db.fetchone(
+            f"SELECT COUNT(*) AS cnt FROM torrents t {where}", params
+        )
+        total = total_row["cnt"] if total_row else 0
+        return {"items": rows, "total": total}
 
 
 @router.post("/torrents/add-magnet")
@@ -277,25 +277,13 @@ async def import_existing():
 
 @router.get("/torrents/{torrent_id}")
 async def get_torrent(torrent_id: int):
-    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-        db.row_factory = aiosqlite.Row
-        row = await (await db.execute(
-            "SELECT * FROM torrents WHERE id=?", (torrent_id,)
-        )).fetchone()
+    async with get_db() as db:
+        row = await db.fetchone("SELECT * FROM torrents WHERE id=?", (torrent_id,))
         if not row:
             raise HTTPException(404, "Not found")
-        files = await (await db.execute(
-            "SELECT * FROM download_files WHERE torrent_id=? ORDER BY id", (torrent_id,)
-        )).fetchall()
-        events = await (await db.execute(
-            "SELECT * FROM events WHERE torrent_id=? ORDER BY created_at DESC LIMIT 50",
-            (torrent_id,)
-        )).fetchall()
-        return {
-            **dict(row),
-            "files":  [dict(f) for f in files],
-            "events": [dict(e) for e in events],
-        }
+        files  = await db.fetchall("SELECT * FROM download_files WHERE torrent_id=? ORDER BY id", (torrent_id,))
+        events = await db.fetchall("SELECT * FROM events WHERE torrent_id=? ORDER BY created_at DESC LIMIT 50", (torrent_id,))
+        return {**row, "files": files, "events": events}
 
 
 @router.delete("/torrents/{torrent_id}")
@@ -311,17 +299,12 @@ async def delete_torrent(torrent_id: int, from_alldebrid: bool = True):
 
 @router.post("/torrents/{torrent_id}/retry")
 async def retry_torrent(torrent_id: int):
-    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-        db.row_factory = aiosqlite.Row
-        row = await (await db.execute(
-            "SELECT * FROM torrents WHERE id=?", (torrent_id,)
-        )).fetchone()
+    async with get_db() as db:
+        row = await db.fetchone("SELECT * FROM torrents WHERE id=?", (torrent_id,))
         if not row:
             raise HTTPException(404, "Torrent not found")
         if not row["magnet"] and not row["alldebrid_id"]:
             raise HTTPException(400, "No magnet or AllDebrid ID — cannot retry")
-        # If we already have an AllDebrid ID, skip re-uploading and go straight
-        # to polling (status=ready triggers _start_download on next sync cycle)
         new_status = "ready" if row["alldebrid_id"] else "uploading"
         await db.execute(
             """UPDATE torrents
@@ -330,7 +313,6 @@ async def retry_torrent(torrent_id: int):
                WHERE id=?""",
             (new_status, torrent_id),
         )
-        # Reset any error-state download_files so they re-enter the queue
         await db.execute(
             """UPDATE download_files
                SET status='pending', download_id=NULL, retry_count=0,
@@ -371,7 +353,7 @@ class LabelUpdate(BaseModel):
 
 @router.put("/torrents/{torrent_id}/label")
 async def set_torrent_label(torrent_id: int, body: LabelUpdate):
-    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+    async with get_db() as db:
         await db.execute(
             "UPDATE torrents SET label=?, priority=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
             (body.label.strip(), body.priority, torrent_id),
@@ -396,7 +378,7 @@ async def bulk_action(body: BulkAction):
             if body.action == "delete":
                 await manager.delete_torrent(tid, delete_from_ad=True)
             elif body.action == "retry":
-                async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                async with get_db() as db:
                     await db.execute(
                         """UPDATE torrents
                            SET status='uploading', error_message=NULL,
@@ -406,7 +388,7 @@ async def bulk_action(body: BulkAction):
                     )
                     await db.commit()
             elif body.action == "remove_label":
-                async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                async with get_db() as db:
                     await db.execute(
                         "UPDATE torrents SET label='', updated_at=CURRENT_TIMESTAMP WHERE id=?",
                         (tid,),
@@ -422,72 +404,41 @@ async def bulk_action(body: BulkAction):
 
 @router.get("/events")
 async def get_events(limit: int = Query(200, le=500)):
-    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-        db.row_factory = aiosqlite.Row
-        rows = await (await db.execute(
+    async with get_db() as db:
+        return await db.fetchall(
             """SELECT e.*, t.name AS torrent_name
                FROM events e
                LEFT JOIN torrents t ON t.id = e.torrent_id
                ORDER BY e.created_at DESC LIMIT ?""",
             (limit,),
-        )).fetchall()
-        return [dict(r) for r in rows]
+        )
 
 
 # ── Statistics ─────────────────────────────────────────────────────────────────
 
 @router.get("/stats")
 async def get_stats():
-    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-        db.row_factory = aiosqlite.Row
+    async with get_db() as db:
+        by_status_rows = await db.fetchall("SELECT status, COUNT(*) as count FROM torrents GROUP BY status")
+        by_status = {r["status"]: r["count"] for r in by_status_rows}
 
-        by_status = {r["status"]: r["count"] for r in await (
-            await db.execute("SELECT status, COUNT(*) as count FROM torrents GROUP BY status")
-        ).fetchall()}
+        def _v(row, key="v"): return row[key] if row else 0
+        def _c(row): return row["c"] if row else 0
 
-        def _count(q, *p):
-            return db.execute(q, p)
-
-        size_total      = (await (await db.execute(
-            "SELECT COALESCE(SUM(size_bytes),0) as v FROM torrents WHERE status='completed'"
-        )).fetchone())["v"]
-
-        blocked         = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM download_files WHERE blocked=1"
-        )).fetchone())["c"]
-
-        active          = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM torrents WHERE status IN ('downloading','processing','uploading','paused')"
-        )).fetchone())["c"]
-
-        queued          = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM torrents WHERE status='queued'"
-        )).fetchone())["c"]
-
-        error_count     = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM torrents WHERE status='error'"
-        )).fetchone())["c"]
-
-        completed_count = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM torrents WHERE status='completed'"
-        )).fetchone())["c"]
-
-        last_24h        = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now','-1 day')"
-        )).fetchone())["c"]
-
-        last_7d         = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now','-7 days')"
-        )).fetchone())["c"]
-
-        avg_duration    = int((await (await db.execute(
+        size_total      = _v(await db.fetchone("SELECT COALESCE(SUM(size_bytes),0) as v FROM torrents WHERE status='completed'"))
+        blocked         = _c(await db.fetchone("SELECT COUNT(*) as c FROM download_files WHERE blocked=1"))
+        active          = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status IN ('downloading','processing','uploading','paused')"))
+        queued          = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status='queued'"))
+        error_count     = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status='error'"))
+        completed_count = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status='completed'"))
+        last_24h        = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now','-1 day')"))
+        last_7d         = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now','-7 days')"))
+        avg_dur_row     = await db.fetchone(
             """SELECT AVG(CAST((julianday(completed_at)-julianday(created_at))*86400 AS INTEGER)) as v
-               FROM torrents WHERE completed_at IS NOT NULL AND created_at IS NOT NULL"""
-        )).fetchone())["v"] or 0)
-
-        avg_size        = int((await (await db.execute(
-            "SELECT AVG(size_bytes) as v FROM torrents WHERE status='completed' AND size_bytes>0"
-        )).fetchone())["v"] or 0)
+               FROM torrents WHERE completed_at IS NOT NULL AND created_at IS NOT NULL""")
+        avg_duration    = int(_v(avg_dur_row) or 0)
+        avg_size_row    = await db.fetchone("SELECT AVG(size_bytes) as v FROM torrents WHERE status='completed' AND size_bytes>0")
+        avg_size        = int(_v(avg_size_row) or 0)
 
         terminal     = completed_count + error_count
         success_rate = round(completed_count / terminal * 100, 1) if terminal > 0 else None
@@ -517,54 +468,33 @@ async def get_stats():
 
 @router.get("/stats/detail")
 async def get_stats_detail():
-    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-        db.row_factory = aiosqlite.Row
-
-        totals_row = (await (await db.execute(
+    async with get_db() as db:
+        totals = await db.fetchone(
             "SELECT COUNT(*) as torrent_total, COALESCE(SUM(size_bytes),0) as torrent_size_total FROM torrents"
-        )).fetchone())
-        totals = dict(totals_row)
+        ) or {}
 
-        completed_count = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM torrents WHERE status='completed'"
-        )).fetchone())["c"]
-        error_count = (await (await db.execute(
-            "SELECT COUNT(*) as c FROM torrents WHERE status='error'"
-        )).fetchone())["c"]
+        completed_count = (await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status='completed'") or {}).get("c", 0)
+        error_count     = (await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status='error'") or {}).get("c", 0)
         terminal = completed_count + error_count
         totals["success_rate_pct"] = (
             round(completed_count / terminal * 100, 1) if terminal > 0 else None
         )
 
-        torrent_status = [dict(r) for r in await (await db.execute(
-            "SELECT status, COUNT(*) as count FROM torrents GROUP BY status ORDER BY count DESC"
-        )).fetchall()]
-
-        file_status = [dict(r) for r in await (await db.execute(
-            """SELECT status, COUNT(*) as count,
-                      COALESCE(SUM(size_bytes),0) as size_bytes
-               FROM download_files GROUP BY status ORDER BY count DESC"""
-        )).fetchall()]
-
-        event_levels = [dict(r) for r in await (await db.execute(
-            "SELECT level, COUNT(*) as count FROM events GROUP BY level"
-        )).fetchall()]
-
-        latest_events = [dict(r) for r in await (await db.execute(
+        torrent_status    = await db.fetchall("SELECT status, COUNT(*) as count FROM torrents GROUP BY status ORDER BY count DESC")
+        file_status       = await db.fetchall(
+            """SELECT status, COUNT(*) as count, COALESCE(SUM(size_bytes),0) as size_bytes
+               FROM download_files GROUP BY status ORDER BY count DESC""")
+        event_levels      = await db.fetchall("SELECT level, COUNT(*) as count FROM events GROUP BY level")
+        latest_events     = await db.fetchall(
             """SELECT e.*, t.name AS torrent_name FROM events e
                LEFT JOIN torrents t ON t.id = e.torrent_id
-               ORDER BY e.created_at DESC LIMIT 10"""
-        )).fetchall()]
-
-        daily_completions = [dict(r) for r in await (await db.execute(
+               ORDER BY e.created_at DESC LIMIT 10""")
+        daily_completions = await db.fetchall(
             """SELECT DATE(completed_at) as date, COUNT(*) as count
                FROM torrents WHERE completed_at >= datetime('now','-14 days')
-               GROUP BY DATE(completed_at) ORDER BY date ASC"""
-        )).fetchall()]
-
-        sources = [dict(r) for r in await (await db.execute(
-            "SELECT source, COUNT(*) as count FROM torrents GROUP BY source ORDER BY count DESC"
-        )).fetchall()]
+               GROUP BY DATE(completed_at) ORDER BY date ASC""")
+        sources = await db.fetchall(
+            "SELECT source, COUNT(*) as count FROM torrents GROUP BY source ORDER BY count DESC")
 
         return {
             "totals":             totals,
