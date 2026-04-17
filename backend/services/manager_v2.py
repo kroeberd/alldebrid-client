@@ -11,7 +11,7 @@ import aiohttp
 import aiosqlite
 
 from core.config import AppSettings, get_settings
-from db.database import DB_PATH
+from db.database import DB_PATH, get_db
 from services.alldebrid import AllDebridService, flatten_files
 from services.aria2 import Aria2Service
 from services.notifications import NotificationService
@@ -274,7 +274,7 @@ class TorrentManager:
                 self._failed_files.add(key)
                 moved_to = self._move_watch_file_to_error(file_path, watch)
                 # Write to DB events so the error shows in the UI
-                async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                async with get_db() as db:
                     await db.execute(
                         "INSERT INTO events (torrent_id, level, message) VALUES (NULL, 'error', ?)",
                         (
@@ -324,8 +324,7 @@ class TorrentManager:
         return await self._add_magnet(magnet, hash_value, source)
 
     async def _add_magnet(self, magnet: str, hash_value: str, source: str) -> dict:
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             cur = await db.execute("SELECT * FROM torrents WHERE hash=?", (hash_value,))
             existing = await cur.fetchone()
             if existing and existing["status"] in ("uploading", "processing", "queued", "downloading", "ready", "completed"):
@@ -343,8 +342,7 @@ class TorrentManager:
         return row
 
     async def _upsert(self, hash_value: str, magnet: Optional[str], name: str, ad_id: str, source: str) -> dict:
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             await db.execute(
                 """INSERT INTO torrents
                    (hash, magnet, name, alldebrid_id, status, source, provider_status, download_client)
@@ -371,8 +369,7 @@ class TorrentManager:
         if self.is_paused() or not get_settings().alldebrid_api_key:
             return
 
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             rows = await (
                 await db.execute(
                     """SELECT id, name, alldebrid_id, status, provider_status, provider_status_code, polling_failures
@@ -433,8 +430,7 @@ class TorrentManager:
 
         by_gid, uri_to_dl, path_to_dl = self._build_aria2_indexes(all_downloads)
 
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             rows = await (await db.execute(
                 """SELECT f.id AS file_id, f.torrent_id, f.local_path,
                           f.size_bytes, f.download_id, f.download_url, f.filename,
@@ -471,7 +467,7 @@ class TorrentManager:
                 dl = uri_to_dl.get(url)
                 if dl:
                     # Update stale GID in DB
-                    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                    async with get_db() as db:
                         await db.execute(
                             "UPDATE download_files SET download_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                             (dl.gid, file_id),
@@ -493,7 +489,7 @@ class TorrentManager:
             # ── Step 2: act on aria2 status ──────────────────────────────────
             if dl.status == "complete":
                 # aria2 says done — mark completed
-                async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                async with get_db() as db:
                     await db.execute(
                         "UPDATE download_files SET status='completed', updated_at=CURRENT_TIMESTAMP WHERE id=?",
                         (file_id,),
@@ -536,7 +532,7 @@ class TorrentManager:
                                 options["dir"] = str(_PPP(str(lp.parent).replace(chr(92), "/")))
                                 options["out"] = lp.name
                             new_gid = await self.aria2().ensure_download(url, options, start_paused=False)
-                            async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                            async with get_db() as db:
                                 await db.execute(
                                     """UPDATE download_files
                                        SET download_id=?, status='queued',
@@ -566,7 +562,7 @@ class TorrentManager:
                         torrent_id, "error",
                         f"deep_sync: max retries ({max_retries}) exhausted for {row['filename']!r}: {reason}",
                     )
-                    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                    async with get_db() as db:
                         await db.execute(
                             "UPDATE download_files SET status='error', updated_at=CURRENT_TIMESTAMP WHERE id=?",
                             (file_id,),
@@ -586,7 +582,7 @@ class TorrentManager:
                 # Update progress in DB
                 if dl.total_length > 0:
                     progress = round(dl.completed_length / dl.total_length * 100, 1)
-                    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                    async with get_db() as db:
                         await db.execute(
                             """UPDATE download_files
                                SET status='downloading', size_bytes=?,
@@ -604,7 +600,7 @@ class TorrentManager:
             elif dl.status in ("waiting", "paused"):
                 # Update size if aria2 knows it
                 if dl.total_length > 0:
-                    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                    async with get_db() as db:
                         await db.execute(
                             "UPDATE download_files SET size_bytes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                             (dl.total_length, file_id),
@@ -631,8 +627,7 @@ class TorrentManager:
         if not timeout_hours or timeout_hours <= 0:
             return
 
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             rows = await (await db.execute(
                 """SELECT id, name, alldebrid_id FROM torrents
                    WHERE status IN ('queued', 'downloading', 'processing', 'uploading')
@@ -646,7 +641,7 @@ class TorrentManager:
         logger.info("cleanup_stuck_downloads: %d stuck torrent(s) found", len(rows))
         for row in rows:
             logger.info("Resetting stuck torrent %s (%s)", row["id"], row["name"])
-            async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+            async with get_db() as db:
                 await db.execute(
                     "UPDATE torrents SET status='ready', polling_failures=0, "
                     "updated_at=CURRENT_TIMESTAMP WHERE id=?",
@@ -665,8 +660,7 @@ class TorrentManager:
         Also handles torrents WITHOUT an alldebrid_id (they cannot be deleted from
         AllDebrid, but are still cleaned up locally and reported via webhook).
         """
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             rows = await (await db.execute(
                 """SELECT id, name, alldebrid_id, error_message
                    FROM torrents
@@ -701,7 +695,7 @@ class TorrentManager:
                 )
                 event_msg = "No peers after 30 minutes — no AllDebrid ID, cleaned up locally"
 
-            async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+            async with get_db() as db:
                 await db.execute(
                     "UPDATE torrents SET status='deleted', updated_at=CURRENT_TIMESTAMP WHERE id=?",
                     (row["id"],)
@@ -721,7 +715,7 @@ class TorrentManager:
                              else "No AllDebrid ID available — cleaned up locally only"),
                 )
 
-    async def _apply_provider_update(self, row: aiosqlite.Row, magnet: Dict, normalized: Dict[str, object]):
+    async def _apply_provider_update(self, row: Dict, magnet: Dict, normalized: Dict[str, object]):
         provider_status = str(normalized["provider_status"])
         local_status = str(normalized["local_status"])
         status_code = int(normalized["status_code"])
@@ -731,7 +725,7 @@ class TorrentManager:
         current_status = row["status"]
         persisted_status = current_status if current_status in {"queued", "downloading", "paused"} and provider_status == "ready" else local_status
 
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             if provider_status != (row["provider_status"] or "") or status_code != int(row["provider_status_code"] or -1):
                 await db.execute(
                     "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
@@ -765,8 +759,7 @@ class TorrentManager:
                 await self._fail_torrent(row["id"], error_message, notify=True)
 
     async def _increment_poll_failure(self, torrent_id: int, name: str, reason: str):
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             await db.execute(
                 "UPDATE torrents SET polling_failures=polling_failures+1, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                 (torrent_id,),
@@ -805,7 +798,7 @@ class TorrentManager:
         client_name = self.download_client_name()
         initial_status = "queued"  # aria2 is the only download client
 
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             await db.execute("DELETE FROM download_files WHERE torrent_id=?", (torrent_id,))
             await db.execute(
                 "UPDATE torrents SET status=?, download_client=?, error_message=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?",
@@ -898,7 +891,7 @@ class TorrentManager:
         else:
             final_status = "error"
 
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             await db.execute(
                 "UPDATE torrents SET status=?, local_path=?, size_bytes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                 (final_status, str(destination_root), total_size_bytes, torrent_id),
@@ -1014,8 +1007,7 @@ class TorrentManager:
                     len(in_flight), limit, len(excess),
                 )
                 # Find download_files rows for these GIDs and reset to pending
-                async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-                    db.row_factory = aiosqlite.Row
+                async with get_db() as db:
                     gid_placeholders = ",".join("?" * len(excess_gids))
                     stale = await (await db.execute(
                         f"SELECT id FROM download_files WHERE download_id IN ({gid_placeholders})",
@@ -1041,8 +1033,7 @@ class TorrentManager:
             if available_slots <= 0:
                 return
 
-            async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-                db.row_factory = aiosqlite.Row
+            async with get_db() as db:
                 pending_rows = await (
                     await db.execute(
                         """SELECT f.id AS file_id, f.torrent_id, f.filename,
@@ -1086,7 +1077,7 @@ class TorrentManager:
                         get_settings().aria2_start_paused,
                     )
                     queued_status = "paused" if get_settings().aria2_start_paused else "queued"
-                    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                    async with get_db() as db:
                         await db.execute(
                             """UPDATE download_files
                                SET status=?, download_id=?, download_url=?,
@@ -1136,8 +1127,7 @@ class TorrentManager:
 
         # Collect all known GIDs from DB that are still active
         try:
-            async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-                db.row_factory = aiosqlite.Row
+            async with get_db() as db:
                 rows = await (await db.execute(
                     """SELECT download_id, status FROM download_files
                        WHERE download_id IS NOT NULL
@@ -1164,8 +1154,7 @@ class TorrentManager:
         all_downloads = await self.aria2().get_all()
         by_gid, uri_to_dl, path_to_dl = self._build_aria2_indexes(all_downloads)
 
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             rows = await (
                 await db.execute(
                     """SELECT t.id AS torrent_id, t.name, t.alldebrid_id, t.status AS torrent_status,
@@ -1207,7 +1196,7 @@ class TorrentManager:
 
                 if dl is not None:
                     # Found under different GID — update DB and fall through to status sync
-                    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                    async with get_db() as db:
                         await db.execute(
                             "UPDATE download_files SET download_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                             (dl.gid, row["file_id"]),
@@ -1259,8 +1248,7 @@ class TorrentManager:
             await self._reset_torrent_for_redownload(
                 torrent_id, "aria2 entry lost during sync — reset for re-download"
             )
-            async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-                db.row_factory = aiosqlite.Row
+            async with get_db() as db:
                 t = await (await db.execute(
                     "SELECT alldebrid_id, name FROM torrents WHERE id=?", (torrent_id,)
                 )).fetchone()
@@ -1280,7 +1268,7 @@ class TorrentManager:
         ignores it while _start_download/_download re-runs and re-registers
         the new URIs with aria2. Status is updated to 'queued' or 'paused' once
         _download() completes and the new download_files rows are written."""
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             await db.execute("DELETE FROM download_files WHERE torrent_id=?", (torrent_id,))
             await db.execute(
                 "UPDATE torrents SET status='downloading', error_message=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?",
@@ -1313,8 +1301,7 @@ class TorrentManager:
 
         by_gid, uri_to_dl, path_to_dl = self._build_aria2_indexes(all_downloads)
 
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             rows = await (
                 await db.execute(
                     """SELECT t.id AS torrent_id, t.alldebrid_id, t.name,
@@ -1354,7 +1341,7 @@ class TorrentManager:
                     dl = uri_to_dl.get(url)
                 if dl:
                     # Case 2: same path or URI under new GID — update and fall through to sync
-                    async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+                    async with get_db() as db:
                         await db.execute(
                             "UPDATE download_files SET download_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                             (dl.gid, row["file_id"]),
@@ -1403,8 +1390,7 @@ class TorrentManager:
             await self._finalize_aria2_torrent(torrent_id)
 
         for torrent_id in reset_torrents:
-            async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-                db.row_factory = aiosqlite.Row
+            async with get_db() as db:
                 t = await (await db.execute(
                     "SELECT alldebrid_id, name FROM torrents WHERE id=?", (torrent_id,)
                 )).fetchone()
@@ -1476,7 +1462,7 @@ class TorrentManager:
         reason: Optional[str] = None,
         size_bytes: Optional[int] = None,
     ):
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             if size_bytes is not None and size_bytes > 0:
                 await db.execute(
                     """UPDATE download_files
@@ -1494,8 +1480,7 @@ class TorrentManager:
             await db.commit()
 
     async def _finalize_aria2_torrent(self, torrent_id: int):
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             torrent = await (await db.execute("SELECT * FROM torrents WHERE id=?", (torrent_id,))).fetchone()
             if not torrent or _terminal_torrent_status(torrent["status"]):
                 return
@@ -1581,8 +1566,7 @@ class TorrentManager:
     async def pause_torrent(self, torrent_id: int):
         if self.download_client_name() != "aria2":
             raise ValueError("Pause is only supported for the aria2 download client")
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             rows = await (
                 await db.execute(
                     "SELECT download_id FROM download_files WHERE torrent_id=? AND download_client='aria2' AND blocked=0 AND download_id IS NOT NULL",
@@ -1591,7 +1575,7 @@ class TorrentManager:
             ).fetchall()
         for row in rows:
             await self.aria2().pause(row["download_id"])
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             await db.execute("UPDATE download_files SET status='paused', updated_at=CURRENT_TIMESTAMP WHERE torrent_id=? AND download_client='aria2' AND blocked=0", (torrent_id,))
             await db.execute("UPDATE torrents SET status='paused', updated_at=CURRENT_TIMESTAMP WHERE id=?", (torrent_id,))
             await db.commit()
@@ -1600,8 +1584,7 @@ class TorrentManager:
     async def resume_torrent(self, torrent_id: int):
         if self.download_client_name() != "aria2":
             raise ValueError("Resume is only supported for the aria2 download client")
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             rows = await (
                 await db.execute(
                     "SELECT download_id FROM download_files WHERE torrent_id=? AND download_client='aria2' AND blocked=0 AND download_id IS NOT NULL",
@@ -1610,7 +1593,7 @@ class TorrentManager:
             ).fetchall()
         for row in rows:
             await self.aria2().resume(row["download_id"])
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             await db.execute("UPDATE download_files SET status='queued', updated_at=CURRENT_TIMESTAMP WHERE torrent_id=? AND download_client='aria2' AND blocked=0", (torrent_id,))
             await db.execute("UPDATE torrents SET status='queued', updated_at=CURRENT_TIMESTAMP WHERE id=?", (torrent_id,))
             await db.commit()
@@ -1646,7 +1629,7 @@ class TorrentManager:
         download_id: Optional[str] = None,
         download_client: str = "aria2",
     ):
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             await db.execute(
                 """INSERT INTO download_files
                    (torrent_id, filename, size_bytes, download_url, local_path, status, download_id, download_client, blocked, block_reason, updated_at)
@@ -1667,7 +1650,7 @@ class TorrentManager:
             await db.commit()
 
     async def _log_event(self, torrent_id: int, level: str, message: str):
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             await db.execute("INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)", (torrent_id, level, message))
             await db.commit()
 
@@ -1682,7 +1665,7 @@ class TorrentManager:
             logger.warning(
                 "torrent %s: skipping AllDebrid deletion — no alldebrid_id", torrent_id
             )
-            async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+            async with get_db() as db:
                 await db.execute(
                     "INSERT INTO events (torrent_id, level, message) VALUES (?, 'warn', ?)",
                     (torrent_id, "Completed locally, but no AllDebrid ID — cannot remove from AllDebrid"),
@@ -1692,7 +1675,7 @@ class TorrentManager:
 
         logger.info("torrent %s: removing from AllDebrid (id=%s)", torrent_id, ad_id)
         deleted = await self.ad().delete_magnet(ad_id)
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             msg = ("Removed from AllDebrid after completion" if deleted
                    else f"Completed, but AllDebrid removal failed (id={ad_id})")
             level = "info" if deleted else "warn"
@@ -1723,8 +1706,7 @@ class TorrentManager:
             logger.warning("Integration notify failed: %s", exc)
 
     async def _fail_torrent(self, torrent_id: int, message: str, notify: bool = False):
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             row = await (await db.execute("SELECT name FROM torrents WHERE id=?", (torrent_id,))).fetchone()
             await db.execute(
                 "UPDATE torrents SET status='error', error_message=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
@@ -1736,7 +1718,7 @@ class TorrentManager:
             await self.notify().send_error(row["name"], reason=message)
 
     async def _set_deleted(self, torrent_id: int, message: str):
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
+        async with get_db() as db:
             await db.execute("UPDATE torrents SET status='deleted', updated_at=CURRENT_TIMESTAMP WHERE id=?", (torrent_id,))
             await db.execute("INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)", (torrent_id, "warn", message))
             await db.commit()
@@ -1773,8 +1755,7 @@ class TorrentManager:
                 logger.warning("import_existing_magnets: could not fetch aria2 state: %s", exc)
 
         results = []
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             for magnet in all_magnets:
                 ad_id = str(magnet.get("id", ""))
                 hash_value = magnet.get("hash", ad_id).lower()
@@ -1835,8 +1816,7 @@ class TorrentManager:
             # cannot match against aria2 at all — we simply call _start_download which
             # generates fresh links and lets ensure_download handle deduplication.
             if self.download_client_name() == "aria2":
-                async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-                    db.row_factory = aiosqlite.Row
+                async with get_db() as db:
                     file_rows = await (
                         await db.execute(
                             "SELECT id AS file_id, download_url, download_id, local_path, status "
@@ -1887,8 +1867,7 @@ class TorrentManager:
         return results
 
     async def delete_torrent(self, torrent_id: int, delete_from_ad: bool = True):
-        async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             row = await (await db.execute("SELECT * FROM torrents WHERE id=?", (torrent_id,))).fetchone()
             if not row:
                 raise ValueError("Torrent not found")

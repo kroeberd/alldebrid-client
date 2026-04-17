@@ -57,6 +57,28 @@ def _build_dsn() -> str:
     )
 
 
+class _CursorWrapper:
+    """Wraps a cursor so (await db.execute(...)).fetchall() works like aiosqlite."""
+    def __init__(self, backend: str, cursor):
+        self._backend = backend
+        self._cursor  = cursor
+
+    async def fetchall(self):
+        if self._backend == "sqlite" and self._cursor is not None:
+            rows = await self._cursor.fetchall()
+            return [dict(r) for r in rows]
+        return []
+
+    async def fetchone(self):
+        if self._backend == "sqlite" and self._cursor is not None:
+            row = await self._cursor.fetchone()
+            return dict(row) if row else None
+        return None
+
+    def __getitem__(self, key):
+        return None  # safe fallback
+
+
 class _DbConnection:
     """Unified connection API for SQLite and PostgreSQL."""
 
@@ -89,9 +111,12 @@ class _DbConnection:
     async def execute(self, sql: str, params: Sequence[Any] = ()):
         sql = self._adapt(sql)
         if self._backend == "sqlite":
-            return await self._raw.execute(sql, params)
+            cursor = await self._raw.execute(sql, params)
+            return _CursorWrapper("sqlite", cursor)
         else:
-            return await self._raw.execute(sql, *params)
+            # For PostgreSQL, execute returns None — use fetchall/fetchone directly
+            await self._raw.execute(sql, *params)
+            return _CursorWrapper("postgres", None)
 
     async def executemany(self, sql: str, params_list: List[Sequence[Any]]):
         sql = self._adapt(sql)
@@ -146,7 +171,7 @@ async def get_db() -> AsyncIterator[_DbConnection]:
         finally:
             await conn.close()
     else:
-        async with aiosqlite.connect(DB_PATH) as conn:
+        async with aiosqlite.connect(DB_PATH, timeout=30) as conn:
             conn.row_factory = aiosqlite.Row
             yield _DbConnection("sqlite", conn)
 
