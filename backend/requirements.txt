@@ -9,3 +9,6 @@ bencodepy==0.9.5
 python-multipart==0.0.9
 pycryptodome==3.20.0
 asyncpg>=0.29.0
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-cov==4.1.0
