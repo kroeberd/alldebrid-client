@@ -1,0 +1,47 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          cd backend
+          python -m pytest tests/test_manager_v2.py -v --tb=short
+
+      - name: Check Python syntax
+        run: |
+          cd backend
+          python -m py_compile api/routes.py core/config.py core/scheduler.py \
+            db/database.py db/migration.py main.py \
+            services/alldebrid.py services/aria2.py services/backup.py \
+            services/flexget.py services/integrations.py services/manager_v2.py \
+            services/notifications.py services/stats.py
+          echo "All files syntax OK"
