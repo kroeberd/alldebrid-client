@@ -526,7 +526,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v0.9.39</div>
+      <div class="logo-ver" id="sidebar-version">v0.9.40</div>
     </div>
   </div>
   <nav>
@@ -2359,7 +2359,7 @@ async function flexgetListTasks() {
     const r = await api('GET', '/flexget/tasks');
     if (!r.enabled) { el.textContent = 'FlexGet is not enabled.'; return; }
     el.innerHTML = r.tasks.length
-      ? '<b>Available tasks:</b> ' + r.tasks.map(t => `<span style="background:var(--surface2);padding:2px 6px;border-radius:4px;margin:2px;display:inline-block">${t}</span>`).join('')
+      ? '<b>Available tasks (' + r.tasks.length + '):</b><br>' + r.tasks.map(t => `<span style="background:var(--surface2);padding:2px 8px;border-radius:4px;margin:2px 2px 0;display:inline-block;font-size:11px">${t}</span>`).join(' ')
       : 'No tasks found.';
   } catch(e) { el.textContent = '✗ ' + e.message; }
 }
@@ -2373,8 +2373,11 @@ async function flexgetRun() {
   const tasks = raw.split(',').map(s=>s.trim()).filter(Boolean);
   try {
     const r = await api('POST', '/flexget/run', tasks.length ? {tasks} : {});
-    resultEl.style.color = r.tasks_error > 0 ? 'var(--yellow)' : 'var(--green)';
-    resultEl.textContent = `✓ ${r.tasks_ok}/${r.tasks_total} tasks OK, ${r.tasks_error} errors`;
+    const hasErr = r.tasks_error > 0;
+    resultEl.style.color = hasErr ? 'var(--yellow)' : 'var(--green)';
+    let msg = `✓ ${r.tasks_ok}/${r.tasks_total} tasks OK, ${r.tasks_error} error(s)`;
+    if (hasErr && r.first_error) msg += ` — ${r.first_error}`;
+    resultEl.textContent = msg;
     loadFlexgetHistory();
   } catch(e) {
     resultEl.style.color = 'var(--red)';

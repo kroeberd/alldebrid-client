@@ -1,9 +1,11 @@
 """
 FlexGet integration service.
 
-FlexGet REST API is asynchronous:
-  POST /api/tasks/{task}/execute/  → 202 Accepted + {execution_id}
-  GET  /api/tasks/{task}/executions/{id}/  → poll for result
+FlexGet REST API endpoint for task execution:
+  POST /api/tasks/{name}/execute/
+  Response: 202 + body containing execution info (format varies by version)
+
+Authentication: Authorization: Token {api_key}
 """
 from __future__ import annotations
 
@@ -13,15 +15,14 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import aiohttp
 
 logger = logging.getLogger("alldebrid.flexget")
 
-# How long to wait for a single task to finish (seconds)
-_TASK_TIMEOUT   = 300
-# Poll interval when waiting for task completion
-_POLL_INTERVAL  = 3
+_TASK_TIMEOUT  = 300   # max seconds to wait for a task
+_POLL_INTERVAL = 3     # seconds between status polls
 
 
 def _cfg():
@@ -47,14 +48,10 @@ def _configured_tasks() -> Optional[List[str]]:
     return tasks or None
 
 
-# ── FlexGet API client ────────────────────────────────────────────────────────
-
 class FlexGetClient:
-    """Async client for FlexGet REST API v2 (web_server plugin)."""
-
     def __init__(self, base_url: str, api_key: str = ""):
         self.base_url = base_url.rstrip("/")
-        self.api_key  = api_key
+        self.api_key  = api_key.strip()
 
     def _headers(self) -> Dict[str, str]:
         h = {"Content-Type": "application/json"}
@@ -63,7 +60,6 @@ class FlexGetClient:
         return h
 
     async def list_tasks(self) -> List[str]:
-        """Return list of configured task names."""
         try:
             async with aiohttp.ClientSession(headers=self._headers()) as s:
                 async with s.get(
@@ -74,7 +70,6 @@ class FlexGetClient:
                         logger.warning("FlexGet list_tasks: HTTP %s", r.status)
                         return []
                     data = await r.json(content_type=None)
-                    # FlexGet returns list of task objects with 'name' key
                     if isinstance(data, list):
                         return [
                             t.get("name", t) if isinstance(t, dict) else str(t)
@@ -87,95 +82,132 @@ class FlexGetClient:
 
     async def execute_task(self, task: str) -> Dict[str, Any]:
         """
-        Execute a single task and wait for completion.
-
-        FlexGet execute API is async:
-          POST .../execute/ → 202 + {execution_id}
-          GET  .../executions/{id}/ → poll until status != pending/running
+        Execute a single FlexGet task via REST API.
+        Tries execute endpoint and waits for completion via polling.
         """
         started = time.monotonic()
+        task_enc = quote(task, safe="")
 
-        # Step 1: trigger execution
         try:
-            async with aiohttp.ClientSession(headers=self._headers()) as s:
-                async with s.post(
-                    f"{self.base_url}/api/tasks/{task}/execute/",
-                    json={},
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as r:
-                    body = {}
+            async with aiohttp.ClientSession(
+                headers=self._headers(),
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as s:
+                url = f"{self.base_url}/api/tasks/{task_enc}/execute/"
+                logger.debug("FlexGet execute POST %s", url)
+
+                async with s.post(url, json={}) as r:
+                    http_status = r.status
                     try:
                         body = await r.json(content_type=None)
                     except Exception:
                         body = {"raw": await r.text()}
 
-                    if r.status == 404:
+                    logger.debug(
+                        "FlexGet execute %s → HTTP %s body=%s",
+                        task, http_status, str(body)[:200],
+                    )
+
+                    if http_status == 401:
                         return {
                             "task": task, "status": "error",
-                            "error": f"Task not found: {task}",
-                            "elapsed": round(time.monotonic() - started, 2), "result": body,
+                            "error": "Unauthorized — check API key",
+                            "http": 401, "elapsed": round(time.monotonic()-started, 2),
+                            "result": body,
                         }
-                    if r.status not in (200, 201, 202):
+                    if http_status == 404:
                         return {
                             "task": task, "status": "error",
-                            "error": f"HTTP {r.status}", "http": r.status,
-                            "elapsed": round(time.monotonic() - started, 2), "result": body,
+                            "error": f"Task or endpoint not found (HTTP 404) for: {task}",
+                            "http": 404, "elapsed": round(time.monotonic()-started, 2),
+                            "result": body,
+                        }
+                    if http_status not in (200, 201, 202):
+                        return {
+                            "task": task, "status": "error",
+                            "error": f"HTTP {http_status}",
+                            "http": http_status, "elapsed": round(time.monotonic()-started, 2),
+                            "result": body,
                         }
 
-                    # 202: async execution — poll for result
-                    execution_id = body.get("execution_id") or body.get("id")
+                    # Extract execution_id from various FlexGet response formats
+                    execution_id = (
+                        body.get("execution_id")
+                        or body.get("id")
+                        or (body.get("executions") or [{}])[0].get("id")
+                        # tasks[0].executions[0].id
+                        or (
+                            (body.get("tasks") or [{}])[0]
+                            .get("executions", [{}])[0]
+                            .get("id")
+                        )
+                    )
+
                     if not execution_id:
-                        # Some versions return result directly on 200
+                        # Response is synchronous (older FlexGet or direct result)
                         elapsed = round(time.monotonic() - started, 2)
+                        logger.debug("FlexGet %s: no execution_id in response → treating as sync ok", task)
                         return {
                             "task": task,
-                            "status": "ok" if r.status < 300 else "error",
-                            "http": r.status, "elapsed": elapsed, "result": body,
+                            "status": "ok" if http_status < 300 else "error",
+                            "http": http_status, "elapsed": elapsed, "result": body,
                         }
+
         except asyncio.TimeoutError:
-            return {"task": task, "status": "timeout", "elapsed": 30.0, "result": {}}
+            return {"task": task, "status": "timeout", "elapsed": 60.0, "result": {}}
         except Exception as exc:
+            logger.error("FlexGet execute %s exception: %s", task, exc)
             return {
                 "task": task, "status": "error", "error": str(exc),
                 "elapsed": round(time.monotonic() - started, 2), "result": {},
             }
 
-        # Step 2: poll for completion
+        # Poll for task completion
         deadline = time.monotonic() + _TASK_TIMEOUT
-        async with aiohttp.ClientSession(headers=self._headers()) as s:
+        poll_urls = [
+            f"{self.base_url}/api/tasks/{task_enc}/executions/{execution_id}/",
+            f"{self.base_url}/api/tasks/executions/{execution_id}/",
+        ]
+        async with aiohttp.ClientSession(
+            headers=self._headers(),
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as s:
             while time.monotonic() < deadline:
                 await asyncio.sleep(_POLL_INTERVAL)
-                try:
-                    async with s.get(
-                        f"{self.base_url}/api/tasks/{task}/executions/{execution_id}/",
-                        timeout=aiohttp.ClientTimeout(total=10),
-                    ) as poll:
-                        if poll.status == 404:
-                            # Try alternative endpoint
-                            async with s.get(
-                                f"{self.base_url}/api/tasks/executions/{execution_id}/",
-                                timeout=aiohttp.ClientTimeout(total=10),
-                            ) as poll2:
-                                result = await poll2.json(content_type=None)
-                        else:
+                for poll_url in poll_urls:
+                    try:
+                        async with s.get(poll_url) as poll:
+                            if poll.status == 404:
+                                continue
                             result = await poll.json(content_type=None)
-
-                        state = str(result.get("status", result.get("state", ""))).lower()
-                        if state in ("pending", "running", ""):
-                            continue  # still running
-
-                        elapsed = round(time.monotonic() - started, 2)
-                        success = state in ("succeeded", "success", "finished", "complete", "done")
-                        return {
-                            "task": task,
-                            "status": "ok" if success else "error",
-                            "execution_id": execution_id,
-                            "state": state,
-                            "elapsed": elapsed,
-                            "result": result,
-                        }
-                except Exception as exc:
-                    logger.debug("FlexGet poll failed for %s/%s: %s", task, execution_id, exc)
+                            state = str(
+                                result.get("status")
+                                or result.get("state")
+                                or result.get("execution_status")
+                                or ""
+                            ).lower()
+                            if state in ("pending", "running", "in progress", ""):
+                                break  # still running, try again
+                            elapsed = round(time.monotonic() - started, 2)
+                            success = state in (
+                                "succeeded", "success", "finished",
+                                "complete", "done", "completed",
+                            )
+                            logger.info(
+                                "FlexGet task %s finished: state=%s elapsed=%.1fs",
+                                task, state, elapsed,
+                            )
+                            return {
+                                "task": task,
+                                "status": "ok" if success else "error",
+                                "execution_id": execution_id,
+                                "state": state,
+                                "elapsed": elapsed,
+                                "result": result,
+                            }
+                    except Exception as exc:
+                        logger.debug("FlexGet poll %s: %s", poll_url, exc)
+                        continue
 
         return {
             "task": task, "status": "timeout",
@@ -184,11 +216,10 @@ class FlexGetClient:
         }
 
     async def execute_tasks(self, tasks: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        """Execute multiple tasks sequentially. tasks=None → run all."""
         if tasks is None:
             tasks = await self.list_tasks()
         if not tasks:
-            logger.warning("FlexGet execute_tasks: no tasks to run")
+            logger.warning("FlexGet execute_tasks: no tasks found")
             return []
         results = []
         for t in tasks:
@@ -196,16 +227,10 @@ class FlexGetClient:
         return results
 
 
-# ── FlexGet runner ────────────────────────────────────────────────────────────
-
 async def run_flexget_tasks(
     tasks: Optional[List[str]] = None,
     triggered_by: str = "manual",
 ) -> List[Dict[str, Any]]:
-    """
-    Run FlexGet tasks and emit webhook events.
-    tasks=None → use flexget_tasks_raw config or run all.
-    """
     cfg = _cfg()
     if not getattr(cfg, "flexget_enabled", False):
         return []
@@ -213,11 +238,10 @@ async def run_flexget_tasks(
     client = _client()
     run_tasks = tasks or _configured_tasks()
 
-    ts = datetime.now(timezone.utc).isoformat()
     await _emit_flexget_webhook("run_started", {
         "triggered_by": triggered_by,
         "tasks": run_tasks or "all",
-        "timestamp": ts,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     })
 
     task_results = await client.execute_tasks(run_tasks)
@@ -232,25 +256,28 @@ async def run_flexget_tasks(
     errs = len(task_results) - ok
     await _emit_flexget_webhook("run_finished", {
         "triggered_by": triggered_by,
-        "tasks_total":  len(task_results),
-        "tasks_ok":     ok,
-        "tasks_error":  errs,
-        "timestamp":    datetime.now(timezone.utc).isoformat(),
+        "tasks_total": len(task_results),
+        "tasks_ok": ok,
+        "tasks_error": errs,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     })
 
-    logger.info("FlexGet run complete: %d tasks, %d ok, %d error", len(task_results), ok, errs)
+    logger.info("FlexGet run: %d tasks, %d ok, %d error", len(task_results), ok, errs)
     return task_results
 
 
 async def _emit_flexget_webhook(event: str, payload: Dict[str, Any]) -> None:
     cfg = _cfg()
-    webhook_url = (getattr(cfg, "flexget_webhook_url", "") or "").strip()
-    if not webhook_url:
+    url = (getattr(cfg, "flexget_webhook_url", "") or "").strip()
+    if not url:
         return
     try:
-        body = {"event": event, "source": "flexget", **payload}
         async with aiohttp.ClientSession() as s:
-            await s.post(webhook_url, json=body, timeout=aiohttp.ClientTimeout(total=10))
+            await s.post(
+                url,
+                json={"event": event, "source": "flexget", **payload},
+                timeout=aiohttp.ClientTimeout(total=10),
+            )
     except Exception as exc:
         logger.debug("FlexGet webhook failed (%s): %s", event, exc)
 

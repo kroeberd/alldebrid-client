@@ -629,7 +629,19 @@ async def flexget_run(body: dict = {}):
     results = await run_flexget_tasks(tasks=tasks, triggered_by="manual")
     ok    = sum(1 for r in results if r.get("status") == "ok")
     errs  = len(results) - ok
-    return {"ok": True, "tasks_total": len(results), "tasks_ok": ok, "tasks_error": errs, "results": results}
+    # Include first error detail for quick diagnosis in the UI
+    first_error = next(
+        (r.get("error") or str(r.get("result", "")) for r in results if r.get("status") != "ok"),
+        None,
+    )
+    return {
+        "ok": True,
+        "tasks_total": len(results),
+        "tasks_ok": ok,
+        "tasks_error": errs,
+        "first_error": first_error,
+        "results": results,
+    }
 
 
 @router.get("/flexget/history")
