@@ -20,7 +20,7 @@ import aiosqlite  # Module-level import so tests can patch db.migration.aiosqlit
 logger = logging.getLogger("alldebrid.migration")
 
 # Tables in migration order (respecting foreign keys)
-MIGRATION_TABLES = ["torrents", "download_files", "events"]
+MIGRATION_TABLES = ["torrents", "download_files", "events", "flexget_runs", "stats_snapshots"]
 
 
 @dataclass

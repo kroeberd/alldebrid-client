@@ -20,7 +20,7 @@ logger = logging.getLogger("alldebrid-client")
 
 # PostgreSQL connection attempts on startup
 _PG_CONNECT_RETRIES = 15
-_PG_CONNECT_DELAY   = 2.0   # Sekunden zwischen Versuchen
+_PG_CONNECT_DELAY   = 10.0  # Sekunden zwischen Versuchen (15 × 10s = max 150s Wartezeit)
 
 
 async def _wait_for_postgres() -> bool:
@@ -39,7 +39,7 @@ async def _wait_for_postgres() -> bool:
     dsn = _build_dsn()
     for attempt in range(1, _PG_CONNECT_RETRIES + 1):
         try:
-            conn = await asyncpg.connect(dsn, timeout=5)
+            conn = await asyncpg.connect(dsn, timeout=10)
             await conn.close()
             logger.info("PostgreSQL ready (attempt %d/%d)", attempt, _PG_CONNECT_RETRIES)
             return True
@@ -101,6 +101,81 @@ async def _reset_stuck_downloads_sqlite():
     return list(stuck)
 
 
+async def _startup_sync_sqlite_to_postgres() -> dict:
+    """
+    Startup consistency check: ensures all data from SQLite is present in PostgreSQL.
+
+    Compares row counts per table. If SQLite has more rows than PostgreSQL
+    (e.g. after a PG outage where writes went to SQLite fallback, or first-time
+    switch to PG), the missing rows are migrated automatically.
+
+    Only runs when PostgreSQL is the active backend.
+    Returns a dict with per-table results.
+    """
+    from db.database import _build_dsn, DB_PATH
+    from db.migration import migrate_sqlite_to_postgres, MIGRATION_TABLES
+    import aiosqlite as _aiosqlite
+
+    if not DB_PATH.exists():
+        logger.info("Startup sync: no SQLite file found, skipping")
+        return {}
+
+    results = {}
+    needs_migration = False
+
+    try:
+        import asyncpg
+        dsn = _build_dsn()
+        pg_conn = await asyncpg.connect(dsn, timeout=10)
+        try:
+            for table in MIGRATION_TABLES:
+                try:
+                    pg_row  = await pg_conn.fetchrow(f"SELECT COUNT(*) AS cnt FROM {table}")
+                    pg_cnt  = int(pg_row["cnt"] or 0)
+                except Exception:
+                    pg_cnt = 0
+
+                async with _aiosqlite.connect(DB_PATH, timeout=10) as sl:
+                    cur = await sl.execute(f"SELECT COUNT(*) FROM {table}")
+                    row = await cur.fetchone()
+                    sl_cnt = int(row[0] or 0) if row else 0
+
+                results[table] = {"sqlite": sl_cnt, "postgres": pg_cnt}
+                if sl_cnt > pg_cnt:
+                    logger.warning(
+                        "Startup sync: table '%s' — SQLite has %d rows, PostgreSQL has %d → migration needed",
+                        table, sl_cnt, pg_cnt,
+                    )
+                    needs_migration = True
+                else:
+                    logger.info(
+                        "Startup sync: table '%s' OK (SQLite %d, PostgreSQL %d)",
+                        table, sl_cnt, pg_cnt,
+                    )
+        finally:
+            await pg_conn.close()
+    except Exception as exc:
+        logger.warning("Startup sync: count check failed: %s", exc)
+        return {}
+
+    if not needs_migration:
+        logger.info("Startup sync: all tables consistent — no migration needed")
+        return results
+
+    logger.info("Startup sync: migrating missing data from SQLite to PostgreSQL (force=True)...")
+    try:
+        dsn = _build_dsn()
+        result = await migrate_sqlite_to_postgres(DB_PATH, dsn, force=True, dry_run=False)
+        if result.success:
+            logger.info("Startup sync migration complete: %s", result.summary())
+        else:
+            logger.error("Startup sync migration failed: %s", result.error)
+    except Exception as exc:
+        logger.error("Startup sync migration error: %s", exc)
+
+    return results
+
+
 async def _reset_stuck_downloads_postgres():
     """Same logic as the SQLite variant, using asyncpg."""
     try:
@@ -155,7 +230,21 @@ async def lifespan(app: FastAPI):
             _fallback_to_sqlite()
             await init_db()
 
-    # 3. Reset stuck downloads
+    # 3. Startup sync: ensure SQLite data is present in PostgreSQL
+    if _is_postgres():
+        try:
+            sync_results = await _startup_sync_sqlite_to_postgres()
+            if sync_results:
+                for table, counts in sync_results.items():
+                    if counts["sqlite"] > counts["postgres"]:
+                        logger.warning(
+                            "Startup sync result: %s — SQLite %d > PostgreSQL %d (migrated)",
+                            table, counts["sqlite"], counts["postgres"],
+                        )
+        except Exception as e:
+            logger.warning("Startup sync failed (non-fatal): %s", e)
+
+    # 4. Reset stuck downloads
     try:
         if _is_postgres():
             stuck = await _reset_stuck_downloads_postgres()
@@ -169,13 +258,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Startup stuck-download cleanup failed: %s", e)
 
-    # 4. Import existing AllDebrid magnets
+    # 5. Import existing AllDebrid magnets
     try:
         await manager.import_existing_magnets()
     except Exception as e:
         logger.warning("Initial AllDebrid import skipped: %s", e)
 
-    # 5. Reconcile aria2 state on startup
+    # 6. Reconcile aria2 state on startup
     try:
         await manager.reconcile_aria2_on_startup()
     except Exception as e:
@@ -190,7 +279,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AllDebrid-Client",
     description="Automated torrent downloading via AllDebrid",
-    version="0.9.36",
+    version="0.9.37",
     lifespan=lifespan,
 )
 
