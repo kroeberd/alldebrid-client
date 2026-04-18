@@ -131,22 +131,23 @@ class FlexGetClient:
                         }
 
                     # Extract execution_id from various FlexGet response formats
+                    # FlexGet v3: {"tasks": [{"id": <exec_id>, "name": "..."}]}
+                    # FlexGet older: {"execution_id": <id>} or {"id": <id>}
                     execution_id = (
                         body.get("execution_id")
                         or body.get("id")
+                        or (body.get("tasks") or [{}])[0].get("id")
                         or (body.get("executions") or [{}])[0].get("id")
-                        # tasks[0].executions[0].id
-                        or (
-                            (body.get("tasks") or [{}])[0]
-                            .get("executions", [{}])[0]
-                            .get("id")
-                        )
                     )
 
                     if not execution_id:
-                        # Response is synchronous (older FlexGet or direct result)
                         elapsed = round(time.monotonic() - started, 2)
-                        logger.debug("FlexGet %s: no execution_id in response → treating as sync ok", task)
+                        logger.warning(
+                            "FlexGet %s: no execution_id found in response (HTTP %s, body=%s) "
+                            "— check FlexGet URL/auth and ensure task name is correct",
+                            task, http_status, str(body)[:300],
+                        )
+                        # Treat as ok only if 2xx — may be a sync execution
                         return {
                             "task": task,
                             "status": "ok" if http_status < 300 else "error",
@@ -164,9 +165,12 @@ class FlexGetClient:
 
         # Poll for task completion
         deadline = time.monotonic() + _TASK_TIMEOUT
+        exec_id_str = str(execution_id)
         poll_urls = [
-            f"{self.base_url}/api/tasks/{task_enc}/executions/{execution_id}/",
-            f"{self.base_url}/api/tasks/executions/{execution_id}/",
+            f"{self.base_url}/api/tasks/{task_enc}/executions/{exec_id_str}/",
+            f"{self.base_url}/api/tasks/executions/{exec_id_str}/",
+            # FlexGet v3 alternate: /api/execute/queue/{id}/
+            f"{self.base_url}/api/execute/queue/{exec_id_str}/",
         ]
         async with aiohttp.ClientSession(
             headers=self._headers(),
@@ -186,12 +190,13 @@ class FlexGetClient:
                                 or result.get("execution_status")
                                 or ""
                             ).lower()
-                            if state in ("pending", "running", "in progress", ""):
+                            # FlexGet v3 states: pending, running, succeeded, failed, aborted
+                            if state in ("pending", "running", "in_progress", "in progress", ""):
                                 break  # still running, try again
                             elapsed = round(time.monotonic() - started, 2)
                             success = state in (
                                 "succeeded", "success", "finished",
-                                "complete", "done", "completed",
+                                "complete", "done", "completed", "1",
                             )
                             logger.info(
                                 "FlexGet task %s finished: state=%s elapsed=%.1fs",
