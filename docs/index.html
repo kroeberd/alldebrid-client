@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AllDebrid-Client — Self-hosted Torrent Automation</title>
+<meta name="description" content="Self-hosted torrent automation via AllDebrid. Web UI, aria2, Discord, PostgreSQL, FlexGet."/>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --orange:#f97316;--orange-d:#ea580c;--blue:#3b82f6;--green:#22c55e;--purple:#a855f7;
+    --bg:#080c14;--surface:#0d1220;--surface2:#111827;--border:#1e2d45;
+    --text:#f0f4f8;--text2:#9ca3af;--text3:#6b7f99;
+  }
+  html{scroll-behavior:smooth}
+  body{font-family:'Space Grotesk',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
+
+  /* NAV */
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 40px;height:64px;
+      display:flex;align-items:center;justify-content:space-between;
+      background:rgba(8,12,20,.85);backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--border)}
+  .nav-logo{display:flex;align-items:center;gap:12px;font-size:17px;font-weight:700;text-decoration:none;color:var(--text)}
+  .nav-logo svg{width:32px;height:32px}
+  .nav-links{display:flex;gap:32px;align-items:center}
+  .nav-links a{color:var(--text2);text-decoration:none;font-size:14px;font-weight:500;transition:color .2s}
+  .nav-links a:hover{color:var(--orange)}
+  .nav-cta{background:var(--orange);color:white;padding:8px 20px;border-radius:8px;font-weight:600;font-size:14px;text-decoration:none;transition:all .2s}
+  .nav-cta:hover{background:var(--orange-d);transform:translateY(-1px)}
+
+  /* HERO */
+  .hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        text-align:center;padding:100px 20px 60px;position:relative;overflow:hidden}
+  .hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;
+    background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(249,115,22,.12),transparent),
+               radial-gradient(ellipse 60% 40% at 80% 80%,rgba(59,130,246,.06),transparent);
+    pointer-events:none}
+  .hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(249,115,22,.1);
+              border:1px solid rgba(249,115,22,.25);border-radius:100px;
+              padding:6px 16px;font-size:13px;color:var(--orange);margin-bottom:28px;font-weight:600}
+  .hero-badge::before{content:'✦';font-size:10px}
+  h1{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:700;line-height:1.1;letter-spacing:-.02em;
+     margin-bottom:24px;max-width:800px}
+  h1 span{color:var(--orange)}
+  .hero-sub{font-size:1.15rem;color:var(--text2);max-width:560px;line-height:1.7;margin-bottom:44px}
+  .hero-actions{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+  .btn-primary{background:var(--orange);color:white;padding:14px 32px;border-radius:10px;
+               font-weight:600;font-size:16px;text-decoration:none;transition:all .25s;
+               box-shadow:0 0 32px rgba(249,115,22,.25)}
+  .btn-primary:hover{background:var(--orange-d);transform:translateY(-2px);box-shadow:0 0 48px rgba(249,115,22,.35)}
+  .btn-ghost{background:transparent;color:var(--text2);padding:14px 32px;border-radius:10px;
+             font-weight:600;font-size:16px;text-decoration:none;
+             border:1px solid var(--border);transition:all .25s}
+  .btn-ghost:hover{border-color:var(--text3);color:var(--text);transform:translateY(-2px)}
+
+  /* BADGES */
+  .badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:48px}
+  .badge{background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+         padding:5px 12px;font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+
+  /* SECTIONS */
+  section{padding:100px 20px}
+  .container{max-width:1140px;margin:0 auto}
+  .section-label{font-size:12px;letter-spacing:2px;font-weight:700;color:var(--orange);
+                 text-transform:uppercase;margin-bottom:12px}
+  h2{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;letter-spacing:-.02em;margin-bottom:20px}
+  .section-sub{font-size:1.05rem;color:var(--text2);max-width:560px;line-height:1.7}
+
+  /* FEATURES GRID */
+  .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin-top:56px}
+  .feat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+             padding:28px;transition:all .3s;position:relative;overflow:hidden}
+  .feat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+                     background:linear-gradient(90deg,var(--orange),transparent);opacity:0;transition:.3s}
+  .feat-card:hover{border-color:#2d3f5e;transform:translateY(-4px);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  .feat-card:hover::before{opacity:1}
+  .feat-icon{font-size:28px;margin-bottom:16px;display:block}
+  .feat-title{font-size:17px;font-weight:700;margin-bottom:10px;color:var(--text)}
+  .feat-desc{font-size:14px;color:var(--text2);line-height:1.65}
+
+  /* SCREENSHOTS */
+  .screenshots{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;margin-top:56px}
+  .shot{border-radius:14px;overflow:hidden;border:1px solid var(--border);
+        transition:all .3s;cursor:pointer;background:var(--surface)}
+  .shot:hover{border-color:#2d3f5e;transform:translateY(-4px);box-shadow:0 24px 64px rgba(0,0,0,.5)}
+  .shot img,.shot svg{width:100%;display:block}
+  .shot-label{padding:14px 18px;font-size:13px;font-weight:600;color:var(--text2);
+              border-top:1px solid var(--border)}
+
+  /* DEMO TERMINAL */
+  .terminal{background:#0a0f1c;border:1px solid var(--border);border-radius:14px;overflow:hidden;
+            margin-top:56px;box-shadow:0 32px 80px rgba(0,0,0,.6)}
+  .terminal-bar{background:#111827;padding:14px 20px;display:flex;align-items:center;gap:8px;
+                border-bottom:1px solid var(--border)}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot-r{background:#ef4444}.dot-y{background:#f59e0b}.dot-g{background:#22c55e}
+  .terminal-title{margin-left:12px;font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+  .terminal-body{padding:24px 28px;font-family:'JetBrains Mono',monospace;font-size:13.5px;line-height:1.8}
+  .cmd{color:#a78bfa}.path{color:#3b82f6}.ok{color:#22c55e}.warn{color:#f59e0b}
+  .dim{color:#4b5563}.orange{color:#f97316}
+
+  /* STATS BAR */
+  .stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;
+             background:var(--border);border:1px solid var(--border);border-radius:14px;
+             overflow:hidden;margin-top:64px}
+  .stat-item{background:var(--surface);padding:32px 28px;text-align:center}
+  .stat-num{font-size:2.4rem;font-weight:800;color:var(--orange);line-height:1}
+  .stat-label{font-size:13px;color:var(--text3);margin-top:8px;font-weight:500}
+
+  /* INSTALL */
+  .install-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:56px}
+  @media(max-width:700px){.install-grid{grid-template-columns:1fr}}
+  .install-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px}
+  .install-title{font-size:15px;font-weight:700;margin-bottom:20px;color:var(--text);
+                 display:flex;align-items:center;gap:10px}
+  pre{background:#0a0f1c;border-radius:8px;padding:18px;overflow-x:auto;
+      font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;color:#9ca3af;
+      border:1px solid var(--border)}
+  code{color:#a78bfa}
+  .hash{color:#6b7f99}
+
+  /* FOOTER */
+  footer{border-top:1px solid var(--border);padding:48px 40px;
+         display:flex;align-items:center;justify-content:space-between;flex-wrap:gap;
+         color:var(--text3);font-size:13px}
+  footer a{color:var(--text3);text-decoration:none}
+  footer a:hover{color:var(--orange)}
+
+  /* LIVE DEMO SECTION */
+  .demo-frame{border:1px solid var(--border);border-radius:14px;overflow:hidden;
+              margin-top:56px;background:var(--surface);
+              box-shadow:0 32px 80px rgba(0,0,0,.5)}
+  .demo-bar{background:#111827;padding:12px 20px;display:flex;align-items:center;gap:8px;
+            border-bottom:1px solid var(--border)}
+  .demo-url{background:#0a0f1c;border-radius:6px;padding:5px 14px;flex:1;
+            font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3)}
+  .demo-preview{padding:32px;display:flex;align-items:center;justify-content:center;min-height:400px;
+                background:linear-gradient(135deg,#080c14 0%,#0d1220 50%,#080c14 100%)}
+  .demo-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+             padding:32px;max-width:440px;text-align:center}
+  .demo-card h3{font-size:1.3rem;font-weight:700;margin-bottom:12px}
+  .demo-card p{font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:24px}
+  .demo-links{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .demo-link{padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;
+             text-decoration:none;transition:all .2s}
+  .demo-link-primary{background:var(--orange);color:white}
+  .demo-link-primary:hover{background:var(--orange-d)}
+  .demo-link-ghost{border:1px solid var(--border);color:var(--text2)}
+  .demo-link-ghost:hover{border-color:var(--text3);color:var(--text)}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="nav-logo">
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="32" cy="32" r="30" stroke="#1e2d45" stroke-width="1.5"/>
+      <circle cx="32" cy="32" r="20" stroke="#1e2d45" stroke-width="1"/>
+      <circle cx="32" cy="32" r="10" stroke="#1e2d45" stroke-width="1"/>
+      <circle cx="32" cy="32" r="5" fill="#f97316"/>
+      <circle cx="32" cy="2" r="4" fill="#f97316"/>
+      <circle cx="58" cy="46" r="4" fill="#3b82f6"/>
+      <circle cx="6" cy="46" r="4" fill="#22c55e"/>
+      <line x1="32" y1="6" x2="32" y2="22" stroke="#f97316" stroke-width="1" stroke-dasharray="3 2"/>
+      <line x1="54" y1="44" x2="42" y2="38" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3 2"/>
+      <line x1="10" y1="44" x2="22" y2="38" stroke="#22c55e" stroke-width="1" stroke-dasharray="3 2"/>
+    </svg>
+    AllDebrid-Client
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#screenshots">Screenshots</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/kroeberd/alldebrid-client" target="_blank">GitHub</a>
+    <a href="https://github.com/kroeberd/alldebrid-client/releases" class="nav-cta">⬇ Download</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">v1.0.0 — First Public Release</div>
+  <h1>Torrent-Automation<br/>mit <span>AllDebrid</span></h1>
+  <p class="hero-sub">Self-hosted · Web UI · aria2 · Discord · PostgreSQL · FlexGet<br/>Der komplette Lifecycle — von Magnet bis Download — vollautomatisch.</p>
+  <div class="hero-actions">
+    <a href="#install" class="btn-primary">⬇ Get Started</a>
+    <a href="https://github.com/kroeberd/alldebrid-client" target="_blank" class="btn-ghost">View on GitHub →</a>
+  </div>
+  <div class="badges">
+    <span class="badge">Docker ready</span>
+    <span class="badge">SQLite / PostgreSQL</span>
+    <span class="badge">aria2 queue</span>
+    <span class="badge">Discord webhooks</span>
+    <span class="badge">FlexGet v3</span>
+    <span class="badge">Sonarr / Radarr</span>
+    <span class="badge">MIT License</span>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="container">
+  <div class="stats-bar">
+    <div class="stat-item"><div class="stat-num">50</div><div class="stat-label">Unit Tests passing</div></div>
+    <div class="stat-item"><div class="stat-num">10</div><div class="stat-label">Settings tabs</div></div>
+    <div class="stat-item"><div class="stat-num">v3</div><div class="stat-label">FlexGet API</div></div>
+    <div class="stat-item"><div class="stat-num">2</div><div class="stat-label">Database backends</div></div>
+    <div class="stat-item"><div class="stat-num">150s</div><div class="stat-label">PG connection tolerance</div></div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-label">Features</div>
+    <h2>Everything you need</h2>
+    <p class="section-sub">From magnet URL to completed download — fully automated, with full control.</p>
+    <div class="features-grid">
+      <div class="feat-card">
+        <span class="feat-icon">🔄</span>
+        <div class="feat-title">Automatischer Lifecycle</div>
+        <div class="feat-desc">Upload → Poll → Unlock → aria2 → Done → Discord. Every step is monitored, errors are detected and resolved automatically.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">🎯</span>
+        <div class="feat-title">Slot-basierte Queue</div>
+        <div class="feat-desc">Konfigurierbares Concurrent-Download-Limit. aria2-Requests werden serialisiert mit 50ms Mindestabstand — kein Request-Burst.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">🗄️</span>
+        <div class="feat-title">SQLite & PostgreSQL</div>
+        <div class="feat-desc">SQLite out-of-the-box, PostgreSQL for multi-container setups. Automatic fallback and bidirectional migration.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">🔔</span>
+        <div class="feat-title">Discord Rich Embeds</div>
+        <div class="feat-desc">Bot name, avatar and separate webhook for "Added" events. Anti-spam deduplication and rate-limiting.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">🤖</span>
+        <div class="feat-title">FlexGet Integration</div>
+        <div class="feat-desc">FlexGet v3 REST API. Trigger tasks manually or on a schedule with configurable jitter. Webhook events for every phase.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">📊</span>
+        <div class="feat-title">Statistik & Reporting</div>
+        <div class="feat-desc">Comprehensive metrics with configurable time window (1h to ~1 year), JSON export and periodic snapshots.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">🔁</span>
+        <div class="feat-title">Full-Sync</div>
+        <div class="feat-desc">Regular reconciliation of all torrents against AllDebrid — detects ready torrents stuck locally as error/queued.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">🚫</span>
+        <div class="feat-title">File Filters</div>
+        <div class="feat-desc">Block by extension, keyword and minimum size. Filtered files are reported via Discord.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-icon">📺</span>
+        <div class="feat-title">Sonarr & Radarr</div>
+        <div class="feat-desc">Import trigger after completed download. Automatic library update.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREENSHOTS -->
+<section id="screenshots" style="background:linear-gradient(180deg,transparent,rgba(13,18,32,.8),transparent)">
+  <div class="container">
+    <div class="section-label">Screenshots</div>
+    <h2>Clean. Clear. Dark.</h2>
+    <p class="section-sub">Responsive web UI with no external dependencies — a single HTML file.</p>
+    <div class="screenshots">
+      <div class="shot">
+        <img src="screenshots/dashboard.svg" alt="Dashboard"/>
+        <div class="shot-label">🏠 Dashboard — real-time metrics and queue status</div>
+      </div>
+      <div class="shot">
+        <img src="screenshots/torrents.svg" alt="Torrent-Liste"/>
+        <div class="shot-label">⊟ Torrents — Full list with status and actions</div>
+      </div>
+      <div class="shot">
+        <img src="screenshots/settings.svg" alt="Settings"/>
+        <div class="shot-label">⚙ Settings — 10 tabs for all configuration</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TERMINAL DEMO -->
+<section>
+  <div class="container">
+    <div class="section-label">Live Demo</div>
+    <h2>See what's happening</h2>
+    <p class="section-sub">Structured logs show every step of the download lifecycle in real time.</p>
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <span class="terminal-title">AllDebrid-Client — Log</span>
+      </div>
+      <div class="terminal-body">
+        <div><span class="dim">2026-04-18 14:32:01</span> <span class="ok">INFO</span>     <span class="path">alldebrid.manager</span>   Torrent added: Dune.Part.Two.2024.4K.Remux → uploading</div>
+        <div><span class="dim">2026-04-18 14:32:03</span> <span class="ok">INFO</span>     <span class="path">alldebrid.manager</span>   AllDebrid status → processing [1]</div>
+        <div><span class="dim">2026-04-18 14:35:12</span> <span class="ok">INFO</span>     <span class="path">alldebrid.manager</span>   AllDebrid status → <span class="ok">ready [4]</span> — starting download</div>
+        <div><span class="dim">2026-04-18 14:35:13</span> <span class="ok">INFO</span>     <span class="path">alldebrid.aria2</span>     aria2 dispatch: 2 slot(s) free, dispatching 1 file(s)</div>
+        <div><span class="dim">2026-04-18 14:35:14</span> <span class="ok">INFO</span>     <span class="path">alldebrid.aria2</span>     aria2: queued download → GID abc123f4</div>
+        <div><span class="dim">2026-04-18 14:47:31</span> <span class="ok">INFO</span>     <span class="path">alldebrid.manager</span>   aria2 completed 1 files</div>
+        <div><span class="dim">2026-04-18 14:47:32</span> <span class="ok">INFO</span>     <span class="path">alldebrid.notify</span>    ✓ Discord: Download complete — Dune.Part.Two.2024 (23.8 GB)</div>
+        <div><span class="dim">2026-04-18 14:47:33</span> <span class="dim">DEBUG</span>    <span class="path">alldebrid.manager</span>   Deleted magnet 511234567 from AllDebrid</div>
+        <br/>
+        <div><span class="dim">2026-04-18 14:50:01</span> <span class="ok">INFO</span>     <span class="path">alldebrid.scheduler</span> <span class="orange">FlexGet run: 9 tasks, 9 ok, 0 error</span></div>
+        <div><span class="dim">2026-04-18 14:50:01</span> <span class="ok">INFO</span>     <span class="path">alldebrid.flexget</span>   FlexGet task bootytape: state=succeeded elapsed=4.2s accepted=3 failed=0</div>
+        <br/>
+        <div><span class="dim">2026-04-18 15:00:00</span> <span class="ok">INFO</span>     <span class="path">alldebrid.stats</span>    Stats snapshot taken</div>
+        <div><span class="dim">2026-04-18 15:00:01</span> <span class="ok">INFO</span>     <span class="path">alldebrid.backup</span>   Backup completed: 20260418_150001 (2 files)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install">
+  <div class="container">
+    <div class="section-label">Installation</div>
+    <h2>Up and running in 2 minutes</h2>
+    <p class="section-sub">Docker Compose is the recommended way. SQLite is preconfigured — no database setup needed.</p>
+    <div class="install-grid">
+      <div class="install-card">
+        <div class="install-title">🐳 Docker Compose</div>
+        <pre><code>git clone https://github.com/kroeberd/\
+  alldebrid-client.git
+cd alldebrid-client
+docker compose up -d</code>
+
+<span class="hash"># → http://localhost:8080</span></pre>
+      </div>
+      <div class="install-card">
+        <div class="install-title">🐋 Docker run</div>
+        <pre><code>docker run -d \
+  --name alldebrid-client \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -v /config:/app/config \
+  -v /downloads:/download \
+  kroeberd/alldebrid-client:latest</code></pre>
+      </div>
+      <div class="install-card">
+        <div class="install-title">🗄️ With PostgreSQL</div>
+        <pre><code><span class="hash"># docker-compose.yml</span>
+environment:
+  DB_TYPE: postgres
+
+<span class="hash"># Dann in Settings → Database
+# Configure connection</span></code></pre>
+      </div>
+      <div class="install-card">
+        <div class="install-title">⚙ Environment variables</div>
+        <pre><code>CONFIG_PATH=/app/config/config.json
+DB_PATH=/app/data/alldebrid.db
+TZ=Europe/Berlin
+DB_TYPE=postgres     <span class="hash"># optional</span>
+LOG_LEVEL=DEBUG      <span class="hash"># optional</span></code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <strong style="color:var(--text)">AllDebrid-Client</strong> v1.0.0 · MIT License
+  </div>
+  <div style="display:flex;gap:24px">
+    <a href="https://github.com/kroeberd/alldebrid-client">GitHub</a>
+    <a href="https://github.com/kroeberd/alldebrid-client/releases">Releases</a>
+    <a href="https://hub.docker.com/r/kroeberd/alldebrid-client">Docker Hub</a>
+    <a href="https://github.com/kroeberd/alldebrid-client/blob/main/docs/postgresql.md">PostgreSQL Docs</a>
+  </div>
+</footer>
+
+</body>
+</html>

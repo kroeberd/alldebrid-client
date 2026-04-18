@@ -1,0 +1,18 @@
+# Override for internal PostgreSQL mode.
+#
+# Verwendung:
+#   docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d
+#
+# Einfacher (bevorzugt):
+#   COMPOSE_PROFILES=postgres docker compose up -d
+
+services:
+  alldebrid-client:
+    environment:
+      - DB_TYPE=postgres_internal
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-alldebrid_internal}
+      # PG_HOST can be overridden if the container runs outside the Compose network:
+      # - PG_HOST=192.168.1.100
+    depends_on:
+      alldebrid-postgres:
+        condition: service_healthy

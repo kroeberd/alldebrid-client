@@ -1,0 +1,120 @@
+<svg width="1200" height="750" viewBox="0 0 1200 750" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', system-ui, sans-serif">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1220"/><stop offset="100%" stop-color="#080c14"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#bg3)"/>
+  <rect x="0" y="0" width="220" height="750" fill="#0a0f1c"/>
+  <rect x="220" y="0" width="1" height="750" fill="#1e2d45"/>
+  <circle cx="36" cy="38" r="14" fill="none" stroke="#f97316" stroke-width="2"/>
+  <circle cx="36" cy="38" r="6" fill="#f97316"/>
+  <text x="57" y="44" fill="#f0f4f8" font-size="15" font-weight="700">AllDebrid-Client</text>
+  <text x="36" y="90" fill="#6b7f99" font-size="13">◉ Dashboard</text>
+  <rect x="8" y="108" width="204" height="36" rx="8" fill="#f97316" opacity="0.15"/>
+  <text x="36" y="130" fill="#f97316" font-size="13" font-weight="600">⊟ Torrents</text>
+  <text x="36" y="166" fill="#6b7f99" font-size="13">⊟ Events</text>
+  <text x="36" y="202" fill="#6b7f99" font-size="13">⚙ Settings</text>
+
+  <text x="248" y="44" fill="#f0f4f8" font-size="20" font-weight="700">Torrents</text>
+
+  <!-- Filter bar -->
+  <rect x="240" y="60" width="940" height="44" rx="8" fill="#0f172a" stroke="#1e2d45" stroke-width="1"/>
+  <text x="264" y="87" fill="#4b5563" font-size="13">🔍 Search torrents…</text>
+  <rect x="1060" y="68" width="110" height="28" rx="6" fill="#1e2d45"/>
+  <text x="1115" y="86" fill="#9ca3af" font-size="12" text-anchor="middle">All statuses</text>
+
+  <!-- Table header -->
+  <rect x="240" y="116" width="940" height="36" rx="6" fill="#0f172a"/>
+  <text x="268" y="138" fill="#6b7f99" font-size="11" font-weight="600">NAME</text>
+  <text x="720" y="138" fill="#6b7f99" font-size="11" font-weight="600">STATUS</text>
+  <text x="850" y="138" fill="#6b7f99" font-size="11" font-weight="600">SIZE</text>
+  <text x="960" y="138" fill="#6b7f99" font-size="11" font-weight="600">ADDED</text>
+  <text x="1100" y="138" fill="#6b7f99" font-size="11" font-weight="600">ACTIONS</text>
+
+  <!-- Torrent rows -->
+  <!-- Row 1: completed -->
+  <rect x="240" y="156" width="940" height="52" rx="0" fill="#111827"/>
+  <rect x="240" y="207" width="940" height="1" fill="#1e2d45"/>
+  <circle cx="260" cy="182" r="6" fill="#22c55e"/>
+  <text x="280" y="178" fill="#f0f4f8" font-size="13" font-weight="500">[4K] Dune Part Two (2024) Remux HDR10+</text>
+  <text x="280" y="196" fill="#4b5563" font-size="11">aria2 · /download/Dune.Part.Two.2024</text>
+  <rect x="706" y="170" width="82" height="24" rx="12" fill="#22c55e" opacity="0.15"/>
+  <text x="747" y="186" fill="#22c55e" font-size="11" font-weight="600" text-anchor="middle">completed</text>
+  <text x="850" y="186" fill="#9ca3af" font-size="12">23.8 GB</text>
+  <text x="960" y="186" fill="#6b7f99" font-size="11">2h ago</text>
+
+  <!-- Row 2: downloading -->
+  <rect x="240" y="208" width="940" height="52" fill="#111827"/>
+  <rect x="240" y="259" width="940" height="1" fill="#1e2d45"/>
+  <circle cx="260" cy="234" r="6" fill="#3b82f6"/>
+  <text x="280" y="230" fill="#f0f4f8" font-size="13">The Brutalist (2024) 1080p BluRay DTS-HD</text>
+  <text x="280" y="248" fill="#4b5563" font-size="11">aria2 · /download/The.Brutalist.2024</text>
+  <rect x="706" y="222" width="92" height="24" rx="12" fill="#3b82f6" opacity="0.15"/>
+  <text x="752" y="238" fill="#3b82f6" font-size="11" font-weight="600" text-anchor="middle">downloading</text>
+  <text x="850" y="238" fill="#9ca3af" font-size="12">8.1 GB</text>
+  <text x="960" y="238" fill="#6b7f99" font-size="11">14m ago</text>
+  <!-- Progress bar -->
+  <rect x="280" y="251" width="400" height="3" rx="2" fill="#1e2d45"/>
+  <rect x="280" y="251" width="260" height="3" rx="2" fill="#3b82f6"/>
+
+  <!-- Row 3: processing -->
+  <rect x="240" y="260" width="940" height="52" fill="#111827"/>
+  <rect x="240" y="311" width="940" height="1" fill="#1e2d45"/>
+  <circle cx="260" cy="286" r="6" fill="#f59e0b"/>
+  <text x="280" y="282" fill="#f0f4f8" font-size="13">Nosferatu (2024) 4K UHD HDR Dolby Vision</text>
+  <text x="280" y="300" fill="#4b5563" font-size="11">AllDebrid ID: 509451882</text>
+  <rect x="706" y="274" width="84" height="24" rx="12" fill="#f59e0b" opacity="0.15"/>
+  <text x="748" y="290" fill="#f59e0b" font-size="11" font-weight="600" text-anchor="middle">processing</text>
+  <text x="850" y="290" fill="#6b7f99" font-size="12">—</text>
+  <text x="960" y="290" fill="#6b7f99" font-size="11">28m ago</text>
+
+  <!-- Row 4: queued -->
+  <rect x="240" y="312" width="940" height="52" fill="#111827"/>
+  <rect x="240" y="363" width="940" height="1" fill="#1e2d45"/>
+  <circle cx="260" cy="338" r="6" fill="#6b7f99"/>
+  <text x="280" y="334" fill="#f0f4f8" font-size="13">Severance S02 Complete 2160p WEB-DL</text>
+  <text x="280" y="352" fill="#4b5563" font-size="11">aria2 · /download/Severance.S02</text>
+  <rect x="706" y="326" width="72" height="24" rx="12" fill="#6b7f99" opacity="0.15"/>
+  <text x="742" y="342" fill="#9ca3af" font-size="11" font-weight="600" text-anchor="middle">queued</text>
+  <text x="850" y="342" fill="#9ca3af" font-size="12">67.2 GB</text>
+  <text x="960" y="342" fill="#6b7f99" font-size="11">1h ago</text>
+
+  <!-- Row 5: error -->
+  <rect x="240" y="364" width="940" height="52" fill="#111827"/>
+  <rect x="240" y="415" width="940" height="1" fill="#1e2d45"/>
+  <circle cx="260" cy="390" r="6" fill="#ef4444"/>
+  <text x="280" y="386" fill="#f0f4f8" font-size="13">Some.Obscure.Documentary.2024.1080p</text>
+  <text x="280" y="404" fill="#ef4444" font-size="11">No peer after 30 minutes — removed</text>
+  <rect x="706" y="378" width="60" height="24" rx="12" fill="#ef4444" opacity="0.15"/>
+  <text x="736" y="394" fill="#ef4444" font-size="11" font-weight="600" text-anchor="middle">error</text>
+  <text x="850" y="394" fill="#6b7f99" font-size="12">—</text>
+  <text x="960" y="394" fill="#6b7f99" font-size="11">3h ago</text>
+
+  <!-- Row 6-8 faded -->
+  <rect x="240" y="416" width="940" height="52" fill="#111827"/>
+  <circle cx="260" cy="442" r="6" fill="#22c55e" opacity="0.5"/>
+  <text x="280" y="446" fill="#6b7f99" font-size="13">Conclave (2024) 1080p BluRay</text>
+  <text x="850" y="446" fill="#6b7f99" font-size="12">5.2 GB</text>
+
+  <rect x="240" y="468" width="940" height="52" fill="#0f172a"/>
+  <circle cx="260" cy="494" r="6" fill="#22c55e" opacity="0.4"/>
+  <text x="280" y="498" fill="#4b5563" font-size="13">Alien Romulus (2024) 4K HDR</text>
+  <text x="850" y="498" fill="#4b5563" font-size="12">18.4 GB</text>
+
+  <rect x="240" y="520" width="940" height="52" fill="#111827"/>
+  <circle cx="260" cy="546" r="6" fill="#22c55e" opacity="0.3"/>
+  <text x="280" y="550" fill="#374151" font-size="13">Furiosa: A Mad Max Saga (2024) 4K</text>
+  <text x="850" y="550" fill="#374151" font-size="12">24.1 GB</text>
+
+  <!-- Pagination -->
+  <text x="248" y="710" fill="#6b7f99" font-size="12">Showing 1–8 of 342 torrents</text>
+  <rect x="1040" y="694" width="36" height="28" rx="6" fill="#1e2d45"/>
+  <text x="1058" y="712" fill="#9ca3af" font-size="13" text-anchor="middle">‹</text>
+  <rect x="1082" y="694" width="36" height="28" rx="6" fill="#f97316"/>
+  <text x="1100" y="712" fill="white" font-size="13" text-anchor="middle">1</text>
+  <rect x="1124" y="694" width="36" height="28" rx="6" fill="#1e2d45"/>
+  <text x="1142" y="712" fill="#9ca3af" font-size="13" text-anchor="middle">2</text>
+  <rect x="1166" y="694" width="36" height="28" rx="6" fill="#1e2d45"/>
+  <text x="1184" y="712" fill="#9ca3af" font-size="13" text-anchor="middle">›</text>
+</svg>

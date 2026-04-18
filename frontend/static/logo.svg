@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#141c2e"/>
+      <stop offset="100%" stop-color="#0a0f1a"/>
+    </radialGradient>
+    <radialGradient id="glowCenter" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff8c42" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#c0531a" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#c0531a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="dotGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#ff9a5c"/>
+      <stop offset="100%" stop-color="#e0621e"/>
+    </radialGradient>
+    <!-- Radar sweep gradient -->
+    <radialGradient id="sweepGrad" cx="256" cy="256" r="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#b85020" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#b85020" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur2" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+    <filter id="blur6" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+    <filter id="blur12" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+    <clipPath id="roundedClip">
+      <rect width="512" height="512" rx="110" ry="110"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="110" ry="110" fill="url(#bgGrad)"/>
+
+  <!-- Clipped content -->
+  <g clip-path="url(#roundedClip)">
+
+    <!-- Ambient center glow -->
+    <circle cx="256" cy="256" r="200" fill="url(#glowCenter)"/>
+
+    <!-- Radar sweep — wedge ~50° clockwise from 12 o'clock -->
+    <!-- Using path: center, arc to ~50 deg sector -->
+    <path d="M256,256 L256,126 A130,130 0 0,1 356,196 Z"
+          fill="url(#sweepGrad)" opacity="0.9" filter="url(#blur2)"/>
+
+    <!-- Concentric rings — outer to inner -->
+    <!-- Ring 4 (outermost) -->
+    <circle cx="256" cy="256" r="195" fill="none" stroke="#c05820" stroke-width="1.2" opacity="0.35"/>
+    <!-- Ring 3 -->
+    <circle cx="256" cy="256" r="155" fill="none" stroke="#c05820" stroke-width="1.5" opacity="0.55"/>
+    <!-- Ring 2 -->
+    <circle cx="256" cy="256" r="115" fill="none" stroke="#d4651e" stroke-width="1.8" opacity="0.75"/>
+    <!-- Ring 1 (inner) -->
+    <circle cx="256" cy="256" r="72" fill="none" stroke="#e0721f" stroke-width="2" opacity="0.9"/>
+
+    <!-- Crosshair lines -->
+    <!-- Vertical top -->
+    <line x1="256" y1="56" x2="256" y2="178" stroke="#d06020" stroke-width="1.4" opacity="0.8"/>
+    <!-- Vertical bottom -->
+    <line x1="256" y1="334" x2="256" y2="455" stroke="#d06020" stroke-width="1.4" opacity="0.8"/>
+    <!-- Horizontal left -->
+    <line x1="56" y1="256" x2="178" y2="256" stroke="#d06020" stroke-width="1.4" opacity="0.8"/>
+    <!-- Horizontal right -->
+    <line x1="334" y1="256" x2="455" y2="256" stroke="#d06020" stroke-width="1.4" opacity="0.8"/>
+
+    <!-- Crosshair endpoint dots -->
+    <circle cx="256" cy="60" r="4" fill="#e07030" opacity="0.9"/>
+    <circle cx="256" cy="452" r="4" fill="#e07030" opacity="0.9"/>
+    <circle cx="60" cy="256" r="4" fill="#e07030" opacity="0.9"/>
+    <circle cx="452" cy="256" r="4" fill="#e07030" opacity="0.9"/>
+
+    <!-- Sweep arm — line from center to edge at ~38° (toward 1-2 o'clock) -->
+    <line x1="256" y1="256" x2="356" y2="154"
+          stroke="#e07530" stroke-width="1.8" opacity="0.85"/>
+
+    <!-- Center dot glow (halo) -->
+    <circle cx="256" cy="256" r="22" fill="#b04010" opacity="0.4" filter="url(#blur6)"/>
+    <circle cx="256" cy="256" r="12" fill="#cc5518" opacity="0.6" filter="url(#blur2)"/>
+
+    <!-- Center dot -->
+    <circle cx="256" cy="256" r="7" fill="url(#dotGlow)"/>
+    <!-- Inner white highlight -->
+    <circle cx="256" cy="256" r="3" fill="#ffffff" opacity="0.95"/>
+
+    <!-- Ring outline on center dot -->
+    <circle cx="256" cy="256" r="7" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.5"/>
+
+  </g>
+</svg>

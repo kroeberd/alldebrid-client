@@ -1,0 +1,73 @@
+# Changelog
+
+## [1.0.0] — 2026-04-18
+
+First public release. All core features are stable and production-ready.
+
+### New since 0.9.x
+- **FlexGet Integration** — trigger tasks manually or on a schedule (FlexGet v3 API)
+  - Correct use of `POST /api/tasks/execute/` with task list in body
+  - Async polling via `GET /api/tasks/queue/{id}/`
+  - Configurable jitter (±N seconds) for schedule
+  - Webhook events: `run_started`, `task_ok`, `task_error`, `run_finished`
+- **Statistics & Reporting module** — comprehensive metrics across all activity
+  - Configurable time window (1h to ~1 year)
+  - JSON export, periodic snapshots
+  - Per-table timestamp filters (correct for both SQLite and PostgreSQL)
+- **PostgreSQL fully abstracted** — all 45+ DB calls go through `get_db()`
+  - `_CursorWrapper`: `(await db.execute(...)).fetchall()` works for both backends
+  - Startup sync: missing SQLite rows copied to PostgreSQL on startup
+  - Connection wait: 15 × 10 seconds (150s max)
+- **Full-Sync** — full AllDebrid reconciliation every 5 min (configurable)
+  - Detects `ready` torrents stuck locally as `error` or `queued`
+  - Separate loops: `sync_status_loop` (30s) and `full_sync_loop` (5 min)
+- **aria2 improvements**
+  - RPC serialisation via `_rpc_lock` (one request at a time)
+  - 50ms minimum interval between requests
+  - `cached_downloads` prevents N×`get_all()` per dispatch cycle
+- **Race condition fixed** — no more "success then error"
+  - `completed` files removed from sync query
+  - `reset_on_sync` checks terminal status before resetting
+- **Extended error detection**
+  - "Download took more than 3 days" → automatically cleaned up
+  - `processing/uploading` > 24h → automatically reset
+- **Discord tab** layout fix (misplaced nested button)
+- **10 Settings tabs** correctly balanced (no more duplicates)
+
+### Stable features (since 0.8.x / 0.9.x)
+- Automatic torrent lifecycle (upload → poll → unlock → aria2 → done)
+- Watch folder for `.torrent` and `.magnet` files
+- Sonarr / Radarr import triggers
+- Discord rich embeds with configurable bot identity
+- File filters (extensions, keywords, minimum size)
+- Automatic no-peer cleanup
+- Stuck download detection and reset
+- Automatic backups
+- Bidirectional SQLite ↔ PostgreSQL migration
+- PostgreSQL fallback to SQLite on startup failure
+
+---
+
+## [0.9.x] — 2026-04-15 to 2026-04-18
+
+Development phase. All fixes and features merged into v1.0.0.
+
+Full patch history: [GitHub Releases](https://github.com/kroeberd/alldebrid-client/releases)
+
+---
+
+## [0.8.0] — 2026-04-15
+
+- New logo (radar/orbit design)
+- Discord bot identity configurable (name + avatar URL)
+- aria2 as the only download client (direct download removed)
+- File filters disabled by default for new installs
+- Database status indicator in sidebar
+- PostgreSQL fallback indicator
+
+## [0.7.0] — 2026-04-15
+
+- PostgreSQL support
+- Rich Discord embeds
+- Bidirectional database migration
+- Expanded statistics

@@ -1,0 +1,2509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AllDebrid-Client</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+
+
+
+
+
+
+:root {
+  --bg:       #080c14;
+  --bg2:      #0d1220;
+  --surface:  #111827;
+  --surface2: #161f30;
+  --border:   #1e2d45;
+  --border2:  #263650;
+  --accent:   #f97316;
+  --accent2:  #fb923c;
+  --blue:     #3b82f6;
+  --green:    #22c55e;
+  --yellow:   #eab308;
+  --red:      #ef4444;
+  --purple:   #a855f7;
+  --text:     #e2e8f0;
+  --text2:    #64748b;
+  --text3:    #334155;
+  --radius:   12px;
+  --radius-sm:8px;
+  --font:     'Outfit', sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+  --sidebar:  240px;
+}
+body.light {
+  --bg:       #f3f4f6;
+  --bg2:      #ffffff;
+  --surface:  #ffffff;
+  --surface2: #f9fafb;
+  --border:   #e5e7eb;
+  --border2:  #d1d5db;
+  --text:     #111827;
+  --text2:    #6b7280;
+  --text3:    #9ca3af;
+}
+/* Theme toggle */
+.theme-toggle { position:fixed; bottom:16px; right:16px; z-index:100;
+  background:var(--surface); border:1px solid var(--border); border-radius:50%;
+  width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size:16px; box-shadow:0 2px 10px rgba(0,0,0,.3); transition:all .2s; }
+.theme-toggle:hover { transform:scale(1.1); }
+
+/* ── Mobile responsive (max 700px) ─────────────────────────────────────── */
+
+/* Label badge */
+.lbl-badge { display:inline-flex; align-items:center; padding:1px 7px;
+  border-radius:10px; font-size:10px; font-weight:700;
+  background:rgba(168,85,247,.15); color:var(--purple);
+  border:1px solid rgba(168,85,247,.25); white-space:nowrap; }
+/* Bulk bar */
+.bulk-bar { display:none; background:var(--accent); color:#fff; padding:9px 16px;
+  border-radius:var(--radius); margin-bottom:10px; gap:12px; font-size:13px;
+  font-weight:600; align-items:center; }
+.bulk-bar.visible { display:flex; }
+/* Stat trend chart */
+.chart-wrap { position:relative; height:140px; margin-top:8px; }
+/* Priority */
+.prio-high { color:var(--red); font-weight:700; }
+.prio-mid  { color:var(--yellow); font-weight:600; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); display: flex; font-size: 14px; }
+
+/* ── Mobile ── */
+
+/* ── Mobile layout ── */
+
+/* ── Sidebar ── */
+#sidebar {
+  width: var(--sidebar); min-width: var(--sidebar);
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  height: 100vh; position: sticky; top: 0;
+}
+.logo {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.logo-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: block; flex-shrink: 0;
+  box-shadow: 0 0 18px rgba(249,115,22,0.2);
+  object-fit: cover;
+}
+.logo-text { line-height: 1.2; }
+.logo-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.logo-ver  { font-size: 10px; color: var(--text2); font-family: var(--mono); }
+
+nav { flex: 1; padding: 10px 0; overflow-y: auto; }
+.nav-group { padding: 14px 16px 4px; font-size: 9px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--text3); }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 18px; cursor: pointer; font-size: 13px; font-weight: 500;
+  color: var(--text2); border-left: 3px solid transparent;
+  transition: all .15s; margin: 1px 0;
+}
+.nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+.nav-label { flex: 1; }
+.nav-item:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(249,115,22,.07); font-weight: 600; }
+.nav-badge { margin-left: auto; background: var(--accent); color: #fff;
+  border-radius: 10px; font-size: 10px; font-weight: 700;
+  padding: 1px 6px; min-width: 18px; text-align: center; }
+
+.sidebar-footer {
+  padding: 14px 18px; border-top: 1px solid var(--border);
+}
+.conn-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+.conn-row:last-child { margin-bottom: 0; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+.dot.ok     { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,.4); }
+.dot.error  { background: var(--red); animation: blink 1.5s infinite; }
+.dot.check  { background: var(--yellow); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Main ── */
+#main { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; min-width: 0; min-height: 0; }
+#topbar {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 14px 24px; display: flex; align-items: center; gap: 12px; min-height: 58px;
+}
+#topbar h1 { font-size: 17px; font-weight: 700; flex: 1; }
+#content { flex: 1; overflow-y: auto; padding: 22px 24px; min-height: 0; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: var(--radius-sm); border: none;
+  cursor: pointer; font-family: var(--font); font-size: 13px; font-weight: 600;
+  transition: all .15s; white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); box-shadow: 0 0 12px rgba(249,115,22,.4); }
+.btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+.btn-danger { background: rgba(239,68,68,.12); color: var(--red); border: 1px solid rgba(239,68,68,.25); }
+.btn-danger:hover { background: rgba(239,68,68,.22); }
+.btn-blue { background: rgba(59,130,246,.15); color: var(--blue); border: 1px solid rgba(59,130,246,.25); }
+.btn-blue:hover { background: rgba(59,130,246,.25); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Views ── */
+.view { display: none !important; }
+.view.active { display: block !important; }
+
+/* ── Stat Cards ── */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: 14px; margin-bottom: 22px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px; position: relative; overflow: hidden;
+}
+.stat-card::after {
+  content:''; position:absolute; top:0;left:0;right:0;height:2px;
+  background: var(--c);
+}
+.stat-card[data-c="orange"] { --c: var(--accent); }
+.stat-card[data-c="green"]  { --c: var(--green); }
+.stat-card[data-c="blue"]   { --c: var(--blue); }
+.stat-card[data-c="yellow"] { --c: var(--yellow); }
+.stat-card[data-c="red"]    { --c: var(--red); }
+.stat-card[data-c="purple"] { --c: var(--purple); }
+.stat-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text2); margin-bottom: 10px; }
+.stat-value { font-size: 30px; font-weight: 800; color: var(--c); line-height: 1; }
+.stat-sub { font-size: 10px; color: var(--text2); margin-top: 5px; font-family: var(--mono); }
+.hero-grid { display:grid; grid-template-columns: minmax(0,1.5fr) minmax(320px,1fr); gap:16px; margin-bottom:18px; }
+.insight-panel, .support-panel {
+  background: linear-gradient(160deg, rgba(17,24,39,.96), rgba(13,18,32,.92));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+.insight-panel::before, .support-panel::before {
+  content:''; position:absolute; inset:auto -60px -60px auto; width:180px; height:180px;
+  background: radial-gradient(circle, rgba(249,115,22,.16), transparent 65%);
+  pointer-events:none;
+}
+.eyebrow { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text2); font-weight:700; margin-bottom:10px; }
+.hero-title { font-size:28px; line-height:1.05; font-weight:800; max-width:10ch; margin-bottom:10px; }
+.hero-copy { color:var(--text2); font-size:13px; line-height:1.5; max-width:58ch; }
+.insight-grid { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap:12px; margin-top:18px; }
+.insight-card { background: rgba(255,255,255,.03); border:1px solid var(--border); border-radius: 10px; padding:12px; }
+.insight-k { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:.1em; font-weight:700; margin-bottom:6px; }
+.insight-v { font-size:22px; font-weight:800; color:var(--text); }
+.insight-s { font-size:11px; color:var(--text2); margin-top:4px; }
+.support-panel { display:flex; flex-direction:column; justify-content:space-between; gap:16px; }
+.support-copy { color:var(--text2); font-size:13px; line-height:1.5; }
+.support-links { display:flex; flex-wrap:wrap; gap:10px; }
+.btn-support {
+  background: linear-gradient(135deg, #ff813f, #ff5f5f);
+  color:#fff;
+  text-decoration:none;
+}
+.btn-support:hover { box-shadow: 0 0 16px rgba(255,129,63,.35); }
+.mini-stat-row { display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:10px; }
+.mini-stat { background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; padding:12px; }
+.mini-stat .label { font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--text2); font-weight:700; }
+.mini-stat .value { font-size:18px; font-weight:800; margin-top:6px; }
+.tab-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-bottom:18px; }
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.metric-label { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text2); font-weight:700; margin-bottom:10px; }
+.metric-value { font-size:28px; font-weight:800; color:var(--text); }
+.metric-sub { margin-top:8px; color:var(--text2); font-size:12px; line-height:1.5; }
+.split-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap:16px; margin-bottom:18px; }
+.list-card { background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); overflow:hidden; }
+.list-card .card-body { padding:16px 18px; }
+.kv-list { display:flex; flex-direction:column; gap:10px; }
+.kv-row { display:flex; justify-content:space-between; gap:14px; color:var(--text2); font-size:13px; }
+.kv-row strong { color:var(--text); font-weight:700; }
+.link-card {
+  display:block;
+  background: linear-gradient(135deg, rgba(249,115,22,.14), rgba(59,130,246,.12));
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  padding:18px;
+  color:var(--text);
+  text-decoration:none;
+}
+.link-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+.link-card-title { font-size:18px; font-weight:800; margin-bottom:8px; }
+.link-card-copy { color:var(--text2); line-height:1.6; font-size:13px; }
+.changelog-shell {
+  background: var(--bg2);
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  padding:20px 24px;
+  font-family: var(--font);
+  font-size:13px;
+  line-height:1.7;
+  color: #dbe7ff;
+}
+.changelog-shell h1 { font-size:17px; font-weight:700; color:#fff; margin:18px 0 6px; border-bottom:1px solid var(--border); padding-bottom:6px; }
+.changelog-shell h2 { font-size:14px; font-weight:700; color:#a5c8ff; margin:14px 0 4px; }
+.changelog-shell h3 { font-size:13px; font-weight:600; color:#7ba8e0; margin:10px 0 3px; }
+.changelog-shell ul { margin:4px 0 8px 18px; padding:0; }
+.changelog-shell li { margin:2px 0; color:#c8daf5; }
+.changelog-shell p  { margin:3px 0; color:#dbe7ff; }
+.changelog-shell hr { border:none; border-top:1px solid var(--border); margin:12px 0; }
+.changelog-shell br { display:block; content:''; margin:2px 0; }
+
+/* ── Card ── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 18px; }
+.card-header { padding: 13px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.card-title { font-size: 13px; font-weight: 700; flex: 1; }
+
+/* ── Input ── */
+.input { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 12px; color: var(--text); font-family: var(--mono); font-size: 12px;
+  outline: none; transition: border-color .15s; width: 100%; }
+.input:focus { border-color: var(--accent); }
+.input::placeholder { color: var(--text3); }
+.input-row { display: flex; gap: 8px; }
+.input-row .input { flex: 1; }
+
+/* ── Table ── */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { padding: 9px 16px; text-align: left; font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text2);
+  border-bottom: 1px solid var(--border); background: var(--surface2); }
+tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; cursor: default; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface2); }
+td { padding: 11px 16px; vertical-align: middle; }
+
+.t-name { font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-hash { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-top: 2px; }
+
+/* ── Badges ── */
+.badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.badge-pending    { background: rgba(100,116,139,.12); color: var(--text2); }
+.badge-uploading  { background: rgba(59,130,246,.14); color: var(--blue); }
+.badge-processing { background: rgba(168,85,247,.14); color: var(--purple); }
+.badge-queued     { background: rgba(59,130,246,.12); color: #93c5fd; }
+.badge-paused     { background: rgba(234,179,8,.14); color: var(--yellow); }
+.badge-downloading{ background: rgba(34,197,94,.12);  color: var(--green); }
+.badge-ready      { background: rgba(234,179,8,.12);  color: var(--yellow); }
+.badge-completed  { background: rgba(34,197,94,.16);  color: #4ade80; }
+.badge-error      { background: rgba(239,68,68,.14);  color: var(--red); }
+.badge-partial    { background: rgba(234,179,8,.14);  color: var(--yellow); }
+.badge-deleted    { background: rgba(100,116,139,.08);color: var(--text3); }
+.badge-imported   { background: rgba(249,115,22,.12); color: var(--accent); }
+
+/* ── Progress ── */
+.prog { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; min-width: 70px; }
+.prog-fill { height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius: 2px; transition: width .5s; }
+.prog-fill.done { background: linear-gradient(90deg,var(--green),#16a34a); }
+.prog-pct { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-top: 3px; display: block; }
+
+/* ── Filter tabs ── */
+.filter-tabs { display: flex; gap: 3px; }
+.ftab { padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 600;
+  cursor: pointer; color: var(--text2); border: 1px solid transparent; transition: all .15s; }
+.ftab.active { background: rgba(249,115,22,.14); color: var(--accent); border-color: rgba(249,115,22,.3); }
+.ftab:hover:not(.active) { color: var(--text); }
+
+/* ── Settings ── */
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(340px,1fr)); gap: 18px; }
+.scard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.scard-header { padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text2);
+  display: flex; align-items: center; gap: 8px; }
+.scard-body { padding: 16px; display: flex; flex-direction: column; gap: 13px; }
+/* Settings tabs */
+.stabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:18px; overflow-x:auto; }
+.stab  { padding:9px 18px; font-size:13px; font-weight:500; color:var(--text2); cursor:pointer;
+         border-bottom:2px solid transparent; white-space:nowrap; transition:all .15s; }
+.stab:hover { color:var(--text); }
+.stab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+.stab-panel { display:none; flex-direction:column; gap:14px; }
+.stab-panel.active { display:flex; }
+/* Event search */
+.ev-search-row { display:flex; gap:8px; margin-bottom:10px; }
+.ev-search-row .input { flex:1; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-label { font-size: 11px; font-weight: 600; color: var(--text2); letter-spacing: .04em; }
+.form-hint  { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.info-details { margin-top: 6px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.info-details summary { font-size: 11px; font-weight: 600; color: var(--text2); padding: 7px 10px; cursor: pointer; user-select: none; list-style: none; display: flex; align-items: center; gap: 6px; background: var(--surface); }
+.info-details summary::-webkit-details-marker { display: none; }
+.info-details summary::before { content: '▶'; font-size: 9px; transition: transform 0.15s; display: inline-block; color: var(--text3); }
+.info-details[open] summary::before { transform: rotate(90deg); }
+.info-details-body { padding: 10px 12px; background: var(--bg); border-top: 1px solid var(--border); font-size: 11px; color: var(--text2); display: flex; flex-direction: column; gap: 10px; }
+.info-mode { display: flex; flex-direction: column; gap: 3px; }
+.info-mode-title { font-weight: 700; font-size: 11px; color: var(--text1); }
+.info-mode-desc { color: var(--text2); line-height: 1.5; }
+.info-mode-pros { color: #4ade80; font-size: 10px; margin-top: 2px; }
+.info-mode-cons { color: #f87171; font-size: 10px; margin-top: 1px; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.toggle-info .tl { font-size: 13px; font-weight: 600; }
+.toggle-info .td { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.toggle { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.ttrack { position: absolute; inset: 0; background: var(--border2); border-radius: 12px; cursor: pointer; transition: background .2s; }
+.ttrack::after { content:''; position: absolute; left: 4px; top: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--text3); transition: all .2s; }
+.toggle input:checked + .ttrack { background: var(--accent); }
+.toggle input:checked + .ttrack::after { left: 22px; background: #fff; }
+.test-row { display: flex; gap: 8px; align-items: flex-end; }
+.test-row .input { flex: 1; }
+
+/* ── Events ── */
+.event-item { display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12px; align-items: flex-start; }
+.event-item:last-child { border-bottom: none; }
+.elevel { width: 8px; height: 8px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+.elevel.info  { background: var(--blue); }
+.elevel.warn  { background: var(--yellow); }
+.elevel.error { background: var(--red); }
+.emsg { flex: 1; }
+.ename { font-size: 10px; color: var(--text2); margin-top: 1px; }
+.etime { font-family: var(--mono); font-size: 10px; color: var(--text3); white-space: nowrap; }
+
+/* ── Modal ── */
+#overlay { position: fixed; inset: 0; background: rgba(8,12,20,.88); backdrop-filter: blur(6px);
+  z-index: 500; display: none; align-items: center; justify-content: center; }
+#overlay.open { display: flex; }
+#modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  width: 90%; max-width: 620px; max-height: 82vh; overflow-y: auto; }
+.modal-hdr { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.modal-title { flex: 1; font-size: 15px; font-weight: 700; }
+.modal-close { cursor: pointer; color: var(--text2); font-size: 20px; line-height: 1; }
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 20px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.dk { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text2); margin-bottom: 3px; }
+.dv { font-size: 13px; font-family: var(--mono); word-break: break-all; }
+.sec-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text2); margin: 16px 0 8px; }
+
+/* ── Toast ── */
+#toasts { position: fixed; bottom: 22px; right: 22px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 11px 15px; font-size: 13px; font-weight: 600; display: flex; align-items: center;
+  gap: 8px; animation: toastIn .2s ease; max-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+.toast.success { border-color: rgba(34,197,94,.4); }
+.toast.error   { border-color: rgba(239,68,68,.4); }
+.toast.warn    { border-color: rgba(234,179,8,.4); }
+@keyframes toastIn { from{transform:translateX(16px);opacity:0} to{transform:none;opacity:1} }
+
+/* ── Misc ── */
+.empty { padding: 40px; text-align: center; color: var(--text2); font-size: 13px; }
+.empty-icon { font-size: 32px; margin-bottom: 10px; }
+.actions { display: flex; gap: 5px; align-items: center; }
+.sz { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+.save-bar { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border);
+  padding: 13px 24px; display: flex; align-items: center; gap: 10px; margin: 0 -24px -22px; }
+.save-hint { font-size: 12px; color: var(--text2); flex: 1; }
+.beta-banner { background: rgba(249,115,22,.08); border: 1px solid rgba(249,115,22,.2);
+  border-radius: var(--radius-sm); padding: 8px 14px; font-size: 12px; color: var(--accent2);
+  margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+textarea.input { resize: vertical; }
+
+@media (max-width: 980px) {
+  .hero-grid { grid-template-columns: 1fr; }
+  .insight-grid { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 701px) {
+  .mobile-menu-btn { display: none; }
+}
+
+@media (max-width: 700px) {
+  /* Keep body as flex — sidebar is position:fixed so it's out of flow.
+     #main will naturally fill 100% width since sidebar takes no flex space. */
+  body { font-size: 13px; }
+
+  /* Sidebar: fixed overlay, slides in from left */
+  #sidebar {
+    position: fixed !important;
+    left: 0; top: 0; bottom: 0; z-index: 200;
+    width: 80vw; max-width: 280px; min-width: unset; height: 100vh;
+    transform: translateX(-100%); transition: transform .25s ease;
+    overflow-y: auto;
+  }
+  #sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,.5); }
+
+  /* Overlay */
+  #mobile-overlay {
+    display: none; position: fixed; inset: 0; z-index: 199;
+    background: rgba(0,0,0,.5); backdrop-filter: blur(2px);
+  }
+  #mobile-overlay.open { display: block; }
+
+  /* Main fills all flex space (sidebar is out of flow) */
+  #main { width: 100% !important; }
+
+  /* Content scrolls normally */
+  #content { padding: 10px !important; }
+
+  /* Views always visible when active */
+  .view.active { display: block !important; }
+
+  /* Hamburger */
+  .mobile-menu-btn {
+    display: flex !important; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--surface);
+    cursor: pointer; font-size: 20px; flex-shrink: 0; margin-right: 10px;
+  }
+
+  /* Topbar */
+  #topbar { padding: 8px 12px !important; }
+  #topbar h1 { font-size: 15px; }
+
+  /* Dashboard */
+  .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
+  .stat-card { padding: 10px 12px !important; }
+  .stat-value { font-size: 24px !important; }
+  .stat-label { font-size: 9px !important; }
+  .hero-grid { grid-template-columns: 1fr !important; }
+  .insight-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+
+  /* Grids */
+  .tab-grid    { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .stat-grid   { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .detail-grid { grid-template-columns: 1fr !important; }
+  .split-grid  { grid-template-columns: 1fr !important; gap: 8px !important; }
+  .dash-grid   { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .mini-stat-row { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+
+  /* Cards */
+  .card { border-radius: 8px !important; margin-bottom: 10px !important; }
+  .card-header { padding: 8px 12px !important; }
+  .card-body   { padding: 8px 12px !important; }
+  .scard-body  { padding: 10px !important; gap: 8px !important; }
+
+  /* Torrent table */
+  .t-table { font-size: 12px; width: 100%; }
+  .t-hash  { display: none; }
+  .t-table th:nth-child(5), .t-table td:nth-child(5),
+  .t-table th:nth-child(6), .t-table td:nth-child(6) { display: none; }
+  .actions { display: flex; gap: 4px; flex-wrap: nowrap; }
+  .actions .btn { padding: 4px 6px !important; font-size: 10px !important; }
+
+  /* Misc */
+  .bulk-bar { flex-wrap: wrap; gap: 6px; font-size: 12px; }
+  .stabs { flex-wrap: wrap; gap: 0; }
+  .stab  { padding: 7px 9px; font-size: 11px; }
+  .save-bar { flex-wrap: wrap; gap: 6px; margin: 0 !important; position: static !important; }
+  .save-bar .btn { font-size: 11px; padding: 6px 10px; }
+  .ev-search-row { flex-direction: column; }
+  .etime { font-size: 10px; }
+  .modal-box { width: 95vw !important; margin: 10px auto; max-height: 90vh; overflow-y: auto; }
+  #modal { width: 95vw !important; max-height: 85vh; }
+  .theme-toggle { bottom: 10px; right: 10px; width: 32px; height: 32px; font-size: 14px; }
+  .chart-wrap { height: 120px; }
+}
+
+
+
+
+
+
+
+
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="logo">
+    <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
+    <div class="logo-text">
+      <div class="logo-name">AllDebrid-Client</div>
+      <div class="logo-ver" id="sidebar-version">v1.0.0</div>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-group">Queue</div>
+    <div class="nav-item active" data-view="dashboard" onclick="nav(this)">
+      <span class="icon">&#9889;</span><span class="nav-label">Dashboard</span>
+    </div>
+    <div class="nav-item" data-view="torrents" onclick="nav(this)">
+      <span class="icon">&#129522;</span><span class="nav-label">Torrents</span>
+      <span class="nav-badge" id="nb-active" style="display:none">0</span>
+    </div>
+    <div class="nav-group">Monitor</div>
+    <div class="nav-item" data-view="events" onclick="nav(this)">
+      <span class="icon">&#128203;</span><span class="nav-label">Event Log</span>
+    </div>
+    <div class="nav-item" data-view="stats" onclick="nav(this)">
+      <span class="icon">&#128202;</span><span class="nav-label">Statistics</span>
+    </div>
+    <div class="nav-item" data-view="changelog" onclick="nav(this)">
+      <span class="icon">&#128214;</span><span class="nav-label">Changelog</span>
+    </div>
+    <div class="nav-group">Project</div>
+    <div class="nav-item" data-view="github" onclick="nav(this)">
+      <span class="icon">&#128279;</span><span class="nav-label">GitHub</span>
+    </div>
+    <div class="nav-item" data-view="coffee" onclick="nav(this)">
+      <span class="icon">&#9749;</span><span class="nav-label">Coffee</span>
+    </div>
+    <div class="nav-group">System</div>
+    <div class="nav-item" data-view="settings" onclick="nav(this)">
+      <span class="icon">&#9881;</span><span class="nav-label">Settings</span>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="conn-row" id="premium-row" style="display:none">
+      <span id="lbl-premium" style="font-size:10px;color:var(--accent);line-height:1.4"></span>
+    </div>
+    <div class="conn-row">
+      <div class="dot" id="dot-api"></div>
+      <span id="lbl-api">AllDebrid: checking…</span>
+    </div>
+    <div class="conn-row">
+      <div class="dot" id="dot-aria2"></div>
+      <span id="lbl-aria2">aria2: —</span>
+    </div>
+    <div class="conn-row">
+      <div class="dot" id="dot-db"></div>
+      <span id="lbl-db">DB: —</span>
+    </div>
+    <div class="conn-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+      <a href="https://alldebrid.com" target="_blank" rel="noopener"
+         style="font-size:10px;color:var(--text3);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .15s"
+         onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">
+        ↗ alldebrid.com
+      </a>
+    </div>
+  </div>
+</aside>
+
+<div id="main">
+  <div id="topbar">
+    <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+    <h1 id="page-title">Dashboard</h1>
+    <div id="topbar-actions"></div>
+  </div>
+  <div id="content">
+
+    <!-- Dashboard -->
+    <div class="view active" id="view-dashboard">
+      <div class="insight-grid" style="margin-bottom:18px">
+        <div class="insight-card">
+          <div class="insight-k">Queue Health</div>
+          <div class="insight-v" id="i-queue-health">—</div>
+          <div class="insight-s" id="i-queue-copy">Waiting for stats</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Last 24h</div>
+          <div class="insight-v" id="i-last-day">—</div>
+          <div class="insight-s">Completed torrents</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Last 7 days</div>
+          <div class="insight-v" id="i-last-week">—</div>
+          <div class="insight-s">Completed torrents</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Success Rate</div>
+          <div class="insight-v" id="i-success-rate">—</div>
+          <div class="insight-s">Of all finished</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Avg Duration</div>
+          <div class="insight-v" id="i-avg-duration">—</div>
+          <div class="insight-s">Per torrent</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Avg Size</div>
+          <div class="insight-v" id="i-avg-size">—</div>
+          <div class="insight-s">Per completed torrent</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-k">Database</div>
+          <div class="insight-v" id="i-db-type" style="font-size:13px;padding-top:6px">—</div>
+          <div class="insight-s">Active backend</div>
+        </div>
+      </div>
+        
+
+      <div class="stats-grid">
+        <div class="stat-card" data-c="orange"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>
+        <div class="stat-card" data-c="green"><div class="stat-label">Completed</div><div class="stat-value" id="s-completed">—</div></div>
+        <div class="stat-card" data-c="blue"><div class="stat-label">Active</div><div class="stat-value" id="s-active">—</div></div>
+        <div class="stat-card" data-c="yellow"><div class="stat-label">Processing</div><div class="stat-value" id="s-processing">—</div></div>
+        <div class="stat-card" data-c="red"><div class="stat-label">Errors</div><div class="stat-value" id="s-error">—</div></div>
+        <div class="stat-card" data-c="purple">
+          <div class="stat-label">Downloaded</div>
+          <div class="stat-value" id="s-size" style="font-size:20px;padding-top:4px">—</div>
+          <div class="stat-sub" id="s-blocked">— blocked files</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🧲 Add Magnet Link</span>
+        </div>
+        <div style="padding:14px 16px">
+          <div class="input-row">
+            <input class="input" id="q-magnet" placeholder="magnet:?xt=urn:btih:…" />
+            <button class="btn btn-primary" onclick="quickAdd()">Add</button>
+            <button class="btn btn-ghost" onclick="importExisting()" title="Import all magnets on AllDebrid">⬇ Import Existing</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Activity</span>
+          <button class="btn btn-ghost btn-sm" onclick="nav(document.querySelector('[data-view=torrents]'))">All →</button>
+        </div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="t-table" style="min-width:500px">
+          <thead><tr><th>Name</th><th>Status</th><th>Progress</th><th>Size</th><th>Added</th></tr></thead>
+          <tbody id="dash-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Torrents -->
+    <div class="view" id="view-torrents">
+      <div class="card" style="margin-bottom:16px">
+        <div style="padding:14px 16px">
+          <div class="input-row">
+            <input class="input" id="t-magnet" placeholder="magnet:?xt=urn:btih:…" />
+            <button class="btn btn-primary" onclick="addMagnet()">Add Torrent</button>
+            <button class="btn btn-ghost" onclick="importExisting()">⬇ Import from AllDebrid</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">All Torrents</span>
+          <div class="filter-tabs">
+            <div class="ftab active" onclick="setFilter(this,'')">All</div>
+            <div class="ftab" onclick="setFilter(this,'downloading')">Active</div>
+            <div class="ftab" onclick="setFilter(this,'ready')">Ready</div>
+            <div class="ftab" onclick="setFilter(this,'completed')">Done</div>
+            <div class="ftab" onclick="setFilter(this,'error')">Error</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="loadTorrents()" style="margin-left:8px">↻</button>
+        </div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="t-table" style="min-width:500px">
+          <thead><tr><th style="width:32px"><input type="checkbox" id="chk-all" onchange="toggleAllCheckboxes(this)"/></th><th>Name</th><th>Source / Label</th><th>Status</th><th>Progress</th><th class="sz">Size</th><th class="sz">Added</th><th>Actions</th></tr></thead>
+          <tbody id="t-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Events -->
+    <div class="view" id="view-events">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Event Log</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadEvents()">↻ Refresh</button>
+        </div>
+        <div style="padding:10px 14px 0">
+          <div class="ev-search-row">
+            <input class="input" id="ev-search" placeholder="Search by torrent name or message…" oninput="filterEvents()"/>
+            <select class="input" id="ev-level" onchange="filterEvents()" style="max-width:120px">
+              <option value="">All levels</option>
+              <option value="info">Info</option>
+              <option value="warn">Warn</option>
+              <option value="error">Error</option>
+            </select>
+          </div>
+        </div>
+        <div id="event-list"><div class="empty">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="view" id="view-stats">
+      <div class="tab-grid" id="detail-stat-cards">
+        <div class="metric-card">
+          <div class="metric-label">Library</div>
+          <div class="metric-value">â€”</div>
+          <div class="metric-sub">Loading detailed statistics…</div>
+        </div>
+      </div>
+
+      <div class="scard" style="margin-bottom:14px">
+        <div class="scard-header">📈 Daily Completions (14 days)</div>
+        <div class="scard-body" style="padding:12px">
+          <div class="chart-wrap"><canvas id="daily-chart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="split-grid">
+        <div class="list-card">
+          <div class="card-header">
+            <span class="card-title">Torrent Status</span>
+          </div>
+          <div class="card-body" id="detail-torrent-status"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="list-card">
+          <div class="card-header">
+            <span class="card-title">File Status</span>
+          </div>
+          <div class="card-body" id="detail-file-status"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <div class="split-grid">
+        <div class="list-card">
+          <div class="card-header">
+            <span class="card-title">Monitor Levels</span>
+          </div>
+          <div class="card-body" id="detail-event-levels"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="list-card">
+          <div class="card-header">
+            <span class="card-title">Latest Signals</span>
+          </div>
+          <div class="card-body" id="detail-latest-events"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Changelog -->
+    <div class="view" id="view-changelog">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Changelog</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadChangelog()">Refresh</button>
+        </div>
+        <div style="padding:18px">
+          <div class="changelog-shell" id="changelog-content">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GitHub -->
+    <div class="view" id="view-github">
+      <div class="split-grid">
+        <a class="link-card" href="https://github.com/kroeberd/alldebrid-client" target="_blank" rel="noreferrer">
+          <div class="link-card-title">Repository</div>
+          <div class="link-card-copy">Browse source code, release tags, issues, and project automation on GitHub.</div>
+        </a>
+        <a class="link-card" href="https://github.com/kroeberd/alldebrid-client/issues" target="_blank" rel="noreferrer">
+          <div class="link-card-title">Issues</div>
+          <div class="link-card-copy">Report bugs, request features, or follow existing discussions around the client.</div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Coffee -->
+    <div class="view" id="view-coffee">
+      <div class="split-grid">
+        <a class="link-card" href="https://buymeacoffee.com/kroeberd" target="_blank" rel="noreferrer">
+          <div class="link-card-title">Buy Me a Coffee</div>
+          <div class="link-card-copy">Support ongoing development, maintenance, and polish for AllDebrid-Client.</div>
+        </a>
+        <div class="list-card">
+          <div class="card-header">
+            <span class="card-title">Why Support Helps</span>
+          </div>
+          <div class="card-body">
+            <div class="kv-list">
+              <div class="kv-row"><span>Feature work</span><strong>UI, workflows, releases</strong></div>
+              <div class="kv-row"><span>Operations</span><strong>Container builds and registry upkeep</strong></div>
+              <div class="kv-row"><span>Community</span><strong>Issue triage and Discord support</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="view" id="view-settings">
+      <div class="stabs" id="settings-tabs"></div>
+      <div id="settings-form"></div>
+      <div class="save-bar">
+        <span class="save-hint">Settings are applied immediately after saving.</span>
+        <button class="btn btn-ghost" onclick="testDiscord()">🔔 Test Discord</button>
+        <button class="btn btn-ghost" onclick="testAD()">🔑 Test AllDebrid</button>
+        <button class="btn btn-ghost" onclick="testAria2()">⬇️ Test aria2</button>
+        <button class="btn btn-ghost" id="btn-test-postgres" style="display:none" onclick="testPostgres()">🗄️ Test DB</button>
+        <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="overlay" onclick="closeModal(event)">
+  <div id="modal">
+    <div class="modal-hdr">
+      <span class="modal-title" id="modal-title">Details</span>
+      <span class="modal-close" onclick="closeModal()">✕</span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+const API = '/api';
+let currentFilter = '';
+let settingsData = {};
+
+function renderTopbarActions() {
+  const el = document.getElementById('topbar-actions');
+  if (!el) return;
+  const paused = !!settingsData.paused;
+  el.innerHTML = `
+    <button class="btn ${paused ? 'btn-primary' : 'btn-ghost'}" onclick="${paused ? 'resumeProcessing()' : 'pauseProcessing()'}">
+      ${paused ? 'Resume' : 'Pause'}
+    </button>
+  `;
+}
+
+// ── Nav ────────────────────────────────────────────────────────────────────
+function nav(el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  const v = el.dataset.view;
+  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+  const activeView = document.getElementById('view-' + v);
+  if (!activeView) { console.error('nav: view not found:', v); return; }
+  activeView.classList.add('active');
+
+  const titles = {
+    dashboard:'Dashboard',
+    torrents:'Torrents',
+    events:'Event Log',
+    stats:'Statistics',
+    changelog:'Changelog',
+    github:'GitHub',
+    coffee:'Coffee',
+    settings:'Settings'
+  };
+  document.getElementById('page-title').textContent = titles[v] || v;
+  if (v === 'dashboard') { loadStats(); loadRecent(); }
+  if (v === 'torrents')  loadTorrents();
+  if (v === 'events')    loadEvents();
+  if (v === 'stats')     loadDetailedStats();
+  if (v === 'changelog') loadChangelog();
+  if (v === 'settings')  loadSettings();
+  closeSidebar();
+}
+
+// ── API ────────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = {method, headers: {'Content-Type':'application/json'}};
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  const data = await r.json().catch(() => ({detail: r.statusText}));
+  if (!r.ok) throw new Error(data.detail || r.statusText);
+  return data;
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const icons = {success:'✅',error:'❌',warn:'⚠️',info:'ℹ️'};
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type]||'·'}</span><span>${msg}</span>`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.style.opacity = '0', 3000);
+  setTimeout(() => el.remove(), 3400);
+}
+
+// ── Format ─────────────────────────────────────────────────────────────────
+function fmtSize(b) {
+  if (!b) return '—';
+  const u = ['B','KB','MB','GB','TB']; let i = 0;
+  while (b >= 1024 && i < u.length-1) {b/=1024; i++;}
+  return b.toFixed(1)+' '+u[i];
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  const x = new Date(d);
+  return x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' '+
+         x.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+}
+function pct(part, total) {
+  if (!total) return 0;
+  return Math.round((part / total) * 100);
+}
+function renderKvMap(arr, formatter) {
+  // arr is an array of {status/level, count} objects from the API
+  if (!arr || !arr.length) return '<div class="empty">No data available.</div>';
+  const entries = Array.isArray(arr)
+    ? arr.map(item => {
+        const key = item.status ?? item.level ?? item.source ?? Object.keys(item).find(k => k !== 'count') ?? '?';
+        return [key, item];
+      })
+    : Object.entries(arr);
+  return `<div class="kv-list">${entries.map(([key, value]) => `
+    <div class="kv-row">
+      <span>${key}</span>
+      <strong>${formatter ? formatter(value, key) : (value && typeof value === 'object' ? value.count ?? '—' : value)}</strong>
+    </div>
+  `).join('')}</div>`;
+}
+function badge(s) {
+  const m = {pending:'⏳ Pending',uploading:'⬆ Uploading',processing:'⚙ Processing',
+    queued:'🕓 Queued',paused:'⏸ Paused',downloading:'⬇ Downloading',ready:'✓ Ready',completed:'✅ Done',
+    error:'❌ Error',deleted:'🗑 Deleted',imported:'📋 Imported',partial:'⚠ Partial'};
+  return `<span class="badge badge-${s}">${m[s]||s}</span>`;
+}
+function progress(pct, status) {
+  const done = status === 'completed';
+  return `<div class="prog"><div class="prog-fill ${done?'done':''}" style="width:${Math.min(pct||0,100)}%"></div></div>
+          <span class="prog-pct">${(pct||0).toFixed(0)}%</span>`;
+}
+
+// ── Status Bar ─────────────────────────────────────────────────────────────
+async function checkConnections() {
+  // AllDebrid — check via /stats (lightweight)
+  try {
+    const s = await api('GET', '/stats');
+    setDot('api', 'ok', 'AllDebrid: online');
+    // Update DB dot from stats
+    if (s.db_type) {
+      setDot('db',
+        s.db_type === 'sqlite_fallback' ? 'error' : 'ok',
+        s.db_type === 'sqlite_fallback' ? 'DB: SQLite (fallback)'
+          : s.db_type === 'postgres'    ? 'DB: PostgreSQL'
+          : 'DB: SQLite'
+      );
+    }
+  } catch {
+    setDot('api', 'error', 'AllDebrid: offline');
+  }
+  const cfg = settingsData || {};
+  // aria2
+  if (cfg.aria2_url) {
+    try {
+      const result = await api('POST', '/settings/test-aria2');
+      setDot('aria2', 'ok', `aria2: ${result.version||'online'}`);
+    } catch {
+      setDot('aria2', 'error', 'aria2: offline');
+    }
+  } else {
+    setDot('aria2', '', 'aria2: not configured');
+  }
+}
+
+// Premium status — called once on startup, then every 12 hours
+let _premiumCheckInterval = null;
+async function checkPremiumStatus() {
+  try {
+    const cfg = settingsData;
+    if (!cfg || !cfg.alldebrid_api_key) return;
+    const r = await api('POST', '/settings/test-alldebrid');
+    _updatePremiumLabel(r);
+    setDot('api', 'ok', `AllDebrid: ${r.username||'online'}`);
+  } catch { /* silent — dot already set by checkConnections */ }
+}
+
+function setDot(id, state, label) {
+  const d = document.getElementById('dot-'+id);
+  const l = document.getElementById('lbl-'+id);
+  if (!d || !l) return;  // element not in DOM yet
+  d.className = 'dot' + (state ? ' '+state : '');
+  l.textContent = label;
+}
+
+async function pauseProcessing() {
+  try {
+    await api('POST', '/settings/pause');
+    settingsData.paused = true;
+    renderTopbarActions();
+    toast('Processing paused','warn');
+    loadStats();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function resumeProcessing() {
+  try {
+    await api('POST', '/settings/resume');
+    settingsData.paused = false;
+    renderTopbarActions();
+    toast('Processing resumed','success');
+    loadStats();
+    loadRecent();
+    if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────
+function fmtDuration(secs) {
+  if (!secs || secs <= 0) return '—';
+  if (secs < 60) return secs + 's';
+  if (secs < 3600) return Math.round(secs/60) + 'm';
+  return (secs/3600).toFixed(1) + 'h';
+}
+
+async function loadStats() {
+  try {
+    const s = await api('GET', '/stats');
+    settingsData.paused = !!s.paused;
+    renderTopbarActions();
+    const bs = s.by_status || {};
+    const total = Object.values(bs).reduce((a,b)=>a+b,0);
+    // completed_count kommt direkt vom API (nicht aus by_status, damit der Dashboard-Fix greift)
+    const completed = s.completed_count ?? bs.completed ?? 0;
+    const queuePct = pct(completed, total || 0);
+    document.getElementById('s-total').textContent = total;
+    document.getElementById('s-completed').textContent = completed;
+    document.getElementById('s-active').textContent = s.active_downloads||0;
+    document.getElementById('s-processing').textContent = s.paused ? 'Paused' : (bs.processing||0)+(bs.uploading||0);
+    document.getElementById('s-error').textContent = s.error_count ?? bs.error ?? 0;
+    document.getElementById('s-size').textContent = fmtSize(s.total_completed_bytes);
+    document.getElementById('s-blocked').textContent = `${s.total_blocked_files||0} blocked files`;
+    document.getElementById('i-queue-health').textContent = `${queuePct}%`;
+    document.getElementById('i-queue-copy').textContent = `${s.active_downloads||0} active / ${s.queued_downloads||0} queued`;
+    document.getElementById('i-last-day').textContent = s.completed_last_24h||0;
+    document.getElementById('i-last-week').textContent = s.completed_last_7d||0;
+    document.getElementById('i-success-rate').textContent = s.success_rate_pct != null ? s.success_rate_pct+'%' : '—';
+    document.getElementById('i-avg-duration').textContent = fmtDuration(s.avg_download_duration_seconds);
+    document.getElementById('i-avg-size').textContent = s.avg_torrent_size_bytes ? fmtSize(s.avg_torrent_size_bytes) : '—';
+    const active = s.active_downloads || 0;
+    const nb = document.getElementById('nb-active');
+    nb.textContent = active; nb.style.display = active > 0 ? '' : 'none';
+    const dbEl = document.getElementById('i-db-type');
+    if (dbEl && s.db_type) {
+      const dbLabels = {sqlite:'SQLite', postgres:'PostgreSQL', sqlite_fallback:'⚠️ SQLite (fallback)'};
+      dbEl.textContent = dbLabels[s.db_type] || s.db_type;
+      if (s.db_type === 'sqlite_fallback') {
+        dbEl.style.color = 'var(--accent)';
+        dbEl.title = 'PostgreSQL unreachable — running on SQLite fallback.';
+      } else { dbEl.style.color = ''; dbEl.title = ''; }
+    }
+    setDot('db',
+      s.db_type === 'sqlite_fallback' ? 'error' : 'ok',
+      s.db_type === 'sqlite_fallback' ? 'DB: SQLite (fallback)'
+        : s.db_type === 'postgres'    ? 'DB: PostgreSQL'
+        : 'DB: SQLite'
+    );
+  } catch(e) { console.warn('loadStats error:', e); }
+}
+
+async function loadRecent() {
+  try {
+    const {items} = await api('GET', '/torrents?limit=10');
+    const tb = document.getElementById('dash-tbody');
+    if (!items.length) {
+      tb.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">🧲</div>No torrents yet. Add a magnet link to start.</div></td></tr>';
+      return;
+    }
+    tb.innerHTML = items.map(t => `<tr onclick="showDetail(${t.id})" style="cursor:pointer">
+      <td><div class="t-name">${t.name||'(unnamed)'}</div></td>
+      <td>${badge(t.status)}</td>
+      <td>${progress(t.progress,t.status)}</td>
+      <td class="sz">${fmtSize(t.size_bytes)}</td>
+      <td class="sz">${fmtDate(t.created_at)}</td>
+    </tr>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function quickAdd() {
+  const v = document.getElementById('q-magnet').value.trim();
+  if (!v) return;
+  try {
+    await api('POST', '/torrents/add-magnet', {magnet: v});
+    toast('Magnet added!', 'success');
+    document.getElementById('q-magnet').value = '';
+    loadStats(); loadRecent();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Torrents ───────────────────────────────────────────────────────────────
+function setFilter(el, status) {
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter = status;
+  loadTorrents();
+}
+
+async function loadTorrents() {
+  try {
+    const qs = currentFilter ? `?status=${currentFilter}&limit=100` : '?limit=100';
+    const {items} = await api('GET', '/torrents'+qs);
+    const tb = document.getElementById('t-tbody');
+    if (!items.length) {
+      tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">🧲</div>No torrents found.</div></td></tr>';
+      return;
+    }
+    tb.innerHTML = items.map(t => `<tr>
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="t-chk" data-id="${t.id}" onchange="onCheckboxChange()"/></td>
+      <td onclick="showDetail(${t.id})" style="cursor:pointer">
+        <div class="t-name">${t.name||'(unnamed)'}</div>
+        <div class="t-hash">${(t.hash||'').substring(0,16)}${t.hash?'…':''}</div>
+      </td>
+      <td class="sz">
+        <div>${t.source||'—'}</div>
+        ${t.label?`<span class="lbl-badge">🏷 ${t.label}</span>`:''}
+      </td>
+      <td>${badge(t.status)}</td>
+      <td>${progress(t.progress,t.status)}</td>
+      <td class="sz">${fmtSize(t.size_bytes)}</td>
+      <td class="sz">${fmtDate(t.created_at)}</td>
+      <td>
+        <div class="actions">
+          <button class="btn btn-ghost btn-sm" onclick="showDetail(${t.id})">Details</button>
+          ${t.status==='downloading' || t.status==='queued' ? `<button class="btn btn-blue btn-sm" onclick="pauseT(${t.id})">⏸</button>` : ''}
+          ${t.status==='paused' ? `<button class="btn btn-blue btn-sm" onclick="resumeT(${t.id})">▶</button>` : ''}
+          ${t.status==='error'?`<button class="btn btn-blue btn-sm" onclick="retryT(${t.id})">↻</button>`:''}
+          <button class="btn btn-danger btn-sm" onclick="deleteT(${t.id},event)">✕</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function addMagnet() {
+  const v = document.getElementById('t-magnet').value.trim();
+  if (!v) return;
+  try {
+    await api('POST','/torrents/add-magnet',{magnet:v});
+    toast('Added!','success');
+    document.getElementById('t-magnet').value='';
+    loadTorrents();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function importExisting() {
+  try {
+    const r = await api('POST','/torrents/import-existing');
+    toast(`Imported ${r.imported} magnets from AllDebrid`,'success');
+    loadStats(); loadRecent();
+    if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function deleteT(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete from AllDebrid and remove from list?')) return;
+  try {
+    await api('DELETE',`/torrents/${id}?from_alldebrid=true`);
+    toast('Deleted','success');
+    loadTorrents(); loadStats();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function retryT(id) {
+  try {
+    await api('POST',`/torrents/${id}/retry`);
+    toast('Queued for retry','success');
+    loadTorrents();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function pauseT(id) {
+  try {
+    await api('POST',`/torrents/${id}/pause`);
+    toast('aria2 queue paused','warn');
+    loadTorrents(); loadStats();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function resumeT(id) {
+  try {
+    await api('POST',`/torrents/${id}/resume`);
+    toast('aria2 queue resumed','success');
+    loadTorrents(); loadStats();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+// ── Detail Modal ───────────────────────────────────────────────────────────
+async function showDetail(id) {
+  try {
+    const t = await api('GET',`/torrents/${id}`);
+    document.getElementById('modal-title').textContent = t.name||'Torrent Details';
+    document.getElementById('modal-body').innerHTML = `
+      <div class="detail-grid">
+        <div><div class="dk">Status</div><div class="dv">${badge(t.status)}</div></div>
+        <div><div class="dk">Provider</div><div class="dv">${t.provider_status ? badge(t.provider_status) : '—'}</div></div>
+        <div><div class="dk">Progress</div><div class="dv">${(t.progress||0).toFixed(1)}%</div></div>
+        <div><div class="dk">Size</div><div class="dv">${fmtSize(t.size_bytes)}</div></div>
+        <div><div class="dk">Source</div><div class="dv">${t.source||'—'}</div></div>
+        <div><div class="dk">Downloader</div><div class="dv">${t.download_client||'aria2'}</div></div>
+        <div><div class="dk">Added</div><div class="dv">${fmtDate(t.created_at)}</div></div>
+        <div><div class="dk">Completed</div><div class="dv">${fmtDate(t.completed_at)}</div></div>
+        <div style="grid-column:1/-1"><div class="dk">AllDebrid ID</div><div class="dv">${t.alldebrid_id||'—'}</div></div>
+        <div style="grid-column:1/-1"><div class="dk">Hash</div><div class="dv" style="font-size:11px">${t.hash||'—'}</div></div>
+        ${t.local_path?`<div style="grid-column:1/-1"><div class="dk">Local Path</div><div class="dv" style="font-size:11px">${t.local_path}</div></div>`:''}
+        ${t.error_message?`<div style="grid-column:1/-1"><div class="dk">Error</div><div class="dv" style="color:var(--red)">${t.error_message}</div></div>`:''}
+      </div>
+      ${t.files&&t.files.length?`
+        <div class="sec-label">Files (${t.files.length})</div>
+        <div class="card">
+          <table>
+            <thead><tr><th>Filename</th><th>Size</th><th>Status</th></tr></thead>
+            <tbody>${t.files.map(f=>`<tr>
+              <td style="font-family:var(--mono);font-size:11px">${f.filename}
+                ${f.blocked?`<span class="badge badge-error" style="font-size:9px;margin-left:6px">BLOCKED: ${f.block_reason}</span>`:''}
+              </td>
+              <td class="sz">${fmtSize(f.size_bytes)}</td>
+              <td>${badge(f.status)}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+      `:''}
+      ${t.events&&t.events.length?`
+        <div class="sec-label">Events</div>
+        ${t.events.map(ev=>`
+          <div class="event-item">
+            <div class="elevel ${ev.level}"></div>
+            <div class="emsg">${ev.message}</div>
+            <div class="etime">${fmtDate(ev.created_at)}</div>
+          </div>`).join('')}
+      `:''}
+    `;
+    document.getElementById('overlay').classList.add('open');
+  } catch(e) { toast(e.message,'error'); }
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('overlay'))
+    document.getElementById('overlay').classList.remove('open');
+}
+
+// ── Theme toggle ─────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('mobile-overlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('mobile-overlay').classList.remove('open');
+}
+
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  document.getElementById('theme-toggle').textContent = isLight ? '🌙' : '☀️';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  if (localStorage.getItem('theme') === 'light') {
+    document.body.classList.add('light');
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = '☀️';
+  }
+});
+
+// ── Bulk selection ────────────────────────────────────────────────────────────
+let _selectedIds = new Set();
+
+function onCheckboxChange() {
+  _selectedIds = new Set(
+    [...document.querySelectorAll('.t-chk:checked')].map(el => parseInt(el.dataset.id))
+  );
+  const bar = document.getElementById('bulk-bar');
+  const cnt = document.getElementById('bulk-count');
+  if (_selectedIds.size > 0) {
+    bar.classList.add('visible');
+    cnt.textContent = _selectedIds.size + ' selected';
+  } else {
+    bar.classList.remove('visible');
+  }
+  const all = document.getElementById('chk-all');
+  const total = document.querySelectorAll('.t-chk').length;
+  if (all) all.indeterminate = _selectedIds.size > 0 && _selectedIds.size < total;
+}
+
+function toggleAllCheckboxes(el) {
+  document.querySelectorAll('.t-chk').forEach(c => {
+    c.checked = el.checked;
+  });
+  onCheckboxChange();
+}
+
+function clearSelection() {
+  _selectedIds.clear();
+  document.querySelectorAll('.t-chk').forEach(c => c.checked = false);
+  const all = document.getElementById('chk-all');
+  if (all) { all.checked = false; all.indeterminate = false; }
+  document.getElementById('bulk-bar').classList.remove('visible');
+}
+
+async function bulkAction(action) {
+  if (!_selectedIds.size) return;
+  const ids = [..._selectedIds];
+  if (action === 'delete' && !confirm(`Delete ${ids.length} torrents?`)) return;
+  try {
+    const r = await api('POST', '/torrents/bulk', {ids, action});
+    toast(`Done: ${r.ok} ok, ${r.failed} failed`, r.failed ? 'warn' : 'success');
+    clearSelection();
+    loadTorrents(); loadStats();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Label management ─────────────────────────────────────────────────────────
+async function setLabel(id) {
+  const label = prompt('Label (leave empty to clear):') ?? null;
+  if (label === null) return;
+  try {
+    await api('PUT', `/torrents/${id}/label`, {label: label.trim(), priority: 0});
+    toast('Label updated', 'success');
+    loadTorrents();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Events ─────────────────────────────────────────────────────────────────
+let _allEvents = [];
+
+async function loadEvents() {
+  try {
+    _allEvents = await api('GET','/events?limit=500');
+    filterEvents();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+function filterEvents() {
+  const el = document.getElementById('event-list');
+  const q   = (document.getElementById('ev-search')?.value || '').toLowerCase();
+  const lvl = document.getElementById('ev-level')?.value || '';
+  const evs = _allEvents.filter(ev => {
+    if (lvl && ev.level !== lvl) return false;
+    if (!q) return true;
+    return (ev.message||'').toLowerCase().includes(q) ||
+           (ev.torrent_name||'').toLowerCase().includes(q);
+  });
+  if (!evs.length) { el.innerHTML='<div class="empty">No events match the filter.</div>'; return; }
+  el.innerHTML = evs.map(ev=>`
+    <div class="event-item">
+      <div class="elevel ${ev.level}"></div>
+      <div><div class="emsg">${ev.message}</div>${ev.torrent_name?`<div class="ename">${ev.torrent_name}</div>`:''}</div>
+      <div class="etime">${fmtDate(ev.created_at)}</div>
+    </div>`).join('');
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────
+async function loadDetailedStats() {
+  try {
+    const stats = await api('GET', '/stats/detail');
+    const totals = stats.totals || {};
+    document.getElementById('detail-stat-cards').innerHTML = `
+      <div class="metric-card">
+        <div class="metric-label">Tracked Torrents</div>
+        <div class="metric-value">${totals.torrent_total || 0}</div>
+        <div class="metric-sub">Across active, queued, completed, partial, and error states.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Tracked Size</div>
+        <div class="metric-value">${fmtSize(totals.torrent_size_total || 0)}</div>
+        <div class="metric-sub">Total bytes recorded on torrent entries.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Completed Size</div>
+        <div class="metric-value">${fmtSize(totals.completed_size || 0)}</div>
+        <div class="metric-sub">Bytes already finalized as completed.</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Partial Torrents</div>
+        <div class="metric-value">${totals.partial_total || 0}</div>
+        <div class="metric-sub">Excluded-file runs are tracked separately from errors.</div>
+      </div>
+    `;
+    document.getElementById('detail-torrent-status').innerHTML = renderKvMap(stats.torrent_status);
+    document.getElementById('detail-file-status').innerHTML = renderKvMap(
+      stats.file_status,
+      (value) => value.count ?? value
+    );
+    document.getElementById('detail-event-levels').innerHTML = renderKvMap(stats.event_levels);
+    const latest = stats.latest_events || [];
+    document.getElementById('detail-latest-events').innerHTML = latest.length ? latest.map(ev => `
+      <div class="event-item">
+        <div class="elevel ${ev.level}"></div>
+        <div><div class="emsg">${ev.message}</div>${ev.torrent_name?`<div class="ename">${ev.torrent_name}</div>`:''}</div>
+        <div class="etime">${fmtDate(ev.created_at)}</div>
+      </div>`).join('') : '<div class="empty">No recent signals yet.</div>';
+  } catch(e) { toast(e.message,'error'); }
+  // Daily completions chart
+  try {
+    const detail = await api('GET', '/stats/detail');
+    const daily = (detail.daily_completions || []).slice(-14);
+    const ctx = document.getElementById('daily-chart');
+    if (ctx && typeof Chart !== 'undefined') {
+      if (ctx._ci) ctx._ci.destroy();
+      ctx._ci = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: daily.map(d => (d.date||'').substring(5)),
+          datasets: [{ label: 'Completions', data: daily.map(d=>d.count||0),
+            backgroundColor:'rgba(249,115,22,.55)', borderColor:'#f97316',
+            borderWidth:1, borderRadius:4 }]
+        },
+        options: { responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
+          scales:{
+            x:{grid:{color: document.body.classList.contains('light') ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.04)'},
+               ticks:{color: document.body.classList.contains('light') ? '#6b7280' : '#64748b', font:{size:10}}},
+            y:{grid:{color: document.body.classList.contains('light') ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.04)'},
+               ticks:{color: document.body.classList.contains('light') ? '#6b7280' : '#64748b', font:{size:10}},
+               beginAtZero:true, precision:0}
+          }
+        }
+      });
+    }
+  } catch(_) {}
+}
+
+async function loadChangelog() {
+  const el = document.getElementById('changelog-content');
+  el.innerHTML = '<p style="color:var(--text3)">Loading…</p>';
+  try {
+    const data = await api('GET', '/changelog');
+    const md = data.content || 'No changelog content found.';
+    el.innerHTML = renderMarkdown(md);
+  } catch(e) {
+    el.innerHTML = `<p style="color:#f87171">Failed to load changelog: ${e.message}</p>`;
+    toast(e.message, 'error');
+  }
+}
+
+function renderMarkdown(md) {
+  const escape = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Inline formatting: **bold**, `code`, [text](url)
+  const inline = s => escape(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const lines = md.split('\n');
+  let html = '';
+  let inList = false;
+  let inCode = false;
+  for (let raw of lines) {
+    const line = raw.trimEnd();
+    if (line.startsWith('```')) {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (inCode) { html += '</code></pre>'; inCode = false; }
+      else { html += '<pre><code>'; inCode = true; }
+      continue;
+    }
+    if (inCode) { html += escape(line) + '\n'; continue; }
+    if (/^#{3,}\s/.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h3>${inline(line.replace(/^#+\s*/,''))}</h3>`;
+    } else if (/^#{2}\s/.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h2>${inline(line.replace(/^#+\s*/,''))}</h2>`;
+    } else if (/^#\s/.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h1>${inline(line.replace(/^#+\s*/,''))}</h1>`;
+    } else if (/^[-*]\s/.test(line)) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${inline(line.replace(/^[-*]\s+/,''))}</li>`;
+    } else if (line === '---') {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += '<hr>';
+    } else if (line === '') {
+      if (inList) { html += '</ul>'; inList = false; }
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p>${inline(line)}</p>`;
+    }
+  }
+  if (inCode) html += '</code></pre>';
+  if (inList) html += '</ul>';
+  return html;
+}
+
+async function loadSettings() {
+  try {
+    settingsData = await api('GET','/settings');
+    renderSettings();
+  } catch(e) { toast(e.message,'error'); }
+  // Activate first tab by default
+  switchSettingsTab('tab-general');
+  // Avatar preview: show if a custom avatar URL is set
+  const avatarUrl = settingsData.discord_avatar_url || '';
+  if (avatarUrl && !avatarUrl.includes('github') && !avatarUrl.includes('_DEFAULT')) {
+    showAvatarPreview(avatarUrl, 'Custom avatar', 0);
+  }
+  // Initialer Zustand: Test-PostgreSQL Button und pg-settings Sichtbarkeit
+  const dbTypeEl = document.getElementById('s-db_type');
+  if (dbTypeEl) {
+    const isPg = dbTypeEl.value === 'postgres';
+    const pgBtn = document.getElementById('btn-test-postgres');
+    if (pgBtn) pgBtn.style.display = isPg ? '' : 'none';
+  }
+}
+
+function renderSettings() {
+  const s = settingsData;
+  // Define tabs
+  const tabs = [
+    { id:'tab-general',      label:'⚡ General' },
+    { id:'tab-download',     label:'⬇️ Download' },
+    { id:'tab-discord',      label:'🔔 Discord' },
+    { id:'tab-integrations', label:'🔗 Integrations' },
+    { id:'tab-database',     label:'🗄️ Database' },
+    { id:'tab-filters',      label:'🚫 Filters' },
+    { id:'tab-polling',      label:'⏱ Polling' },
+    { id:'tab-backup',       label:'💾 Backup' },
+    { id:'tab-flexget',      label:'🤖 FlexGet' },
+    { id:'tab-automations',  label:'📊 Reporting' },
+  ];
+  document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
+    `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${t.label}</div>`
+  ).join('');
+  document.getElementById('settings-form').innerHTML = `
+
+    <div class="stab-panel active" id="tab-general">
+
+    <div class="scard">
+      <div class="scard-header">🔑 AllDebrid</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <div class="test-row">
+            <input class="input" type="password" id="s-alldebrid_api_key" value="${s.alldebrid_api_key||''}" placeholder="Your AllDebrid API key"/>
+            <button class="btn btn-blue btn-sm" onclick="testAD()">Test</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Agent Name</label>
+          <input class="input" id="s-alldebrid_agent" value="${s.alldebrid_agent||'AllDebrid-Client'}"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">📁 Folders</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Watch Folder</label>
+          <input class="input" id="s-watch_folder" value="${s.watch_folder||''}"/>
+          <span class="form-hint">Drop .torrent or .magnet files here</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Processed Folder</label>
+          <input class="input" id="s-processed_folder" value="${s.processed_folder||''}"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Download Folder</label>
+          <input class="input" id="s-download_folder" value="${s.download_folder||''}"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Concurrent Downloads</label>
+          <input class="input" type="number" id="s-max_concurrent_downloads" value="${s.max_concurrent_downloads||3}" min="1" max="20"/>
+        <div class="form-group" style="margin-top:8px">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="btn-test-postgres" onclick="testPostgres()" style="display:none">🔌 Test Connection</button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <div class="stab-panel" id="tab-download">
+
+    <div class="scard">
+      <div class="scard-header">⬇️ Download Client</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Delivery Mode</label>
+          <select class="input" id="s-download_client">
+            <option value="aria2" selected>aria2 (via JSON-RPC)</option>
+          </select>
+          <span class="form-hint">Downloads are handed off to aria2 via JSON-RPC. Configure the RPC URL below.</span>
+          <details class="info-details">
+            <summary>How do the delivery modes work?</summary>
+            <div class="info-details-body">
+              <div class="info-mode">
+                <div class="info-mode-title">⚡ aria2</div>
+                <div class="info-mode-desc">
+                  The app unlocks each AllDebrid link and hands the resulting URL to aria2 via JSON-RPC.
+                  aria2 then handles the actual download entirely on its own — it decides how many connections to open,
+                  where to write the file, whether to segment the transfer, and when it is complete.
+                  The app only monitors aria2's reported status (<code>active / waiting / complete / error</code>)
+                  and updates its internal state accordingly. When aria2 reports a download as complete,
+                  the app marks the file done, removes the entry from aria2, and — once all files of a torrent
+                  are finished — deletes the torrent from AllDebrid.
+                </div>
+                <div class="info-mode-pros">✔ Faster multi-connection downloads · resumable · aria2 manages bandwidth &amp; concurrency · works across Docker volumes</div>
+                <div class="info-mode-cons">✖ Requires a running aria2 instance with RPC enabled · needs correct RPC URL and optional secret configured below</div>
+              </div>
+              <div class="info-mode">
+                <div class="info-mode-title">📁 aria2 Download Root</div>
+                <div class="info-mode-desc">
+                  Only relevant in aria2 mode. When the app and aria2 run in separate Docker containers,
+                  their views of the filesystem differ. Set this to the path that aria2 uses as its download
+                  root (e.g. <code>/downloads</code>) so the app constructs the correct <code>dir</code> and
+                  <code>out</code> options when submitting jobs. Leave empty if both containers share the same mount path.
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 RPC URL</label>
+          <div class="test-row">
+            <input class="input" id="s-aria2_url" value="${s.aria2_url||'http://127.0.0.1:6800/jsonrpc'}" placeholder="http://127.0.0.1:6800/jsonrpc"/>
+            <button class="btn btn-blue btn-sm" onclick="testAria2()">Test</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Secret</label>
+          <input class="input" type="password" id="s-aria2_secret" value="${s.aria2_secret||''}" placeholder="Optional RPC secret"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Download Root</label>
+          <input class="input" id="s-aria2_download_path" value="${s.aria2_download_path||''}" placeholder="Optional remote root path"/>
+          <span class="form-hint">Leave empty when aria2 writes into the same mounted path as this app.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Timeout (seconds)</label>
+          <input class="input" type="number" id="s-aria2_operation_timeout_seconds" value="${s.aria2_operation_timeout_seconds||15}" min="5" max="120"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Simultaneous Downloads</label>
+          <input class="input" type="number" id="s-aria2_max_active_downloads" value="${s.aria2_max_active_downloads||s.max_concurrent_downloads||3}" min="1" max="50"/>
+          <span class="form-hint">Only this many files are handed to aria2 at once. Remaining files stay pending until a slot becomes free.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deep Filesystem Sync Interval (minutes)</label>
+          <input class="input" type="number" id="s-aria2_deep_sync_interval_minutes" value="${s.aria2_deep_sync_interval_minutes||10}" min="0" max="1440"/>
+          <span class="form-hint">
+            Periodically checks if downloaded files exist on disk — independent of aria2 GID or status.
+            Resolves stuck downloads where aria2 lost track of the entry or the same filename appears in different folders.
+            <b>0 = disabled.</b> Default: 10 minutes.
+          </span>
+        </div>
+        <div class="form-group">
+          <button class="btn btn-ghost" onclick="triggerFullSync()">🔄 Full AllDebrid Sync Now</button>
+          <button class="btn btn-ghost" onclick="runDeepSync()">🔍 Run Deep Sync Now</button>
+          <span class="form-hint" style="margin-top:6px;display:block">Immediately checks all pending aria2 files on disk and marks completed ones.</span>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Start aria2 Jobs Paused</div>
+            <div class="td">Queue the job in aria2 first and resume it manually from the API/UI workflow.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-aria2_start_paused" ${s.aria2_start_paused?'checked':''}><div class="ttrack"></div></label>
+        <div class="form-group" style="margin-top:8px">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="btn-test-postgres" onclick="testPostgres()" style="display:none">🔌 Test Connection</button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <div class="stab-panel" id="tab-discord">
+
+    <div class="scard">
+      <div class="scard-header">🔔 Discord Notifications</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Bot Name <span style="font-weight:400;color:var(--muted)">(shown as sender in Discord)</span></label>
+          <input class="input" id="s-discord_username" value="${s.discord_username||'AllDebrid-Client'}" placeholder="AllDebrid-Client"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bot Avatar <span style="font-weight:400;color:var(--muted)">(Discord requires a public URL — use Upload to host via this app)</span></label>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <input class="input" id="s-discord_avatar_url" value="${s.discord_avatar_url||''}" placeholder="https://… or leave empty for default logo" style="flex:1"/>
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;white-space:nowrap">
+              📎 Upload
+              <input type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+                style="display:none" onchange="uploadDiscordAvatar(this)"/>
+            </label>
+          </div>
+          <div id="avatar-preview" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
+            <img id="avatar-preview-img" src="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--border)"/>
+            <span id="avatar-preview-label"></span>
+            <button class="btn btn-ghost btn-sm" onclick="clearDiscordAvatar()" style="font-size:11px">✕ Remove</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Webhook URL</label>
+          <div class="test-row">
+            <input class="input" id="s-discord_webhook_url" value="${s.discord_webhook_url||''}" placeholder="https://discord.com/api/webhooks/…"/>
+            <button class="btn btn-blue btn-sm" onclick="testDiscord()">Test</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Webhook URL — Torrent Added <span style="font-weight:400;color:var(--muted)">(optional, falls back to main webhook)</span></label>
+          <input class="input" id="s-discord_webhook_added" value="${s.discord_webhook_added||''}" placeholder="https://discord.com/api/webhooks/… (separate channel for added torrents)"/>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Notify on Added</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Notify on Finished</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_finished" ${s.discord_notify_finished?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Notify on Error</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error?'checked':''}><div class="ttrack"></div></label>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <div class="stab-panel" id="tab-database">
+
+    <div class="scard">
+      <div class="scard-header">🗄️ Database</div>
+      <div class="scard-body">
+        <div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--text2)">
+          💾 <b>Save settings first</b>, then use <b>Test DB</b> to verify the connection.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Database Type</label>
+          <select class="input" id="s-db_type"
+            onchange="document.getElementById('pg-settings').style.display=(this.value==='postgres'||this.value==='postgres_internal')?'block':'none'"
+            ${s._db_type_locked?'disabled':''}>
+            <option value="sqlite" ${(s.db_type||'sqlite')==='sqlite'?'selected':''}>SQLite (default)</option>
+            <option value="postgres" ${s.db_type==='postgres'?'selected':''}>PostgreSQL (external)</option>
+          </select>
+          ${s._db_type_locked ? '<span class="form-hint" style="color:var(--accent)">⚙️ DB_TYPE is set via docker-compose and cannot be changed here.</span>' : '<span class="form-hint">Use PostgreSQL to connect to an external database server. See docs/postgresql.md.</span>'}
+        </div>
+        <div id="pg-settings" style="display:${s.db_type==='postgres'?'block':'none'}">
+          <div class="form-group">
+            <label class="form-label">Host</label>
+            <input class="input" id="s-postgres_host" value="${s.postgres_host||'localhost'}" ${s.db_type==='postgres_internal'?'readonly style="opacity:.5"':''}/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Port</label>
+            <input class="input" type="number" id="s-postgres_port" value="${s.postgres_port||5432}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Database</label>
+            <input class="input" id="s-postgres_db" value="${s.postgres_db||'alldebrid'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">User</label>
+            <input class="input" id="s-postgres_user" value="${s.postgres_user||'alldebrid'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="input" type="password" id="s-postgres_password" value="${s.postgres_password||''}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Schema</label>
+            <input class="input" id="s-postgres_schema" value="${s.postgres_schema||'public'}"/>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">SSL</div><div class="ts">Use SSL for PostgreSQL connection</div></div>
+            <label class="toggle"><input type="checkbox" id="s-postgres_ssl" ${s.postgres_ssl?'checked':''}><span class="slider"></span></label>
+          </div>
+        <div class="form-group" style="margin-top:8px">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="btn-test-postgres" onclick="testPostgres()" style="display:none">🔌 Test Connection</button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scard" style="border-color:rgba(249,115,22,.3)">
+      <div class="scard-header">🔄 Data Migration</div>
+      <div class="scard-body">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
+          Migrate all data between SQLite and PostgreSQL. <b>Save settings first</b> before running migration.<br>
+          <span style="color:var(--accent)">⚠️ This will overwrite all data in the target database.</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', false)">
+            📤 SQLite → PostgreSQL
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="runMigration('postgres_to_sqlite', false)">
+            📥 PostgreSQL → SQLite
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', true)" style="opacity:.6">
+            🔍 Dry Run (SQLite→PG)
+          </button>
+        </div>
+        <div id="migration-result" style="margin-top:10px;font-size:12px;display:none"></div>
+      </div>
+    </div>
+    </div>
+
+    <div class="stab-panel" id="tab-filters">
+
+    <div class="scard">
+      <div class="scard-header">🚫 File Filters</div>
+      <div class="scard-body">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Enable File Filters</div>
+            <div class="td">When off, all files are downloaded regardless of extension, keyword or size rules.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-filters_enabled" ${s.filters_enabled!==false?'checked':''} onchange="toggleFilterFields()"><div class="ttrack"></div></label>
+        </div>
+        <div id="filter-fields" style="${s.filters_enabled===false?'opacity:.4;pointer-events:none':''}">
+          <div class="form-group">
+            <label class="form-label">Blocked Extensions (one per line)</label>
+            <textarea class="input" id="s-blocked_extensions" rows="6">${(s.blocked_extensions||[]).join('\n')}</textarea>
+            <span class="form-hint">e.g. .jpg · .png · .nfo — images are blocked by default</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Blocked Keywords (one per line)</label>
+            <textarea class="input" id="s-blocked_keywords" rows="3">${(s.blocked_keywords||[]).join('\n')}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
+            <input class="input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb||0}" min="0"/>
+          </div>
+        <div class="form-group" style="margin-top:8px">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="btn-test-postgres" onclick="testPostgres()" style="display:none">🔌 Test Connection</button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <div class="stab-panel" id="tab-polling">
+
+    <div class="scard">
+      <div class="scard-header">⏱ Polling Intervals</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">AllDebrid Poll Interval (seconds)</label>
+          <input class="input" type="number" id="s-poll_interval_seconds" value="${s.poll_interval_seconds||30}" min="10"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Watch Folder Scan (seconds)</label>
+          <input class="input" type="number" id="s-watch_interval_seconds" value="${s.watch_interval_seconds||10}" min="5"/>
+        <div class="form-group" style="margin-top:8px">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" id="btn-test-postgres" onclick="testPostgres()" style="display:none">🔌 Test Connection</button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <div class="stab-panel" id="tab-integrations">
+      <div class="scard">
+        <div class="scard-header">📺 Sonarr</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Sonarr</div><div class="ts">Trigger RescanSeries after download completes</div></div>
+            <label class="toggle"><input type="checkbox" id="s-sonarr_enabled" ${s.sonarr_enabled?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sonarr URL</label>
+            <div class="test-row">
+              <input class="input" id="s-sonarr_url" value="${s.sonarr_url||''}" placeholder="http://sonarr:8989"/>
+              <button class="btn btn-blue btn-sm" onclick="testSonarr()">Test</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" type="password" id="s-sonarr_api_key" value="${s.sonarr_api_key||''}" placeholder="Sonarr API key"/>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">🎬 Radarr</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Radarr</div><div class="ts">Trigger RescanMovie after download completes</div></div>
+            <label class="toggle"><input type="checkbox" id="s-radarr_enabled" ${s.radarr_enabled?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Radarr URL</label>
+            <div class="test-row">
+              <input class="input" id="s-radarr_url" value="${s.radarr_url||''}" placeholder="http://radarr:7878"/>
+              <button class="btn btn-blue btn-sm" onclick="testRadarr()">Test</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" type="password" id="s-radarr_api_key" value="${s.radarr_api_key||''}" placeholder="Radarr API key"/>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">🏷 Labels</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Predefined Labels <span style="font-weight:400;color:var(--text2)">(comma-separated)</span></label>
+            <input class="input" id="s-torrent_labels_raw" value="${(s.torrent_labels||[]).join(', ')}" placeholder="Movies, Series, 4K, Anime"/>
+            <span class="form-hint">Leave empty — labels are optional per torrent.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">⚠️ Auto-Restart Stuck Downloads</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Stuck timeout (hours)</label>
+            <input class="input" type="number" id="s-stuck_download_timeout_hours" value="${s.stuck_download_timeout_hours||6}" min="0" max="168"/>
+            <span class="form-hint">Torrents stuck in queued/downloading for longer than this are automatically reset. Set to 0 to disable.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">🚦 AllDebrid Rate Limit</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">API calls per minute</label>
+            <input class="input" type="number" id="s-alldebrid_rate_limit_per_minute" value="${s.alldebrid_rate_limit_per_minute||60}" min="1" max="300"/>
+            <span class="form-hint">Default: 60 req/min. Increase if you have many concurrent torrents, lower if you get rate-limited.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stab-panel" id="tab-backup">
+      <div class="scard">
+        <div class="scard-header">💾 Automatic Backups</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Backups</div><div class="ts">Automatically back up config and database</div></div>
+            <label class="toggle"><input type="checkbox" id="s-backup_enabled" ${s.backup_enabled!==false?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Backup Folder</label>
+            <input class="input" id="s-backup_folder" value="${s.backup_folder||'/app/data/backups'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Interval (hours)</label>
+            <input class="input" type="number" id="s-backup_interval_hours" value="${s.backup_interval_hours||24}" min="1" max="168"/>
+            <span class="form-hint">Default: 24h. Backup runs once per interval.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Keep backups for (days)</label>
+            <input class="input" type="number" id="s-backup_keep_days" value="${s.backup_keep_days||7}" min="1" max="90"/>
+            <span class="form-hint">Default: 7 days. Older backups are deleted automatically.</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-ghost" onclick="triggerBackup()">💾 Run Backup Now</button>
+            <button class="btn btn-ghost" onclick="loadBackupList()">📋 List Backups</button>
+          </div>
+          <div id="backup-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FlexGet Tab ─────────────────────────────────────────────────────── -->
+    <div class="stab-panel" id="tab-flexget">
+
+    <div class="scard" style="border-color:rgba(59,130,246,.3)">
+      <div class="scard-header">ℹ️ FlexGet Setup</div>
+      <div class="scard-body">
+        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+          FlexGet must be running with its <b>web server enabled</b>.
+          Add this to your <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">config.yml</code>:
+          <pre style="background:var(--surface2);border-radius:6px;padding:10px 12px;margin:8px 0;font-size:11px;overflow-x:auto">web_server:
+  bind: 0.0.0.0
+  port: 5050</pre>
+          <b>Creating an API Key:</b><br>
+          Run <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">flexget web passwd &lt;username&gt;</code> to set a password,
+          then use <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">flexget web gentoken</code> to generate a token.
+          Paste that token as API Key below.<br><br>
+          <b>Docker note:</b> Make sure the FlexGet port (5050) is reachable from this container.
+        </div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">🤖 FlexGet Integration</div>
+      <div class="scard-body">
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Enable FlexGet</div><div class="td">Connect to a running FlexGet instance</div></div>
+          <label class="toggle"><input type="checkbox" id="s-flexget_enabled" ${s.flexget_enabled?'checked':''}><span class="ttrack"></span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">FlexGet URL</label>
+          <input class="input" id="s-flexget_url" value="${s.flexget_url||'http://localhost:5050'}" placeholder="http://localhost:5050"/>
+          <span class="form-hint">Base URL of the FlexGet web server.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input class="input" type="password" id="s-flexget_api_key" value="${s.flexget_api_key||''}" placeholder="Optional API token"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tasks to run (comma-separated)</label>
+          <input class="input" id="s-flexget_tasks_raw" value="${s.flexget_tasks_raw||''}" placeholder="task1, task2 — leave empty for all"/>
+          <span class="form-hint">Leave empty to run all tasks.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Schedule (minutes, 0 = disabled, max 720 = 12h)</label>
+          <input class="input" type="number" id="s-flexget_schedule_minutes" value="${s.flexget_schedule_minutes??0}" min="0" max="720"/>
+          <span class="form-hint">Auto-run interval. 0 = manual only. Maximum 720 min (12 hours).</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jitter (seconds, 0 = disabled)</label>
+          <input class="input" type="number" id="s-flexget_jitter_seconds" value="${s.flexget_jitter_seconds??0}" min="0" max="3600"/>
+          <span class="form-hint">Random ±offset added to schedule interval to prevent simultaneous runs. E.g. 300 = ±5 min.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">FlexGet Webhook URL</label>
+          <input class="input" id="s-flexget_webhook_url" value="${s.flexget_webhook_url||''}" placeholder="https://…"/>
+          <span class="form-hint">Receives events: run_started, task_ok, task_error, run_finished.</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn btn-blue btn-sm" onclick="flexgetListTasks()">🔍 List Tasks</button>
+          <button class="btn btn-primary btn-sm" onclick="flexgetRun()">▶ Run Now</button>
+        </div>
+        <div id="flexget-task-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        <div id="flexget-run-result" style="margin-top:8px;font-size:12px;display:none"></div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">📋 Recent FlexGet Runs</div>
+      <div class="scard-body">
+        <button class="btn btn-ghost btn-sm" onclick="loadFlexgetHistory()" style="margin-bottom:8px">↻ Refresh</button>
+        <div id="flexget-history" style="font-size:12px;color:var(--text2)">Click refresh to load history.</div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ── Reporting Tab ─────────────────────────────────────────────────────── -->
+    <div class="stab-panel" id="tab-automations">
+
+    <div class="scard" style="border-color:rgba(59,130,246,.3)">
+      <div class="scard-header">ℹ️ About Reporting</div>
+      <div class="scard-body">
+        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+          The reporting module captures <b>comprehensive metrics</b> across all client activity automatically.<br><br>
+          <b>Snapshots</b> are periodic point-in-time captures stored in the database for trend analysis.
+          Set an interval to enable automatic snapshots (recommended: 60 min).<br><br>
+          <b>Export</b> downloads a full JSON report for the selected time window — useful for external analysis or archiving.<br><br>
+          <b>Time windows</b>: select the period in the dropdown below, then click <i>Load Report</i>.
+        </div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">📊 Statistics Reporting</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Snapshot Interval (minutes, 0 = disabled)</label>
+          <input class="input" type="number" id="s-stats_snapshot_interval_minutes" value="${s.stats_snapshot_interval_minutes??60}" min="0"/>
+          <span class="form-hint">How often to capture a statistics snapshot. Default: 60.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Keep Snapshots (days)</label>
+          <input class="input" type="number" id="s-stats_snapshot_keep_days" value="${s.stats_snapshot_keep_days??30}" min="1"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time Window</label>
+          <select class="input" id="stats-report-hours" onchange="loadComprehensiveStats()">
+            <option value="24">Last 24 hours</option>
+            <option value="168">Last 7 days</option>
+            <option value="720">Last 30 days</option>
+            <option value="8760">All time (~1 year)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn btn-blue btn-sm" onclick="loadComprehensiveStats()">📊 Load Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportStats()">⬇ Export JSON</button>
+          <button class="btn btn-ghost btn-sm" onclick="triggerStatsSnapshot()">📸 Snapshot Now</button>
+        </div>
+        <div id="comprehensive-stats" style="margin-top:14px"></div>
+      </div>
+    </div>
+    </div>
+
+  `;
+}
+
+function getFormSettings() {
+  const g = id => document.getElementById('s-'+id);
+  const t = id => g(id)?.value?.trim()||'';
+  const n = id => parseInt(g(id)?.value||'0');
+  const c = id => g(id)?.checked||false;
+  const l = id => g(id)?.value?.split('\n').map(x=>x.trim()).filter(Boolean)||[];
+  return {
+    alldebrid_api_key: t('alldebrid_api_key'),
+    alldebrid_agent:   t('alldebrid_agent')||'AllDebrid-Client',
+    watch_folder: t('watch_folder'), processed_folder: t('processed_folder'),
+    download_folder: t('download_folder'), max_concurrent_downloads: n('max_concurrent_downloads')||3,
+    max_speed_mbps: 0,
+    download_client: 'aria2',
+    aria2_url: t('aria2_url'),
+    aria2_secret: t('aria2_secret'),
+    aria2_download_path: t('aria2_download_path'),
+    aria2_operation_timeout_seconds: n('aria2_operation_timeout_seconds') || 15,
+    aria2_max_active_downloads: n('aria2_max_active_downloads') || n('max_concurrent_downloads') || 3,
+    aria2_start_paused: c('aria2_start_paused'),
+    aria2_poll_interval_seconds: 5,
+    db_type: t('db_type'),
+    postgres_host: t('postgres_host'), postgres_port: n('postgres_port'),
+    postgres_db: t('postgres_db'), postgres_user: t('postgres_user'),
+    postgres_password: t('postgres_password'), postgres_schema: t('postgres_schema'),
+    postgres_ssl: c('postgres_ssl'),
+    discord_username: t('discord_username') || 'AllDebrid-Client',
+    discord_avatar_url: t('discord_avatar_url'),
+    discord_webhook_url: t('discord_webhook_url'),
+    discord_webhook_added: t('discord_webhook_added'),
+    discord_notify_added: c('discord_notify_added'), discord_notify_finished: c('discord_notify_finished'),
+    discord_notify_error: c('discord_notify_error'),
+    sonarr_enabled: c('sonarr_enabled'), sonarr_url: t('sonarr_url'), sonarr_api_key: t('sonarr_api_key'),
+    radarr_enabled: c('radarr_enabled'), radarr_url: t('radarr_url'), radarr_api_key: t('radarr_api_key'),
+    torrent_labels: (t('torrent_labels_raw')||'').split(',').map(s=>s.trim()).filter(Boolean),
+    stuck_download_timeout_hours: n('stuck_download_timeout_hours'),
+    alldebrid_rate_limit_per_minute: n('alldebrid_rate_limit_per_minute'),
+    backup_enabled: c('backup_enabled'), backup_folder: t('backup_folder'),
+    backup_interval_hours: n('backup_interval_hours'), backup_keep_days: n('backup_keep_days'),
+    blocked_extensions: l('blocked_extensions'), blocked_keywords: l('blocked_keywords'),
+    min_file_size_mb: n('min_file_size_mb'), poll_interval_seconds: n('poll_interval_seconds')||30,
+    watch_interval_seconds: n('watch_interval_seconds')||10,
+    filters_enabled: c('filters_enabled'),
+    aria2_deep_sync_interval_minutes: n('aria2_deep_sync_interval_minutes'),
+    aria2_error_retry_count: n('aria2_error_retry_count'),
+    aria2_error_retry_delay_seconds: n('aria2_error_retry_delay_seconds'),
+    flexget_enabled: c('flexget_enabled'),
+    flexget_url: t('flexget_url'),
+    flexget_api_key: t('flexget_api_key'),
+    flexget_tasks_raw: t('flexget_tasks_raw'),
+    flexget_schedule_minutes: n('flexget_schedule_minutes'),
+    flexget_jitter_seconds: n('flexget_jitter_seconds'),
+    flexget_webhook_url: t('flexget_webhook_url'),
+    stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
+    stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
+  };
+}
+
+function toggleFilterFields() {
+  const enabled = document.getElementById('s-filters_enabled')?.checked;
+  const fields = document.getElementById('filter-fields');
+  if (fields) {
+    fields.style.opacity = enabled ? '' : '0.4';
+    fields.style.pointerEvents = enabled ? '' : 'none';
+  }
+}
+
+async function triggerFullSync() {
+  try {
+    const r = await api('POST', '/admin/full-sync');
+    toast('Full sync: ' + r.updated + ' torrent(s) updated', r.updated > 0 ? 'success' : 'info');
+    setTimeout(() => { loadStats(); loadRecent(); }, 1500);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function saveSettings() {
+  try {
+    const d = getFormSettings();
+    await api('PUT','/settings',d);
+    settingsData = d;
+    toast('Settings saved!','success');
+    checkConnections();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function testDiscord() {
+  try {
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = current;
+    await api('POST','/settings/test-discord');
+    toast('Discord notification sent ✓','success');
+  } catch(e) { toast('Discord: '+e.message,'error'); }
+}
+
+async function testAD() {
+  try {
+    const r = await api('POST','/settings/test-alldebrid');
+    toast(`AllDebrid: connected as ${r.username} ${r.isPremium?'(Premium)':'(Free)'}✓`,'success');
+    setDot('api','ok',`AllDebrid: ${r.username}`);
+    _updatePremiumLabel(r);
+  } catch(e) { toast('AllDebrid: '+e.message,'error'); setDot('api','error','AllDebrid: error'); }
+}
+
+function _updatePremiumLabel(r) {
+  const row = document.getElementById('premium-row');
+  const lbl = document.getElementById('lbl-premium');
+  if (!row || !lbl) return;
+  if (!r || !r.isPremium) { row.style.display = 'none'; return; }
+  // AllDebrid user object has premiumUntil as unix timestamp
+  const until = r.premiumUntil || r.premium_until || 0;
+  if (!until) { row.style.display = 'none'; return; }
+  const d = new Date(until * 1000);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  const days = Math.ceil((d - Date.now()) / 86400000);
+  const daysLabel = days > 0 ? `${days} days` : 'expired';
+  lbl.innerHTML = `Premium until ${dd}.${mm}.${yyyy} (${daysLabel})`;
+  row.style.display = '';
+}
+
+function switchSettingsTab(id) {
+  document.querySelectorAll('.stab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  document.querySelectorAll('.stab-panel').forEach(p => p.classList.toggle('active', p.id === id));
+}
+
+async function testAria2() {
+  try {
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = current;
+    const r = await api('POST','/settings/test-aria2');
+    toast(`aria2: ${r.version||'online'} ✓`,'success');
+    setDot('aria2','ok',`aria2: ${r.version||'online'}`);
+  } catch(e) {
+    toast('aria2: '+e.message,'error');
+    setDot('aria2','error','aria2: error');
+  }
+}
+
+async function uploadDiscordAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const resp = await fetch('/api/settings/upload-avatar', {method:'POST', body: formData});
+    const data = await resp.json();
+    if (!resp.ok) { toast(data.detail || 'Upload failed', 'error'); return; }
+    // Discord requires a real HTTP URL, not a data URI
+    // The server saves the file and returns the public URL
+    document.getElementById('s-discord_avatar_url').value = data.url;
+    showAvatarPreview(data.url, file.name, data.size_bytes);
+    toast('Avatar uploaded — URL: ' + data.url, 'success');
+    if (data.warning) toast(data.warning, 'warn');
+  } catch(e) { toast(e.message, 'error'); }
+  input.value = '';
+}
+
+function showAvatarPreview(src, name, bytes) {
+  const preview = document.getElementById('avatar-preview');
+  const img = document.getElementById('avatar-preview-img');
+  const lbl = document.getElementById('avatar-preview-label');
+  if (!preview) return;
+  img.src = src;
+  lbl.textContent = (name || 'Custom avatar') + (bytes > 0 ? ' (' + Math.round(bytes/1024) + ' KB)' : '');
+  preview.style.display = 'flex';
+}
+
+function clearDiscordAvatar() {
+  document.getElementById('s-discord_avatar_url').value = '';
+  const preview = document.getElementById('avatar-preview');
+  if (preview) preview.style.display = 'none';
+}
+
+async function testSonarr() {
+  try {
+    const r = await api('POST', '/settings/test-sonarr');
+    toast(`Sonarr ${r.app_name} v${r.version} ✓`, 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function testRadarr() {
+  try {
+    const r = await api('POST', '/settings/test-radarr');
+    toast(`Radarr ${r.app_name} v${r.version} ✓`, 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function runDeepSync() {
+  try {
+    toast('Running deep sync…', 'info');
+    const r = await api('POST', '/admin/deep-sync');
+    toast(`Deep sync done in ${r.elapsed_seconds}s ✓`, 'success');
+    loadTorrents(); loadStats();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function triggerBackup() {
+  try {
+    toast('Running backup…', 'info');
+    const r = await api('POST', '/admin/backup');
+    if (r.skipped) { toast('Backup disabled in settings', 'warn'); return; }
+    toast(`Backup done: ${r.backed_up.join(', ')} (${r.rotated} old removed)`, 'success');
+    loadBackupList();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function loadBackupList() {
+  try {
+    const r = await api('GET', '/admin/backups');
+    const el = document.getElementById('backup-list');
+    if (!el) return;
+    if (!r.backups.length) { el.textContent = 'No backups found.'; return; }
+    el.innerHTML = r.backups.map(b =>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span>${b.name}</span>
+        <span style="color:var(--text3)">${b.files.join(', ')} — ${Math.round(b.size_bytes/1024)} KB</span>
+      </div>`
+    ).join('');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function flexgetListTasks() {
+  const el = document.getElementById('flexget-task-list');
+  el.textContent = '⏳ Loading tasks…';
+  try {
+    const r = await api('GET', '/flexget/tasks');
+    if (!r.enabled) { el.textContent = 'FlexGet is not enabled.'; return; }
+    el.innerHTML = r.tasks.length
+      ? '<b>Available tasks (' + r.tasks.length + '):</b><br>' + r.tasks.map(t => `<span style="background:var(--surface2);padding:2px 8px;border-radius:4px;margin:2px 2px 0;display:inline-block;font-size:11px">${t}</span>`).join(' ')
+      : 'No tasks found.';
+  } catch(e) { el.textContent = '✗ ' + e.message; }
+}
+
+async function flexgetRun() {
+  const resultEl = document.getElementById('flexget-run-result');
+  resultEl.style.display = 'block';
+  resultEl.style.color = 'var(--text2)';
+  resultEl.textContent = '⏳ Running FlexGet tasks…';
+  const raw = document.getElementById('s-flexget_tasks_raw')?.value || '';
+  const tasks = raw.split(',').map(s=>s.trim()).filter(Boolean);
+  try {
+    const r = await api('POST', '/flexget/run', tasks.length ? {tasks} : {});
+    const hasErr = r.tasks_error > 0;
+    resultEl.style.color = hasErr ? 'var(--yellow)' : 'var(--green)';
+    let msg = `✓ ${r.tasks_ok}/${r.tasks_total} tasks OK, ${r.tasks_error} error(s)`;
+    if (hasErr && r.first_error) msg += ` — ${r.first_error}`;
+    resultEl.textContent = msg;
+    loadFlexgetHistory();
+  } catch(e) {
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = '✗ ' + e.message;
+  }
+}
+
+async function loadFlexgetHistory() {
+  const el = document.getElementById('flexget-history');
+  if (!el) return;
+  try {
+    const r = await api('GET', '/flexget/history?limit=20');
+    if (!r.runs.length) { el.textContent = 'No FlexGet runs yet.'; return; }
+    el.innerHTML = r.runs.map(run => {
+      const color = run.status === 'ok' ? 'var(--green)' : run.status === 'timeout' ? 'var(--yellow)' : 'var(--red)';
+      return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px">
+        <span style="color:${color}">●</span>
+        <span style="flex:1;margin:0 8px">${run.task_name}</span>
+        <span style="color:var(--text3)">${run.triggered_by}</span>
+        <span style="color:var(--text3);margin-left:8px">${run.elapsed_seconds?.toFixed(1)}s</span>
+        <span style="color:var(--text3);margin-left:8px">${(run.ran_at||'').slice(0,16)}</span>
+      </div>`;
+    }).join('');
+  } catch(e) { el.textContent = '✗ ' + e.message; }
+}
+
+async function loadComprehensiveStats() {
+  const el = document.getElementById('comprehensive-stats');
+  if (!el) return;
+  const hours = parseInt(document.getElementById('stats-report-hours')?.value || '24');
+  el.innerHTML = '<div style="color:var(--text2);font-size:12px">⏳ Loading…</div>';
+  try {
+    const r = await api('GET', `/stats/comprehensive?hours=${hours}`);
+    const t = r.torrents || {};
+    const d = r.downloads || {};
+    const f = r.files || {};
+    const ev = r.events || {};
+    const fmtBytes = b => b > 1e9 ? (b/1e9).toFixed(2)+' GB' : b > 1e6 ? (b/1e6).toFixed(1)+' MB' : (b/1024).toFixed(0)+' KB';
+    const fmtDur = s => s > 3600 ? `${(s/3600).toFixed(1)}h` : s > 60 ? `${Math.floor(s/60)}m` : s+'s';
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        ${[
+          ['Total Torrents', t.total||0, ''],
+          ['Completed', t.completed||0, 'var(--green)'],
+          ['Errors', t.errors||0, 'var(--red)'],
+          ['Success Rate', t.success_rate_pct != null ? t.success_rate_pct+'%' : '—', 'var(--accent)'],
+          ['Downloaded', fmtBytes(d.total_bytes||0), 'var(--blue)'],
+          ['Avg Size', fmtBytes(d.avg_bytes||0), ''],
+          ['Avg Duration', fmtDur(d.avg_duration_sec||0), ''],
+          ['Total Files', f.total||0, ''],
+          ['Blocked Files', f.blocked||0, 'var(--yellow)'],
+          ['Total Retries', f.retry_total||0, ''],
+          ['Error Events', ev.error||0, 'var(--red)'],
+          ['Warn Events', ev.warn||0, 'var(--yellow)'],
+        ].map(([k,v,c]) => `<div style="background:var(--surface2);padding:8px 10px;border-radius:6px">
+          <div style="font-size:9px;text-transform:uppercase;color:var(--text2);font-weight:700">${k}</div>
+          <div style="font-size:20px;font-weight:800;color:${c||'var(--text)'}">${v}</div>
+        </div>`).join('')}
+      </div>
+      ${r.daily_trend?.length ? `<div style="font-size:11px;color:var(--text2);margin-top:8px"><b>Daily completions (last ${Math.min(14, hours/24|0)} days):</b><br>${r.daily_trend.map(d=>`${d.date}: ${d.cnt}`).join(' · ')}</div>` : ''}
+      ${Object.keys(t.sources||{}).length ? `<div style="font-size:11px;color:var(--text2);margin-top:6px"><b>Sources:</b> ${Object.entries(t.sources).map(([k,v])=>`${k}: ${v}`).join(', ')}</div>` : ''}
+    `;
+  } catch(e) {
+    el.innerHTML = `<span style="color:var(--red)">✗ ${e.message}</span>`;
+  }
+}
+
+async function exportStats() {
+  const hours = parseInt(document.getElementById('stats-report-hours')?.value || '24');
+  window.open(`/api/stats/export?hours=${hours}`, '_blank');
+}
+
+async function triggerStatsSnapshot() {
+  try {
+    await api('POST', '/stats/snapshot');
+    toast('Stats snapshot taken', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function runMigration(direction, dryRun) {
+  const resultEl = document.getElementById('migration-result');
+  resultEl.style.display = 'block';
+  resultEl.style.color = 'var(--text2)';
+  resultEl.textContent = '⏳ Running migration…';
+  try {
+    const r = await api('POST', '/admin/migrate', { direction, dry_run: dryRun, force: true });
+    resultEl.style.color = 'var(--green)';
+    resultEl.textContent = '✓ ' + (r.summary || 'Migration complete');
+    if (!dryRun) {
+      setTimeout(() => { loadStats(); loadRecent(); }, 1000);
+    }
+  } catch(e) {
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = '✗ ' + e.message;
+  }
+}
+
+async function testPostgres() {
+  try {
+    const r = await api('POST', '/settings/test-postgres');
+    toast(`PostgreSQL ${r.version} — ${r.host}:${r.port}/${r.database} ✓`, 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async()=>{
+  try { settingsData = await api('GET','/settings'); } catch(e){ console.warn('Settings load failed:', e); }
+  renderTopbarActions();
+  // Await both so errors are caught and dashboard populates before proceeding
+  await Promise.allSettled([loadStats(), loadRecent()]);
+  await checkConnections();
+
+  // Premium: once on startup (only if API key configured), then every 12 hours
+  await checkPremiumStatus();
+  setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
+
+  setInterval(()=>{
+    loadStats().catch(()=>{});
+    if (document.getElementById('view-dashboard')?.classList.contains('active')) loadRecent().catch(()=>{});
+    if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
+  }, 15000);
+  setInterval(()=>checkConnections().catch(()=>{}), 60000);
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<div id="mobile-overlay" onclick="closeSidebar()"></div>
+<button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
+</body>
+</html>

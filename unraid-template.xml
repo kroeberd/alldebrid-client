@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Container version="2">
+  <Name>alldebrid-client</Name>
+  <Repository>kroeberd/alldebrid-client:latest</Repository>
+  <Registry>https://hub.docker.com/r/kroeberd/alldebrid-client</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/kroeberd/alldebrid-client/issues</Support>
+  <Project>https://github.com/kroeberd/alldebrid-client</Project>
+  <Overview>
+[b]AllDebrid-Client v0.6.3[/b] Leaves destination directory creation entirely to aria2 when aria2 is the active download client, while keeping the recent watch-folder and AllDebrid stability fixes.
+
+Automated torrent/magnet downloading via AllDebrid with a clean Web UI.
+
+[b]Features:[/b]
+• Watch folder — drop .torrent or .magnet files for auto-import
+• AllDebrid API — upload, poll status, unlock links, auto-delete after download
+• Direct downloader or aria2 JSON-RPC delivery
+• File filters — block images, keywords, minimum size
+• Discord webhook notifications
+• SQLite database — prevents re-downloading known hashes
+• Import existing magnets already on AllDebrid
+
+[b]Quick Setup:[/b]
+1. Set paths for Config, Watch, Processed, Downloads
+2. Open http://[IP]:8080 → Settings → enter AllDebrid API key → Save
+3. Add magnets via UI or drop files in Watch folder
+  </Overview>
+  <Beta>True</Beta>
+  <Category>Downloaders:</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/kroeberd/unraid-templates/main/templates/alldebrid-client.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg</Icon>
+  <ExtraParams>--restart=unless-stopped</ExtraParams>
+
+  <Config Name="WebUI Port" Target="8080" Default="8080" Mode="tcp"
+    Description="Port for the Web UI." Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+
+  <Config Name="Config &amp; Database" Target="/app/config" Default="/mnt/user/appdata/alldebrid-client/config" Mode="rw"
+    Description="Stores config.json and the SQLite database. Required for persistence." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/alldebrid-client/config</Config>
+
+  <Config Name="Watch Folder" Target="/app/data/watch" Default="/mnt/user/data/torrents/watch" Mode="rw"
+    Description="Drop .torrent or .magnet files here for automatic import." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/data/torrents/watch</Config>
+
+  <Config Name="Processed Folder" Target="/app/data/processed" Default="/mnt/user/data/torrents/processed" Mode="rw"
+    Description="Torrent/magnet files are moved here after processing." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/data/torrents/processed</Config>
+
+  <Config Name="Download Folder" Target="/app/data/downloads" Default="/mnt/user/data/downloads" Mode="rw"
+    Description="Downloaded files are saved here." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/data/downloads</Config>
+
+  <Config Name="Timezone" Target="TZ" Default="Europe/Berlin" Mode=""
+    Description="Container timezone. Examples: Europe/Berlin, UTC, America/New_York" Type="Variable" Display="always" Required="false" Mask="false">Europe/Berlin</Config>
+
+  <Config Name="Config Path" Target="CONFIG_PATH" Default="/app/config/config.json" Mode=""
+    Description="Internal config path — do not change unless you know what you're doing." Type="Variable" Display="advanced" Required="false" Mask="false">/app/config/config.json</Config>
+
+  <Config Name="DB Path" Target="DB_PATH" Default="/app/config/alldebrid.db" Mode=""
+    Description="Internal SQLite DB path." Type="Variable" Display="advanced" Required="false" Mask="false">/app/config/alldebrid.db</Config>
+</Container>
