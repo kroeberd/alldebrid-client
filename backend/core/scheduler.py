@@ -121,7 +121,13 @@ async def stop_scheduler():
 
 
 async def flexget_loop():
-    """Runs FlexGet tasks on a configurable interval."""
+    """
+    Runs FlexGet tasks on a configurable interval with jitter.
+    Jitter prevents multiple instances from hammering FlexGet simultaneously.
+    Interval: flexget_schedule_minutes (0 = disabled).
+    Jitter:   ±10% of interval, max 60s.
+    """
+    import random
     await asyncio.sleep(30)  # initial delay
     while True:
         cfg = get_settings()
@@ -129,9 +135,15 @@ async def flexget_loop():
         if interval_min <= 0:
             await asyncio.sleep(60)
             continue
-        await asyncio.sleep(interval_min * 60)
         if not getattr(cfg, "flexget_enabled", False):
+            await asyncio.sleep(60)
             continue
+
+        interval_sec = interval_min * 60
+        jitter       = min(interval_sec * 0.1, 60)  # ±10%, max 60s
+        sleep_sec    = interval_sec + random.uniform(-jitter, jitter)
+        await asyncio.sleep(max(10, sleep_sec))
+
         try:
             from services.flexget import run_flexget_tasks
             await run_flexget_tasks(triggered_by="schedule")
