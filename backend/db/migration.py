@@ -44,7 +44,7 @@ class MigrationError(Exception):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Öffentliche API
+# Public API
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def migrate_sqlite_to_postgres(
@@ -61,7 +61,7 @@ async def migrate_sqlite_to_postgres(
         sqlite_path: Pfad zur SQLite-Datenbankdatei
         pg_dsn:      asyncpg DSN for PostgreSQL
         force:       If True, existing data in the target is overwritten
-        dry_run:     Wenn True, wird nur validiert ohne zu schreiben
+        dry_run:     If True, only validates without writing
     """
     result = MigrationResult(success=False, direction="sqlite→postgres")
     try:
@@ -89,7 +89,7 @@ async def migrate_postgres_to_sqlite(
         pg_dsn:      asyncpg DSN for PostgreSQL
         sqlite_path: path to the target SQLite database file
         force:       If True, existing data in the target is overwritten
-        dry_run:     Wenn True, wird nur validiert ohne zu schreiben
+        dry_run:     If True, only validates without writing
     """
     result = MigrationResult(success=False, direction="postgres→sqlite")
     try:

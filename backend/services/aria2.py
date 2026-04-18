@@ -72,7 +72,7 @@ class Aria2Service:
         self._last_call_time: float = 0.0 # for min-interval enforcement
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Öffentliche API
+    # Public API
     # ─────────────────────────────────────────────────────────────────────────
 
     async def test(self) -> Dict[str, Any]:
@@ -330,7 +330,7 @@ class Aria2Service:
         if "error" in data:
             error = data["error"] or {}
             raise Aria2RPCError(
-                f"aria2 [{error.get('code', 'UNKNOWN')}]: {error.get('message', 'Unbekannter Fehler')}"
+                f"aria2 [{error.get('code', 'UNKNOWN')}]: {error.get('message', 'Unknown error')}"
             )
 
         return data.get("result")

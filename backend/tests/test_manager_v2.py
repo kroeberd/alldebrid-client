@@ -1,14 +1,14 @@
 """
-Tests für AllDebrid-Client Backend.
+Tests for AllDebrid-Client backend.
 
 Deckt ab:
-- aria2 Verbindungsrobustheit (Closing-Transport-Fehler)
+- aria2 connection robustness (closing transport errors)
 - Abschluss-Erkennung (Finished-Entry-Handling)
 - Duplikat-Vermeidung
 - Dashboard-Datenfluss (completed-Status)
 - Discord-Webhook-Formatierung inkl. torrent-added
 - Statistik-Berechnungen
-- Migrations-Sicherheitsprüfungen
+- Migration safety checks
 - PostgreSQL-Konfigurationsvalidierung
 """
 import asyncio
@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# ── Stub-Importe für fehlende Pakete ──────────────────────────────────────────
+# ── Stub imports for missing packages ──────────────────────────────────────────
 if "aiohttp" not in sys.modules:
     sys.modules["aiohttp"] = types.SimpleNamespace(
         ClientTimeout=lambda *a, **kw: None,
@@ -106,10 +106,10 @@ class ManagerV2Tests(unittest.TestCase):
 
 class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
     """
-    Testet aria2-Verbindungsrobustheit, insbesondere:
-    - "Cannot write to closing transport" wird als Aria2ConnectionError klassifiziert
-    - get_all() gibt [] zurück statt zu werfen
-    - Retry-Logik bei transienten Fehlern
+    Tests aria2 connection robustness, specifically:
+    - "Cannot write to closing transport" is classified as Aria2ConnectionError
+    - get_all() returns [] instead of raising
+    - Retry logic for transient errors
     """
 
     async def test_connection_error_classified_as_aria2_connection_error(self):
@@ -143,7 +143,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
 
         async def fake_call(method, params=None):
-            raise Aria2ConnectionError("Verbindung unterbrochen")
+            raise Aria2ConnectionError("Connection interrupted")
 
         service._call = fake_call
         result = await service.get_all()
@@ -193,7 +193,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
             if method == "aria2.addUri":
                 attempt_count["n"] += 1
                 if attempt_count["n"] < 3:
-                    raise Aria2ConnectionError("Verbindung unterbrochen")
+                    raise Aria2ConnectionError("Connection interrupted")
                 return "gid-final"
             raise AssertionError(f"Unerwarteter Aufruf: {method}")
 
@@ -305,7 +305,7 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
 
 class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
     """
-    Testet zuverlässige Erkennung abgeschlossener Downloads.
+    Tests reliable detection of completed downloads.
     """
 
     async def test_finalize_marks_completed_when_all_files_done(self):
@@ -404,7 +404,7 @@ class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_delete_magnet_keeps_completed_status(self):
         """
-        _delete_magnet_after_completion() ändert Status NICHT zu 'deleted'.
+        _delete_magnet_after_completion() does NOT change status to 'deleted'.
         Dashboard-Fix: completed bleibt completed.
         """
         mgr = TorrentManager()
@@ -427,7 +427,7 @@ class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
         with patch("services.manager_v2.aiosqlite.connect", return_value=fake_db):
             await mgr._delete_magnet_after_completion(1, "ad-123")
 
-        # Prüfen: kein UPDATE zu 'deleted'
+        # Assert: no UPDATE to 'deleted'
         update_to_deleted = [
             sql for sql in sql_calls
             if "UPDATE torrents" in sql and "deleted" in sql
@@ -439,7 +439,7 @@ class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_duplicate_file_entries_skipped(self):
-        """Doppelte Dateieinträge von AllDebrid werden beim Download übersprungen."""
+        """Duplicate file entries from AllDebrid are skipped during download."""
         mgr = TorrentManager()
         mgr._log_file = AsyncMock()
         mgr._send_partial_summary = AsyncMock()
@@ -479,7 +479,7 @@ class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
             mgr._fetch_ready_files = AsyncMock(return_value=duplicate_files)
             await mgr._download(1, "ad-id", "Test")
 
-        # unlock_link sollte nur EINMAL aufgerufen worden sein (Duplikat übersprungen)
+        # unlock_link should have been called only ONCE (duplicate skipped)
         self.assertEqual(fake_ad.unlock_link.await_count, 1)
         self.assertEqual(mgr._log_file.await_count, 1)
 
@@ -497,7 +497,7 @@ class DashboardCompletedTests(unittest.IsolatedAsyncioTestCase):
     async def test_completed_count_not_reset_to_deleted(self):
         """
         Simulation: Torrent abgeschlossen → _delete_magnet_after_completion →
-        status muss 'completed' bleiben, nicht 'deleted' werden.
+        status must remain 'completed', not become 'deleted'.
         """
         mgr = TorrentManager()
         fake_ad = types.SimpleNamespace(delete_magnet=AsyncMock(return_value=True))
@@ -526,20 +526,20 @@ class DashboardCompletedTests(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual(
             deleted_updates, [],
-            "Nach erfolgreichem Download darf status nicht auf 'deleted' gesetzt werden."
+            "After successful download, status must not be set to 'deleted'."
         )
 
     def test_by_status_completed_field_used_in_stats(self):
         """Stats-Endpunkt liefert 'completed' als Key in by_status."""
-        # Simuliert die Logik aus routes.py: by_status wird direkt aus DB gelesen
+        # Simulates logic from routes.py: by_status is read directly from DB
         by_status = {"completed": 5, "deleted": 2, "error": 1, "queued": 3}
         completed = by_status.get("completed", 0)
         self.assertEqual(completed, 5, "by_status.completed muss korrekte Zahl liefern")
 
-        # Wenn deleted statt completed gesetzt würde:
+        # If deleted were set instead of completed:
         wrong_status = {"deleted": 5, "error": 1, "queued": 3}
         wrong_completed = wrong_status.get("completed", 0)
-        self.assertEqual(wrong_completed, 0, "Fehlerhafte Logik würde 0 liefern")
+        self.assertEqual(wrong_completed, 0, "Broken logic would return 0")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -570,7 +570,7 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sent_to, ["https://added.discord.invalid/hook"])
 
     async def test_send_added_falls_back_to_main_webhook(self):
-        """send_added() fällt auf discord_webhook_url zurück wenn kein added_webhook_url."""
+        """send_added() falls back to discord_webhook_url when no added_webhook_url."""
         from services.notifications import NotificationService
 
         sent_to = []
@@ -588,7 +588,7 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sent_to, ["https://main.discord.invalid/hook"])
 
     async def test_send_added_includes_source_field(self):
-        """send_added() übergibt Quell-Informationen als Embed-Feld."""
+        """send_added() passes source information as an embed field."""
         from services.notifications import NotificationService
 
         captured_fields = []
@@ -607,11 +607,11 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("watch", source_field["value"].lower())
 
     async def test_deduplication_suppresses_duplicate_within_window(self):
-        """Gleiche Nachricht innerhalb des Deduplizierungsfensters wird unterdrückt."""
+        """Same message within deduplication window is suppressed."""
         from services.notifications import NotificationService
         import hashlib as _hl
 
-        # Klassenweite Zustandsreset für isolierten Test
+        # Class-wide state reset for isolated test
         NotificationService._sent_hashes = {}
         NotificationService._last_sent_at = {}
         NotificationService._throttle_lock = None  # Neuen Lock im aktuellen event loop
@@ -650,7 +650,7 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
                          "Second call with same content should not send HTTP (dedup)")
 
     async def test_send_complete_includes_metadata_fields(self):
-        """send_complete() enthält Metadaten-Felder im Embed."""
+        """send_complete() includes metadata fields in the embed."""
         from services.notifications import NotificationService
 
         captured = {}
@@ -747,7 +747,7 @@ class StatsCalculationTests(unittest.TestCase):
     def test_by_status_completed_visible(self):
         """
         Abgeschlossene Torrents erscheinen als 'completed' in by_status
-        (nicht als 'deleted' nach dem Löschen von AllDebrid).
+        (not as 'deleted' after removing from AllDebrid).
         """
         # Simulates correct completed state in the database
         by_status = {
@@ -775,11 +775,11 @@ class StatsCalculationTests(unittest.TestCase):
 
 class PostgresConfigTests(unittest.TestCase):
     """
-    Testet PostgreSQL-Konfigurationsvalidierung ohne echte Datenbankverbindung.
+    Tests PostgreSQL config validation without a real database connection.
     """
 
     def test_default_db_type_is_sqlite(self):
-        """Standardmäßig ist db_type='sqlite' (abwärtskompatibel)."""
+        """Default db_type is 'sqlite' (backward compatible)."""
         from core.config import AppSettings
         s = AppSettings()
         self.assertEqual(s.db_type, "sqlite")
@@ -797,13 +797,13 @@ class PostgresConfigTests(unittest.TestCase):
         self.assertTrue(hasattr(s, "postgres_ssl"))
 
     def test_postgres_default_port(self):
-        """Standard-Port für PostgreSQL ist 5432."""
+        """Default port for PostgreSQL is 5432."""
         from core.config import AppSettings
         s = AppSettings()
         self.assertEqual(s.postgres_port, 5432)
 
     def test_postgres_ssl_default_false(self):
-        """SSL ist standardmäßig deaktiviert."""
+        """SSL is disabled by default."""
         from core.config import AppSettings
         s = AppSettings()
         self.assertFalse(s.postgres_ssl)
@@ -816,20 +816,20 @@ class PostgresConfigTests(unittest.TestCase):
         self.assertEqual(s.discord_webhook_added, "")
 
     def test_is_postgres_returns_false_for_sqlite(self):
-        """_is_postgres() gibt False zurück für SQLite-Konfiguration."""
+        """_is_postgres() returns False for SQLite configuration."""
         from db.database import _is_postgres
         with patch("db.database._get_settings", return_value=types.SimpleNamespace(db_type="sqlite")):
             self.assertFalse(_is_postgres())
 
     def test_is_postgres_returns_true_for_postgres(self):
-        """_is_postgres() gibt True zurück für PostgreSQL-Konfiguration."""
+        """_is_postgres() returns True for PostgreSQL configuration."""
         from db.database import _is_postgres
         with patch("db.database._get_settings", return_value=types.SimpleNamespace(db_type="postgres")):
             self.assertTrue(_is_postgres())
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Migrations-Sicherheitsprüfungen
+# Migration safety checks
 # ═════════════════════════════════════════════════════════════════════════════
 
 class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
@@ -839,7 +839,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_migration_refuses_nonempty_target_sqlite_to_pg(self):
         """
-        Migration SQLite→PG wird abgebrochen wenn PG bereits Daten enthält
+        Migration SQLite→PG is aborted when PG already contains data
         und force=False.
         """
         from db.migration import migrate_sqlite_to_postgres, MigrationError
@@ -868,7 +868,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_migration_refuses_nonempty_target_pg_to_sqlite(self):
         """
-        Migration PG→SQLite wird abgebrochen wenn SQLite bereits Daten enthält
+        Migration PG→SQLite is aborted when SQLite already contains data
         und force=False.
         """
         from db.migration import migrate_postgres_to_sqlite
@@ -881,7 +881,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
             fake_pg = AsyncMock()
             fake_pg.close = AsyncMock()
             # Simulate: SQLite file exists and contains data
-            # _count_rows_sqlite wird VOR dem Öffnen der Datei gepatcht
+            # _count_rows_sqlite is patched BEFORE opening the file
             with patch("db.migration._count_rows_pg", AsyncMock(return_value={"torrents": 3, "download_files": 0, "events": 0})), \
                  patch("db.migration._count_rows_sqlite", AsyncMock(return_value={"torrents": 10, "download_files": 5, "events": 0})), \
                  patch("db.migration._pg_connect", AsyncMock(return_value=fake_pg)), \
@@ -904,7 +904,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_migration_dry_run_returns_counts_without_writing(self):
         """
-        dry_run=True gibt Zeilenzahlen zurück ohne Daten zu schreiben.
+        dry_run=True returns row counts without writing any data.
         """
         from db.migration import migrate_sqlite_to_postgres
         import tempfile, os
@@ -915,9 +915,9 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
         try:
             mock_pg_conn = AsyncMock()
             mock_pg_conn.close = AsyncMock()
-            # dry_run=True: Migration stoppt nach der Validierung — aiosqlite wird
-            # nicht geöffnet, daher muss es nicht gepatcht werden.
-            # aiosqlite.connect muss gemockt werden da der Stub connect=None hat
+            # dry_run=True: Migration stops after validation — aiosqlite is
+            # not opened, so it does not need to be patched.
+            # aiosqlite.connect must be mocked because the stub has connect=None
             mock_sqlite_conn = AsyncMock()
             mock_sqlite_conn.row_factory = None
             with patch("db.migration._count_rows_pg", AsyncMock(return_value={"torrents": 0, "download_files": 0, "events": 0})), \
@@ -932,7 +932,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
                     force=False, dry_run=True,
                 )
 
-            self.assertTrue(result.success, f"dry_run sollte erfolgreich sein, Fehler: {result.error}")
+            self.assertTrue(result.success, f"dry_run should succeed, error: {result.error}")
             self.assertEqual(result.tables_migrated.get("torrents"), 5)
             self.assertEqual(result.tables_migrated.get("download_files"), 10)
             # dry_run: keine PG-Schreiboperationen
@@ -941,7 +941,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
             os.unlink(sqlite_path)
 
     async def test_migration_source_not_found_error(self):
-        """Migration schlägt fehl wenn Quelldatei nicht existiert."""
+        """Migration fails when source file does not exist."""
         from db.migration import migrate_sqlite_to_postgres
 
         result = await migrate_sqlite_to_postgres(
@@ -953,7 +953,7 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("not found", result.error)
 
     async def test_migration_result_summary_success(self):
-        """MigrationResult.summary() gibt lesbaren Text zurück."""
+        """MigrationResult.summary() returns a human-readable string."""
         from db.migration import MigrationResult
 
         r = MigrationResult(
@@ -972,11 +972,11 @@ class MigrationSafetyTests(unittest.IsolatedAsyncioTestCase):
         r = MigrationResult(
             success=False,
             direction="postgres→sqlite",
-            error="Verbindung fehlgeschlagen",
+            error="Connection failed",
         )
         summary = r.summary()
-        self.assertIn("fehlgeschlagen", summary)
-        self.assertIn("Verbindung fehlgeschlagen", summary)
+        self.assertIn("failed", summary)
+        self.assertIn("Connection failed", summary)
 
 
 # ═════════════════════════════════════════════════════════════════════════════

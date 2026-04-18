@@ -20,7 +20,7 @@ logger = logging.getLogger("alldebrid-client")
 
 # PostgreSQL connection attempts on startup
 _PG_CONNECT_RETRIES = 15
-_PG_CONNECT_DELAY   = 10.0  # Sekunden zwischen Versuchen (15 × 10s = max 150s Wartezeit)
+_PG_CONNECT_DELAY   = 10.0  # seconds between attempts (15 × 10s = 150s max wait)
 
 
 async def _sync_sqlite_to_pg_on_startup() -> int:

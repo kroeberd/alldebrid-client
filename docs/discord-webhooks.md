@@ -2,7 +2,7 @@
 
 ## Standard-Webhook
 
-Für alle Benachrichtigungen:
+For all notifications:
 
 ```json
 {
@@ -13,7 +13,7 @@ Für alle Benachrichtigungen:
 }
 ```
 
-## Discord-Identität
+## Discord Identity
 
 ```json
 {
@@ -23,11 +23,11 @@ Für alle Benachrichtigungen:
 ```
 
 Hinweis:
-- `discord_avatar_url` muss für Discord über eine echte HTTP- oder HTTPS-URL erreichbar sein.
-- Lokale URLs wie `http://192.168.x.x/...`, `http://localhost/...` oder `.local` funktionieren für Discord in der Regel nicht.
-- Für hochgeladene Avatare kann optional `PUBLIC_BASE_URL` gesetzt werden, damit die App statt einer lokalen Adresse eine öffentliche URL wie `https://example.com/api/avatar` zurückgibt.
+- `discord_avatar_url` must be accessible by Discord via a real HTTP/HTTPS URL.
+- Local URLs like `http://192.168.x.x/...`, `http://localhost/...` or `.local` usually don't work for Discord.
+- For uploaded avatars, optionally set `PUBLIC_BASE_URL` so the app returns a public URL like `https://example.com/api/avatar` instead of a local address.
 
-## Separater Webhook für "Torrent hinzugefügt"
+## Separate Webhook for Torrent Added
 
 ```json
 {
@@ -36,20 +36,20 @@ Hinweis:
 }
 ```
 
-`discord_webhook_added` fällt auf `discord_webhook_url` zurück wenn leer.
+`discord_webhook_added` falls back to `discord_webhook_url` when empty.
 
 ## Event-Typen
 
 | Event | Methode | Farbe | Trigger |
 |-------|---------|-------|---------|
-| Torrent hinzugefügt | `send_added()` | Lila 🟣 | Nach erfolgreichem Upload zu AllDebrid |
-| Download abgeschlossen | `send_complete()` | Grün 🟢 | Wenn alle Dateien heruntergeladen |
-| Fehler | `send_error()` | Rot 🔴 | Bei AllDebrid- oder Download-Fehler |
+| Torrent Added | `send_added()` | Purple 🟣 | After successful upload to AllDebrid |
+| Download Complete | `send_complete()` | Green 🟢 | When all files are downloaded |
+| Error | `send_error()` | Red 🔴 | On AllDebrid or download error |
 | Teildownload | `send_partial()` | Orange 🟠 | Wenn Dateien gefiltert wurden |
 
 ## Metadaten in Embeds
 
-### Torrent hinzugefügt
+### Torrent Added
 - Torrent-Name
 - Quelle (manual, watch_file, watch_torrent, alldebrid_existing)
 - AllDebrid ID
@@ -58,13 +58,13 @@ Hinweis:
 ### Download abgeschlossen
 - Torrent-Name
 - Anzahl Dateien
-- Gesamtgröße
+- Total size
 - Download-Client (aria2)
 - Zielordner
 - Zeitstempel
 
 ## Anti-Spam
 
-- **Deduplizierung**: Gleiche Nachricht innerhalb von 30 Sekunden wird nur einmal gesendet
-- **Rate-Limiting**: Mindestens 2 Sekunden zwischen Nachrichten an die gleiche URL
+- **Deduplication**: Same message within 30 seconds is sent only once
+- **Rate-Limiting**: Minimum 2 seconds between messages to the same URL
 - **Discord 429**: Automatisches Warten bei Rate-Limit-Antwort von Discord

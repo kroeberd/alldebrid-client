@@ -1,10 +1,10 @@
 # Datenbankmigration
 
-## Überblick
+## Overview
 
-Bidirektionale Migration zwischen SQLite und PostgreSQL über die REST-API.
+Bidirectional migration between SQLite and PostgreSQL via the REST API.
 
-## Schritte (empfohlen)
+## Steps (recommended)
 
 1. **Validieren** (kein Schreiben):
 ```bash
@@ -13,7 +13,7 @@ curl "http://localhost:8080/api/admin/migrate/validate?direction=sqlite_to_postg
 
 2. **App stoppen**
 
-3. **Migration durchführen**:
+3. **Run migration**:
 ```bash
 curl -X POST http://localhost:8080/api/admin/migrate \
   -H "Content-Type: application/json" \
@@ -30,20 +30,20 @@ curl -X POST http://localhost:8080/api/admin/migrate \
 |-------------|--------|----------|----------------------------------------------|
 | `direction` | string | —        | `sqlite_to_postgres` oder `postgres_to_sqlite` |
 | `dry_run`   | bool   | `false`  | Nur validieren, nichts schreiben             |
-| `force`     | bool   | `false`  | Zieldaten überschreiben                      |
+| `force`     | bool   | `false`  | Overwrite target data                        |
 
 ## Sicherheitsgarantien
 
-- Ziel darf keine Daten enthalten (außer `force=true`)
-- Vollständige Transaktion — Rollback bei Fehler
-- Post-Migration-Zeilenzählung
-- Quelldatenbank wird nie verändert
+- Target must not contain data (unless `force=true`)
+- Full transaction — rollback on error
+- Post-migration row count validation
+- Source database is never modified
 
 ## Fehlercodes
 
-| Fehler                              | Lösung                        |
+| Error                               | Solution                      |
 |-------------------------------------|-------------------------------|
-| Zieldatenbank enthält bereits Daten | `force: true` oder Ziel leeren |
-| Quelldatei nicht gefunden           | `DB_PATH` prüfen              |
+| Target database already contains data | Use `force: true` or empty target |
+| Source file not found               | Check `DB_PATH`               |
 | asyncpg nicht installiert           | `pip install asyncpg`         |
 | Zeilenzahl-Abweichung               | Migration wiederholen         |

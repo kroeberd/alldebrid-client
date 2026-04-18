@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AllDebrid-Client — Self-hosted Torrent Automation</title>
-<meta name="description" content="Self-hosted Torrent-Automatisierung via AllDebrid. Web UI, aria2, Discord, PostgreSQL, FlexGet."/>
+<meta name="description" content="Self-hosted torrent automation via AllDebrid. Web UI, aria2, Discord, PostgreSQL, FlexGet."/>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
@@ -171,7 +171,7 @@
   <div class="nav-links">
     <a href="#features">Features</a>
     <a href="#screenshots">Screenshots</a>
-    <a href="#install">Installation</a>
+    <a href="#install">Install</a>
     <a href="https://github.com/kroeberd/alldebrid-client" target="_blank">GitHub</a>
     <a href="https://github.com/kroeberd/alldebrid-client/releases" class="nav-cta">⬇ Download</a>
   </div>
@@ -179,12 +179,12 @@
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-badge">v1.0.0 — Erster öffentlicher Release</div>
+  <div class="hero-badge">v1.0.0 — First Public Release</div>
   <h1>Torrent-Automation<br/>mit <span>AllDebrid</span></h1>
   <p class="hero-sub">Self-hosted · Web UI · aria2 · Discord · PostgreSQL · FlexGet<br/>Der komplette Lifecycle — von Magnet bis Download — vollautomatisch.</p>
   <div class="hero-actions">
-    <a href="#install" class="btn-primary">⬇ Jetzt starten</a>
-    <a href="https://github.com/kroeberd/alldebrid-client" target="_blank" class="btn-ghost">GitHub ansehen →</a>
+    <a href="#install" class="btn-primary">⬇ Get Started</a>
+    <a href="https://github.com/kroeberd/alldebrid-client" target="_blank" class="btn-ghost">View on GitHub →</a>
   </div>
   <div class="badges">
     <span class="badge">Docker ready</span>
@@ -200,25 +200,25 @@
 <!-- STATS -->
 <div class="container">
   <div class="stats-bar">
-    <div class="stat-item"><div class="stat-num">50</div><div class="stat-label">Unit Tests bestanden</div></div>
-    <div class="stat-item"><div class="stat-num">10</div><div class="stat-label">Settings-Tabs</div></div>
+    <div class="stat-item"><div class="stat-num">50</div><div class="stat-label">Unit Tests passing</div></div>
+    <div class="stat-item"><div class="stat-num">10</div><div class="stat-label">Settings tabs</div></div>
     <div class="stat-item"><div class="stat-num">v3</div><div class="stat-label">FlexGet API</div></div>
-    <div class="stat-item"><div class="stat-num">2</div><div class="stat-label">Datenbank-Backends</div></div>
-    <div class="stat-item"><div class="stat-num">150s</div><div class="stat-label">PG-Verbindungs­toleranz</div></div>
+    <div class="stat-item"><div class="stat-num">2</div><div class="stat-label">Database backends</div></div>
+    <div class="stat-item"><div class="stat-num">150s</div><div class="stat-label">PG connection tolerance</div></div>
   </div>
 </div>
 
 <!-- FEATURES -->
 <section id="features">
   <div class="container">
-    <div class="section-label">Funktionen</div>
-    <h2>Alles was du brauchst</h2>
-    <p class="section-sub">Von der Magnet-URL bis zum fertigen Download — vollautomatisch, mit vollständiger Kontrolle.</p>
+    <div class="section-label">Features</div>
+    <h2>Everything you need</h2>
+    <p class="section-sub">From magnet URL to completed download — fully automated, with full control.</p>
     <div class="features-grid">
       <div class="feat-card">
         <span class="feat-icon">🔄</span>
         <div class="feat-title">Automatischer Lifecycle</div>
-        <div class="feat-desc">Upload → Poll → Unlock → aria2 → Done → Discord. Jeder Schritt wird überwacht, Fehler werden erkannt und behoben.</div>
+        <div class="feat-desc">Upload → Poll → Unlock → aria2 → Done → Discord. Every step is monitored, errors are detected and resolved automatically.</div>
       </div>
       <div class="feat-card">
         <span class="feat-icon">🎯</span>
@@ -228,37 +228,37 @@
       <div class="feat-card">
         <span class="feat-icon">🗄️</span>
         <div class="feat-title">SQLite & PostgreSQL</div>
-        <div class="feat-desc">SQLite out-of-the-box, PostgreSQL für Multi-Container-Setups. Automatischer Fallback und bidirektionale Migration.</div>
+        <div class="feat-desc">SQLite out-of-the-box, PostgreSQL for multi-container setups. Automatic fallback and bidirectional migration.</div>
       </div>
       <div class="feat-card">
         <span class="feat-icon">🔔</span>
         <div class="feat-title">Discord Rich Embeds</div>
-        <div class="feat-desc">Bot-Name, Avatar und separater Webhook für "Hinzugefügt"-Events. Anti-Spam-Deduplizierung und Rate-Limiting.</div>
+        <div class="feat-desc">Bot name, avatar and separate webhook for "Added" events. Anti-spam deduplication and rate-limiting.</div>
       </div>
       <div class="feat-card">
         <span class="feat-icon">🤖</span>
         <div class="feat-title">FlexGet Integration</div>
-        <div class="feat-desc">FlexGet v3 REST API. Tasks manuell oder per Schedule mit einstellbarem Jitter. Webhook-Events für jede Phase.</div>
+        <div class="feat-desc">FlexGet v3 REST API. Trigger tasks manually or on a schedule with configurable jitter. Webhook events for every phase.</div>
       </div>
       <div class="feat-card">
         <span class="feat-icon">📊</span>
         <div class="feat-title">Statistik & Reporting</div>
-        <div class="feat-desc">Umfassende Metriken mit wählbarem Zeitfenster (1h bis ~1 Jahr), JSON-Export und periodischen Snapshots.</div>
+        <div class="feat-desc">Comprehensive metrics with configurable time window (1h to ~1 year), JSON export and periodic snapshots.</div>
       </div>
       <div class="feat-card">
         <span class="feat-icon">🔁</span>
         <div class="feat-title">Full-Sync</div>
-        <div class="feat-desc">Regelmäßiger Abgleich aller Torrents gegen AllDebrid — erkennt Ready-Torrents die lokal als error/queued hängen.</div>
+        <div class="feat-desc">Regular reconciliation of all torrents against AllDebrid — detects ready torrents stuck locally as error/queued.</div>
       </div>
       <div class="feat-card">
         <span class="feat-icon">🚫</span>
         <div class="feat-title">File Filters</div>
-        <div class="feat-desc">Erweiterungen, Keywords und Mindestgröße blockieren. Gefilterte Dateien werden per Discord gemeldet.</div>
+        <div class="feat-desc">Block by extension, keyword and minimum size. Filtered files are reported via Discord.</div>
       </div>
       <div class="feat-card">
         <span class="feat-icon">📺</span>
         <div class="feat-title">Sonarr & Radarr</div>
-        <div class="feat-desc">Import-Trigger nach abgeschlossenem Download. Automatische Bibliotheks-Aktualisierung.</div>
+        <div class="feat-desc">Import trigger after completed download. Automatic library update.</div>
       </div>
     </div>
   </div>
@@ -268,20 +268,20 @@
 <section id="screenshots" style="background:linear-gradient(180deg,transparent,rgba(13,18,32,.8),transparent)">
   <div class="container">
     <div class="section-label">Screenshots</div>
-    <h2>Sauber. Übersichtlich. Dunkel.</h2>
-    <p class="section-sub">Responsives Web-UI ohne externe Abhängigkeiten — eine einzige HTML-Datei.</p>
+    <h2>Clean. Clear. Dark.</h2>
+    <p class="section-sub">Responsive web UI with no external dependencies — a single HTML file.</p>
     <div class="screenshots">
       <div class="shot">
         <img src="screenshots/dashboard.svg" alt="Dashboard"/>
-        <div class="shot-label">🏠 Dashboard — Echtzeit-Metriken und Queue-Status</div>
+        <div class="shot-label">🏠 Dashboard — real-time metrics and queue status</div>
       </div>
       <div class="shot">
         <img src="screenshots/torrents.svg" alt="Torrent-Liste"/>
-        <div class="shot-label">⊟ Torrents — Vollständige Liste mit Status und Aktionen</div>
+        <div class="shot-label">⊟ Torrents — Full list with status and actions</div>
       </div>
       <div class="shot">
         <img src="screenshots/settings.svg" alt="Settings"/>
-        <div class="shot-label">⚙ Settings — 10 Tabs für alle Einstellungen</div>
+        <div class="shot-label">⚙ Settings — 10 tabs for all configuration</div>
       </div>
     </div>
   </div>
@@ -291,8 +291,8 @@
 <section>
   <div class="container">
     <div class="section-label">Live Demo</div>
-    <h2>Sehen was passiert</h2>
-    <p class="section-sub">Strukturierte Logs zeigen jeden Schritt des Download-Lifecycles in Echtzeit.</p>
+    <h2>See what's happening</h2>
+    <p class="section-sub">Structured logs show every step of the download lifecycle in real time.</p>
     <div class="terminal">
       <div class="terminal-bar">
         <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
@@ -322,8 +322,8 @@
 <section id="install">
   <div class="container">
     <div class="section-label">Installation</div>
-    <h2>In 2 Minuten starten</h2>
-    <p class="section-sub">Docker Compose ist der empfohlene Weg. SQLite ist voreingestellt — kein Datenbank-Setup nötig.</p>
+    <h2>Up and running in 2 minutes</h2>
+    <p class="section-sub">Docker Compose is the recommended way. SQLite is preconfigured — no database setup needed.</p>
     <div class="install-grid">
       <div class="install-card">
         <div class="install-title">🐳 Docker Compose</div>
@@ -345,16 +345,16 @@ docker compose up -d</code>
   kroeberd/alldebrid-client:latest</code></pre>
       </div>
       <div class="install-card">
-        <div class="install-title">🗄️ Mit PostgreSQL</div>
+        <div class="install-title">🗄️ With PostgreSQL</div>
         <pre><code><span class="hash"># docker-compose.yml</span>
 environment:
   DB_TYPE: postgres
 
 <span class="hash"># Dann in Settings → Database
-# Verbindung konfigurieren</span></code></pre>
+# Configure connection</span></code></pre>
       </div>
       <div class="install-card">
-        <div class="install-title">⚙ Umgebungsvariablen</div>
+        <div class="install-title">⚙ Environment variables</div>
         <pre><code>CONFIG_PATH=/app/config/config.json
 DB_PATH=/app/data/alldebrid.db
 TZ=Europe/Berlin

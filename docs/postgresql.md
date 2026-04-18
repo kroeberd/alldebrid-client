@@ -95,7 +95,7 @@ docker run -d \
 
 ### Fallback behaviour
 
-If PostgreSQL is unreachable at startup (after 15 retries × 2s = 30s),
+If PostgreSQL is unreachable at startup (after 15 retries × 10s = 150s),
 the app automatically falls back to SQLite and logs a warning.
 The Dashboard shows `⚠️ SQLite (PG Fallback)` in that case.
 Restart the app once PostgreSQL is available to re-enable it.

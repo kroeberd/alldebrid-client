@@ -33,7 +33,7 @@ AllDebrid-Client automates the full torrent lifecycle via your AllDebrid account
 
 ## Quick Start
 
-### Docker Compose (empfohlen)
+### Docker Compose (recommended)
 
 ```bash
 git clone https://github.com/kroeberd/alldebrid-client.git
@@ -41,7 +41,7 @@ cd alldebrid-client
 docker compose up -d
 ```
 
-Open **http://localhost:8080** → Settings → AllDebrid API key eingeben.
+Open **http://localhost:8080** → Settings → enter your AllDebrid API key.
 
 ### Docker run
 
@@ -64,77 +64,77 @@ Image: `kroeberd/alldebrid-client:latest` · Port: `8080`
 ## Features
 
 ### Core
-- 🔄 **Automatischer Lifecycle** — Upload → Poll → Unlock → aria2 → Done → Discord
-- 📁 **Watch Folder** — `.torrent`- und `.magnet`-Dateien automatisch verarbeiten
-- 🎯 **Slot-basierte aria2-Queue** — konfigurierbares Concurrent-Download-Limit
-- 🔁 **Full-Sync** — regelmäßiger Abgleich aller Torrents gegen AllDebrid (alle 5 Min.)
-- 🚫 **File Filters** — Erweiterungen, Keywords, Mindestgröße blockieren
+- 🔄 **Automatic lifecycle** — upload → poll → unlock → aria2 → done → Discord
+- 📁 **Watch folder** — automatically process `.torrent` and `.magnet` files
+- 🎯 **Slot-based aria2 queue** — configurable concurrent download limit
+- 🔁 **Full-Sync** — regular reconciliation of all torrents against AllDebrid (every 5 min)
+- 🚫 **File filters** — block by extension, keyword, or minimum size
 
 ### Notifications
-- 🔔 **Discord** — Rich Embeds für Add / Complete / Error / Partial
-- 🤖 **FlexGet Integration** — Tasks manuell oder per Schedule auslösen (FlexGet v3 API)
-- 🌐 **Webhook Events** — FlexGet-spezifische Webhooks (run_started, task_ok, task_error, run_finished)
+- 🔔 **Discord** — rich embeds for add / complete / error / partial events
+- 🤖 **FlexGet integration** — trigger tasks manually or on a schedule (FlexGet v3 API)
+- 🌐 **Webhook events** — FlexGet-specific webhooks (run_started, task_ok, task_error, run_finished)
 
 ### Database & Reliability
-- 🗄️ **SQLite** (Standard, kein Setup) oder **PostgreSQL** (extern)
-- 🔄 **Startup-Sync** — fehlende SQLite-Zeilen beim Start automatisch in PG kopieren
-- 🛡️ **Automatischer Fallback** — bei PG-Ausfall Weiterarbeit mit SQLite
-- 💾 **Automatische Backups** — konfigurierbares Intervall
+- 🗄️ **SQLite** (default, no setup) or **PostgreSQL** (external)
+- 🔄 **Startup sync** — automatically copies missing SQLite rows to PostgreSQL on startup
+- 🛡️ **Automatic fallback** — continues with SQLite if PostgreSQL is unreachable
+- 💾 **Automatic backups** — configurable interval and retention
 
 ### Integrations
-- 📺 **Sonarr / Radarr** — Import-Trigger nach Download
-- 📊 **Statistik-Modul** — umfassende Metriken, Zeitfenster, JSON-Export
-- 🔑 **PostgreSQL Migration** — bidirektional, trocken-testbar
+- 📺 **Sonarr / Radarr** — import trigger after download completes
+- 📊 **Statistics module** — comprehensive metrics, time windows, JSON export
+- 🔑 **PostgreSQL migration** — bidirectional, dry-run testable
 
 ---
 
 ## Configuration
 
-Alle Einstellungen über die Web-UI unter **Settings** (10 Tabs):
+All settings via the web UI under **Settings** (10 tabs):
 
-| Tab | Einstellungen |
-|-----|---------------|
-| ⚡ **General** | AllDebrid API-Key, Agent-Name, Ordnerpfade |
-| ⬇️ **Download** | aria2 RPC-URL, Secret, Download-Root, Max Concurrent |
-| 🔔 **Discord** | Bot-Name, Avatar, Webhook-URLs, Notification-Toggles |
+| Tab | Settings |
+|-----|----------|
+| ⚡ **General** | AllDebrid API key, agent name, folder paths |
+| ⬇️ **Download** | aria2 RPC URL, secret, download root, max concurrent |
+| 🔔 **Discord** | Bot name, avatar, webhook URLs, notification toggles |
 | 🔗 **Integrations** | Sonarr, Radarr |
-| 🗄️ **Database** | SQLite / PostgreSQL, Migration |
-| 🚫 **Filters** | Blockierte Erweiterungen, Keywords, Mindestgröße |
-| ⏱ **Polling** | AllDebrid-Intervall, Full-Sync-Intervall, Watch-Folder |
-| 💾 **Backup** | Automatische Backups, Intervall, Aufbewahrung |
-| 🤖 **FlexGet** | URL, API-Key, Tasks, Schedule, Jitter, Webhook |
-| 📊 **Reporting** | Statistik-Snapshots, Zeitfenster, Export |
+| 🗄️ **Database** | SQLite / PostgreSQL, migration |
+| 🚫 **Filters** | Blocked extensions, keywords, minimum file size |
+| ⏱ **Polling** | AllDebrid interval, full-sync interval, watch folder |
+| 💾 **Backup** | Automatic backups, interval, retention |
+| 🤖 **FlexGet** | URL, API key, tasks, schedule, jitter, webhook |
+| 📊 **Reporting** | Statistics snapshots, time window, export |
 
-### Umgebungsvariablen
+### Environment variables
 
-| Variable | Standard | Beschreibung |
-|----------|----------|--------------|
-| `CONFIG_PATH` | `/app/config/config.json` | Pfad zur Konfigurationsdatei |
-| `DB_PATH` | `/app/data/alldebrid.db` | SQLite-Datenbankpfad |
-| `TZ` | `Europe/Berlin` | Container-Zeitzone |
-| `DB_TYPE` | — | `postgres` für PostgreSQL |
-| `LOG_LEVEL` | `INFO` | `DEBUG` für ausführliche Logs |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CONFIG_PATH` | `/app/config/config.json` | Settings file path |
+| `DB_PATH` | `/app/data/alldebrid.db` | SQLite database path |
+| `TZ` | `Europe/Berlin` | Container timezone |
+| `DB_TYPE` | — | Set to `postgres` to enable PostgreSQL |
+| `LOG_LEVEL` | `INFO` | Set to `DEBUG` for verbose logs |
 
 ---
 
 ## PostgreSQL
 
-Siehe [docs/postgresql.md](docs/postgresql.md) für Setup-Anleitung und Migration.
+See [docs/postgresql.md](docs/postgresql.md) for setup instructions and migration guide.
 
-**Kurzversion:**
+**Quick setup:**
 
 ```yaml
-# docker-compose.yml Umgebungsvariablen
+# docker-compose.yml environment
 environment:
   DB_TYPE: postgres
-  # PostgreSQL-Verbindung in Settings → Database konfigurieren
+  # Configure connection in Settings → Database
 ```
 
 ---
 
 ## FlexGet Integration
 
-FlexGet v3 wird über seine REST API angesteuert:
+FlexGet v3 is controlled via its REST API:
 
 ```yaml
 # FlexGet config.yml
@@ -144,31 +144,31 @@ web_server:
 ```
 
 ```bash
-flexget web gentoken   # → API-Token generieren
+flexget web gentoken   # generate API token
 ```
 
-Token in Settings → 🤖 FlexGet eintragen. Tasks werden per `POST /api/tasks/execute/` ausgeführt.
+Enter the token in Settings → 🤖 FlexGet. Tasks are executed via `POST /api/tasks/execute/`.
 
 ---
 
 ## REST API
 
-| Methode | Pfad | Beschreibung |
-|---------|------|--------------|
-| `GET` | `/api/stats` | Queue-Health, Zähler, Durchschnitte |
-| `GET` | `/api/stats/comprehensive?hours=N` | Umfassende Statistiken |
-| `GET` | `/api/stats/export?hours=N` | JSON-Export |
-| `GET` | `/api/torrents` | Alle Torrent-Einträge |
-| `POST` | `/api/torrents/add-magnet` | Magnet-Link hinzufügen |
-| `DELETE` | `/api/torrents/{id}` | Torrent löschen |
-| `POST` | `/api/torrents/{id}/retry` | Torrent neu starten |
-| `GET` | `/api/events` | Event-Log |
-| `POST` | `/api/admin/full-sync` | Vollständiger AllDebrid-Abgleich |
-| `POST` | `/api/admin/deep-sync` | aria2-Filesystem-Abgleich |
-| `POST` | `/api/admin/migrate` | SQLite ↔ PostgreSQL Migration |
-| `POST` | `/api/flexget/run` | FlexGet-Tasks ausführen |
-| `GET` | `/api/flexget/tasks` | FlexGet-Tasks auflisten |
-| `GET` | `/api/flexget/history` | FlexGet-Verlauf |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/stats` | Queue health, counters, averages |
+| `GET` | `/api/stats/comprehensive?hours=N` | Comprehensive statistics |
+| `GET` | `/api/stats/export?hours=N` | JSON export |
+| `GET` | `/api/torrents` | All torrent records |
+| `POST` | `/api/torrents/add-magnet` | Add magnet link |
+| `DELETE` | `/api/torrents/{id}` | Delete torrent |
+| `POST` | `/api/torrents/{id}/retry` | Retry torrent |
+| `GET` | `/api/events` | Event log |
+| `POST` | `/api/admin/full-sync` | Full AllDebrid reconciliation |
+| `POST` | `/api/admin/deep-sync` | aria2 filesystem reconciliation |
+| `POST` | `/api/admin/migrate` | SQLite ↔ PostgreSQL migration |
+| `POST` | `/api/flexget/run` | Execute FlexGet tasks |
+| `GET` | `/api/flexget/tasks` | List FlexGet tasks |
+| `GET` | `/api/flexget/history` | FlexGet run history |
 
 ---
 
@@ -180,48 +180,48 @@ cd backend
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8080
 
-# Tests (50 Unit-Tests)
+# Tests (50 unit tests)
 python -m pytest tests/test_manager_v2.py -v
 ```
 
-### Projektstruktur
+### Project structure
 
 ```
 backend/
-  api/routes.py          # FastAPI-Endpunkte
-  core/config.py         # Settings-Modell (Pydantic)
-  core/scheduler.py      # Poll-Loops (AllDebrid, aria2, FlexGet, Stats)
-  db/database.py         # SQLite/PostgreSQL-Abstraktion (_DbConnection)
-  db/migration.py        # Bidirektionale Migration
+  api/routes.py          # FastAPI endpoints
+  core/config.py         # Settings model (Pydantic)
+  core/scheduler.py      # Poll loops (AllDebrid, aria2, FlexGet, Stats)
+  db/database.py         # SQLite/PostgreSQL abstraction (_DbConnection)
+  db/migration.py        # Bidirectional migration
   services/
-    alldebrid.py         # AllDebrid API-Client
-    aria2.py             # aria2 JSON-RPC-Client (serialisiert, Rate-Limit)
-    flexget.py           # FlexGet v3 REST-Client
-    manager_v2.py        # Core-Orchestrierung (TorrentManager)
-    notifications.py     # Discord Webhook-Service
-    stats.py             # Statistik- und Reporting-Modul
-    backup.py            # Automatische Backups
-    integrations.py      # Sonarr/Radarr-Integration
+    alldebrid.py         # AllDebrid API client
+    aria2.py             # aria2 JSON-RPC client (serialised, rate-limited)
+    flexget.py           # FlexGet v3 REST client
+    manager_v2.py        # Core orchestration (TorrentManager)
+    notifications.py     # Discord webhook service
+    stats.py             # Statistics and reporting module
+    backup.py            # Automatic backups
+    integrations.py      # Sonarr/Radarr integration
   tests/
-    test_manager_v2.py   # 50 Unit-Tests
+    test_manager_v2.py   # 50 unit tests
 frontend/
-  static/index.html      # Single-File Web-UI (vanilla JS)
+  static/index.html      # Single-file web UI (vanilla JS)
 docs/
-  logo.svg               # App-Logo
-  postgresql.md          # PostgreSQL-Setup
-  migration.md           # Migrations-Anleitung
-  discord-webhooks.md    # Discord-Konfiguration
-  screenshots/           # UI-Screenshots
+  logo.svg               # App logo
+  postgresql.md          # PostgreSQL setup guide
+  migration.md           # Migration guide
+  discord-webhooks.md    # Discord configuration
+  screenshots/           # UI screenshots
 ```
 
 ---
 
 ## Changelog
 
-Vollständiger Verlauf in [CHANGELOG.md](CHANGELOG.md).
+See [CHANGELOG.md](CHANGELOG.md) for full release history.
 
 ---
 
 ## License
 
-MIT — siehe [LICENSE](LICENSE)
+MIT — see [LICENSE](LICENSE)
