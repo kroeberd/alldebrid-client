@@ -23,6 +23,100 @@ _PG_CONNECT_RETRIES = 15
 _PG_CONNECT_DELAY   = 10.0  # Sekunden zwischen Versuchen (15 × 10s = max 150s Wartezeit)
 
 
+async def _sync_sqlite_to_pg_on_startup() -> int:
+    """
+    At startup with PostgreSQL active: checks each table for rows that exist
+    in SQLite but are missing in PostgreSQL (identified by primary key / hash).
+    Copies missing rows without touching existing PG data.
+    Returns total number of rows copied.
+    """
+    import aiosqlite
+    from db.database import DB_PATH, _build_dsn
+    try:
+        import asyncpg
+    except ImportError:
+        return 0
+
+    if not DB_PATH.exists():
+        return 0
+
+    dsn  = _build_dsn()
+    try:
+        pg = await asyncpg.connect(dsn, timeout=10)
+    except Exception as exc:
+        logger.warning("Startup sync: cannot connect to PostgreSQL: %s", exc)
+        return 0
+
+    total_synced = 0
+    try:
+        async with aiosqlite.connect(DB_PATH, timeout=30) as sl:
+            sl.row_factory = aiosqlite.Row
+
+            # ── torrents ────────────────────────────────────────────────────
+            sl_rows = await (await sl.execute("SELECT * FROM torrents")).fetchall()
+            for row in sl_rows:
+                exists = await pg.fetchval(
+                    "SELECT 1 FROM torrents WHERE hash=$1", row["hash"]
+                )
+                if not exists:
+                    try:
+                        await pg.execute(
+                            """INSERT INTO torrents
+                               (hash, name, magnet, status, alldebrid_id, size_bytes,
+                                progress, download_url, local_path, source,
+                                provider_status, provider_status_code, polling_failures,
+                                download_client, label, priority, error_message,
+                                created_at, updated_at, completed_at)
+                               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                               ON CONFLICT (hash) DO NOTHING""",
+                            row["hash"], row["name"], row["magnet"], row["status"],
+                            row["alldebrid_id"], row["size_bytes"], row["progress"],
+                            row["download_url"], row["local_path"], row["source"],
+                            row["provider_status"], row["provider_status_code"],
+                            row["polling_failures"], row["download_client"],
+                            row["label"], row["priority"], row["error_message"],
+                            row["created_at"], row["updated_at"], row["completed_at"],
+                        )
+                        total_synced += 1
+                        logger.debug("Startup sync: copied torrent hash=%s", row["hash"])
+                    except Exception as exc:
+                        logger.debug("Startup sync: skip torrent %s: %s", row["hash"], exc)
+
+            # ── events ──────────────────────────────────────────────────────
+            # Events are append-only — copy any not yet in PG
+            pg_event_count = await pg.fetchval("SELECT COUNT(*) FROM events")
+            sl_events = await (await sl.execute("SELECT * FROM events ORDER BY id")).fetchall()
+            if pg_event_count < len(sl_events):
+                for ev in sl_events[pg_event_count:]:
+                    try:
+                        # Get PG torrent_id from hash
+                        if ev["torrent_id"]:
+                            sl_t = await (await sl.execute(
+                                "SELECT hash FROM torrents WHERE id=?", (ev["torrent_id"],)
+                            )).fetchone()
+                            pg_tid = await pg.fetchval(
+                                "SELECT id FROM torrents WHERE hash=$1",
+                                sl_t["hash"] if sl_t else None
+                            ) if sl_t else None
+                        else:
+                            pg_tid = None
+                        await pg.execute(
+                            "INSERT INTO events (torrent_id, level, message, created_at) "
+                            "VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+                            pg_tid, ev["level"], ev["message"], ev["created_at"],
+                        )
+                        total_synced += 1
+                    except Exception as exc:
+                        logger.debug("Startup sync: skip event %s: %s", ev["id"], exc)
+
+    except Exception as exc:
+        logger.warning("Startup sync error: %s", exc)
+    finally:
+        await pg.close()
+
+    return total_synced
+
+
 async def _wait_for_postgres() -> bool:
     """
     Waits until PostgreSQL is reachable.
@@ -229,6 +323,16 @@ async def lifespan(app: FastAPI):
             # Last resort: fall back to SQLite
             _fallback_to_sqlite()
             await init_db()
+
+    # 3. If PostgreSQL is active: sync missing rows from SQLite → PG on startup
+    #    Ensures no data loss when switching backends or after a migration.
+    if _is_postgres():
+        try:
+            synced = await _sync_sqlite_to_pg_on_startup()
+            if synced:
+                logger.info("Startup sync: %d row(s) copied from SQLite to PostgreSQL", synced)
+        except Exception as exc:
+            logger.warning("Startup SQLite→PG sync failed (non-fatal): %s", exc)
 
     # 3. Startup sync: ensure SQLite data is present in PostgreSQL
     if _is_postgres():

@@ -709,29 +709,49 @@ class TorrentManager:
 
     async def cleanup_stuck_downloads(self):
         """
-        Resets torrents that have been stuck in queued/downloading for longer
-        than stuck_download_timeout_hours. Configurable in settings (0 = disabled).
+        Resets torrents stuck in active states for too long.
+
+        Two checks:
+        1. Local download stuck (queued/downloading) > stuck_download_timeout_hours
+           → reset to 'ready' so the download restarts
+        2. AllDebrid processing stuck (processing/uploading) > 24h without update
+           → reset to trigger re-poll; AllDebrid may have finished or errored
         """
         from core.config import get_settings
         cfg = get_settings()
         timeout_hours = getattr(cfg, "stuck_download_timeout_hours", 6)
-        if not timeout_hours or timeout_hours <= 0:
-            return
 
         async with get_db() as db:
-            rows = await (await db.execute(
-                """SELECT id, name, alldebrid_id FROM torrents
-                   WHERE status IN ('queued', 'downloading', 'processing', 'uploading')
-                     AND updated_at < datetime('now', ? || ' hours')""",
-                (f"-{timeout_hours}",)
+            # Check 1: local download stuck
+            stuck_local = []
+            if timeout_hours and timeout_hours > 0:
+                stuck_local = await (await db.execute(
+                    """SELECT id, name, alldebrid_id, status FROM torrents
+                       WHERE status IN ('queued', 'downloading')
+                         AND updated_at < datetime('now', ? || ' hours')""",
+                    (f"-{timeout_hours}",)
+                )).fetchall()
+
+            # Check 2: AllDebrid processing stuck > 24h (configurable separately)
+            stuck_ad = await (await db.execute(
+                """SELECT id, name, alldebrid_id, status FROM torrents
+                   WHERE status IN ('processing', 'uploading')
+                     AND updated_at < datetime('now', '-24 hours')
+                     AND alldebrid_id IS NOT NULL AND alldebrid_id != ''"""
             )).fetchall()
 
+        rows = list(stuck_local) + [r for r in stuck_ad if r["id"] not in {s["id"] for s in stuck_local}]
         if not rows:
             return
 
         logger.info("cleanup_stuck_downloads: %d stuck torrent(s) found", len(rows))
         for row in rows:
-            logger.info("Resetting stuck torrent %s (%s)", row["id"], row["name"])
+            logger.info("Resetting stuck torrent %s (%s) [was %s]", row["id"], row["name"], row["status"])
+            reason = (
+                f"Auto-reset: stuck in '{row['status']}' for >{timeout_hours}h"
+                if row["status"] in ("queued", "downloading")
+                else f"Auto-reset: stuck in '{row['status']}' for >24h on AllDebrid"
+            )
             async with get_db() as db:
                 await db.execute(
                     "UPDATE torrents SET status='ready', polling_failures=0, "
@@ -740,25 +760,35 @@ class TorrentManager:
                 )
                 await db.execute(
                     "INSERT INTO events (torrent_id, level, message) VALUES (?, 'warn', ?)",
-                    (row["id"], f"Auto-reset: stuck in download for >{timeout_hours}h")
+                    (row["id"], reason)
                 )
                 await db.commit()
 
     async def cleanup_no_peer_errors(self):
         """
-        Finds torrents in 'error' status with 'No peer after 30 minutes' error
-        and removes them from AllDebrid + marks as deleted + sends Discord webhook.
-        Also handles torrents WITHOUT an alldebrid_id (they cannot be deleted from
-        AllDebrid, but are still cleaned up locally and reported via webhook).
+        Finds torrents in 'error' status with known fatal error patterns and
+        removes them from AllDebrid + marks as deleted + sends Discord webhook.
+
+        Handles:
+          - "No peer after 30 minutes" (provider_status_code=8 or LIKE '%no peer%')
+          - "Download took more than 3 days" (AllDebrid timeout)
+          - Any other provider timeout/abort patterns
+
+        Also handles torrents WITHOUT an alldebrid_id (cleaned up locally only).
         """
         async with get_db() as db:
             rows = await (await db.execute(
-                """SELECT id, name, alldebrid_id, error_message
+                """SELECT id, name, alldebrid_id, error_message, provider_status_code
                    FROM torrents
                    WHERE status = 'error'
                      AND (
                        LOWER(error_message) LIKE '%no peer%'
+                       OR LOWER(error_message) LIKE '%more than 3 day%'
+                       OR LOWER(error_message) LIKE '%took more than%'
+                       OR LOWER(error_message) LIKE '%timeout%'
+                       OR LOWER(error_message) LIKE '%timed out%'
                        OR provider_status_code = 8
+                       OR provider_status_code = 7
                      )"""
             )).fetchall()
 
