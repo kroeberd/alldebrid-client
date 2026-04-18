@@ -383,7 +383,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AllDebrid-Client",
     description="Automated torrent downloading via AllDebrid",
-    version="0.9.42",
+    version="1.0.0",
     lifespan=lifespan,
 )
 

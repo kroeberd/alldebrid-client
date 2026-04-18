@@ -1,115 +1,73 @@
 # Changelog
 
-## [0.8.1] — 2026-04-15
+## [1.0.0] — 2026-04-18
 
-### Fixed
-- `Test Discord` now saves the current Discord settings first, so changed username/avatar values are actually used for the test webhook.
-- Avatar upload now warns when the generated `/api/avatar` URL points to a private or LAN-only host that Discord cannot reach.
-- Remaining aria2-only cleanup: removed stale `direct` defaults and UI fallbacks that no longer matched the current downloader architecture.
+Erster öffentlicher Release. Alle Kernfunktionen stabil und produktionsbereit.
+
+### Neu seit 0.9.x
+- **FlexGet Integration** — Tasks manuell oder per Schedule auslösen (FlexGet v3 API)
+  - Korrekte Nutzung von `POST /api/tasks/execute/` mit Task-Liste
+  - Asynchrones Polling via `GET /api/tasks/queue/{id}/`
+  - Einstellbarer Jitter (±N Sekunden) für Schedule
+  - Webhook-Events: `run_started`, `task_ok`, `task_error`, `run_finished`
+- **Statistik- und Reporting-Modul** — umfassende Metriken über alle Aktivitäten
+  - Zeitfenster frei wählbar (1h bis ~1 Jahr)
+  - JSON-Export, periodische Snapshots
+  - Separate Zeitstempel-Filter pro Tabelle (SQLite + PostgreSQL korrekt)
+- **PostgreSQL vollständig** — alle DB-Zugriffe über `get_db()` abstrahiert
+  - `_CursorWrapper`: `(await db.execute(...)).fetchall()` funktioniert für beide Backends
+  - Startup-Sync: fehlende SQLite-Zeilen beim Start in PG kopieren
+  - Verbindungswartezeit: 15 × 10 Sekunden (150 s max)
+- **Full-Sync** — vollständiger AllDebrid-Abgleich alle 5 Min. (konfigurierbar)
+  - Erkennt `ready`-Torrents die lokal als `error` oder `queued` hängen
+  - Trennung von `sync_status_loop` (30s) und `full_sync_loop` (5min)
+- **aria2 Verbesserungen**
+  - RPC-Serialisierung via `_rpc_lock` (ein Request gleichzeitig)
+  - 50ms Mindestabstand zwischen Requests
+  - `cached_downloads` verhindert N×`get_all()` pro Dispatch-Zyklus
+- **Race Condition behoben** — "erfolgreich dann fehlerhaft"
+  - `completed`-Files aus Sync-Query entfernt
+  - `reset_on_sync` prüft Terminal-Status vor Reset
+- **Erweiterte Fehler-Erkennung**
+  - "Download took more than 3 days" → automatisch bereinigt
+  - `processing/uploading` > 24h → automatisch zurückgesetzt
+- **Discord-Tab** Layout-Fix (falsch verschachtelter Button)
+- **10 Settings-Tabs** korrekt balanciert (keine Duplikate mehr)
+
+### Stabile Features (seit 0.8.x / 0.9.x)
+- Automatischer Torrent-Lifecycle (Upload → Poll → Unlock → aria2 → Done)
+- Watch Folder für `.torrent`- und `.magnet`-Dateien
+- Sonarr / Radarr Import-Trigger
+- Discord Rich Embeds mit Bot-Identität
+- File Filters (Erweiterungen, Keywords, Mindestgröße)
+- Automatische No-Peer-Bereinigung
+- Stuck-Download-Erkennung und Reset
+- Automatische Backups
+- Bidirektionale SQLite ↔ PostgreSQL Migration
+- PostgreSQL-Fallback auf SQLite bei Ausfall
+
+---
+
+## [0.9.x] — 2026-04-15 bis 2026-04-18
+
+Entwicklungsphase. Enthält alle Fixes und Features die in v1.0.0 eingeflossen sind.
+
+Detaillierter Verlauf der Patch-Versionen: [GitHub Releases](https://github.com/kroeberd/alldebrid-client/releases)
+
+---
 
 ## [0.8.0] — 2026-04-15
 
-### Removed
-- **Direct download mode** — aria2 is now the only supported download client.
-  This eliminates in-process HTTP transfers, improves resume capability, and
-  removes the associated memory and reliability issues.
-- **PostgreSQL internal (docker-compose) mode** — removed due to reliability
-  issues in Bridge/Unraid setups. Use PostgreSQL external if you need a
-  relational database backend (see docs/postgresql.md).
-
-### Added
-- **New logo** — redesigned SVG based on radar/sonar aesthetic
-- **Discord bot identity settings** — configure bot name and avatar URL
-  per-webhook in Settings → Discord. Defaults to the new logo and
-  "AllDebrid-Client" as sender name.
-- **Database status dot** in sidebar — shows SQLite ✓ / PostgreSQL ✓ /
-  SQLite (fallback) ⚠ alongside the AllDebrid and aria2 status indicators
-- **"Save first, then test" hint** in the Database settings card
-- **"Test DB" button** in the save-bar, visible only when PostgreSQL is selected
-
-### Changed
-- **Enable File Filters** now defaults to **off** for new installations
-- Beta-banner removed from Dashboard
-- Download Client select simplified to aria2-only
-- All version strings are now sourced from the `VERSION` file
-
-### Fixed
-- `postgres_internal` label removed from DB type selector in UI
-- DB type labels cleaned up: `postgres_internal` → removed,
-  `sqlite_fallback` shown clearly in orange
-
----
+- Neues Logo (Radar/Orbit-Design)
+- Discord Bot-Identität konfigurierbar
+- aria2 als einziger Download-Client (Direct Download entfernt)
+- File Filters standardmäßig deaktiviert
+- Database-Status in der Sidebar
+- PostgreSQL-Fallback-Anzeige
 
 ## [0.7.0] — 2026-04-15
 
-### Added
-- PostgreSQL support (sqlite / postgres / postgres_internal)
-- Internal PG via Docker Compose profile with bridge network fix
-- SQLite fallback when PostgreSQL unreachable at startup
-- Bidirectional database migration (SQLite ↔ PostgreSQL)
-- Rich Discord embeds with structured fields
-- Separate `discord_webhook_added` webhook URL
-- Dashboard Completed counter fix
-- aria2 `Cannot write to closing transport` fix
-- Expanded statistics (success rate, avg duration, avg size, db type)
-- All text in English
-- 50 unit tests
-
-## [0.6.3] and earlier
-
-See git log for earlier history.
-
----
-
-## [0.9.0] — 2026-04-16
-
-### Added
-
-**Sonarr / Radarr Integration** (Settings → Integrations)
-- After every completed download: `RescanSeries` sent to Sonarr, `RescanMovie` to Radarr
-- Per-service enable/disable toggles + Test button
-- Connection test via `/api/v3/system/status`
-
-**Torrent Labels** (Settings → Integrations)
-- Optional label per torrent, shown as purple badge in the torrent list
-- Predefined label list (comma-separated), empty by default
-- Set/clear via Details modal; bulk-clear via bulk action bar
-
-**Bulk Actions**
-- Checkbox per torrent row + select-all header checkbox
-- Bulk Retry / Delete / Clear Label via the orange action bar
-- `POST /api/torrents/bulk`
-
-**Auto-Restart Stuck Downloads** (Settings → Integrations)
-- Configurable timeout (hours, default 6h, 0 = disabled)
-- Torrents stuck in queued/downloading auto-reset to ready
-
-**AllDebrid Rate Limit** (Settings → Integrations)
-- Configurable API calls per minute (default 60)
-- Semaphore enforced across all manager instances
-
-**Automatic Backups** (Settings → Backup)
-- Backs up config.json + SQLite DB + avatar image
-- Default: every 24h, kept for 7 days, stored in `/app/data/backups`
-- Manual trigger + backup list in Settings
-- `POST /api/admin/backup`, `GET /api/admin/backups`
-
-**Statistics Chart**
-- Bar chart showing daily completions over the last 14 days
-- Rendered via Chart.js (loaded from CDN)
-
-**Light / Dark Mode Toggle**
-- 🌙/☀️ button fixed at bottom-right corner
-- Preference stored in localStorage
-
-**Retry Button for Error Torrents** *(existing, now works with bulk)*
-- Already present in the actions column
-
-### Changed
-- Torrent table: added Checkbox column and Label sub-column in Source column
-- DB schema: `label TEXT DEFAULT ''` and `priority INTEGER DEFAULT 0` added to torrents table (migration-safe via ALTER TABLE)
-- Settings tabs: added Integrations and Backup tabs
-
-### Fixed
-- `_mark_finished()` now passes `name` to Sonarr/Radarr integrations
-- 50/50 tests passing
+- PostgreSQL-Unterstützung
+- Rich Discord Embeds
+- Bidirektionale Datenbank-Migration
+- Erweiterte Statistiken
