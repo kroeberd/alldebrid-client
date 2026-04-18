@@ -5,8 +5,9 @@
 
   [![Release](https://img.shields.io/github/v/release/kroeberd/alldebrid-client?style=flat-square&color=f97316)](https://github.com/kroeberd/alldebrid-client/releases)
   [![Docker Pulls](https://img.shields.io/docker/pulls/kroeberd/alldebrid-client?style=flat-square&color=3b82f6)](https://hub.docker.com/r/kroeberd/alldebrid-client)
-  [![License](https://img.shields.io/github/license/kroeberd/alldebrid-client?style=flat-square)]([LICENSE](https://github.com/kroeberd/alldebrid-client/blob/main/LICENSE))
-  [![Tests](https://img.shields.io/badge/tests-50%20passing-22c55e?style=flat-square)](#development)
+  [![License](https://img.shields.io/github/license/kroeberd/alldebrid-client?style=flat-square)](LICENSE)
+  [![Tests](https://img.shields.io/badge/tests-50%20passing-22c55e?style=flat-square)](https://github.com/kroeberd/alldebrid-client/actions/workflows/tests.yml)
+  [![CI](https://img.shields.io/github/actions/workflow/status/kroeberd/alldebrid-client/tests.yml?style=flat-square&label=CI)](https://github.com/kroeberd/alldebrid-client/actions/workflows/tests.yml)
 </div>
 
 ---
