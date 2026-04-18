@@ -114,8 +114,10 @@ class AppSettings(BaseModel):
     flexget_tasks_raw: str = ""
     # Webhook URL for FlexGet events (separate from Discord)
     flexget_webhook_url: str = ""
-    # Schedule: interval in minutes (0 = disabled)
+    # Schedule: interval in minutes (0 = disabled, max 720 = 12h)
     flexget_schedule_minutes: int = 0
+    # Jitter: random offset added to schedule interval (seconds, 0 = disabled)
+    flexget_jitter_seconds: int = 0
 
     # ── Statistics & Reporting ────────────────────────────────────────────────
     # How often to take a stats snapshot (minutes, 0 = disabled)
