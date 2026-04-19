@@ -306,9 +306,13 @@ async def send_stats_report(
     webhook_url: Optional[str] = None,
     triggered_by: str = "manual",
 ) -> Dict[str, Any]:
-    url = (webhook_url or getattr(_cfg(), "stats_report_webhook_url", "") or "").strip()
+    cfg = _cfg()
+    url = (webhook_url or getattr(cfg, "stats_report_webhook_url", "") or "").strip()
+    # Fall back to main Discord webhook if no dedicated reporting URL configured
     if not url:
-        raise ValueError("No reporting webhook configured")
+        url = (getattr(cfg, "discord_webhook_url", "") or "").strip()
+    if not url:
+        raise ValueError("No reporting webhook configured — set stats_report_webhook_url or discord_webhook_url")
 
     report = await generate_report(hours=hours)
     summary = report["report"]["summary"]

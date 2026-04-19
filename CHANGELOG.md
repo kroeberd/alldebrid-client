@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.3] — 2026-04-19
+
+UI polish, FlexGet status indicator, Progressbar fix, Webhook fallback.
+
+### Added
+- FlexGet running indicator in sidebar (pulsing dot while tasks execute)
+- Discord community link under Project in the sidebar
+- Progressbar: animated stripe for downloading torrents with no percentage yet
+
+### Changed
+- FlexGet webhook and Reporting webhook now fall back to the main Discord
+  webhook when no dedicated URL is configured
+- FlexGet task schedule Remove button styled correctly (red border, no white circle)
+
+### Fixed
+- Progressbar: `prog-fill` now renders correctly (`display:block`, `min-width:0`)
+- Progressbar: `completed` torrents always show 100% in green
+- Progressbar: `downloading` torrents with 0% show an animated stripe instead of empty bar
+
 ## [1.0.2] — 2026-04-19
 
 Release focused on version consistency, richer automation, and webhook-based reporting.

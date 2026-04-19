@@ -307,7 +307,7 @@ td { padding: 11px 16px; vertical-align: middle; }
 
 /* ── Progress ── */
 .prog { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; min-width: 70px; }
-.prog-fill { height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius: 2px; transition: width .5s; }
+.prog-fill { display: block; height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius: 2px; transition: width .4s ease; min-width: 0; }
 .prog-fill.done { background: linear-gradient(90deg,var(--green),#16a34a); }
 .prog-pct { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-top: 3px; display: block; }
 
@@ -552,6 +552,9 @@ textarea.input { resize: vertical; }
     <div class="nav-item" data-view="github" onclick="nav(this)">
       <span class="icon">&#128279;</span><span class="nav-label">GitHub</span>
     </div>
+    <div class="nav-item" onclick="window.open('https://discord.gg/8Vb9cj4ksv','_blank')">
+      <span class="icon">&#128172;</span><span class="nav-label">Discord</span>
+    </div>
     <div class="nav-item" data-view="coffee" onclick="nav(this)">
       <span class="icon">&#9749;</span><span class="nav-label">Coffee</span>
     </div>
@@ -575,6 +578,10 @@ textarea.input { resize: vertical; }
     <div class="conn-row">
       <div class="dot" id="dot-db"></div>
       <span id="lbl-db">DB: —</span>
+    </div>
+    <div class="conn-row" id="flexget-running-row" style="display:none">
+      <div class="dot" id="dot-flexget" style="background:var(--accent);animation:pulse 1s infinite"></div>
+      <span id="lbl-flexget" style="color:var(--accent)">FlexGet: running…</span>
     </div>
     <div class="conn-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
       <a href="https://alldebrid.com" target="_blank" rel="noopener"
@@ -965,9 +972,18 @@ function badge(s) {
   return `<span class="badge badge-${s}">${m[s]||s}</span>`;
 }
 function progress(pct, status) {
-  const done = status === 'completed';
-  return `<div class="prog"><div class="prog-fill ${done?'done':''}" style="width:${Math.min(pct||0,100)}%"></div></div>
-          <span class="prog-pct">${(pct||0).toFixed(0)}%</span>`;
+  const done   = status === 'completed';
+  const active = status === 'downloading';
+  let pctVal = done ? 100 : Math.min(Math.max(pct || 0, 0), 100);
+  // Show a thin "in progress" stripe when downloading but no percentage yet
+  const showStripe = active && pctVal === 0;
+  const fillStyle = showStripe
+    ? 'width:100%;opacity:.35;background:repeating-linear-gradient(90deg,var(--accent) 0,var(--accent) 8px,transparent 8px,transparent 16px)'
+    : `width:${pctVal}%`;
+  const cls = done ? 'done' : '';
+  const label = done ? '100%' : showStripe ? '…' : `${pctVal.toFixed(0)}%`;
+  return `<div class="prog"><div class="prog-fill ${cls}" style="${fillStyle}"></div></div>
+          <span class="prog-pct">${label}</span>`;
 }
 
 // ── Status Bar ─────────────────────────────────────────────────────────────
@@ -1336,7 +1352,7 @@ function renderFlexgetTaskSchedules() {
         <input type="checkbox" ${item.enabled ? 'checked' : ''} onchange="updateFlexgetTaskSchedule(${index}, 'enabled', this.checked)">
         <div class="ttrack"></div>
       </label>
-      <button class="btn btn-ghost btn-sm" onclick="removeFlexgetTaskSchedule(${index})">Remove</button>
+      <button class="btn btn-sm" style="background:transparent;border:1px solid var(--red);color:var(--red);padding:4px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap" onclick="removeFlexgetTaskSchedule(${index})">✕ Remove</button>
     </div>
   `).join('');
 }
@@ -2163,9 +2179,9 @@ function renderSettings() {
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">FlexGet Webhook URL</label>
-          <input class="input" id="s-flexget_webhook_url" value="${s.flexget_webhook_url||''}" placeholder="https://…"/>
-          <span class="form-hint">Receives events: run_started, task_ok, task_error, run_finished.</span>
+          <label class="form-label">FlexGet Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
+          <input class="input" id="s-flexget_webhook_url" value="${s.flexget_webhook_url||''}" placeholder="Leave empty to use main Discord webhook"/>
+          <span class="form-hint">Receives events: run_started, task_ok, task_error, run_finished. Falls back to Settings → Discord → Webhook URL when empty.</span>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
           <button class="btn btn-blue btn-sm" onclick="flexgetListTasks()">🔍 List Tasks</button>
@@ -2214,9 +2230,9 @@ function renderSettings() {
           <input class="input" type="number" id="s-stats_snapshot_keep_days" value="${s.stats_snapshot_keep_days??30}" min="1"/>
         </div>
         <div class="form-group">
-          <label class="form-label">Reporting Webhook URL</label>
-          <input class="input" id="s-stats_report_webhook_url" value="${s.stats_report_webhook_url||''}" placeholder="https://…"/>
-          <span class="form-hint">Receives structured reporting payloads. Discord webhooks are supported as rich embeds.</span>
+          <label class="form-label">Reporting Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
+          <input class="input" id="s-stats_report_webhook_url" value="${s.stats_report_webhook_url||''}" placeholder="Leave empty to use main Discord webhook"/>
+          <span class="form-hint">Receives structured reporting payloads as Discord embeds. Falls back to Settings → Discord → Webhook URL when empty.</span>
         </div>
         <div class="form-group">
           <label class="form-label">Automatic Report Interval (hours, 0 = disabled)</label>
@@ -2511,6 +2527,8 @@ async function flexgetRun() {
   resultEl.style.display = 'block';
   resultEl.style.color = 'var(--text2)';
   resultEl.textContent = '⏳ Running FlexGet tasks…';
+  const fgRow = document.getElementById('flexget-running-row');
+  if (fgRow) fgRow.style.display = 'flex';
   const raw = document.getElementById('s-flexget_tasks_raw')?.value || '';
   const tasks = raw.split(',').map(s=>s.trim()).filter(Boolean);
   try {
@@ -2520,6 +2538,7 @@ async function flexgetRun() {
     let msg = `✓ ${r.tasks_ok}/${r.tasks_total} tasks OK, ${r.tasks_error} error(s)`;
     if (hasErr && r.first_error) msg += ` — ${r.first_error}`;
     resultEl.textContent = msg;
+    if (fgRow) { setTimeout(() => { if (fgRow) fgRow.style.display = 'none'; }, 2000); }
     loadFlexgetHistory();
   } catch(e) {
     resultEl.style.color = 'var(--red)';
@@ -2645,6 +2664,8 @@ async function testPostgres() {
   // Premium: once on startup (only if API key configured), then every 12 hours
   await checkPremiumStatus();
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
+  setInterval(checkFlexgetRunning, 10000);
+  checkFlexgetRunning();
 
   setInterval(()=>{
     loadStats().catch(()=>{});

@@ -361,6 +361,9 @@ async def run_flexget_tasks(
 async def _emit_flexget_webhook(event: str, payload: Dict[str, Any]) -> None:
     cfg = _cfg()
     url = (getattr(cfg, "flexget_webhook_url", "") or "").strip()
+    # Fall back to main Discord webhook if no FlexGet-specific URL configured
+    if not url:
+        url = (getattr(cfg, "discord_webhook_url", "") or "").strip()
     if not url:
         return
     try:
