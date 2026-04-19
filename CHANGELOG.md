@@ -1,136 +1,118 @@
 # Changelog
 
-All notable changes to AllDebrid-Client will be documented in this file.
+## [1.0.2] — 2026-04-19
 
-This repository uses a project-specific release scheme:
+Release focused on version consistency, richer automation, and webhook-based reporting.
 
-- New features: `vX.Y.0`
-- Fixes, debugging, and maintenance: `vX.Y.Z`
-- Fundamental or breaking structural changes: `vY.0.0`
+### Added
+- Central runtime version loading from the root `VERSION` file via a shared backend helper
+- New `/api/version` endpoint
+- Per-task FlexGet schedules with independent interval and jitter handling
+- Reporting webhook delivery with optional automatic scheduling
+- Manual “Send Webhook Now” action in the reporting UI
 
-Each shipped change must be reflected here and released with a matching Git commit and tag.
+### Changed
+- Moved the AllDebrid integration block above Sonarr and Radarr in the integrations settings
+- Frontend sidebar version now resolves from live backend stats instead of hardcoded release text
+- Landing page version labels now load dynamically from the repository `VERSION` file
+- GitHub release workflow now publishes the current changelog section, including the version heading itself
+
+### Fixed
+- Reporting UI and backend route naming are aligned again
+- FlexGet scheduling is no longer limited to one global interval for all tasks
+
+## [1.0.1] — 2026-04-19
+
+Maintenance release focused on settings consistency and release metadata cleanup.
+
+### Fixed
+- Settings values of `0` now persist and render correctly in the web UI
+- Deep filesystem sync can now be properly disabled with `0`
+- Full AllDebrid sync can now be properly disabled with `0`
+- Stats snapshots can now be properly disabled with `0`
+- AllDebrid rate limiting now honors `0 = unlimited`
+- Settings save flow now preserves non-visible config values instead of resetting them
+- Sidebar version now follows the backend-reported app version instead of relying only on hardcoded UI text
+
+### Changed
+- Exposed additional active settings in the UI:
+  - `aria2_poll_interval_seconds`
+  - `full_sync_interval_minutes`
+  - `aria2_error_retry_count`
+  - `aria2_error_retry_delay_seconds`
+
+### Removed
+- Unused `notification_urls` setting from the config model
+- Unused `stats_report_interval_hours` setting from the config model and UI
+
+## [1.0.0] — 2026-04-18
+
+First public release. All core features are stable and production-ready.
+
+### New since 0.9.x
+- **FlexGet Integration** — trigger tasks manually or on a schedule (FlexGet v3 API)
+  - Correct use of `POST /api/tasks/execute/` with task list in body
+  - Async polling via `GET /api/tasks/queue/{id}/`
+  - Configurable jitter (±N seconds) for schedule
+  - Webhook events: `run_started`, `task_ok`, `task_error`, `run_finished`
+- **Statistics & Reporting module** — comprehensive metrics across all activity
+  - Configurable time window (1h to ~1 year)
+  - JSON export, periodic snapshots
+  - Per-table timestamp filters (correct for both SQLite and PostgreSQL)
+- **PostgreSQL fully abstracted** — all 45+ DB calls go through `get_db()`
+  - `_CursorWrapper`: `(await db.execute(...)).fetchall()` works for both backends
+  - Startup sync: missing SQLite rows copied to PostgreSQL on startup
+  - Connection wait: 15 × 10 seconds (150s max)
+- **Full-Sync** — full AllDebrid reconciliation every 5 min (configurable)
+  - Detects `ready` torrents stuck locally as `error` or `queued`
+  - Separate loops: `sync_status_loop` (30s) and `full_sync_loop` (5 min)
+- **aria2 improvements**
+  - RPC serialisation via `_rpc_lock` (one request at a time)
+  - 50ms minimum interval between requests
+  - `cached_downloads` prevents N×`get_all()` per dispatch cycle
+- **Race condition fixed** — no more "success then error"
+  - `completed` files removed from sync query
+  - `reset_on_sync` checks terminal status before resetting
+- **Extended error detection**
+  - "Download took more than 3 days" → automatically cleaned up
+  - `processing/uploading` > 24h → automatically reset
+- **Discord tab** layout fix (misplaced nested button)
+- **10 Settings tabs** correctly balanced (no more duplicates)
+
+### Stable features (since 0.8.x / 0.9.x)
+- Automatic torrent lifecycle (upload → poll → unlock → aria2 → done)
+- Watch folder for `.torrent` and `.magnet` files
+- Sonarr / Radarr import triggers
+- Discord rich embeds with configurable bot identity
+- File filters (extensions, keywords, minimum size)
+- Automatic no-peer cleanup
+- Stuck download detection and reset
+- Automatic backups
+- Bidirectional SQLite ↔ PostgreSQL migration
+- PostgreSQL fallback to SQLite on startup failure
 
 ---
 
-## [0.5.0] - 2026-04-14
+## [0.9.x] — 2026-04-15 to 2026-04-18
 
-### Added
-- Added a first-class `aria2` download client with JSON-RPC delivery, duplicate protection by URI/path, start-paused support, and pause/resume endpoints
-- Added download-file tracking fields for remote download IDs and client ownership so external delivery status can be merged back into the normal torrent lifecycle
-- Added provider-state tracking fields for AllDebrid so provider progress and local transfer progress are no longer conflated
+Development phase. All fixes and features merged into v1.0.0.
 
-### Changed
-- Reworked torrent delivery so direct downloads and aria2 now share the same preparation, filtering, logging, and completion flow
-- Refreshed the settings UI and README to document the new direct/aria2 architecture and the removal of JDownloader
-- Updated the Unraid template and release metadata to `v0.5.0`
+Full patch history: [GitHub Releases](https://github.com/kroeberd/alldebrid-client/releases)
 
-### Removed
-- Removed JDownloader from the active backend/API/UI flow and dropped the MyJDownloader dependency from runtime requirements
+---
 
-### Fixed
-- Hardened the transition from `ready` on AllDebrid to actual download start by retrying file discovery before failing the torrent
-- Preserved nested multi-file torrent paths instead of flattening everything down to a single filename
-- Improved sync/finalization so aria2-backed downloads can still end as `completed`, emit `Finished`, and remove the source magnet from AllDebrid
-- Added persistent polling-failure escalation so stuck or inconsistent AllDebrid states become visible in events and can be classified as errors when they keep failing
+## [0.8.0] — 2026-04-15
 
-## [0.4.1] - 2026-04-13
+- New logo (radar/orbit design)
+- Discord bot identity configurable (name + avatar URL)
+- aria2 as the only download client (direct download removed)
+- File filters disabled by default for new installs
+- Database status indicator in sidebar
+- PostgreSQL fallback indicator
 
-### Changed
-- Filtered files now trigger a separate partial webhook while the remaining files continue through the normal completion flow
-- Discord webhooks now use the AllDebrid-Client name, logo, version footer, and a cleaner embed layout
+## [0.7.0] — 2026-04-15
 
-### Fixed
-- Torrents with filtered files now finish as `completed` when all remaining files succeed and are removed from AllDebrid as expected
-- Fixed broken sidebar icon rendering and reduced the sidebar version label to the plain version number
-- Cleaned up the dashboard overview block so the top section renders correctly again
-
-## [0.4.0] - 2026-04-13
-
-### Added
-- Added dedicated sidebar tabs for GitHub, Buy Me a Coffee, detailed statistics, and the full changelog
-- Added API endpoints for rich statistics and in-app changelog rendering
-- Added a dedicated partial-download Discord webhook summary with total files, downloaded files, skipped files, and byte totals
-
-### Changed
-- Removed project/support links from the dashboard and moved them into dedicated navigation areas
-- Centered the README header section and refreshed the documentation to match the current UI layout and release version
-- Updated release metadata and container references to `v0.4.0`
-
-### Fixed
-- Stopped treating excluded-file partial runs like hard errors by separating the partial notification flow from error alerts
-
-## [0.3.1] - 2026-04-13
-
-### Fixed
-- Hardened JDownloader handoff so accepted packages are actively moved out of the linkgrabber into the download list
-- Added a recovery step during JDownloader status checks to promote lingering linkgrabber entries instead of leaving them stuck
-
-## [0.3.0] - 2026-04-13
-
-### Added
-- Added a richer dashboard statistics section with queue health, finished monitor count, and completion insights
-- Added a Buy Me a Coffee link in the dashboard and README
-
-### Changed
-- Removed legacy secondary-downloader references from the product, documentation, workflow descriptions, templates, and branding assets
-- Refreshed the README to match the current feature set, release flow, badges, and support links
-
-## [0.2.1] - 2026-04-13
-
-### Changed
-- Added a dedicated `Finished` monitor/event entry when a torrent has fully completed
-- Automatically removes completed downloads from AllDebrid after successful completion handling
-- Throttles Discord webhook delivery to one message every 5 seconds per webhook URL to reduce timeout pressure
-
-## [0.2.0] - 2026-04-13
-
-### Added
-- Added GitHub Actions workflow to update the Docker Hub description from the repository README
-- Added smart multi-architecture build and publish workflow for GHCR and Docker Hub
-- Added GitHub issue templates for bug reports and feature requests plus issue template configuration
-- Added a tracked `VERSION` file for release-aware automation triggers
-
-### Changed
-- Updated repository release references to use `v0.2.0` for the current feature release
-
-## [0.1.0] - 2026-04-13
-
-### Added
-- Added a documented Docker image build workflow for local and tagged releases
-- Added repository release rules covering changelog updates, commit discipline, and tag naming
-- Added branded logo usage to the README and frontend static assets
-
-### Changed
-- Updated the frontend branding to display the project logo instead of a placeholder icon
-- Updated the Unraid template to reference the tracked SVG logo asset and the new release version
-- Aligned repository documentation around the `vX.Y.Z` tagging scheme requested for future releases
-
-### Fixed
-- Fixed the Docker/branding documentation mismatch where the Unraid template referenced a non-existent icon path
-
-## [0.0.1] - 2026-04-12
-
-### Added
-- Initial release of AllDebrid-Client
-- FastAPI backend with async architecture
-- SQLite database to track torrents, files, and events — prevents re-downloading known hashes
-- AllDebrid API integration: upload magnets, poll status, unlock links, delete after completion
-- Watch folder support: auto-process `.torrent` and `.magnet`/`.txt` files, move to `processed/` after import
-- Background scheduler: configurable watch interval and AllDebrid poll interval
-- Web UI: Dashboard with stats, Torrent queue, Event log, Settings editor
-- Discord webhook notifications: notify on added, finished, and error events
-- JDownloader integration via MyJDownloader cloud device routing
-- File filter system: block by extension (images blocked by default), keyword, and minimum size
-- Import existing magnets already present on AllDebrid account
-- Torrent detail view with file list, block reasons, and event history
-- Docker and Docker Compose support
-- MIT License
-
-[0.4.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.4.0
-[0.4.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.4.1
-[0.3.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.3.1
-[0.3.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.3.0
-[0.2.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.1
-[0.2.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.2.0
-[0.1.0]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.1.0
-[0.0.1]: https://github.com/kroeberd/alldebrid-client/releases/tag/v0.0.1
+- PostgreSQL support
+- Rich Discord embeds
+- Bidirectional database migration
+- Expanded statistics

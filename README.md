@@ -1,71 +1,41 @@
 <div align="center">
+  <img src="docs/logo.svg" width="96" alt="AllDebrid-Client Logo"/>
+  <h1>AllDebrid-Client</h1>
+  <p><strong>Self-hosted torrent automation via AllDebrid</strong><br/>Web UI · aria2 delivery · Discord notifications · PostgreSQL support · FlexGet integration</p>
 
-# AllDebrid-Client
-
-![AllDebrid-Client Logo](docs/logo.svg)
-
-[![Docker Hub](https://img.shields.io/docker/pulls/kroeberd/alldebrid-client?label=Docker%20Pulls&logo=docker&logoColor=white)](https://hub.docker.com/r/kroeberd/alldebrid-client)
-[![GitHub Release](https://img.shields.io/github/v/release/kroeberd/alldebrid-client?color=ff6b2b&label=Version)](https://github.com/kroeberd/alldebrid-client/releases)
-[![License](https://img.shields.io/badge/License-MIT-3de68b)](LICENSE)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/8Vb9cj4ksv)
-
-Automated torrent downloading via AllDebrid with a polished web UI, watch-folder automation, Discord notifications, SQLite tracking, and unified direct/aria2 delivery.
-
-Support the project: [buymeacoffee.com/kroeberd](https://buymeacoffee.com/kroeberd)
-
+  [![Release](https://img.shields.io/github/v/release/kroeberd/alldebrid-client?style=flat-square&color=f97316)](https://github.com/kroeberd/alldebrid-client/releases)
+  [![Docker Pulls](https://img.shields.io/docker/pulls/kroeberd/alldebrid-client?style=flat-square&color=3b82f6)](https://hub.docker.com/r/kroeberd/alldebrid-client)
+  [![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/8Vb9cj4ksv)
+  [![License](https://img.shields.io/github/license/kroeberd/alldebrid-client?style=flat-square)](LICENSE)
+  [![Tests](https://img.shields.io/badge/tests-50%20passing-22c55e?style=flat-square)](https://github.com/kroeberd/alldebrid-client/actions/workflows/tests.yml)
+  [![CI](https://img.shields.io/github/actions/workflow/status/kroeberd/alldebrid-client/tests.yml?style=flat-square&label=CI)](https://github.com/kroeberd/alldebrid-client/actions/workflows/tests.yml)
 </div>
 
-## Why AllDebrid-Client
+---
 
-- Add magnets manually or by dropping files into a watch folder
-- Poll AllDebrid automatically until content is ready
-- Download directly to disk or hand off unlocked links to aria2
-- Track every torrent, file, and event in SQLite
-- Remove completed magnets from AllDebrid automatically
-- Emit Discord notifications for added, finished, and error states
-- Review progress, errors, and finished events from a single dashboard
+## What it does
 
-## Feature Highlights
+AllDebrid-Client automates the full torrent lifecycle via your AllDebrid account:
 
-### Download Flow
+1. **Add** magnet links via the web UI, watch folder, Sonarr/Radarr, or REST API
+2. **Upload** to AllDebrid and poll until the torrent is ready
+3. **Unlock** download links and submit them to aria2
+4. **Monitor** aria2 until all files complete, then mark done and remove from AllDebrid
+5. **Notify** via Discord with rich embeds for every event
 
-- Magnet input from the dashboard, torrent list, or watch folder
-- `.torrent`, `.magnet`, and `.txt` files supported in the watch folder
-- Finished downloads get a dedicated `Finished` monitor event
-- Completed magnets are removed from AllDebrid automatically
+---
 
-### Monitoring
+## Screenshots
 
-- Live dashboard with totals, active transfers, error count, blocked files, and recent completion insights
-- Event log for upload, processing, queueing, finish, and cleanup actions
-- Dedicated sidebar tabs for GitHub, changelog, support, and detailed statistics
-- Detailed torrent modal with files, paths, status, and monitor history
-
-### Delivery & Notifications
-
-- Direct file download into your chosen target folder
-- Optional aria2 JSON-RPC integration with duplicate protection, pause/resume, and start-paused support
-- Discord webhook notifications with per-webhook throttling to reduce timeout pressure
-- Partial webhook summaries when files are intentionally excluded, including counts and sizes for downloaded vs. skipped files
-
-### Monitoring & Robustness
-
-- Provider status and local download status are tracked separately
-- Ready torrents only transition into delivery after usable file/link data is available
-- Repeated AllDebrid polling failures are surfaced in the event log and escalated when they become persistent
-- aria2 transfers are re-synced into the normal torrent lifecycle so finished torrents still end as `completed` and are removed from AllDebrid
-
-### Safety & Persistence
-
-- SQLite state tracking prevents duplicate processing
-- File filters for blocked extensions, blocked keywords, and minimum file size
-- Persistent config and database volumes for Docker and Unraid deployments
+| Dashboard | Torrents | Settings |
+|-----------|----------|----------|
+| [![Dashboard](docs/screenshots/dashboard.svg)](docs/screenshots/dashboard.svg) | [![Torrents](docs/screenshots/torrents.svg)](docs/screenshots/torrents.svg) | [![Settings](docs/screenshots/settings.svg)](docs/screenshots/settings.svg) |
 
 ---
 
 ## Quick Start
 
-### Docker Compose
+### Docker Compose (recommended)
 
 ```bash
 git clone https://github.com/kroeberd/alldebrid-client.git
@@ -73,147 +43,187 @@ cd alldebrid-client
 docker compose up -d
 ```
 
-Open [http://localhost:8080](http://localhost:8080) and enter your AllDebrid API key in Settings.
+Open **http://localhost:8080** → Settings → enter your AllDebrid API key.
 
-### Docker build
-
-```bash
-docker build -t kroeberd/alldebrid-client:v0.5.0 .
-```
-
-Optional for local testing:
+### Docker run
 
 ```bash
-docker run --rm -p 8080:8080 \
-  -e CONFIG_PATH=/app/config/config.json \
-  -e DB_PATH=/app/config/alldebrid.db \
-  -v ./config:/app/config \
-  -v ./data:/app/data \
-  kroeberd/alldebrid-client:v0.5.0
+docker run -d \
+  --name alldebrid-client \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -v /path/to/config:/app/config \
+  -v /path/to/downloads:/download \
+  kroeberd/alldebrid-client:latest
 ```
 
-### Manual Run
+### Unraid
 
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8080
-```
+Image: `kroeberd/alldebrid-client:latest` · Port: `8080`
+
+---
+
+## Features
+
+### Core
+- 🔄 **Automatic lifecycle** — upload → poll → unlock → aria2 → done → Discord
+- 📁 **Watch folder** — automatically process `.torrent` and `.magnet` files
+- 🎯 **Slot-based aria2 queue** — configurable concurrent download limit
+- 🔁 **Full-Sync** — regular reconciliation of all torrents against AllDebrid (every 5 min)
+- 🚫 **File filters** — block by extension, keyword, or minimum size
+
+### Notifications
+- 🔔 **Discord** — rich embeds for add / complete / error / partial events
+- 🤖 **FlexGet integration** — trigger tasks manually or on a schedule (FlexGet v3 API)
+- 🌐 **Webhook events** — FlexGet-specific webhooks (run_started, task_ok, task_error, run_finished)
+
+### Database & Reliability
+- 🗄️ **SQLite** (default, no setup) or **PostgreSQL** (external)
+- 🔄 **Startup sync** — automatically copies missing SQLite rows to PostgreSQL on startup
+- 🛡️ **Automatic fallback** — continues with SQLite if PostgreSQL is unreachable
+- 💾 **Automatic backups** — configurable interval and retention
+
+### Integrations
+- 📺 **Sonarr / Radarr** — import trigger after download completes
+- 📊 **Statistics module** — comprehensive metrics, time windows, JSON export
+- 🔑 **PostgreSQL migration** — bidirectional, dry-run testable
 
 ---
 
 ## Configuration
 
-All settings are editable in the web UI and persisted to `config/config.json`.
+All settings via the web UI under **Settings** (10 tabs):
 
-Migration note:
+| Tab | Settings |
+|-----|----------|
+| ⚡ **General** | AllDebrid API key, agent name, folder paths |
+| ⬇️ **Download** | aria2 RPC URL, secret, download root, max concurrent |
+| 🔔 **Discord** | Bot name, avatar, webhook URLs, notification toggles |
+| 🔗 **Integrations** | Sonarr, Radarr |
+| 🗄️ **Database** | SQLite / PostgreSQL, migration |
+| 🚫 **Filters** | Blocked extensions, keywords, minimum file size |
+| ⏱ **Polling** | AllDebrid interval, full-sync interval, watch folder |
+| 💾 **Backup** | Automatic backups, interval, retention |
+| 🤖 **FlexGet** | URL, API key, tasks, schedule, jitter, webhook |
+| 📊 **Reporting** | Statistics snapshots, time window, export |
 
-- Legacy JDownloader keys are ignored on load and can be removed from existing `config.json` files.
-- If you switch to `aria2`, make sure `aria2_download_path` points at the same effective files that the app exposes under `download_folder`, or leave it empty when both containers share the same mount.
+### Environment variables
 
-| Setting | Default | Description |
-|---|---|---|
-| `alldebrid_api_key` | - | Your AllDebrid API key |
-| `alldebrid_agent` | `AllDebrid-Client` | Custom AllDebrid user agent |
-| `watch_folder` | `/app/data/watch` | Folder scanned for `.torrent`, `.magnet`, or `.txt` files |
-| `processed_folder` | `/app/data/processed` | Imported files are moved here after processing |
-| `download_folder` | `/app/data/downloads` | Final download target |
-| `max_concurrent_downloads` | `3` | Max parallel downloads |
-| `discord_webhook_url` | - | Discord webhook target |
-| `discord_notify_added` | `true` | Send notification for newly queued torrents |
-| `discord_notify_finished` | `true` | Send notification when processing finishes |
-| `discord_notify_error` | `true` | Send notification for errors |
-| `download_client` | `direct` | `direct` for in-app downloads or `aria2` for external JSON-RPC delivery |
-| `aria2_url` | `http://127.0.0.1:6800/jsonrpc` | aria2 JSON-RPC endpoint |
-| `aria2_secret` | - | Optional RPC secret |
-| `aria2_download_path` | - | Optional remote root path when aria2 writes to a different mount |
-| `aria2_operation_timeout_seconds` | `15` | Timeout for aria2 RPC calls |
-| `aria2_start_paused` | `false` | Queue new aria2 jobs paused |
-| `blocked_extensions` | image and metadata types | Extensions blocked from download |
-| `blocked_keywords` | `[]` | Case-insensitive filename keyword filter |
-| `min_file_size_mb` | `0` | Minimum file size in MB, `0` disables the threshold |
-| `poll_interval_seconds` | `30` | AllDebrid status polling interval |
-| `watch_interval_seconds` | `10` | Watch-folder scan interval |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CONFIG_PATH` | `/app/config/config.json` | Settings file path |
+| `DB_PATH` | `/app/data/alldebrid.db` | SQLite database path |
+| `TZ` | `Europe/Berlin` | Container timezone |
+| `DB_TYPE` | — | Set to `postgres` to enable PostgreSQL |
+| `LOG_LEVEL` | `INFO` | Set to `DEBUG` for verbose logs |
 
 ---
 
-## Releases & Changelog
+## PostgreSQL
 
-Every change, new feature, fix, and structural update must be recorded in [CHANGELOG.md](CHANGELOG.md) and released with a matching Git tag.
+See [docs/postgresql.md](docs/postgresql.md) for setup instructions and migration guide.
 
-Versioning rules for this repository:
+**Quick setup:**
 
-- `vX.Y.Z` for standard release tags
-- New features increment `Y`: `vX.Y.0`
-- Fixes, debugging, and small corrections increment `Z`: `vX.Y.Z`
-- Fundamental or breaking structural changes start a new major stream and reset to `.0.0`: `vY.0.0`
-
-Recommended release workflow:
-
-1. Update the implementation.
-2. Add the release entry to `CHANGELOG.md`.
-3. Commit the release changes.
-4. Create the matching tag, for example `git tag v0.5.0`.
-
-GitHub automation included in this repository:
-
-- Docker Hub description sync from `README.md`
-- Smart multi-arch image builds to GHCR and Docker Hub on `main`, release tags, or scheduled base-image refresh runs
-- Structured issue templates for bug reports and feature requests
+```yaml
+# docker-compose.yml environment
+environment:
+  DB_TYPE: postgres
+  # Configure connection in Settings → Database
+```
 
 ---
 
-## API
+## FlexGet Integration
+
+FlexGet v3 is controlled via its REST API:
+
+```yaml
+# FlexGet config.yml
+web_server:
+  bind: 0.0.0.0
+  port: 5050
+```
+
+```bash
+flexget web gentoken   # generate API token
+```
+
+Enter the token in Settings → 🤖 FlexGet. Tasks are executed via `POST /api/tasks/execute/`.
+
+---
+
+## REST API
 
 | Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/torrents` | List torrents |
-| `POST` | `/api/torrents/add-magnet` | Add a magnet |
-| `POST` | `/api/torrents/import-existing` | Import magnets already on AllDebrid |
-| `GET` | `/api/torrents/{id}` | Get torrent details, files, and monitor events |
-| `DELETE` | `/api/torrents/{id}` | Delete a torrent |
-| `POST` | `/api/torrents/{id}/retry` | Retry a failed torrent |
-| `GET` | `/api/stats` | Dashboard statistics |
-| `GET` | `/api/events` | Event and monitor feed |
-| `GET` | `/api/settings` | Read settings |
-| `PUT` | `/api/settings` | Save settings |
-| `POST` | `/api/settings/test-discord` | Test the Discord webhook |
-| `POST` | `/api/settings/test-alldebrid` | Test AllDebrid credentials |
-| `POST` | `/api/settings/test-aria2` | Test aria2 JSON-RPC connectivity |
-| `POST` | `/api/torrents/{id}/pause` | Pause aria2-backed file transfers |
-| `POST` | `/api/torrents/{id}/resume` | Resume aria2-backed file transfers |
+|--------|------|-------------|
+| `GET` | `/api/stats` | Queue health, counters, averages |
+| `GET` | `/api/stats/comprehensive?hours=N` | Comprehensive statistics |
+| `GET` | `/api/stats/export?hours=N` | JSON export |
+| `GET` | `/api/torrents` | All torrent records |
+| `POST` | `/api/torrents/add-magnet` | Add magnet link |
+| `DELETE` | `/api/torrents/{id}` | Delete torrent |
+| `POST` | `/api/torrents/{id}/retry` | Retry torrent |
+| `GET` | `/api/events` | Event log |
+| `POST` | `/api/admin/full-sync` | Full AllDebrid reconciliation |
+| `POST` | `/api/admin/deep-sync` | aria2 filesystem reconciliation |
+| `POST` | `/api/admin/migrate` | SQLite ↔ PostgreSQL migration |
+| `POST` | `/api/flexget/run` | Execute FlexGet tasks |
+| `GET` | `/api/flexget/tasks` | List FlexGet tasks |
+| `GET` | `/api/flexget/history` | FlexGet run history |
 
 ---
 
-## Project Support
+## Development
 
-- Buy Me a Coffee: [buymeacoffee.com/kroeberd](https://buymeacoffee.com/kroeberd)
-- Docker Hub: [kroeberd/alldebrid-client](https://hub.docker.com/r/kroeberd/alldebrid-client)
-- Releases: [GitHub Releases](https://github.com/kroeberd/alldebrid-client/releases)
-- Discord: [Join the server](https://discord.gg/8Vb9cj4ksv)
+```bash
+# Backend (Python 3.12+)
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8080
 
----
-
-## Repository Layout
-
-```text
-alldebrid-client/
-|-- backend/
-|   |-- api/
-|   |-- core/
-|   |-- db/
-|   |-- services/
-|   |-- main.py
-|   `-- requirements.txt
-|-- docs/
-|   `-- logo.svg
-|-- frontend/static/
-|   |-- index.html
-|   `-- logo.svg
-|-- .github/
-|-- CHANGELOG.md
-|-- Dockerfile
-|-- docker-compose.yml
-|-- VERSION
-`-- README.md
+# Tests (50 unit tests)
+python -m pytest tests/test_manager_v2.py -v
 ```
+
+### Project structure
+
+```
+backend/
+  api/routes.py          # FastAPI endpoints
+  core/config.py         # Settings model (Pydantic)
+  core/scheduler.py      # Poll loops (AllDebrid, aria2, FlexGet, Stats)
+  db/database.py         # SQLite/PostgreSQL abstraction (_DbConnection)
+  db/migration.py        # Bidirectional migration
+  services/
+    alldebrid.py         # AllDebrid API client
+    aria2.py             # aria2 JSON-RPC client (serialised, rate-limited)
+    flexget.py           # FlexGet v3 REST client
+    manager_v2.py        # Core orchestration (TorrentManager)
+    notifications.py     # Discord webhook service
+    stats.py             # Statistics and reporting module
+    backup.py            # Automatic backups
+    integrations.py      # Sonarr/Radarr integration
+  tests/
+    test_manager_v2.py   # 50 unit tests
+frontend/
+  static/index.html      # Single-file web UI (vanilla JS)
+docs/
+  logo.svg               # App logo
+  postgresql.md          # PostgreSQL setup guide
+  migration.md           # Migration guide
+  discord-webhooks.md    # Discord configuration
+  screenshots/           # UI screenshots
+```
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for full release history.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE)
