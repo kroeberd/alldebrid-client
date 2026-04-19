@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.3] — 2026-04-19
+
+### Changed
+- **Startup: debug status panel** — a small status strip appears below the stat cards
+  on page load, showing each step of the startup sequence in real time
+  (script start → settings → loadStats attempts → success/failure).
+  This panel auto-hides after 10 seconds once stats are loaded, and helps
+  diagnose why values were not appearing. The startup sequence is now a
+  simple awaited loop (up to 10 attempts) instead of a detached background poller.
+
 ## [1.1.2] — 2026-04-19
 
 ### Fixed

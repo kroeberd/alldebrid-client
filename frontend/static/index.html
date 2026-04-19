@@ -659,6 +659,8 @@ textarea.input { resize: vertical; }
         </div>
       </div>
 
+      <div id="debug-status" style="display:none;padding:10px 16px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:11px;color:var(--text2)"></div>
+
       <div class="card">
         <div class="card-header">
           <span class="card-title">🧲 Add Magnet Link</span>
@@ -2747,38 +2749,54 @@ async function testPostgres() {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 (async()=>{
-  // Dots sofort auf 'checking' — sichtbares Feedback vor jedem API-Call
+  // ── Debug helper — shows status in UI (removed in production) ──────────────
+  function dbg(msg) {
+    const el = document.getElementById('debug-status');
+    if (!el) return;
+    el.style.display = 'block';
+    el.innerHTML += '<div>' + new Date().toLocaleTimeString() + ' — ' + msg + '</div>';
+  }
+
+  dbg('Script gestartet');
   setDot('api',   'check', 'AllDebrid: checking…');
   setDot('aria2', 'check', 'aria2: checking…');
   setDot('db',    'check', 'DB: checking…');
 
-  // Settings laden (sync, wird für renderTopbarActions + aria2 benötigt)
+  // Settings laden
+  dbg('Lade Settings…');
   try {
     settingsData = await api('GET', '/settings');
+    dbg('Settings OK');
   } catch(e) {
-    console.warn('Settings load failed:', e.message);
+    dbg('Settings FEHLER: ' + e.message);
   }
   renderTopbarActions();
 
-  // Background-Poller: läuft bis loadStats() erfolgreich ist.
-  // Kein await — blockiert nicht den Startup. Wiederholt sich selbst
-  // mit wachsendem Delay bis der Server antwortet.
-  (async function pollUntilLoaded() {
-    let loaded = false;
-    let attempt = 0;
-    while (!loaded) {
-      loaded = await loadStats();
-      if (!loaded) {
-        attempt++;
-        const delay = Math.min(400 + attempt * 400, 3000);
-        await new Promise(r => setTimeout(r, delay));
-      }
+  // Stats laden mit sichtbarem Retry
+  dbg('Starte loadStats…');
+  let statsLoaded = false;
+  let statsAttempt = 0;
+  while (!statsLoaded) {
+    statsAttempt++;
+    dbg('loadStats Versuch ' + statsAttempt);
+    statsLoaded = await loadStats();
+    if (!statsLoaded) {
+      const delay = Math.min(400 + statsAttempt * 400, 3000);
+      dbg('Fehler — warte ' + delay + 'ms…');
+      await new Promise(r => setTimeout(r, delay));
+      if (statsAttempt >= 10) { dbg('Aufgegeben nach 10 Versuchen'); break; }
     }
-    // Erst wenn Stats geladen: Hintergrund-Checks starten
-    loadRecent().catch(() => {});
-    checkConnections().catch(() => {});
-    checkPremiumStatus().catch(() => {});
-  })();
+  }
+  if (statsLoaded) {
+    dbg('Stats geladen ✓ — starte Hintergrund-Tasks');
+    // Nach 10s Debug-Panel ausblenden
+    setTimeout(() => { const el = document.getElementById('debug-status'); if (el) el.style.display = 'none'; }, 10000);
+  }
+
+  loadRecent().catch(() => {});
+  checkConnections().catch(() => {});
+  checkPremiumStatus().catch(() => {});
+
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
   setInterval(checkFlexgetRunning, 10000);
   checkFlexgetRunning();
@@ -2789,7 +2807,6 @@ async function testPostgres() {
     if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
   }, 15000);
   setInterval(()=>checkConnections().catch(()=>{}), 60000);
-
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
