@@ -1,89 +1,45 @@
 # AllDebrid-Client — docker-compose.yml
 #
-# Three operating modes:
+# Operating modes:
 #
 #   1. SQLite (default — no setup needed):
 #      docker compose up -d
 #
-#   2. PostgreSQL internal (both containers in the same Compose network):
-#      COMPOSE_PROFILES=postgres docker compose up -d
-#      Containers communicate via the shared "alldebrid-net" bridge network.
-#      The container name "alldebrid-postgres" is resolvable as a hostname.
+#   2. PostgreSQL external (own instance):
+#      Set DB_TYPE=postgres and configure postgres_* in Settings → Database.
 #
-#   3. PostgreSQL external (own instance):
-#      Set DB_TYPE=postgres and fill postgres_* fields in config.json or env.
+# ── Unraid note ───────────────────────────────────────────────────────────────
+# The app uses network_mode: host to avoid conflicts with Unraid's shfs
+# (the FUSE layer that serves /mnt/user shares). Custom Docker bridge networks
+# can cause ALL shares to disappear on Unraid — host mode prevents this.
 #
-# ── Unraid / Bridge mode ──────────────────────────────────────────────────────
-# When running containers individually (not via Compose), container names are
-# NOT resolvable across bridge networks.
+# With host mode the app is directly reachable on the host IP:
+#   http://<unraid-ip>:8080
 #
-# Option A — use this Compose file (recommended):
-#   Both containers join "alldebrid-net" automatically → name resolution works.
-#
-# Option B — standalone containers with --network bridge:
-#   1. Create a shared network:  docker network create alldebrid-net
-#   2. Start postgres with:      --network alldebrid-net --name alldebrid-postgres
-#   3. Start app with:           --network alldebrid-net -e DB_TYPE=postgres_internal
-#
-# Option C — truly isolated Bridge containers (no shared network):
-#   Use DB_TYPE=postgres and set PG_HOST to the postgres container's IP address.
-#   Find the IP with: docker inspect alldebrid-postgres | grep IPAddress
+# ── PostgreSQL with host mode ─────────────────────────────────────────────────
+# If you use an external PostgreSQL instance, configure the host IP directly
+# in Settings → Database (e.g. 192.168.1.x or the container's IP).
+# The internal PostgreSQL profile is not compatible with host network mode.
 
 services:
 
-  # ── Main application ────────────────────────────────────────────────────────
   alldebrid-client:
     image: kroeberd/alldebrid-client:latest
     build: .
     container_name: alldebrid-client
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    # host mode: avoids custom bridge networks that conflict with Unraid shfs
+    network_mode: host
     volumes:
-      - ./data:/app/data
-      - ./config:/app/config
+      - /mnt/user/appdata/alldebrid-client/data:/app/data
+      - /mnt/user/appdata/alldebrid-client/config:/app/config
     environment:
       - CONFIG_PATH=/app/config/config.json
       - DB_PATH=/app/data/alldebrid.db
       - TZ=Europe/Berlin
-    networks:
-      - alldebrid-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/stats"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
-
-  # ── Internal PostgreSQL (profile: postgres) ─────────────────────────────────
-  # Enable with: COMPOSE_PROFILES=postgres docker compose up -d
-  alldebrid-postgres:
-    image: postgres:16-alpine
-    container_name: alldebrid-postgres
-    profiles: ["postgres"]
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: alldebrid
-      POSTGRES_USER: alldebrid
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alldebrid_internal}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - alldebrid-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U alldebrid -d alldebrid"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-
-networks:
-  # Named bridge network — both containers can reach each other by container name.
-  # This is the fix for "container name not resolvable" in bridge mode.
-  alldebrid-net:
-    driver: bridge
-
-volumes:
-  postgres_data:
-    driver: local

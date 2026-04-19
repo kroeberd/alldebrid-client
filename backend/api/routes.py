@@ -26,10 +26,7 @@ from core.config import (
     load_settings,
     save_settings,
 )
-<<<<<<< HEAD
 from core.version import read_version
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 from db.database import DB_PATH, _is_postgres, get_db
 from services.manager_v2 import manager
 
@@ -63,14 +60,11 @@ async def get_settings_ep():
         data["db_type"] = "postgres_internal"
         data["_db_type_locked"] = True
     return data
-<<<<<<< HEAD
 
 
 @router.get("/version")
 async def get_version_ep():
     return {"version": read_version()}
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 
 
 @router.put("/settings")
@@ -460,10 +454,7 @@ async def get_stats():
                    else act_db)
 
         return {
-<<<<<<< HEAD
             "version":                      read_version(),
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
             "by_status":                    by_status,
             "total_completed_bytes":        size_total,
             "db_type":                      db_type,
@@ -680,17 +671,13 @@ async def get_comprehensive_stats(hours: int = Query(24, ge=1, le=8760)):
 
 
 @router.get("/stats/report")
-<<<<<<< HEAD
 @router.get("/stats/comprehensive")
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 async def get_stats_report(hours: int = Query(24, ge=1, le=8760)):
     """Formatted report for a given time window."""
     from services.stats import generate_report
     return await generate_report(hours=hours)
 
 
-<<<<<<< HEAD
 @router.post("/stats/report/send")
 async def send_stats_report_ep(hours: int = Query(24, ge=1, le=8760)):
     """Send the current report to the configured reporting webhook."""
@@ -698,8 +685,6 @@ async def send_stats_report_ep(hours: int = Query(24, ge=1, le=8760)):
     return await send_stats_report(hours=hours, triggered_by="manual")
 
 
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 @router.post("/stats/snapshot")
 async def trigger_stats_snapshot():
     """Manually trigger a stats snapshot."""

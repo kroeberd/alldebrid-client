@@ -526,11 +526,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-<<<<<<< HEAD
       <div class="logo-ver" id="sidebar-version">v…</div>
-=======
-      <div class="logo-ver" id="sidebar-version">v1.0.1</div>
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
     </div>
   </div>
   <nav>
@@ -1284,7 +1280,6 @@ function closeModal(e) {
     document.getElementById('overlay').classList.remove('open');
 }
 
-<<<<<<< HEAD
 function parseFlexgetTaskSchedules(raw) {
   try {
     const parsed = JSON.parse(raw || '[]');
@@ -1364,8 +1359,6 @@ function removeFlexgetTaskSchedule(index) {
   renderFlexgetTaskSchedules();
 }
 
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 // ── Theme toggle ─────────────────────────────────────────────────────────────
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -1630,10 +1623,7 @@ async function loadSettings() {
 
 function renderSettings() {
   const s = settingsData;
-<<<<<<< HEAD
   flexgetTaskSchedules = parseFlexgetTaskSchedules(s.flexget_task_schedules_json);
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
   // Define tabs
   const tabs = [
     { id:'tab-general',      label:'⚡ General' },
@@ -1653,26 +1643,6 @@ function renderSettings() {
   document.getElementById('settings-form').innerHTML = `
 
     <div class="stab-panel active" id="tab-general">
-<<<<<<< HEAD
-=======
-
-    <div class="scard">
-      <div class="scard-header">🔑 AllDebrid</div>
-      <div class="scard-body">
-        <div class="form-group">
-          <label class="form-label">API Key</label>
-          <div class="test-row">
-            <input class="input" type="password" id="s-alldebrid_api_key" value="${s.alldebrid_api_key||''}" placeholder="Your AllDebrid API key"/>
-            <button class="btn btn-blue btn-sm" onclick="testAD()">Test</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Agent Name</label>
-          <input class="input" id="s-alldebrid_agent" value="${s.alldebrid_agent||'AllDebrid-Client'}"/>
-        </div>
-      </div>
-    </div>
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 
     <div class="scard">
       <div class="scard-header">📁 Folders</div>
@@ -2004,7 +1974,6 @@ function renderSettings() {
 
     <div class="stab-panel" id="tab-integrations">
       <div class="scard">
-<<<<<<< HEAD
         <div class="scard-header">🔑 AllDebrid</div>
         <div class="scard-body">
           <div class="form-group">
@@ -2022,8 +1991,6 @@ function renderSettings() {
       </div>
 
         <div class="scard">
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
         <div class="scard-header">📺 Sonarr</div>
         <div class="scard-body">
           <div class="toggle-row">
@@ -2181,7 +2148,6 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">Tasks to run (comma-separated)</label>
           <input class="input" id="s-flexget_tasks_raw" value="${s.flexget_tasks_raw||''}" placeholder="task1, task2 — leave empty for all"/>
-<<<<<<< HEAD
           <span class="form-hint">Used for manual runs. Leave empty to run all tasks on demand.</span>
         </div>
         <div class="form-group">
@@ -2195,19 +2161,6 @@ function renderSettings() {
             <button class="btn btn-ghost btn-sm" onclick="addFlexgetTaskSchedule()">+ Add Task Schedule</button>
             <button class="btn btn-ghost btn-sm" onclick="flexgetListTasks(true)">↻ Sync Tasks Into Editor</button>
           </div>
-=======
-          <span class="form-hint">Leave empty to run all tasks.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Schedule (minutes, 0 = disabled, max 720 = 12h)</label>
-          <input class="input" type="number" id="s-flexget_schedule_minutes" value="${s.flexget_schedule_minutes??0}" min="0" max="720"/>
-          <span class="form-hint">Auto-run interval. 0 = manual only. Maximum 720 min (12 hours).</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Jitter (seconds, 0 = disabled)</label>
-          <input class="input" type="number" id="s-flexget_jitter_seconds" value="${s.flexget_jitter_seconds??0}" min="0" max="3600"/>
-          <span class="form-hint">Random ±offset added to schedule interval to prevent simultaneous runs. E.g. 300 = ±5 min.</span>
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
         </div>
         <div class="form-group">
           <label class="form-label">FlexGet Webhook URL</label>
@@ -2261,7 +2214,6 @@ function renderSettings() {
           <input class="input" type="number" id="s-stats_snapshot_keep_days" value="${s.stats_snapshot_keep_days??30}" min="1"/>
         </div>
         <div class="form-group">
-<<<<<<< HEAD
           <label class="form-label">Reporting Webhook URL</label>
           <input class="input" id="s-stats_report_webhook_url" value="${s.stats_report_webhook_url||''}" placeholder="https://…"/>
           <span class="form-hint">Receives structured reporting payloads. Discord webhooks are supported as rich embeds.</span>
@@ -2272,8 +2224,6 @@ function renderSettings() {
           <span class="form-hint">When enabled, the selected window length is sent to the webhook on this interval.</span>
         </div>
         <div class="form-group">
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
           <label class="form-label">Time Window</label>
           <select class="input" id="stats-report-hours" onchange="loadComprehensiveStats()">
             <option value="24">Last 24 hours</option>
@@ -2286,10 +2236,7 @@ function renderSettings() {
           <button class="btn btn-blue btn-sm" onclick="loadComprehensiveStats()">📊 Load Report</button>
           <button class="btn btn-ghost btn-sm" onclick="exportStats()">⬇ Export JSON</button>
           <button class="btn btn-ghost btn-sm" onclick="triggerStatsSnapshot()">📸 Snapshot Now</button>
-<<<<<<< HEAD
           <button class="btn btn-ghost btn-sm" onclick="sendStatsReport()">📨 Send Webhook Now</button>
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
         </div>
         <div id="comprehensive-stats" style="margin-top:14px"></div>
       </div>
@@ -2356,20 +2303,12 @@ function getFormSettings() {
     flexget_url: t('flexget_url'),
     flexget_api_key: t('flexget_api_key'),
     flexget_tasks_raw: t('flexget_tasks_raw'),
-<<<<<<< HEAD
     flexget_webhook_url: t('flexget_webhook_url'),
     flexget_task_schedules_json: serializeFlexgetTaskSchedules(),
     stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
     stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
     stats_report_interval_hours: n('stats_report_interval_hours'),
     stats_report_webhook_url: t('stats_report_webhook_url'),
-=======
-    flexget_schedule_minutes: n('flexget_schedule_minutes'),
-    flexget_jitter_seconds: n('flexget_jitter_seconds'),
-    flexget_webhook_url: t('flexget_webhook_url'),
-    stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
-    stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
   };
 }
 
@@ -2440,13 +2379,10 @@ function _updatePremiumLabel(r) {
 function switchSettingsTab(id) {
   document.querySelectorAll('.stab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
   document.querySelectorAll('.stab-panel').forEach(p => p.classList.toggle('active', p.id === id));
-<<<<<<< HEAD
   if (id === 'tab-flexget') {
     flexgetListTasks();
     loadFlexgetHistory();
   }
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 }
 
 async function testAria2() {
@@ -2546,7 +2482,6 @@ async function loadBackupList() {
   } catch(e) { toast(e.message, 'error'); }
 }
 
-<<<<<<< HEAD
 async function flexgetListTasks(syncToEditor = false) {
   const el = document.getElementById('flexget-task-list');
   if (el) el.textContent = '⏳ Loading tasks…';
@@ -2569,18 +2504,6 @@ async function flexgetListTasks(syncToEditor = false) {
       ? '<b>Available tasks (' + flexgetAvailableTasks.length + '):</b><br>' + flexgetAvailableTasks.map(t => `<span style="background:var(--surface2);padding:2px 8px;border-radius:4px;margin:2px 2px 0;display:inline-block;font-size:11px">${t}</span>`).join(' ')
       : 'No tasks found.';
   } catch(e) { if (el) el.textContent = '✗ ' + e.message; }
-=======
-async function flexgetListTasks() {
-  const el = document.getElementById('flexget-task-list');
-  el.textContent = '⏳ Loading tasks…';
-  try {
-    const r = await api('GET', '/flexget/tasks');
-    if (!r.enabled) { el.textContent = 'FlexGet is not enabled.'; return; }
-    el.innerHTML = r.tasks.length
-      ? '<b>Available tasks (' + r.tasks.length + '):</b><br>' + r.tasks.map(t => `<span style="background:var(--surface2);padding:2px 8px;border-radius:4px;margin:2px 2px 0;display:inline-block;font-size:11px">${t}</span>`).join(' ')
-      : 'No tasks found.';
-  } catch(e) { el.textContent = '✗ ' + e.message; }
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 }
 
 async function flexgetRun() {
@@ -2623,7 +2546,6 @@ async function loadFlexgetHistory() {
   } catch(e) { el.textContent = '✗ ' + e.message; }
 }
 
-<<<<<<< HEAD
 async function sendStatsReport() {
   const hours = parseInt(document.getElementById('stats-report-hours')?.value || '24', 10);
   try {
@@ -2634,8 +2556,6 @@ async function sendStatsReport() {
   }
 }
 
-=======
->>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 async function loadComprehensiveStats() {
   const el = document.getElementById('comprehensive-stats');
   if (!el) return;

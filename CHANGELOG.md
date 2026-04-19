@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.2] — 2026-04-19
+
+Release focused on version consistency, richer automation, and webhook-based reporting.
+
+### Added
+- Central runtime version loading from the root `VERSION` file via a shared backend helper
+- New `/api/version` endpoint
+- Per-task FlexGet schedules with independent interval and jitter handling
+- Reporting webhook delivery with optional automatic scheduling
+- Manual “Send Webhook Now” action in the reporting UI
+
+### Changed
+- Moved the AllDebrid integration block above Sonarr and Radarr in the integrations settings
+- Frontend sidebar version now resolves from live backend stats instead of hardcoded release text
+- Landing page version labels now load dynamically from the repository `VERSION` file
+- GitHub release workflow now publishes the current changelog section, including the version heading itself
+
+### Fixed
+- Reporting UI and backend route naming are aligned again
+- FlexGet scheduling is no longer limited to one global interval for all tasks
+
 ## [1.0.1] — 2026-04-19
 
 Maintenance release focused on settings consistency and release metadata cleanup.
