@@ -112,8 +112,12 @@ class AppSettings(BaseModel):
     flexget_webhook_url: str = ""
     # JSON array of task schedule objects: [{task, interval_minutes, jitter_seconds, enabled}]
     flexget_task_schedules_json: str = "[]"
+    # Minutes to wait before retrying when FlexGet is unreachable (0 = disabled)
+    flexget_retry_delay_minutes: int = 5
     # Schedule: interval in minutes (0 = disabled, max 720 = 12h)
     flexget_schedule_minutes: int = 0
+    # Minutes to wait before retrying when FlexGet is unreachable (default 5)
+    flexget_retry_delay_minutes: int = 5
     # Jitter: random offset added to schedule interval (seconds, 0 = disabled)
     flexget_jitter_seconds: int = 0
 

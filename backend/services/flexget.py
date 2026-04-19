@@ -319,14 +319,157 @@ class FlexGetClient:
         return results[0] if results else {"task": task, "status": "error", "error": "no result", "elapsed": 0.0, "result": {}}
 
 
+_FLEXGET_UNAVAILABLE_NOTIFIED: bool = False   # module-level dedup flag
+
+
+async def _check_flexget_reachable() -> bool:
+    """Returns True if the FlexGet API is reachable (GET /api/tasks/ returns 200)."""
+    cfg = _cfg()
+    url = (getattr(cfg, "flexget_url", "") or "").rstrip("/")
+    if not url:
+        return False
+    api_key = (getattr(cfg, "flexget_api_key", "") or "").strip()
+    headers = {"Authorization": f"Token {api_key}"} if api_key else {}
+    try:
+        async with aiohttp.ClientSession(headers=headers) as s:
+            async with s.get(
+                f"{url}/api/tasks/",
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as r:
+                return r.status < 500
+    except Exception:
+        return False
+
+
+async def run_flexget_tasks_with_retry(
+    tasks: Optional[List[str]] = None,
+    triggered_by: str = "schedule",
+    retry_delay_minutes: int = 5,
+    max_retries: int = 2,
+) -> List[Dict[str, Any]]:
+    """
+    Wraps run_flexget_tasks with reachability check and retry logic.
+
+    Flow:
+      1. Check if FlexGet is reachable.
+      2. If not: wait retry_delay_minutes, try again (up to max_retries times).
+      3. After all retries fail: send an "unreachable" webhook notification.
+      4. If reachable after a previous failure: send a "recovered" notification.
+      5. Run tasks normally and return results.
+    """
+    global _FLEXGET_UNAVAILABLE_NOTIFIED
+
+    for attempt in range(1, max_retries + 2):  # +1 for the initial attempt
+        reachable = await _check_flexget_reachable()
+        if reachable:
+            if _FLEXGET_UNAVAILABLE_NOTIFIED:
+                # FlexGet recovered — notify once
+                _FLEXGET_UNAVAILABLE_NOTIFIED = False
+                logger.info("FlexGet recovered after previous unavailability")
+                await _emit_flexget_webhook("flexget_recovered", {
+                    "triggered_by": triggered_by,
+                    "message": "FlexGet is reachable again — resuming scheduled tasks",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
+            # Proceed with normal execution
+            return await run_flexget_tasks(tasks=tasks, triggered_by=triggered_by)
+
+        # Not reachable
+        logger.warning(
+            "FlexGet not reachable (attempt %d/%d), triggered_by=%s",
+            attempt, max_retries + 1, triggered_by,
+        )
+        if attempt <= max_retries:
+            logger.info("Retrying FlexGet in %d minutes…", retry_delay_minutes)
+            await asyncio.sleep(retry_delay_minutes * 60)
+        else:
+            # All retries exhausted
+            if not _FLEXGET_UNAVAILABLE_NOTIFIED:
+                _FLEXGET_UNAVAILABLE_NOTIFIED = True
+                logger.error(
+                    "FlexGet still unreachable after %d attempts — sending webhook",
+                    max_retries + 1,
+                )
+                await _emit_flexget_webhook("flexget_unavailable", {
+                    "triggered_by": triggered_by,
+                    "attempts": max_retries + 1,
+                    "retry_delay_minutes": retry_delay_minutes,
+                    "message": (
+                        f"FlexGet is not reachable after {max_retries + 1} attempts "
+                        f"(waited {retry_delay_minutes} min between retries). "
+                        f"Check that FlexGet is running and the URL is correct."
+                    ),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
+            return []
+
+
+# Tracks whether FlexGet was reachable on last check (for recovery webhook)
+_flexget_last_reachable: Optional[bool] = None
+
+
+async def _check_flexget_reachable() -> bool:
+    """Quick reachability check: GET /api/tasks/ must respond within 8s."""
+    try:
+        client = _client()
+        tasks = await asyncio.wait_for(client.list_tasks(), timeout=8.0)
+        return tasks is not None  # empty list is still reachable
+    except Exception:
+        return False
+
+
 async def run_flexget_tasks(
     tasks: Optional[List[str]] = None,
     triggered_by: str = "manual",
 ) -> List[Dict[str, Any]]:
+    """
+    Run FlexGet tasks with automatic retry on unreachable server.
+
+    If FlexGet is not reachable:
+      1. Wait flexget_retry_delay_minutes (default 5) and retry once.
+      2. If still unreachable → emit "server_unreachable" webhook event.
+      3. If it recovers on retry → emit "server_recovered" webhook event.
+    """
+    global _flexget_last_reachable
+
     cfg = _cfg()
     if not getattr(cfg, "flexget_enabled", False):
         return []
 
+    # ── Reachability check with one retry ────────────────────────────────────
+    reachable = await _check_flexget_reachable()
+    if not reachable:
+        retry_delay = max(1, int(getattr(cfg, "flexget_retry_delay_minutes", 5) or 5)) * 60
+        logger.warning(
+            "FlexGet unreachable — waiting %ds before retry (triggered_by=%s)",
+            retry_delay, triggered_by,
+        )
+        await asyncio.sleep(retry_delay)
+        reachable = await _check_flexget_reachable()
+
+    if not reachable:
+        logger.error("FlexGet still unreachable after retry — aborting run (triggered_by=%s)", triggered_by)
+        # Only send webhook if state changed (avoid spamming)
+        if _flexget_last_reachable is not False:
+            await _emit_flexget_webhook("server_unreachable", {
+                "triggered_by": triggered_by,
+                "message":      "FlexGet did not respond after retry",
+                "timestamp":    datetime.now(timezone.utc).isoformat(),
+            })
+        _flexget_last_reachable = False
+        return []
+
+    # Recovery webhook
+    if _flexget_last_reachable is False:
+        logger.info("FlexGet recovered — sending recovery webhook")
+        await _emit_flexget_webhook("server_recovered", {
+            "triggered_by": triggered_by,
+            "message":      "FlexGet is reachable again",
+            "timestamp":    datetime.now(timezone.utc).isoformat(),
+        })
+    _flexget_last_reachable = True
+
+    # ── Run tasks ─────────────────────────────────────────────────────────────
     client    = _client()
     run_tasks = tasks or _configured_tasks()
 

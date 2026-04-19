@@ -1335,10 +1335,20 @@ function renderFlexgetTaskSchedules() {
     return;
   }
   host.innerHTML = flexgetTaskSchedules.map((item, index) => `
-    <div class="kv" style="grid-template-columns:2fr 1fr 1fr auto auto;gap:8px;align-items:end;margin-bottom:8px">
+    <div style="display:grid;grid-template-columns:2fr 90px 90px 80px auto;gap:8px;align-items:end;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
       <div class="form-group" style="margin:0">
-        <label class="form-label">Task</label>
-        <input class="input" list="flexget-task-options" value="${item.task}" onchange="updateFlexgetTaskSchedule(${index}, 'task', this.value)" />
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Task</span>
+          <span style="font-size:10px;font-weight:400;color:var(--text2)">enabled</span>
+        </label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input class="input" list="flexget-task-options" value="${item.task}" onchange="updateFlexgetTaskSchedule(${index}, 'task', this.value)" style="flex:1" />
+          <label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0">
+            <input type="checkbox" style="opacity:0;width:0;height:0;position:absolute" ${item.enabled ? 'checked' : ''} onchange="updateFlexgetTaskSchedule(${index}, 'enabled', this.checked)">
+            <span style="position:absolute;inset:0;background:${item.enabled?'var(--accent)':'var(--border2)'};border-radius:10px;cursor:pointer;transition:background .2s"></span>
+            <span style="position:absolute;left:${item.enabled?'18':'3'}px;top:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:left .2s;pointer-events:none"></span>
+          </label>
+        </div>
       </div>
       <div class="form-group" style="margin:0">
         <label class="form-label">Interval (min)</label>
@@ -1348,11 +1358,14 @@ function renderFlexgetTaskSchedules() {
         <label class="form-label">Jitter (sec)</label>
         <input class="input" type="number" min="0" max="3600" value="${item.jitter_seconds}" onchange="updateFlexgetTaskSchedule(${index}, 'jitter_seconds', this.value)" />
       </div>
-      <label class="toggle" style="margin-bottom:10px">
-        <input type="checkbox" ${item.enabled ? 'checked' : ''} onchange="updateFlexgetTaskSchedule(${index}, 'enabled', this.checked)">
-        <div class="ttrack"></div>
-      </label>
-      <button class="btn btn-sm" style="background:transparent;border:1px solid var(--red);color:var(--red);padding:4px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap" onclick="removeFlexgetTaskSchedule(${index})">✕ Remove</button>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Run</label>
+        <button onclick="flexgetRunSingleTask('${item.task.replace(/'/g,"\\'")}', this)" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--accent);padding:5px 0;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">▶ Run</button>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="visibility:hidden">x</label>
+        <button onclick="removeFlexgetTaskSchedule(${index})" style="width:100%;background:transparent;border:1px solid var(--red);color:var(--red);padding:5px 0;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;transition:all .15s" onmouseover="this.style.background='rgba(239,68,68,.1)'" onmouseout="this.style.background='transparent'">✕ Del</button>
+      </div>
     </div>
   `).join('');
 }
@@ -2179,9 +2192,14 @@ function renderSettings() {
           </div>
         </div>
         <div class="form-group">
+          <label class="form-label">Retry delay when unreachable (minutes)</label>
+          <input class="input" type="number" id="s-flexget_retry_delay_minutes" value="${s.flexget_retry_delay_minutes??5}" min="0" max="60"/>
+          <span class="form-hint">If FlexGet does not respond, wait this many minutes and try once more. 0 = no retry. A webhook is sent if still unreachable, and again when it recovers.</span>
+        </div>
+        <div class="form-group">
           <label class="form-label">FlexGet Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
           <input class="input" id="s-flexget_webhook_url" value="${s.flexget_webhook_url||''}" placeholder="Leave empty to use main Discord webhook"/>
-          <span class="form-hint">Receives events: run_started, task_ok, task_error, run_finished. Falls back to Settings → Discord → Webhook URL when empty.</span>
+          <span class="form-hint">Receives: run_started, task_ok, task_error, run_finished, server_unreachable, server_recovered. Falls back to main Discord webhook when empty.</span>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
           <button class="btn btn-blue btn-sm" onclick="flexgetListTasks()">🔍 List Tasks</button>
@@ -2321,6 +2339,7 @@ function getFormSettings() {
     flexget_tasks_raw: t('flexget_tasks_raw'),
     flexget_webhook_url: t('flexget_webhook_url'),
     flexget_task_schedules_json: serializeFlexgetTaskSchedules(),
+    flexget_retry_delay_minutes: n('flexget_retry_delay_minutes'),
     stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
     stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
     stats_report_interval_hours: n('stats_report_interval_hours'),
@@ -2498,6 +2517,32 @@ async function loadBackupList() {
   } catch(e) { toast(e.message, 'error'); }
 }
 
+async function flexgetRunSingleTask(task, btnEl) {
+  const resultEl = document.getElementById('flexget-run-result');
+  resultEl.style.display = 'block';
+  resultEl.style.color = 'var(--text2)';
+  resultEl.textContent = `⏳ Running task: ${task}…`;
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳'; }
+  const fgRow = document.getElementById('flexget-running-row');
+  if (fgRow) fgRow.style.display = 'flex';
+  try {
+    const r = await api('POST', '/flexget/run', { tasks: [task] });
+    const hasErr = r.tasks_error > 0;
+    resultEl.style.color = hasErr ? 'var(--yellow)' : 'var(--green)';
+    let msg = `${task}: ${hasErr ? '✗ error' : '✓ ok'}`;
+    if (hasErr && r.first_error) msg += ` — ${r.first_error}`;
+    resultEl.textContent = msg;
+    if (fgRow) { setTimeout(() => { if (fgRow) fgRow.style.display = 'none'; }, 2000); }
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '▶ Run'; }
+    loadFlexgetHistory();
+  } catch(e) {
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = `✗ ${task}: ${e.message}`;
+    if (fgRow) fgRow.style.display = 'none';
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '▶ Run'; }
+  }
+}
+
 async function flexgetListTasks(syncToEditor = false) {
   const el = document.getElementById('flexget-task-list');
   if (el) el.textContent = '⏳ Loading tasks…';
@@ -2517,7 +2562,14 @@ async function flexgetListTasks(syncToEditor = false) {
     if (!el) return;
     if (!r.enabled) { el.textContent = 'FlexGet is not enabled.'; return; }
     el.innerHTML = flexgetAvailableTasks.length
-      ? '<b>Available tasks (' + flexgetAvailableTasks.length + '):</b><br>' + flexgetAvailableTasks.map(t => `<span style="background:var(--surface2);padding:2px 8px;border-radius:4px;margin:2px 2px 0;display:inline-block;font-size:11px">${t}</span>`).join(' ')
+      ? '<b>Available tasks (' + flexgetAvailableTasks.length + '):</b><br><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">'
+        + flexgetAvailableTasks.map(t =>
+            `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 6px;font-size:11px">
+              <span>${t}</span>
+              <button onclick="flexgetRunSingleTask('${t.replace(/'/g,"\\'")}')" title="Run ${t}" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;padding:0 2px;line-height:1" onmouseover="this.style.color='var(--accent2)'" onmouseout="this.style.color='var(--accent)'">▶</button>
+            </span>`
+          ).join('')
+        + '</div>'
       : 'No tasks found.';
   } catch(e) { if (el) el.textContent = '✗ ' + e.message; }
 }
@@ -2539,6 +2591,7 @@ async function flexgetRun() {
     if (hasErr && r.first_error) msg += ` — ${r.first_error}`;
     resultEl.textContent = msg;
     if (fgRow) { setTimeout(() => { if (fgRow) fgRow.style.display = 'none'; }, 2000); }
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '▶ Run'; }
     loadFlexgetHistory();
   } catch(e) {
     resultEl.style.color = 'var(--red)';

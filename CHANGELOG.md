@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.4] — 2026-04-19
+
+### Fixed
+- FlexGet schedule editor: white circle/dot above Remove button completely eliminated
+  by replacing .ttrack toggle with inline-styled toggle (no ::after pseudo-element
+  outside its container)
+- flexgetRunSingleTask: was missing async keyword
+
+### Added
+- Run button per task directly in the schedule editor row
+- FlexGet retry on unreachable: waits flexget_retry_delay_minutes (default 5),
+  retries once, then sends server_unreachable webhook event
+- server_recovered webhook event when FlexGet becomes reachable again after failure
+- State deduplication: unreachable/recovered webhooks only fire on state change
+- flexget_retry_delay_minutes config field (0 = disabled)
+- Retry delay setting visible in Settings → FlexGet
+
 ## [1.0.3] — 2026-04-19
 
 UI polish, FlexGet status indicator, Progressbar fix, Webhook fallback.
