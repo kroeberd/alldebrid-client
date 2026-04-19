@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.1.2] — 2026-04-19
+
+### Fixed
+- **Dashboard empty on load — definitive fix** — replaced the retry-loop approach
+  with a persistent background poller (`pollUntilLoaded`) that runs independently
+  of the startup `await` chain. The poller fires immediately and retries `loadStats()`
+  with growing delays (400ms → 800ms → … → max 3s) until it succeeds, then
+  triggers `loadRecent()`, `checkConnections()`, and `checkPremiumStatus()`.
+  This means:
+  - The startup `await` only blocks for `api('/settings')` (~50ms) and then
+    `renderTopbarActions()`. Everything else is truly non-blocking.
+  - If the server is slow on first request (DB warmup, etc.), the poller
+    keeps retrying silently in the background until data arrives — no user
+    interaction required.
+  - `loadStats()` simplified back to a single attempt (returns `true`/`false`).
+    Retry logic lives in the poller, not in `loadStats()` itself.
+
 ## [1.1.1] — 2026-04-19
 
 ### Fixed

@@ -2747,26 +2747,38 @@ async function testPostgres() {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 (async()=>{
-  // Mark sidebar dots as 'checking' immediately — gives visual feedback before API responds
+  // Dots sofort auf 'checking' — sichtbares Feedback vor jedem API-Call
   setDot('api',   'check', 'AllDebrid: checking…');
   setDot('aria2', 'check', 'aria2: checking…');
   setDot('db',    'check', 'DB: checking…');
 
-  // Fire settings + stats in parallel — stats does not need settings to load
-  const [_settingsResult, _statsOk] = await Promise.allSettled([
-    api('GET', '/settings'),
-    loadStats(),   // retries up to 5× — populates dashboard + sets api/db dots
-  ]);
-  if (_settingsResult.status === 'fulfilled') {
-    settingsData = _settingsResult.value;
-  } else {
-    console.warn('Settings load failed:', _settingsResult.reason);
+  // Settings laden (sync, wird für renderTopbarActions + aria2 benötigt)
+  try {
+    settingsData = await api('GET', '/settings');
+  } catch(e) {
+    console.warn('Settings load failed:', e.message);
   }
   renderTopbarActions();
-  // Background work — must not delay first render
-  loadRecent().catch(() => {});
-  checkConnections().catch(() => {});  // sets aria2 dot
-  checkPremiumStatus().catch(() => {});
+
+  // Background-Poller: läuft bis loadStats() erfolgreich ist.
+  // Kein await — blockiert nicht den Startup. Wiederholt sich selbst
+  // mit wachsendem Delay bis der Server antwortet.
+  (async function pollUntilLoaded() {
+    let loaded = false;
+    let attempt = 0;
+    while (!loaded) {
+      loaded = await loadStats();
+      if (!loaded) {
+        attempt++;
+        const delay = Math.min(400 + attempt * 400, 3000);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+    // Erst wenn Stats geladen: Hintergrund-Checks starten
+    loadRecent().catch(() => {});
+    checkConnections().catch(() => {});
+    checkPremiumStatus().catch(() => {});
+  })();
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
   setInterval(checkFlexgetRunning, 10000);
   checkFlexgetRunning();
@@ -2777,16 +2789,7 @@ async function testPostgres() {
     if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
   }, 15000);
   setInterval(()=>checkConnections().catch(()=>{}), 60000);
-  // Safety net: if loadStats failed on startup, retry after 3s without backoff
-  setTimeout(async () => {
-    const el = document.getElementById('s-total');
-    if (el && (el.textContent === '—' || el.textContent === '')) {
-      console.info('loadStats safety-net retry after 3s');
-      await loadStats();
-      loadRecent().catch(()=>{});
-      checkConnections().catch(()=>{});
-    }
-  }, 3000);
+
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
