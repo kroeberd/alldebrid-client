@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.6] — 2026-04-19
+
+### Fixed
+- `fgTaskWebhooks` TDZ (Temporal Dead Zone) error: "can't access lexical declaration
+  before initialization" — caused by JS functions and `let` declaration landing
+  inside the `innerHTML` template literal instead of the script scope.
+  Fixed by:
+  - Moving declaration to top-level with `var` (hoisted, no TDZ)
+  - Placing all helper functions in script scope before `checkFlexgetRunning`
+  - Rewriting `renderFgTaskWebhooks` without template literals in onclick
+    attributes (avoids scope issues in inline event handlers)
+
 ## [1.0.5] — 2026-04-19
 
 ### Added

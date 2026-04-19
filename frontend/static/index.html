@@ -869,6 +869,7 @@ let currentFilter = '';
 let settingsData = {};
 let flexgetAvailableTasks = [];
 let flexgetTaskSchedules = [];
+var fgTaskWebhooks = [];   // var: hoisted, avoids TDZ in onclick handlers
 
 function renderTopbarActions() {
   const el = document.getElementById('topbar-actions');
@@ -2603,46 +2604,49 @@ async function loadFlexgetHistory() {
   } catch(e) { el.textContent = '✗ ' + e.message; }
 }
 
-// ── Per-task FlexGet webhook editor ──────────────────────────────────────────
-let fgTaskWebhooks = [];
 
+// ── Per-task FlexGet webhook editor ─────────────────────────────────────────
 function parseFgTaskWebhooks(raw) {
-  try { const p = JSON.parse(raw || '[]'); return Array.isArray(p) ? p : []; }
-  catch { return []; }
+  try { var p = JSON.parse(raw || '[]'); return Array.isArray(p) ? p : []; }
+  catch(e) { return []; }
 }
 
 function serializeFgTaskWebhooks() {
-  return JSON.stringify(fgTaskWebhooks.filter(w => w.task && w.url));
+  return JSON.stringify(fgTaskWebhooks.filter(function(w){ return w.task && w.url; }));
 }
 
 function renderFgTaskWebhooks() {
-  const host = document.getElementById('fg-task-webhooks-editor');
+  var host = document.getElementById('fg-task-webhooks-editor');
   if (!host) return;
   if (!fgTaskWebhooks.length) { host.innerHTML = ''; return; }
-  host.innerHTML = fgTaskWebhooks.map((w, i) => `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">
-      <div class="form-group" style="margin:0">
-        <label class="form-label" style="font-size:10px">Task name</label>
-        <input class="input" list="flexget-task-options" value="${w.task||''}" placeholder="taskname"
-          onchange="fgTaskWebhooks[${i}].task=this.value;"/>
-      </div>
-      <div class="form-group" style="margin:0">
-        <label class="form-label" style="font-size:10px">Webhook URL</label>
-        <input class="input" value="${w.url||''}" placeholder="https://…"
-          onchange="fgTaskWebhooks[${i}].url=this.value;"/>
-      </div>
-      <div class="form-group" style="margin:0">
-        <label class="form-label" style="font-size:10px">Events (empty=all)</label>
-        <input class="input" value="${(w.events||[]).join(',')}" placeholder="task_started,task_ok,task_error"
-          onchange="fgTaskWebhooks[${i}].events=this.value.split(',').map(e=>e.trim()).filter(Boolean);"/>
-      </div>
-      <div class="form-group" style="margin:0">
-        <label class="form-label" style="visibility:hidden;font-size:10px">x</label>
-        <button onclick="fgTaskWebhooks.splice(${i},1);renderFgTaskWebhooks();"
-          style="width:100%;background:transparent;border:1px solid var(--red);color:var(--red);padding:5px 0;border-radius:var(--radius-sm);cursor:pointer;font-size:12px">✕</button>
-      </div>
-    </div>
-  `).join('');
+  host.innerHTML = fgTaskWebhooks.map(function(w, i) {
+    var taskVal    = (w.task   || '').replace(/"/g,'&quot;');
+    var urlVal     = (w.url    || '').replace(/"/g,'&quot;');
+    var eventsVal  = (w.events || []).join(',').replace(/"/g,'&quot;');
+    return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">' +
+      '<div class="form-group" style="margin:0">' +
+        '<label class="form-label" style="font-size:10px">Task name</label>' +
+        '<input class="input" list="flexget-task-options" value="' + taskVal + '" placeholder="taskname" ' +
+          'oninput="fgTaskWebhooks[' + i + '].task=this.value"/>' +
+      '</div>' +
+      '<div class="form-group" style="margin:0">' +
+        '<label class="form-label" style="font-size:10px">Webhook URL</label>' +
+        '<input class="input" value="' + urlVal + '" placeholder="https://..." ' +
+          'oninput="fgTaskWebhooks[' + i + '].url=this.value"/>' +
+      '</div>' +
+      '<div class="form-group" style="margin:0">' +
+        '<label class="form-label" style="font-size:10px">Events (empty=all)</label>' +
+        '<input class="input" value="' + eventsVal + '" placeholder="task_started,task_ok,task_error" ' +
+          'oninput="fgTaskWebhooks[' + i + '].events=this.value.split(',').map(function(e){return e.trim();}).filter(Boolean)"/>' +
+      '</div>' +
+      '<div class="form-group" style="margin:0">' +
+        '<label class="form-label" style="visibility:hidden;font-size:10px">x</label>' +
+        '<button onclick="fgTaskWebhooks.splice(' + i + ',1);renderFgTaskWebhooks();" ' +
+          'style="width:100%;background:transparent;border:1px solid var(--red);color:var(--red);' +
+          'padding:5px 0;border-radius:var(--radius-sm);cursor:pointer;font-size:12px">✕</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 }
 
 function addFgTaskWebhook() {
