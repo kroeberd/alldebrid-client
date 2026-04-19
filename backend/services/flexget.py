@@ -22,8 +22,17 @@ import aiohttp
 
 logger = logging.getLogger("alldebrid.flexget")
 
-_TASK_TIMEOUT  = 300   # max seconds per task
 _POLL_INTERVAL = 3     # seconds between polls
+
+
+def _task_timeout() -> int:
+    """
+    Max seconds to wait for a single FlexGet task to complete.
+    Configurable via flexget_task_timeout_seconds (default: 3600 = 1h).
+    """
+    cfg = _cfg()
+    v = int(getattr(cfg, "flexget_task_timeout_seconds", 0) or 0)
+    return v if v > 0 else 3600   # default: 1 hour
 
 # ── Concurrency guards ────────────────────────────────────────────────────────
 # Prevents the same task from running more than once simultaneously.
@@ -284,24 +293,50 @@ class FlexGetClient:
         started: float,
     ) -> Dict[str, Any]:
         """Poll GET /api/tasks/queue/{id}/ until task finishes."""
-        deadline = time.monotonic() + _TASK_TIMEOUT
+        deadline = time.monotonic() + _task_timeout()
         poll_urls = [
             f"{self.base_url}/api/tasks/queue/{exec_id}/",
             f"{self.base_url}/api/tasks/executions/{exec_id}/",
         ]
 
+        queue_url    = poll_urls[0]   # primary: /api/tasks/queue/{id}/
+        fallback_url = poll_urls[1]   # fallback: /api/tasks/executions/{id}/
+        queue_404_count = 0
+
         while time.monotonic() < deadline:
             await asyncio.sleep(_POLL_INTERVAL)
+            result_found = False
+
             for url in poll_urls:
                 try:
                     async with session.get(url) as r:
                         if r.status == 404:
+                            if url == queue_url:
+                                # Queue entry gone → FlexGet removed it after completion
+                                queue_404_count += 1
+                                if queue_404_count >= 2:
+                                    # Confirmed gone: treat as successful completion
+                                    elapsed = round(time.monotonic() - started, 2)
+                                    logger.info(
+                                        "FlexGet task %s: queue entry gone (404) → completed, elapsed=%.1fs",
+                                        task_name, elapsed,
+                                    )
+                                    return {
+                                        "task":    task_name,
+                                        "status":  "ok",
+                                        "state":   "completed",
+                                        "elapsed": elapsed,
+                                        "result":  {},
+                                    }
                             continue
+
                         data = await r.json(content_type=None)
                         state = str(data.get("status") or data.get("state") or "").lower()
+                        logger.debug("FlexGet poll %s: state=%s", task_name, state or "(empty)")
 
-                        if state in ("pending", "running", "in_progress", "in progress", ""):
-                            break  # still running
+                        if state in ("pending", "running", "in_progress", "in progress", "queued", ""):
+                            result_found = True
+                            break  # still running — stop trying other URLs
 
                         elapsed = round(time.monotonic() - started, 2)
                         success = state in ("succeeded", "success", "done", "complete", "completed", "finished")
@@ -320,11 +355,13 @@ class FlexGetClient:
                 except Exception as exc:
                     logger.debug("FlexGet poll %s: %s", url, exc)
                     continue
-            else:
-                continue
-            break
 
-        return {"task": task_name, "status": "timeout", "elapsed": _TASK_TIMEOUT, "result": {}}
+            if result_found:
+                continue  # still running, keep polling
+
+        elapsed = round(time.monotonic() - started, 2)
+        logger.warning("FlexGet task %s timed out after %.0fs", task_name, elapsed)
+        return {"task": task_name, "status": "timeout", "elapsed": elapsed, "result": {}}
 
     async def execute_task(self, task: str) -> Dict[str, Any]:
         """Execute a single task (convenience wrapper)."""

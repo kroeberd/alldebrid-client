@@ -2195,6 +2195,11 @@ function renderSettings() {
           </div>
         </div>
         <div class="form-group">
+          <label class="form-label">Task timeout (seconds, 0 = 3600)</label>
+          <input class="input" type="number" id="s-flexget_task_timeout_seconds" value="${s.flexget_task_timeout_seconds??0}" min="0"/>
+          <span class="form-hint">Max time to wait for a single task to complete. Default: 3600s (1 hour). Increase for very long-running tasks.</span>
+        </div>
+        <div class="form-group">
           <label class="form-label">Retry delay when unreachable (minutes)</label>
           <input class="input" type="number" id="s-flexget_retry_delay_minutes" value="${s.flexget_retry_delay_minutes??5}" min="0" max="60"/>
           <span class="form-hint">If FlexGet does not respond, wait this many minutes and try once more. 0 = no retry. A webhook is sent if still unreachable, and again when it recovers.</span>
@@ -2343,6 +2348,7 @@ function getFormSettings() {
     flexget_tasks_raw: t('flexget_tasks_raw'),
     flexget_webhook_url: t('flexget_webhook_url'),
     flexget_task_schedules_json: serializeFlexgetTaskSchedules(),
+    flexget_task_timeout_seconds: n('flexget_task_timeout_seconds'),
     flexget_retry_delay_minutes: n('flexget_retry_delay_minutes'),
 
     stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
@@ -2730,17 +2736,21 @@ async function testPostgres() {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 (async()=>{
-  // Load settings and stats in parallel — neither should block the other
-  const [_settingsResult] = await Promise.allSettled([api('GET','/settings')]);
-  if (_settingsResult.status === 'fulfilled') settingsData = _settingsResult.value;
-  else { console.warn('Settings load failed:', _settingsResult.reason); }
+  // Fire settings + stats in parallel — stats does not need settings
+  const [_settingsResult, _statsOk] = await Promise.allSettled([
+    api('GET', '/settings'),
+    loadStats(),          // populates dashboard immediately
+  ]);
+  if (_settingsResult.status === 'fulfilled') {
+    settingsData = _settingsResult.value;
+  } else {
+    console.warn('Settings load failed:', _settingsResult.reason);
+  }
   renderTopbarActions();
-  // Render dashboard stats immediately (awaited so DOM is populated before paint)
-  await loadStats();
-  // Everything else fires in background — does not delay first render
+  // Background work — does not delay first render
   loadRecent().catch(() => {});
   checkConnections().catch(() => {});
-  checkPremiumStatus().catch(() => {});   // fire-and-forget — AllDebrid API call
+  checkPremiumStatus().catch(() => {});
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
   setInterval(checkFlexgetRunning, 10000);
   checkFlexgetRunning();

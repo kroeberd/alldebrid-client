@@ -137,7 +137,7 @@ async def flexget_loop():
     """
     Runs scheduled FlexGet tasks individually with per-task intervals and jitter.
     """
-    from services.flexget import get_task_schedules, next_delay_seconds, run_flexget_tasks_with_retry, schedule_signature
+    from services.flexget import get_task_schedules, next_delay_seconds, run_flexget_tasks, schedule_signature
 
     next_runs: dict[str, float] = {}
     last_signature: tuple | None = None
@@ -179,10 +179,9 @@ async def flexget_loop():
         for schedule in due_schedules:
             task_name = str(schedule["task"])
             try:
-                await run_flexget_tasks_with_retry(
+                await run_flexget_tasks(
                     tasks=None if task_name == "*" else [task_name],
                     triggered_by="schedule",
-                    retry_delay_minutes=int(getattr(get_settings(), "flexget_retry_delay_minutes", 5)),
                 )
             except Exception as e:
                 logger.error(f"FlexGet scheduled run error ({task_name}): {e}")

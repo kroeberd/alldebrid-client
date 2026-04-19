@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.1.0] — 2026-04-19
+
+### Fixed
+- **Dashboard still empty on first load** — settings and stats now load truly in
+  parallel (`Promise.allSettled`). Previously `await api('/settings')` ran first,
+  blocking `loadStats()` and delaying all visible data by the settings round-trip.
+  Now both fire simultaneously; dashboard numbers appear as soon as `/api/stats` responds.
+- **FlexGet scheduler silently broken** — `flexget_loop` called `run_flexget_tasks_with_retry`
+  which was removed in v1.0.9. Every scheduled run threw a `NameError` and was silently
+  swallowed. Fixed: scheduler now calls `run_flexget_tasks` directly.
+- **FlexGet does not detect task completion** — `_poll_execution` treated HTTP 404
+  on the queue URL as "try next URL", looping until timeout. In FlexGet v3 the queue
+  entry is deleted when a task completes, so 404 means done. Fixed: two consecutive
+  404s on the queue URL are now treated as successful completion.
+- **FlexGet task timeout too short** — hardcoded 300s (5 min) caused long-running
+  tasks (indexer updates, large RSS feeds) to time out prematurely.
+
+### Added
+- `flexget_task_timeout_seconds` config field (default: 0 = 3600s = 1h).
+  Configurable in Settings → FlexGet → "Task timeout". Set higher for very long tasks.
+
 ## [1.0.9] — 2026-04-19
 
 ### Fixed
