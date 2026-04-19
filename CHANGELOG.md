@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.4] — 2026-04-19
+
+### Fixed
+- **Root cause of all dashboard loading failures found and fixed** —
+  Browser console showed:
+  `Uncaught ReferenceError: async is not defined  (line 2544)`
+  A stray `async ` fragment on its own line (between two function definitions)
+  caused the browser to interpret it as an expression statement referencing
+  an undefined variable `async`. This threw a `ReferenceError` that aborted
+  the **entire script** before any function was defined or any IIFE ran.
+  Result: no API calls, no DOM updates, no sidebar dots — only nav() onclick
+  handlers worked because the browser had partially parsed the script before
+  crashing (function declarations are hoisted, but the runtime error stopped
+  the IIFE). Clicking any nav item re-triggered loadStats() which succeeded.
+  Fix: removed the stray `async ` line.
+
 ## [1.1.3] — 2026-04-19
 
 ### Changed

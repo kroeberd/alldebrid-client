@@ -2541,8 +2541,6 @@ async function loadBackupList() {
   } catch(e) { toast(e.message, 'error'); }
 }
 
-async 
-
 async function flexgetListTasks(syncToEditor = false) {
   const el = document.getElementById('flexget-task-list');
   if (el) el.textContent = '⏳ Loading tasks…';
