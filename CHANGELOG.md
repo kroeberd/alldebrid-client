@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.7] — 2026-04-19
+
+### Fixed
+- **UI values only visible after first click** — `settingsData` defensive null-guard
+  in startup; `loadStats()` guards against null settingsData; `checkConnections()`
+  shows `aria2: not configured` (warn dot) instead of blank when aria2 URL is empty
+- **FlexGet webhook silent** — webhook calls now log at INFO level (previously DEBUG
+  only, invisible in normal logs); webhook failures log at WARNING; added INFO log
+  at the start of each FlexGet run showing task list and triggered_by
+
 ## [1.0.6] — 2026-04-19
 
 ### Fixed

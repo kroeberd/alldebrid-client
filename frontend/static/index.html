@@ -1006,7 +1006,7 @@ async function checkConnections() {
     setDot('api', 'error', 'AllDebrid: offline');
   }
   const cfg = settingsData || {};
-  // aria2
+  // aria2 — only test if URL is configured
   if (cfg.aria2_url) {
     try {
       const result = await api('POST', '/settings/test-aria2');
@@ -1015,7 +1015,7 @@ async function checkConnections() {
       setDot('aria2', 'error', 'aria2: offline');
     }
   } else {
-    setDot('aria2', '', 'aria2: not configured');
+    setDot('aria2', 'warn', 'aria2: not configured');
   }
 }
 
@@ -1074,7 +1074,7 @@ async function loadStats() {
     const s = await api('GET', '/stats');
     const versionEl = document.getElementById('sidebar-version');
     if (versionEl && s.version) versionEl.textContent = `v${String(s.version).replace(/^v/i, '')}`;
-    settingsData.paused = !!s.paused;
+    if (settingsData) settingsData.paused = !!s.paused;
     renderTopbarActions();
     const bs = s.by_status || {};
     const total = Object.values(bs).reduce((a,b)=>a+b,0);
@@ -2783,12 +2783,11 @@ async function testPostgres() {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 (async()=>{
-  try { settingsData = await api('GET','/settings'); } catch(e){ console.warn('Settings load failed:', e); }
+  try { settingsData = await api('GET','/settings'); } catch(e){ console.warn('Settings load failed:', e); settingsData = settingsData || {}; }
   renderTopbarActions();
   // Await both so errors are caught and dashboard populates before proceeding
   await Promise.allSettled([loadStats(), loadRecent()]);
   await checkConnections();
-
   // Premium: once on startup (only if API key configured), then every 12 hours
   await checkPremiumStatus();
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);

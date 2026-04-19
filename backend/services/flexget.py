@@ -383,15 +383,17 @@ async def _emit_task_webhook(task: str, event: str, payload: Dict[str, Any]) -> 
 
     if not url:
         # Fall back to global FlexGet webhook (which itself falls back to Discord)
+        logger.debug("FlexGet task webhook (%s/%s): no task-specific URL — using global", task, event)
         await _emit_flexget_webhook(event, {"task": task, **payload})
         return
 
     try:
         body = {"event": event, "source": "flexget", "task": task, **payload}
         async with aiohttp.ClientSession() as s:
-            await s.post(url, json=body, timeout=aiohttp.ClientTimeout(total=10))
+            resp = await s.post(url, json=body, timeout=aiohttp.ClientTimeout(total=10))
+            logger.info("FlexGet task webhook sent: task=%s event=%s status=%s", task, event, resp.status)
     except Exception as exc:
-        logger.debug("FlexGet task webhook failed (%s/%s): %s", task, event, exc)
+        logger.warning("FlexGet task webhook failed (%s/%s): %s", task, event, exc)
 
 
 # ── Main entry points ─────────────────────────────────────────────────────────
@@ -448,6 +450,10 @@ async def run_flexget_tasks(
     client    = _client()
     run_tasks = tasks or _configured_tasks()
 
+    logger.info(
+        "FlexGet run starting: tasks=%s triggered_by=%s",
+        run_tasks or "all", triggered_by,
+    )
     await _emit_flexget_webhook("run_started", {
         "triggered_by": triggered_by,
         "tasks":        run_tasks or "all",
@@ -516,13 +522,15 @@ async def _emit_flexget_webhook(event: str, payload: Dict[str, Any]) -> None:
     if not url:
         url = (getattr(cfg, "discord_webhook_url", "") or "").strip()
     if not url:
+        logger.debug("FlexGet webhook (%s): no URL configured — skipping", event)
         return
     try:
         body = {"event": event, "source": "flexget", **payload}
         async with aiohttp.ClientSession() as s:
-            await s.post(url, json=body, timeout=aiohttp.ClientTimeout(total=10))
+            resp = await s.post(url, json=body, timeout=aiohttp.ClientTimeout(total=10))
+            logger.info("FlexGet webhook sent: event=%s status=%s url=%s", event, resp.status, url[:60])
     except Exception as exc:
-        logger.debug("FlexGet webhook failed (%s): %s", event, exc)
+        logger.warning("FlexGet webhook failed (%s): %s", event, exc)
 
 
 async def _persist_run(results: List[Dict[str, Any]], triggered_by: str) -> None:
