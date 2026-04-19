@@ -289,6 +289,16 @@ class TorrentManager:
     async def _handle_torrent(self, path: Path, processed: Path):
         if not get_settings().alldebrid_api_key:
             return
+        # Wait for the file to be fully written before reading.
+        # Check that file size is stable over 500ms — catches files still being
+        # copied into the watch folder by an external process.
+        size_before = path.stat().st_size
+        await asyncio.sleep(0.5)
+        if not path.exists():
+            return  # file was removed before we could process it
+        size_after = path.stat().st_size
+        if size_before != size_after:
+            raise ValueError(f"File still being written ({size_before} → {size_after} bytes), will retry next cycle")
         content = path.read_bytes()
         if not content:
             raise ValueError("Empty torrent file")
@@ -304,6 +314,13 @@ class TorrentManager:
         shutil.move(str(path), str(processed / path.name))
 
     async def _handle_magnet_file(self, path: Path, processed: Path):
+        # Stability check: ensure file is not still being written
+        size_before = path.stat().st_size
+        await asyncio.sleep(0.5)
+        if not path.exists():
+            return
+        if path.stat().st_size != size_before:
+            raise ValueError(f"File still being written, will retry next cycle")
         content = path.read_text(errors="ignore")
         magnets = [line.strip() for line in content.splitlines() if line.strip().startswith("magnet:")]
         if not magnets:
