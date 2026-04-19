@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.8] — 2026-04-19
+
+### Fixed
+- **Dashboard values only appear after first click** — root causes:
+  1. `loadStats()` set the DB dot but not the AllDebrid dot; added `setDot('api','ok')` 
+     directly in `loadStats()` so AllDebrid is green immediately when stats load
+  2. Startup awaited `checkConnections()` (slow: includes `test-aria2` POST) before 
+     showing any data; changed to fire-and-forget so stats render first
+  3. `loadRecent()` now also runs fire-and-forget alongside `loadStats()`
+- **Per-task webhook editor shows JS code as visible text** — root cause:
+  `oninput="...split(',')..."` — the single quote inside `split(',')` broke the 
+  HTML attribute, leaving `).map(function(e){...})` as literal visible text.
+  Fixed by rebuilding `renderFgTaskWebhooks()` using DOM API (`createElement`, 
+  `oninput` as JS property) instead of HTML string concatenation — no escaping issues.
+- Per-task webhook hint clarified: URL is optional, falls back to global FlexGet webhook
+
 ## [1.0.7] — 2026-04-19
 
 ### Fixed

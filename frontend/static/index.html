@@ -1076,6 +1076,8 @@ async function loadStats() {
     if (versionEl && s.version) versionEl.textContent = `v${String(s.version).replace(/^v/i, '')}`;
     if (settingsData) settingsData.paused = !!s.paused;
     renderTopbarActions();
+    // Set AllDebrid dot immediately from stats response (fast, no extra call needed)
+    setDot('api', 'ok', 'AllDebrid: online');
     const bs = s.by_status || {};
     const total = Object.values(bs).reduce((a,b)=>a+b,0);
     // completed_count kommt direkt vom API (nicht aus by_status, damit der Dashboard-Fix greift)
@@ -2201,7 +2203,7 @@ function renderSettings() {
         </div>
         <div class="form-group">
           <label class="form-label">Per-task Webhooks</label>
-          <span class="form-hint" style="margin-bottom:6px;display:block">Configure a separate webhook URL per task. Events: task_started, task_ok, task_error. Leave events empty for all.</span>
+          <span class="form-hint" style="margin-bottom:6px;display:block">Optional: override the global FlexGet webhook for specific tasks. Leave URL empty to use the global webhook. Leave events empty to receive all events.</span>
           <div id="fg-task-webhooks-editor" style="margin-bottom:8px"></div>
           <button class="btn btn-ghost btn-sm" onclick="addFgTaskWebhook()">+ Add Task Webhook</button>
         </div>
@@ -2619,34 +2621,51 @@ function renderFgTaskWebhooks() {
   var host = document.getElementById('fg-task-webhooks-editor');
   if (!host) return;
   if (!fgTaskWebhooks.length) { host.innerHTML = ''; return; }
-  host.innerHTML = fgTaskWebhooks.map(function(w, i) {
-    var taskVal    = (w.task   || '').replace(/"/g,'&quot;');
-    var urlVal     = (w.url    || '').replace(/"/g,'&quot;');
-    var eventsVal  = (w.events || []).join(',').replace(/"/g,'&quot;');
-    return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">' +
-      '<div class="form-group" style="margin:0">' +
-        '<label class="form-label" style="font-size:10px">Task name</label>' +
-        '<input class="input" list="flexget-task-options" value="' + taskVal + '" placeholder="taskname" ' +
-          'oninput="fgTaskWebhooks[' + i + '].task=this.value"/>' +
-      '</div>' +
-      '<div class="form-group" style="margin:0">' +
-        '<label class="form-label" style="font-size:10px">Webhook URL</label>' +
-        '<input class="input" value="' + urlVal + '" placeholder="https://..." ' +
-          'oninput="fgTaskWebhooks[' + i + '].url=this.value"/>' +
-      '</div>' +
-      '<div class="form-group" style="margin:0">' +
-        '<label class="form-label" style="font-size:10px">Events (empty=all)</label>' +
-        '<input class="input" value="' + eventsVal + '" placeholder="task_started,task_ok,task_error" ' +
-          'oninput="fgTaskWebhooks[' + i + '].events=this.value.split(',').map(function(e){return e.trim();}).filter(Boolean)"/>' +
-      '</div>' +
-      '<div class="form-group" style="margin:0">' +
-        '<label class="form-label" style="visibility:hidden;font-size:10px">x</label>' +
-        '<button onclick="fgTaskWebhooks.splice(' + i + ',1);renderFgTaskWebhooks();" ' +
-          'style="width:100%;background:transparent;border:1px solid var(--red);color:var(--red);' +
-          'padding:5px 0;border-radius:var(--radius-sm);cursor:pointer;font-size:12px">✕</button>' +
-      '</div>' +
-    '</div>';
-  }).join('');
+  // Build rows via DOM to avoid HTML-attribute quoting issues
+  var rows = fgTaskWebhooks.map(function(w, i) {
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px';
+
+    function col(labelText, el) {
+      var g = document.createElement('div');
+      g.className = 'form-group'; g.style.margin = '0';
+      var lbl = document.createElement('label');
+      lbl.className = 'form-label'; lbl.style.fontSize = '10px';
+      lbl.textContent = labelText;
+      g.appendChild(lbl); g.appendChild(el); return g;
+    }
+
+    var taskIn = document.createElement('input');
+    taskIn.className = 'input'; taskIn.setAttribute('list','flexget-task-options');
+    taskIn.value = w.task || ''; taskIn.placeholder = 'taskname';
+    taskIn.oninput = function(){ fgTaskWebhooks[i].task = this.value; };
+
+    var urlIn = document.createElement('input');
+    urlIn.className = 'input'; urlIn.value = w.url || '';
+    urlIn.placeholder = 'https://… (optional, falls back to FlexGet webhook)';
+    urlIn.oninput = function(){ fgTaskWebhooks[i].url = this.value; };
+
+    var evIn = document.createElement('input');
+    evIn.className = 'input'; evIn.value = (w.events || []).join(',');
+    evIn.placeholder = 'task_started,task_ok,task_error (empty=all)';
+    evIn.oninput = function(){
+      fgTaskWebhooks[i].events = this.value.split(',').map(function(e){ return e.trim(); }).filter(Boolean);
+    };
+
+    var delBtn = document.createElement('button');
+    delBtn.textContent = '✕';
+    delBtn.style.cssText = 'width:100%;background:transparent;border:1px solid var(--red);' +
+      'color:var(--red);padding:5px 0;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;margin-top:18px';
+    delBtn.onclick = function(){ fgTaskWebhooks.splice(i,1); renderFgTaskWebhooks(); };
+
+    wrap.appendChild(col('Task name', taskIn));
+    wrap.appendChild(col('Webhook URL (optional)', urlIn));
+    wrap.appendChild(col('Events (empty=all)', evIn));
+    wrap.appendChild(delBtn);
+    return wrap;
+  });
+  host.innerHTML = '';
+  rows.forEach(function(r){ host.appendChild(r); });
 }
 
 function addFgTaskWebhook() {
@@ -2786,8 +2805,9 @@ async function testPostgres() {
   try { settingsData = await api('GET','/settings'); } catch(e){ console.warn('Settings load failed:', e); settingsData = settingsData || {}; }
   renderTopbarActions();
   // Await both so errors are caught and dashboard populates before proceeding
-  await Promise.allSettled([loadStats(), loadRecent()]);
-  await checkConnections();
+  await loadStats();
+  loadRecent().catch(() => {});          // fire-and-forget — updates table async
+  checkConnections().catch(() => {});    // fire-and-forget — aria2 check may be slow
   // Premium: once on startup (only if API key configured), then every 12 hours
   await checkPremiumStatus();
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
