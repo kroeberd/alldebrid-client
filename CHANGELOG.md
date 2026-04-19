@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.6] — 2026-04-19
+
+### Fixed
+- **Pause/Resume button had no effect** — frontend called `/api/settings/pause`
+  and `/api/settings/resume` which do not exist. Correct endpoints are
+  `/api/processing/pause` and `/api/processing/resume`.
+
 ## [1.1.5] — 2026-04-19
 
 ### Fixed

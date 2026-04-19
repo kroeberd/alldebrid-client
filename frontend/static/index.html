@@ -1040,7 +1040,7 @@ function setDot(id, state, label) {
 
 async function pauseProcessing() {
   try {
-    await api('POST', '/settings/pause');
+    await api('POST', '/processing/pause');
     settingsData.paused = true;
     renderTopbarActions();
     toast('Processing paused','warn');
@@ -1050,7 +1050,7 @@ async function pauseProcessing() {
 
 async function resumeProcessing() {
   try {
-    await api('POST', '/settings/resume');
+    await api('POST', '/processing/resume');
     settingsData.paused = false;
     renderTopbarActions();
     toast('Processing resumed','success');
