@@ -1,6 +1,6 @@
 # Changelog
 
-<<<<<<< HEAD
+
 ## [1.0.2] — 2026-04-19
 
 Release focused on version consistency, richer automation, and webhook-based reporting.
