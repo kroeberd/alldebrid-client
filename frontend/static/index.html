@@ -1653,6 +1653,8 @@ async function loadSettings() {
 function renderSettings() {
   const s = settingsData;
   flexgetTaskSchedules = parseFlexgetTaskSchedules(s.flexget_task_schedules_json);
+  fgTaskWebhooks = parseFgTaskWebhooks(s.flexget_task_webhooks_json);
+  renderFgTaskWebhooks();
   // Define tabs
   const tabs = [
     { id:'tab-general',      label:'⚡ General' },
@@ -2197,6 +2199,12 @@ function renderSettings() {
           <span class="form-hint">If FlexGet does not respond, wait this many minutes and try once more. 0 = no retry. A webhook is sent if still unreachable, and again when it recovers.</span>
         </div>
         <div class="form-group">
+          <label class="form-label">Per-task Webhooks</label>
+          <span class="form-hint" style="margin-bottom:6px;display:block">Configure a separate webhook URL per task. Events: task_started, task_ok, task_error. Leave events empty for all.</span>
+          <div id="fg-task-webhooks-editor" style="margin-bottom:8px"></div>
+          <button class="btn btn-ghost btn-sm" onclick="addFgTaskWebhook()">+ Add Task Webhook</button>
+        </div>
+        <div class="form-group">
           <label class="form-label">FlexGet Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
           <input class="input" id="s-flexget_webhook_url" value="${s.flexget_webhook_url||''}" placeholder="Leave empty to use main Discord webhook"/>
           <span class="form-hint">Receives: run_started, task_ok, task_error, run_finished, server_unreachable, server_recovered. Falls back to main Discord webhook when empty.</span>
@@ -2340,6 +2348,7 @@ function getFormSettings() {
     flexget_webhook_url: t('flexget_webhook_url'),
     flexget_task_schedules_json: serializeFlexgetTaskSchedules(),
     flexget_retry_delay_minutes: n('flexget_retry_delay_minutes'),
+    flexget_task_webhooks_json: serializeFgTaskWebhooks(),
     stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
     stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
     stats_report_interval_hours: n('stats_report_interval_hours'),
@@ -2517,31 +2526,7 @@ async function loadBackupList() {
   } catch(e) { toast(e.message, 'error'); }
 }
 
-async function flexgetRunSingleTask(task, btnEl) {
-  const resultEl = document.getElementById('flexget-run-result');
-  resultEl.style.display = 'block';
-  resultEl.style.color = 'var(--text2)';
-  resultEl.textContent = `⏳ Running task: ${task}…`;
-  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳'; }
-  const fgRow = document.getElementById('flexget-running-row');
-  if (fgRow) fgRow.style.display = 'flex';
-  try {
-    const r = await api('POST', '/flexget/run', { tasks: [task] });
-    const hasErr = r.tasks_error > 0;
-    resultEl.style.color = hasErr ? 'var(--yellow)' : 'var(--green)';
-    let msg = `${task}: ${hasErr ? '✗ error' : '✓ ok'}`;
-    if (hasErr && r.first_error) msg += ` — ${r.first_error}`;
-    resultEl.textContent = msg;
-    if (fgRow) { setTimeout(() => { if (fgRow) fgRow.style.display = 'none'; }, 2000); }
-    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '▶ Run'; }
-    loadFlexgetHistory();
-  } catch(e) {
-    resultEl.style.color = 'var(--red)';
-    resultEl.textContent = `✗ ${task}: ${e.message}`;
-    if (fgRow) fgRow.style.display = 'none';
-    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '▶ Run'; }
-  }
-}
+async 
 
 async function flexgetListTasks(syncToEditor = false) {
   const el = document.getElementById('flexget-task-list');
@@ -2616,6 +2601,92 @@ async function loadFlexgetHistory() {
       </div>`;
     }).join('');
   } catch(e) { el.textContent = '✗ ' + e.message; }
+}
+
+// ── Per-task FlexGet webhook editor ──────────────────────────────────────────
+let fgTaskWebhooks = [];
+
+function parseFgTaskWebhooks(raw) {
+  try { const p = JSON.parse(raw || '[]'); return Array.isArray(p) ? p : []; }
+  catch { return []; }
+}
+
+function serializeFgTaskWebhooks() {
+  return JSON.stringify(fgTaskWebhooks.filter(w => w.task && w.url));
+}
+
+function renderFgTaskWebhooks() {
+  const host = document.getElementById('fg-task-webhooks-editor');
+  if (!host) return;
+  if (!fgTaskWebhooks.length) { host.innerHTML = ''; return; }
+  host.innerHTML = fgTaskWebhooks.map((w, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="font-size:10px">Task name</label>
+        <input class="input" list="flexget-task-options" value="${w.task||''}" placeholder="taskname"
+          onchange="fgTaskWebhooks[${i}].task=this.value;"/>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="font-size:10px">Webhook URL</label>
+        <input class="input" value="${w.url||''}" placeholder="https://…"
+          onchange="fgTaskWebhooks[${i}].url=this.value;"/>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="font-size:10px">Events (empty=all)</label>
+        <input class="input" value="${(w.events||[]).join(',')}" placeholder="task_started,task_ok,task_error"
+          onchange="fgTaskWebhooks[${i}].events=this.value.split(',').map(e=>e.trim()).filter(Boolean);"/>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label" style="visibility:hidden;font-size:10px">x</label>
+        <button onclick="fgTaskWebhooks.splice(${i},1);renderFgTaskWebhooks();"
+          style="width:100%;background:transparent;border:1px solid var(--red);color:var(--red);padding:5px 0;border-radius:var(--radius-sm);cursor:pointer;font-size:12px">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addFgTaskWebhook() {
+  fgTaskWebhooks.push({ task: '', url: '', events: [] });
+  renderFgTaskWebhooks();
+}
+
+async function checkFlexgetRunning() {
+  try {
+    const r = await api('GET', '/flexget/running');
+    const running = Array.isArray(r.running) && r.running.length > 0;
+    const row = document.getElementById('flexget-running-row');
+    const lbl = document.getElementById('lbl-flexget');
+    if (row) row.style.display = running ? 'flex' : 'none';
+    if (lbl && running) lbl.textContent = 'FlexGet: ' + r.running.join(', ') + '…';
+  } catch { /* silent */ }
+}
+
+async function flexgetRunSingleTask(task, btnEl) {
+  const resultEl = document.getElementById('flexget-run-result');
+  resultEl.style.display = 'block';
+  resultEl.style.color = 'var(--text2)';
+  resultEl.textContent = `⏳ Running task: ${task}…`;
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳'; }
+  const fgRow = document.getElementById('flexget-running-row');
+  if (fgRow) fgRow.style.display = 'flex';
+  try {
+    const r = await api('POST', `/flexget/run/${encodeURIComponent(task)}`);
+    const ok = r.ok || r.status === 'ok';
+    resultEl.style.color = ok ? 'var(--green)' : 'var(--yellow)';
+    let msg = `${task}: ${ok ? '✓ ok' : '✗ error'}`;
+    if (!ok && r.first_error) msg += ` — ${r.first_error}`;
+    if (r.elapsed) msg += ` (${Number(r.elapsed).toFixed(1)}s)`;
+    resultEl.textContent = msg;
+    setTimeout(() => checkFlexgetRunning(), 1000);
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '▶ Run'; }
+    loadFlexgetHistory();
+  } catch(e) {
+    const conflict = e.message && e.message.includes('409');
+    resultEl.style.color = conflict ? 'var(--yellow)' : 'var(--red)';
+    resultEl.textContent = conflict ? `⏳ ${task}: already running` : `✗ ${task}: ${e.message}`;
+    setTimeout(() => checkFlexgetRunning(), 500);
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '▶ Run'; }
+  }
 }
 
 async function sendStatsReport() {

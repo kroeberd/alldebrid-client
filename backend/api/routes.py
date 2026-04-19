@@ -616,13 +616,36 @@ async def flexget_list_tasks():
     cfg = get_settings()
     if not getattr(cfg, "flexget_enabled", False):
         return {"tasks": [], "enabled": False}
-    from services.flexget import FlexGetClient
-    client = FlexGetClient(
-        getattr(cfg, "flexget_url", "http://localhost:5050"),
-        getattr(cfg, "flexget_api_key", ""),
-    )
-    tasks = await client.list_tasks()
+    from services.flexget import _client
+    tasks = await _client().list_tasks()
     return {"tasks": tasks, "enabled": True}
+
+
+@router.get("/flexget/running")
+async def flexget_running():
+    """Return which FlexGet tasks are currently executing (for UI indicator)."""
+    from services.flexget import running_tasks
+    return {"running": running_tasks()}
+
+
+@router.post("/flexget/run/{task_name}")
+async def flexget_run_single(task_name: str):
+    """Run a single named FlexGet task immediately, with duplicate guard."""
+    cfg = get_settings()
+    if not getattr(cfg, "flexget_enabled", False):
+        raise HTTPException(400, "FlexGet integration is not enabled")
+    from services.flexget import run_flexget_tasks, is_task_running
+    if is_task_running(task_name):
+        raise HTTPException(409, f"Task '{task_name}' is already running")
+    results = await run_flexget_tasks(tasks=[task_name], triggered_by="manual")
+    r = results[0] if results else {"task": task_name, "status": "error", "error": "no result", "elapsed": 0}
+    return {
+        "ok": r.get("status") == "ok",
+        "task": task_name,
+        "status": r.get("status"),
+        "elapsed": r.get("elapsed", 0),
+        "first_error": r.get("error") if r.get("status") != "ok" else None,
+    }
 
 
 @router.post("/flexget/run")

@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.5] — 2026-04-19
+
+### Added
+- Per-task FlexGet webhooks (`flexget_task_webhooks_json`)
+  - Each task can have its own webhook URL and event filter
+  - Events: task_started, task_ok, task_error (empty = all)
+  - Falls back to global FlexGet webhook for unconfigured tasks
+  - UI editor in Settings → FlexGet
+- Task overlap prevention: per-task asyncio.Lock prevents the same task
+  from running more than once simultaneously (skipped runs logged + persisted)
+- `GET /flexget/running` endpoint — returns list of currently executing tasks
+- `POST /flexget/run/{task_name}` endpoint — run a single task directly
+  - Returns HTTP 409 if task is already running
+- Sidebar FlexGet indicator now shows task names while running
+- `task_started` webhook event fired before each task execution
+
+### Fixed
+- flexget.py: removed duplicate function definitions left by Codex merge
+- `checkFlexgetRunning` now uses `/flexget/running` (real-time) instead of history
+- `flexgetRunSingleTask` uses `/flexget/run/{task}` endpoint + handles 409
+
 ## [1.0.4] — 2026-04-19
 
 ### Fixed
