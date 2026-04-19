@@ -2,6 +2,23 @@
 
 ## [1.1.6] — 2026-04-19
 
+### Changed
+- **Discord webhook embeds — visual improvements** across all three services
+  (notifications, FlexGet events, statistics reports):
+  - **Timestamp**: replaced raw ISO-8601 string in field values
+    (`2026-04-19T17:16:25.341029+00:00`) with Discord's native `timestamp`
+    embed field — Discord renders this automatically in the user's local timezone
+    (e.g. "Today at 7:16 PM")
+  - **Footer**: shortened from `AllDebrid-Client v1.1.6 — https://github.com/…`
+    to just `AllDebrid-Client v1.1.6`, with the configured avatar as footer icon
+  - **Avatar / username**: all three webhook senders now read
+    `discord_avatar_url` and `discord_username` from Settings and include
+    them in every payload. Discord caches the avatar image by URL — setting it
+    once in Settings is sufficient, no repeated downloads occur.
+  - Time fields in notification embeds use `dd.mm.yyyy, HH:MM UTC` format
+
+## [1.1.6] — 2026-04-19
+
 ### Fixed
 - **Pause/Resume button had no effect** — frontend called `/api/settings/pause`
   and `/api/settings/resume` which do not exist. Correct endpoints are

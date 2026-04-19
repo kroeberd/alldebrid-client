@@ -325,25 +325,41 @@ async def send_stats_report(
     }
 
     if _is_discord_webhook(url):
+        # Avatar + username aus Settings
+        _app = "AllDebrid-Client"
+        try:
+            from core.config import get_settings as _gs
+            _cfg    = _gs()
+            _avatar = (getattr(_cfg, "discord_avatar_url", "") or "").strip()
+            if not _avatar or _avatar.startswith("data:"):
+                _avatar = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+            _botname = (getattr(_cfg, "discord_username", "") or _app).strip() or _app
+        except Exception:
+            _avatar  = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+            _botname = _app
         embeds = [{
-            "title": f"Statistics Report — Last {hours}h",
+            "title":       f"📊 Statistics Report — Last {hours}h",
             "description": "Automated activity summary from AllDebrid-Client.",
-            "color": 0x3B82F6,
+            "color":       0x3B82F6,
             "fields": [
-                {"name": "Torrents", "value": str(summary["torrents_processed"]), "inline": True},
-                {"name": "Completed", "value": str(summary["completed"]), "inline": True},
-                {"name": "Errors", "value": str(summary["errors"]), "inline": True},
-                {"name": "Success Rate", "value": str(summary["success_rate"]), "inline": True},
-                {"name": "Downloaded", "value": str(summary["total_downloaded"]), "inline": True},
-                {"name": "Avg Duration", "value": str(summary["avg_duration"]), "inline": True},
-                {"name": "Files", "value": str(summary["total_files"]), "inline": True},
-                {"name": "Blocked", "value": str(summary["blocked_files"]), "inline": True},
-                {"name": "Retries", "value": str(summary["total_retries"]), "inline": True},
+                {"name": "Torrents",      "value": str(summary["torrents_processed"]), "inline": True},
+                {"name": "Completed",     "value": str(summary["completed"]),          "inline": True},
+                {"name": "Errors",        "value": str(summary["errors"]),             "inline": True},
+                {"name": "Success Rate",  "value": str(summary["success_rate"]),       "inline": True},
+                {"name": "Downloaded",    "value": str(summary["total_downloaded"]),   "inline": True},
+                {"name": "Avg Duration",  "value": str(summary["avg_duration"]),       "inline": True},
+                {"name": "Files",         "value": str(summary["total_files"]),        "inline": True},
+                {"name": "Blocked",       "value": str(summary["blocked_files"]),      "inline": True},
+                {"name": "Retries",       "value": str(summary["total_retries"]),      "inline": True},
             ],
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "footer": {"text": f"AllDebrid-Client · {triggered_by}"},
+            "footer":    {"text": f"{_app} · {triggered_by}", "icon_url": _avatar},
         }]
-        send_payload: Dict[str, Any] = {"embeds": embeds}
+        send_payload: Dict[str, Any] = {
+            "username":   _botname,
+            "avatar_url": _avatar,
+            "embeds":     embeds,
+        }
     else:
         send_payload = payload
 

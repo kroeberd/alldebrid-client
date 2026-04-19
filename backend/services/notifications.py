@@ -70,7 +70,13 @@ def _fmt_bytes(b: int) -> str:
 
 
 def _now_utc() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    """Human-readable UTC time for field values."""
+    return datetime.now(timezone.utc).strftime("%d.%m.%Y, %H:%M UTC")
+
+
+def _discord_timestamp() -> str:
+    """ISO 8601 for Discord embed timestamp field — renders in user's local timezone."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _source_label(source: str) -> str:
@@ -283,13 +289,15 @@ class NotificationService:
             cutoff = time.monotonic() - 300
             self._sent_hashes = {k: v for k, v in self._sent_hashes.items() if v > cutoff}
 
+        _bot_name, _bot_avatar = _get_discord_identity()
         embed: Dict[str, Any] = {
             "title":       title[:256],
             "description": description[:4096],
             "color":       color,
+            "timestamp":   _discord_timestamp(),
             "footer": {
-                "text":     f"{APP_NAME} v{APP_VERSION} — {REPO_URL}",
-                "icon_url": _DEFAULT_LOGO,
+                "text":     f"{APP_NAME} v{APP_VERSION}",
+                "icon_url": _bot_avatar,
             },
         }
         if fields:
@@ -302,7 +310,6 @@ class NotificationService:
                 for f in fields[:25]
             ]
 
-        _bot_name, _bot_avatar = _get_discord_identity()
         payload = {
             "username":   _bot_name,
             "avatar_url": _bot_avatar,

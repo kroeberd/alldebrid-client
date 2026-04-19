@@ -523,25 +523,45 @@ def _is_discord_url(url: str) -> bool:
 
 def _flexget_discord_body(event: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Format FlexGet event as a Discord webhook payload (embeds)."""
+    from core.config import get_settings as _gs
+    _app  = "AllDebrid-Client"
+    _repo = "https://github.com/kroeberd/alldebrid-client"
+    try:
+        _cfg    = _gs()
+        _avatar = (getattr(_cfg, "discord_avatar_url", "") or "").strip()
+        if not _avatar or _avatar.startswith("data:"):
+            _avatar = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+        _botname = (getattr(_cfg, "discord_username", "") or _app).strip() or _app
+    except Exception:
+        _avatar  = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+        _botname = _app
+
     colours = {
-        "run_started":      0x3B82F6,   # blue
-        "run_finished":     0x22C55E,   # green
-        "task_started":     0x6366F1,   # indigo
-        "task_ok":          0x22C55E,   # green
-        "task_error":       0xEF4444,   # red
-        "server_unreachable": 0xF97316, # orange
-        "server_recovered": 0x22C55E,   # green
+        "run_started":        0x3B82F6,   # blue
+        "run_finished":       0x22C55E,   # green
+        "task_started":       0x6366F1,   # indigo
+        "task_ok":            0x22C55E,   # green
+        "task_error":         0xEF4444,   # red
+        "server_unreachable": 0xF97316,   # orange
+        "server_recovered":   0x22C55E,   # green
     }
     colour = colours.get(event, 0x6B7280)
     title  = f"FlexGet — {event.replace('_', ' ').title()}"
 
     fields = []
     for k, v in payload.items():
-        if k == "result" or (isinstance(v, (dict, list)) and len(str(v)) > 80):
+        if k in ("result", "timestamp") or (isinstance(v, (dict, list)) and len(str(v)) > 80):
             continue
         fields.append({"name": k.replace("_", " ").title(), "value": str(v)[:512], "inline": True})
 
-    return {"embeds": [{"title": title, "color": colour, "fields": fields[:25]}]}
+    embed = {
+        "title":     title,
+        "color":     colour,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "footer":    {"text": _app, "icon_url": _avatar},
+        "fields":    fields[:25],
+    }
+    return {"username": _botname, "avatar_url": _avatar, "embeds": [embed]}
 
 
 async def _emit_flexget_webhook(event: str, payload: Dict[str, Any]) -> None:
