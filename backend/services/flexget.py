@@ -13,10 +13,17 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+<<<<<<< HEAD
 import random
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+=======
+import time
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+from urllib.parse import quote
+>>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 
 import aiohttp
 
@@ -49,6 +56,7 @@ def _configured_tasks() -> Optional[List[str]]:
     return tasks or None
 
 
+<<<<<<< HEAD
 def get_task_schedules() -> List[Dict[str, Any]]:
     """
     Returns normalized FlexGet task schedules.
@@ -140,6 +148,8 @@ def next_delay_seconds(schedule: Dict[str, Any]) -> float:
     return float(max(10, interval_seconds + random.uniform(-jitter_seconds, jitter_seconds)))
 
 
+=======
+>>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 class FlexGetClient:
     """Client for FlexGet v3 REST API."""
 

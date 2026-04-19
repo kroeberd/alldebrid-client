@@ -15,9 +15,12 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+<<<<<<< HEAD
 from urllib.parse import urlparse
 
 import aiohttp
+=======
+>>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 
 logger = logging.getLogger("alldebrid.stats")
 
@@ -27,6 +30,7 @@ def _cfg():
     return get_settings()
 
 
+<<<<<<< HEAD
 def _is_discord_webhook(url: str) -> bool:
     try:
         host = (urlparse(url).hostname or "").lower()
@@ -35,6 +39,8 @@ def _is_discord_webhook(url: str) -> bool:
         return False
 
 
+=======
+>>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 # ── Type-safe numeric helpers (handle int / float / Decimal / None) ───────────
 
 def _i(v) -> int:
@@ -299,6 +305,7 @@ async def generate_report(hours: int = 24) -> Dict[str, Any]:
         },
         "raw": metrics,
     }
+<<<<<<< HEAD
 
 
 async def send_stats_report(
@@ -351,3 +358,5 @@ async def send_stats_report(
 
     logger.info("Statistics report sent via webhook (%sh, %s)", hours, triggered_by)
     return {"ok": True, "hours": hours, "triggered_by": triggered_by, "discord": _is_discord_webhook(url)}
+=======
+>>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987

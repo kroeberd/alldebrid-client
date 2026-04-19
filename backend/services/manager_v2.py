@@ -163,6 +163,36 @@ async def _retry_async(fn, *args, attempts: int = MAX_FILE_RETRIES, delay: float
 
 MAX_CONCURRENT_AD_UPLOADS = 5
 
+
+def _file_in_use(path: Path) -> bool:
+    """
+    Returns True if any process currently has the file open (write or read).
+    Works by scanning /proc/*/fd symlinks — available on Linux without lsof.
+    Returns False if /proc is unavailable (non-Linux) or on any error.
+    """
+    try:
+        target = str(path.resolve())
+        proc_fd = Path("/proc")
+        if not proc_fd.exists():
+            return False
+        for pid_dir in proc_fd.iterdir():
+            if not pid_dir.name.isdigit():
+                continue
+            fd_dir = pid_dir / "fd"
+            try:
+                for fd in fd_dir.iterdir():
+                    try:
+                        if str(fd.resolve()) == target:
+                            return True
+                    except OSError:
+                        continue
+            except (PermissionError, FileNotFoundError):
+                continue
+    except Exception:
+        pass
+    return False
+
+
 class TorrentManager:
     def __init__(self):
         self._ad: Optional[AllDebridService] = None
@@ -290,6 +320,12 @@ class TorrentManager:
     async def _handle_torrent(self, path: Path, processed: Path):
         if not get_settings().alldebrid_api_key:
             return
+        # Check whether another process (e.g. a Sonarr/Radarr container) still
+        # has the file open for writing before we read it.
+        # Uses /proc/*/fd which is available on Linux/Docker without lsof.
+        if _file_in_use(path):
+            logger.debug("Watch [%s]: file still open by another process, will retry next cycle", path.name)
+            return
         content = path.read_bytes()
         if not content:
             raise ValueError("Empty torrent file")
@@ -305,6 +341,10 @@ class TorrentManager:
         shutil.move(str(path), str(processed / path.name))
 
     async def _handle_magnet_file(self, path: Path, processed: Path):
+        # Check whether another process still has the file open for writing.
+        if _file_in_use(path):
+            logger.debug("Watch [%s]: file still open by another process, will retry next cycle", path.name)
+            return
         content = path.read_text(errors="ignore")
         magnets = [line.strip() for line in content.splitlines() if line.strip().startswith("magnet:")]
         if not magnets:

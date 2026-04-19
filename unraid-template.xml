@@ -3,58 +3,73 @@
   <Name>alldebrid-client</Name>
   <Repository>kroeberd/alldebrid-client:latest</Repository>
   <Registry>https://hub.docker.com/r/kroeberd/alldebrid-client</Registry>
-  <Network>bridge</Network>
+  <Network>host</Network>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
   <Support>https://github.com/kroeberd/alldebrid-client/issues</Support>
   <Project>https://github.com/kroeberd/alldebrid-client</Project>
   <Overview>
+<<<<<<< HEAD
 [b]AllDebrid-Client v0.6.3[/b] Leaves destination directory creation entirely to aria2 when aria2 is the active download client, while keeping the recent watch-folder and AllDebrid stability fixes.
+=======
+[b]AllDebrid-Client v1.0.0[/b]
+>>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 
-Automated torrent/magnet downloading via AllDebrid with a clean Web UI.
+Self-hosted torrent automation via AllDebrid — Web UI, aria2 delivery, Discord notifications, PostgreSQL support, FlexGet integration.
 
 [b]Features:[/b]
+• Full torrent lifecycle: upload → poll → unlock → aria2 → done → Discord
 • Watch folder — drop .torrent or .magnet files for auto-import
-• AllDebrid API — upload, poll status, unlock links, auto-delete after download
-• Direct downloader or aria2 JSON-RPC delivery
-• File filters — block images, keywords, minimum size
-• Discord webhook notifications
-• SQLite database — prevents re-downloading known hashes
-• Import existing magnets already on AllDebrid
+• Slot-based aria2 queue with configurable concurrent download limit
+• Discord rich embeds for add / complete / error events
+• FlexGet v3 integration (schedule + manual trigger)
+• SQLite (default) or PostgreSQL (external)
+• Sonarr / Radarr import trigger
+• File filters — block by extension, keyword, minimum size
+• Automatic no-peer cleanup and stuck-download detection
 
 [b]Quick Setup:[/b]
 1. Set paths for Config, Watch, Processed, Downloads
 2. Open http://[IP]:8080 → Settings → enter AllDebrid API key → Save
-3. Add magnets via UI or drop files in Watch folder
+3. Configure aria2 RPC URL in Settings → Download
+4. Add magnets via UI or drop files in Watch folder
+
+[b]Network:[/b] Uses host network mode to avoid conflicts with Unraid shares (shfs).
   </Overview>
-  <Beta>True</Beta>
+  <Beta>False</Beta>
   <Category>Downloaders:</Category>
-  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <WebUI>http://[IP]:8080/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/kroeberd/unraid-templates/main/templates/alldebrid-client.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg</Icon>
   <ExtraParams>--restart=unless-stopped</ExtraParams>
 
-  <Config Name="WebUI Port" Target="8080" Default="8080" Mode="tcp"
-    Description="Port for the Web UI." Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+  <Config Name="Config folder" Target="/app/config" Default="/mnt/user/appdata/alldebrid-client/config" Mode="rw"
+    Description="Stores config.json. Required for persistence." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/alldebrid-client/config</Config>
 
-  <Config Name="Config &amp; Database" Target="/app/config" Default="/mnt/user/appdata/alldebrid-client/config" Mode="rw"
-    Description="Stores config.json and the SQLite database. Required for persistence." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/alldebrid-client/config</Config>
+  <Config Name="Data folder" Target="/app/data" Default="/mnt/user/appdata/alldebrid-client/data" Mode="rw"
+    Description="Stores the SQLite database and backups." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/alldebrid-client/data</Config>
 
-  <Config Name="Watch Folder" Target="/app/data/watch" Default="/mnt/user/data/torrents/watch" Mode="rw"
+  <Config Name="Watch folder" Target="/app/data/watch" Default="/mnt/user/data/torrents/watch" Mode="rw"
     Description="Drop .torrent or .magnet files here for automatic import." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/data/torrents/watch</Config>
 
-  <Config Name="Processed Folder" Target="/app/data/processed" Default="/mnt/user/data/torrents/processed" Mode="rw"
+  <Config Name="Processed folder" Target="/app/data/processed" Default="/mnt/user/data/torrents/processed" Mode="rw"
     Description="Torrent/magnet files are moved here after processing." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/data/torrents/processed</Config>
 
-  <Config Name="Download Folder" Target="/app/data/downloads" Default="/mnt/user/data/downloads" Mode="rw"
-    Description="Downloaded files are saved here." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/data/downloads</Config>
+  <Config Name="Download folder" Target="/download" Default="/mnt/user/downloads/alldebrid" Mode="rw"
+    Description="Downloaded files land here (aria2 writes to this path)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/downloads/alldebrid</Config>
 
   <Config Name="Timezone" Target="TZ" Default="Europe/Berlin" Mode=""
     Description="Container timezone. Examples: Europe/Berlin, UTC, America/New_York" Type="Variable" Display="always" Required="false" Mask="false">Europe/Berlin</Config>
 
-  <Config Name="Config Path" Target="CONFIG_PATH" Default="/app/config/config.json" Mode=""
-    Description="Internal config path — do not change unless you know what you're doing." Type="Variable" Display="advanced" Required="false" Mask="false">/app/config/config.json</Config>
+  <Config Name="Log level" Target="LOG_LEVEL" Default="INFO" Mode=""
+    Description="INFO for normal use, DEBUG for troubleshooting." Type="Variable" Display="advanced" Required="false" Mask="false">INFO</Config>
 
-  <Config Name="DB Path" Target="DB_PATH" Default="/app/config/alldebrid.db" Mode=""
-    Description="Internal SQLite DB path." Type="Variable" Display="advanced" Required="false" Mask="false">/app/config/alldebrid.db</Config>
+  <Config Name="DB type" Target="DB_TYPE" Default="" Mode=""
+    Description="Leave empty for SQLite (default). Set to 'postgres' for external PostgreSQL." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+
+  <Config Name="Config path" Target="CONFIG_PATH" Default="/app/config/config.json" Mode=""
+    Description="Internal config path — do not change." Type="Variable" Display="advanced" Required="false" Mask="false">/app/config/config.json</Config>
+
+  <Config Name="DB path" Target="DB_PATH" Default="/app/data/alldebrid.db" Mode=""
+    Description="Internal SQLite DB path — do not change." Type="Variable" Display="advanced" Required="false" Mask="false">/app/data/alldebrid.db</Config>
 </Container>

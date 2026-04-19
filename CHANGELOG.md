@@ -1,5 +1,6 @@
 # Changelog
 
+<<<<<<< HEAD
 ## [1.0.2] — 2026-04-19
 
 Release focused on version consistency, richer automation, and webhook-based reporting.
@@ -35,6 +36,22 @@ Maintenance release focused on settings consistency and release metadata cleanup
 - Sidebar version now follows the backend-reported app version instead of relying only on hardcoded UI text
 
 ### Changed
+=======
+## [1.0.1] — 2026-04-19
+
+Maintenance release focused on settings consistency and release metadata cleanup.
+
+### Fixed
+- Settings values of `0` now persist and render correctly in the web UI
+- Deep filesystem sync can now be properly disabled with `0`
+- Full AllDebrid sync can now be properly disabled with `0`
+- Stats snapshots can now be properly disabled with `0`
+- AllDebrid rate limiting now honors `0 = unlimited`
+- Settings save flow now preserves non-visible config values instead of resetting them
+- Sidebar version now follows the backend-reported app version instead of relying only on hardcoded UI text
+
+### Changed
+>>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 - Exposed additional active settings in the UI:
   - `aria2_poll_interval_seconds`
   - `full_sync_interval_minutes`

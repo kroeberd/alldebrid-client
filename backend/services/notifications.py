@@ -17,15 +17,33 @@ import hashlib
 import logging
 import time
 from datetime import datetime, timezone
+<<<<<<< HEAD
 from typing import Any, Dict, List, Optional
 
 import aiohttp
 from core.version import read_version
+=======
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import aiohttp
+>>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 
 logger = logging.getLogger("alldebrid.notify")
 
 APP_NAME    = "AllDebrid-Client"
+<<<<<<< HEAD
 APP_VERSION = read_version()
+=======
+_VER_PATH = next(
+    (p for p in (
+        Path(__file__).resolve().parents[1] / "VERSION",   # /app/VERSION in container
+        Path(__file__).resolve().parents[2] / "VERSION",   # repo root locally
+    ) if p.exists()),
+    None,
+)
+APP_VERSION = _VER_PATH.read_text(encoding="utf-8").strip() if _VER_PATH else "dev"
+>>>>>>> 5794aeb134b4c2391dba583da78847a0b1460987
 REPO_URL    = "https://github.com/kroeberd/alldebrid-client"
 # Default logo — overridden at runtime by discord_avatar_url from settings
 _DEFAULT_LOGO = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
