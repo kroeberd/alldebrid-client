@@ -7,6 +7,15 @@ logger = logging.getLogger("alldebrid.scheduler")
 _tasks = []
 
 
+def _coerce_int_setting(value, default: int) -> int:
+    try:
+        if value is None:
+            return int(default)
+        return int(value)
+    except Exception:
+        return int(default)
+
+
 async def watch_folder_loop():
     while True:
         try:
@@ -47,7 +56,10 @@ async def full_sync_loop():
     await asyncio.sleep(10)  # short initial delay after startup
     while True:
         cfg = get_settings()
-        interval = max(1, int(getattr(cfg, "full_sync_interval_minutes", 5) or 5))
+        interval = max(0, _coerce_int_setting(getattr(cfg, "full_sync_interval_minutes", 5), 5))
+        if interval <= 0:
+            await asyncio.sleep(60)
+            continue
         try:
             await manager.import_existing_magnets()
         except Exception as e:
@@ -77,7 +89,7 @@ async def deep_sync_loop():
     """
     while True:
         cfg = get_settings()
-        interval_min = max(0, int(getattr(cfg, "aria2_deep_sync_interval_minutes", 10) or 0))
+        interval_min = max(0, _coerce_int_setting(getattr(cfg, "aria2_deep_sync_interval_minutes", 10), 10))
         if interval_min <= 0:
             await asyncio.sleep(60)
             continue
@@ -132,7 +144,7 @@ async def flexget_loop():
     await asyncio.sleep(30)  # initial delay
     while True:
         cfg = get_settings()
-        interval_min = int(getattr(cfg, "flexget_schedule_minutes", 0) or 0)
+        interval_min = _coerce_int_setting(getattr(cfg, "flexget_schedule_minutes", 0), 0)
         interval_min = max(0, min(interval_min, 720))  # cap at 12h
         if interval_min <= 0:
             await asyncio.sleep(60)
@@ -142,7 +154,7 @@ async def flexget_loop():
             continue
 
         interval_sec  = interval_min * 60
-        jitter_sec    = max(0, int(getattr(cfg, "flexget_jitter_seconds", 0) or 0))
+        jitter_sec    = max(0, _coerce_int_setting(getattr(cfg, "flexget_jitter_seconds", 0), 0))
         jitter_offset = random.uniform(-jitter_sec, jitter_sec) if jitter_sec > 0 else 0
         sleep_sec     = max(10, interval_sec + jitter_offset)
 
@@ -164,7 +176,7 @@ async def stats_snapshot_loop():
     await asyncio.sleep(120)  # initial delay
     while True:
         cfg = get_settings()
-        interval_min = max(0, int(getattr(cfg, "stats_snapshot_interval_minutes", 60) or 60))
+        interval_min = max(0, _coerce_int_setting(getattr(cfg, "stats_snapshot_interval_minutes", 60), 60))
         if interval_min <= 0:
             await asyncio.sleep(300)
             continue

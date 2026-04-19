@@ -4,7 +4,8 @@
 
 | Version | Supported |
 |---------|-----------|
-| 0.0.x   | ✅ Yes     |
+| 1.0.x   | ✅ Yes     |
+| < 1.0.0 | ❌ No      |
 
 Only the latest release receives security fixes. Please update before reporting.
 

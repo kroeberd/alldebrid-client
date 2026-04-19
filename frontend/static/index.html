@@ -526,7 +526,7 @@ textarea.input { resize: vertical; }
     <img class="logo-icon" src="/logo.svg" alt="AllDebrid-Client logo">
     <div class="logo-text">
       <div class="logo-name">AllDebrid-Client</div>
-      <div class="logo-ver" id="sidebar-version">v1.0.0</div>
+      <div class="logo-ver" id="sidebar-version">v1.0.1</div>
     </div>
   </div>
   <nav>
@@ -1053,6 +1053,8 @@ function fmtDuration(secs) {
 async function loadStats() {
   try {
     const s = await api('GET', '/stats');
+    const versionEl = document.getElementById('sidebar-version');
+    if (versionEl && s.version) versionEl.textContent = `v${String(s.version).replace(/^v/i, '')}`;
     settingsData.paused = !!s.paused;
     renderTopbarActions();
     const bs = s.by_status || {};
@@ -1595,7 +1597,7 @@ function renderSettings() {
         </div>
         <div class="form-group">
           <label class="form-label">Max Concurrent Downloads</label>
-          <input class="input" type="number" id="s-max_concurrent_downloads" value="${s.max_concurrent_downloads||3}" min="1" max="20"/>
+          <input class="input" type="number" id="s-max_concurrent_downloads" value="${s.max_concurrent_downloads??3}" min="1" max="20"/>
         <div class="form-group" style="margin-top:8px">
           <div style="display:flex;gap:8px">
             <button class="btn btn-ghost btn-sm" id="btn-test-postgres" onclick="testPostgres()" style="display:none">🔌 Test Connection</button>
@@ -1666,21 +1668,26 @@ function renderSettings() {
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Timeout (seconds)</label>
-          <input class="input" type="number" id="s-aria2_operation_timeout_seconds" value="${s.aria2_operation_timeout_seconds||15}" min="5" max="120"/>
+          <input class="input" type="number" id="s-aria2_operation_timeout_seconds" value="${s.aria2_operation_timeout_seconds??15}" min="5" max="120"/>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Simultaneous Downloads</label>
-          <input class="input" type="number" id="s-aria2_max_active_downloads" value="${s.aria2_max_active_downloads||s.max_concurrent_downloads||3}" min="1" max="50"/>
+          <input class="input" type="number" id="s-aria2_max_active_downloads" value="${s.aria2_max_active_downloads??s.max_concurrent_downloads??3}" min="1" max="50"/>
           <span class="form-hint">Only this many files are handed to aria2 at once. Remaining files stay pending until a slot becomes free.</span>
         </div>
         <div class="form-group">
           <label class="form-label">Deep Filesystem Sync Interval (minutes)</label>
-          <input class="input" type="number" id="s-aria2_deep_sync_interval_minutes" value="${s.aria2_deep_sync_interval_minutes||10}" min="0" max="1440"/>
+          <input class="input" type="number" id="s-aria2_deep_sync_interval_minutes" value="${s.aria2_deep_sync_interval_minutes??10}" min="0" max="1440"/>
           <span class="form-hint">
             Periodically checks if downloaded files exist on disk — independent of aria2 GID or status.
             Resolves stuck downloads where aria2 lost track of the entry or the same filename appears in different folders.
             <b>0 = disabled.</b> Default: 10 minutes.
           </span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Poll Interval (seconds)</label>
+          <input class="input" type="number" id="s-aria2_poll_interval_seconds" value="${s.aria2_poll_interval_seconds??5}" min="2" max="300"/>
+          <span class="form-hint">How often the client refreshes aria2 download state.</span>
         </div>
         <div class="form-group">
           <button class="btn btn-ghost" onclick="triggerFullSync()">🔄 Full AllDebrid Sync Now</button>
@@ -1862,7 +1869,7 @@ function renderSettings() {
           </div>
           <div class="form-group">
             <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
-            <input class="input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb||0}" min="0"/>
+            <input class="input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb??0}" min="0"/>
           </div>
         <div class="form-group" style="margin-top:8px">
           <div style="display:flex;gap:8px">
@@ -1883,11 +1890,11 @@ function renderSettings() {
       <div class="scard-body">
         <div class="form-group">
           <label class="form-label">AllDebrid Poll Interval (seconds)</label>
-          <input class="input" type="number" id="s-poll_interval_seconds" value="${s.poll_interval_seconds||30}" min="10"/>
+            <input class="input" type="number" id="s-poll_interval_seconds" value="${s.poll_interval_seconds??30}" min="10"/>
         </div>
         <div class="form-group">
           <label class="form-label">Watch Folder Scan (seconds)</label>
-          <input class="input" type="number" id="s-watch_interval_seconds" value="${s.watch_interval_seconds||10}" min="5"/>
+            <input class="input" type="number" id="s-watch_interval_seconds" value="${s.watch_interval_seconds??10}" min="5"/>
         <div class="form-group" style="margin-top:8px">
           <div style="display:flex;gap:8px">
             <button class="btn btn-ghost btn-sm" id="btn-test-postgres" onclick="testPostgres()" style="display:none">🔌 Test Connection</button>
@@ -1956,7 +1963,7 @@ function renderSettings() {
         <div class="scard-body">
           <div class="form-group">
             <label class="form-label">Stuck timeout (hours)</label>
-            <input class="input" type="number" id="s-stuck_download_timeout_hours" value="${s.stuck_download_timeout_hours||6}" min="0" max="168"/>
+            <input class="input" type="number" id="s-stuck_download_timeout_hours" value="${s.stuck_download_timeout_hours??6}" min="0" max="168"/>
             <span class="form-hint">Torrents stuck in queued/downloading for longer than this are automatically reset. Set to 0 to disable.</span>
           </div>
         </div>
@@ -1966,8 +1973,23 @@ function renderSettings() {
         <div class="scard-body">
           <div class="form-group">
             <label class="form-label">API calls per minute</label>
-            <input class="input" type="number" id="s-alldebrid_rate_limit_per_minute" value="${s.alldebrid_rate_limit_per_minute||60}" min="1" max="300"/>
-            <span class="form-hint">Default: 60 req/min. Increase if you have many concurrent torrents, lower if you get rate-limited.</span>
+            <input class="input" type="number" id="s-alldebrid_rate_limit_per_minute" value="${s.alldebrid_rate_limit_per_minute??60}" min="0" max="300"/>
+            <span class="form-hint">Default: 60 req/min. Set to 0 for unlimited.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Full AllDebrid Sync Interval (minutes)</label>
+            <input class="input" type="number" id="s-full_sync_interval_minutes" value="${s.full_sync_interval_minutes??5}" min="0" max="1440"/>
+            <span class="form-hint">Reconciles all known AllDebrid magnets. 0 = disabled.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">aria2 Retry Count</label>
+            <input class="input" type="number" id="s-aria2_error_retry_count" value="${s.aria2_error_retry_count??3}" min="0" max="20"/>
+            <span class="form-hint">How often a failed aria2 file is retried. 0 = disabled.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">aria2 Retry Delay (seconds)</label>
+            <input class="input" type="number" id="s-aria2_error_retry_delay_seconds" value="${s.aria2_error_retry_delay_seconds??60}" min="0" max="3600"/>
+            <span class="form-hint">Delay before retrying a failed aria2 file.</span>
           </div>
         </div>
       </div>
@@ -1987,12 +2009,12 @@ function renderSettings() {
           </div>
           <div class="form-group">
             <label class="form-label">Interval (hours)</label>
-            <input class="input" type="number" id="s-backup_interval_hours" value="${s.backup_interval_hours||24}" min="1" max="168"/>
+            <input class="input" type="number" id="s-backup_interval_hours" value="${s.backup_interval_hours??24}" min="1" max="168"/>
             <span class="form-hint">Default: 24h. Backup runs once per interval.</span>
           </div>
           <div class="form-group">
             <label class="form-label">Keep backups for (days)</label>
-            <input class="input" type="number" id="s-backup_keep_days" value="${s.backup_keep_days||7}" min="1" max="90"/>
+            <input class="input" type="number" id="s-backup_keep_days" value="${s.backup_keep_days??7}" min="1" max="90"/>
             <span class="form-hint">Default: 7 days. Older backups are deleted automatically.</span>
           </div>
           <div style="display:flex;gap:8px;margin-top:4px">
@@ -2131,24 +2153,30 @@ function renderSettings() {
 
 function getFormSettings() {
   const g = id => document.getElementById('s-'+id);
-  const t = id => g(id)?.value?.trim()||'';
-  const n = id => parseInt(g(id)?.value||'0');
+  const t = id => g(id)?.value?.trim() || '';
+  const n = (id, fallback = 0) => {
+    const raw = g(id)?.value;
+    if (raw == null || raw === '') return fallback;
+    const parsed = parseInt(raw, 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  };
   const c = id => g(id)?.checked||false;
   const l = id => g(id)?.value?.split('\n').map(x=>x.trim()).filter(Boolean)||[];
   return {
+    ...settingsData,
     alldebrid_api_key: t('alldebrid_api_key'),
     alldebrid_agent:   t('alldebrid_agent')||'AllDebrid-Client',
     watch_folder: t('watch_folder'), processed_folder: t('processed_folder'),
-    download_folder: t('download_folder'), max_concurrent_downloads: n('max_concurrent_downloads')||3,
+    download_folder: t('download_folder'), max_concurrent_downloads: n('max_concurrent_downloads', 3),
     max_speed_mbps: 0,
     download_client: 'aria2',
     aria2_url: t('aria2_url'),
     aria2_secret: t('aria2_secret'),
     aria2_download_path: t('aria2_download_path'),
-    aria2_operation_timeout_seconds: n('aria2_operation_timeout_seconds') || 15,
-    aria2_max_active_downloads: n('aria2_max_active_downloads') || n('max_concurrent_downloads') || 3,
+    aria2_operation_timeout_seconds: n('aria2_operation_timeout_seconds', 15),
+    aria2_max_active_downloads: n('aria2_max_active_downloads', n('max_concurrent_downloads', 3)),
     aria2_start_paused: c('aria2_start_paused'),
-    aria2_poll_interval_seconds: 5,
+    aria2_poll_interval_seconds: n('aria2_poll_interval_seconds', 5),
     db_type: t('db_type'),
     postgres_host: t('postgres_host'), postgres_port: n('postgres_port'),
     postgres_db: t('postgres_db'), postgres_user: t('postgres_user'),
@@ -2165,11 +2193,12 @@ function getFormSettings() {
     torrent_labels: (t('torrent_labels_raw')||'').split(',').map(s=>s.trim()).filter(Boolean),
     stuck_download_timeout_hours: n('stuck_download_timeout_hours'),
     alldebrid_rate_limit_per_minute: n('alldebrid_rate_limit_per_minute'),
+    full_sync_interval_minutes: n('full_sync_interval_minutes'),
     backup_enabled: c('backup_enabled'), backup_folder: t('backup_folder'),
     backup_interval_hours: n('backup_interval_hours'), backup_keep_days: n('backup_keep_days'),
     blocked_extensions: l('blocked_extensions'), blocked_keywords: l('blocked_keywords'),
-    min_file_size_mb: n('min_file_size_mb'), poll_interval_seconds: n('poll_interval_seconds')||30,
-    watch_interval_seconds: n('watch_interval_seconds')||10,
+    min_file_size_mb: n('min_file_size_mb'), poll_interval_seconds: n('poll_interval_seconds', 30),
+    watch_interval_seconds: n('watch_interval_seconds', 10),
     filters_enabled: c('filters_enabled'),
     aria2_deep_sync_interval_minutes: n('aria2_deep_sync_interval_minutes'),
     aria2_error_retry_count: n('aria2_error_retry_count'),

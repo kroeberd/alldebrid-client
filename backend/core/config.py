@@ -93,10 +93,6 @@ class AppSettings(BaseModel):
     backup_keep_days: int = 7
     backup_interval_hours: int = 24
 
-    # Notifications for other providers (comma-separated URLs for Pushover/Gotify/etc.)
-    # Kept empty by default
-    notification_urls: str = ""
-
     # aria2 download retry on error
     # How many times to retry a failed aria2 download before giving up (0 = no retry)
     aria2_error_retry_count: int = 3
@@ -124,8 +120,6 @@ class AppSettings(BaseModel):
     stats_snapshot_interval_minutes: int = 60
     # How many days to keep snapshots
     stats_snapshot_keep_days: int = 30
-    # Auto-report: interval in hours (0 = disabled)
-    stats_report_interval_hours: int = 0
 
 
 _settings: AppSettings = AppSettings()

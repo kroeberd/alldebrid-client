@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.0.1] — 2026-04-19
+
+Maintenance release focused on settings consistency and release metadata cleanup.
+
+### Fixed
+- Settings values of `0` now persist and render correctly in the web UI
+- Deep filesystem sync can now be properly disabled with `0`
+- Full AllDebrid sync can now be properly disabled with `0`
+- Stats snapshots can now be properly disabled with `0`
+- AllDebrid rate limiting now honors `0 = unlimited`
+- Settings save flow now preserves non-visible config values instead of resetting them
+- Sidebar version now follows the backend-reported app version instead of relying only on hardcoded UI text
+
+### Changed
+- Exposed additional active settings in the UI:
+  - `aria2_poll_interval_seconds`
+  - `full_sync_interval_minutes`
+  - `aria2_error_retry_count`
+  - `aria2_error_retry_delay_seconds`
+
+### Removed
+- Unused `notification_urls` setting from the config model
+- Unused `stats_report_interval_hours` setting from the config model and UI
+
 ## [1.0.0] — 2026-04-18
 
 First public release. All core features are stable and production-ready.

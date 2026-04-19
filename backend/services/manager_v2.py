@@ -31,10 +31,11 @@ async def _get_ad_semaphore() -> asyncio.Semaphore:
     global _ad_rate_sem
     async with _ad_rate_lock:
         try:
-            from core.config import get_settings
-            limit = max(1, get_settings().alldebrid_rate_limit_per_minute)
+            limit = int(get_settings().alldebrid_rate_limit_per_minute)
         except Exception:
             limit = 60
+        if limit <= 0:
+            limit = 1_000_000
         if _ad_rate_sem is None or _ad_rate_sem._value != limit:
             _ad_rate_sem = asyncio.Semaphore(limit)
     return _ad_rate_sem
