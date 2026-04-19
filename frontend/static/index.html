@@ -128,7 +128,11 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
 .dot.ok     { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,.4); }
 .dot.error  { background: var(--red); animation: blink 1.5s infinite; }
-.dot.check  { background: var(--yellow); }
+.dot.check  { background: var(--yellow); animation: pulse 1.2s infinite; }
+.dot.warn   { background: var(--yellow); }
+@keyframes pulse {
+  0%,100% { opacity:1; } 50% { opacity:.3; }
+}
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
 /* ── Main ── */
@@ -988,38 +992,32 @@ function progress(pct, status) {
 
 // ── Status Bar ─────────────────────────────────────────────────────────────
 async function checkConnections() {
-  // AllDebrid — check via /stats (lightweight)
-  try {
-    const s = await api('GET', '/stats');
-    setDot('api', 'ok', 'AllDebrid: online');
-    // Update DB dot from stats
-    if (s.db_type) {
-      setDot('db',
-        s.db_type === 'sqlite_fallback' ? 'error' : 'ok',
-        s.db_type === 'sqlite_fallback' ? 'DB: SQLite (fallback)'
-          : s.db_type === 'postgres'    ? 'DB: PostgreSQL'
-          : 'DB: SQLite'
-      );
-    }
-  } catch {
-    setDot('api', 'error', 'AllDebrid: offline');
-  }
+  // AllDebrid dot is already set by loadStats() — skip duplicate /stats call
   const cfg = settingsData || {};
-  // aria2 — only test if URL is configured
+
+  // aria2 check — retry once if first attempt fails
   if (cfg.aria2_url) {
-    try {
-      const result = await api('POST', '/settings/test-aria2');
-      setDot('aria2', 'ok', `aria2: ${result.version||'online'}`);
-    } catch {
-      setDot('aria2', 'error', 'aria2: offline');
+    let aria2Ok = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const result = await api('POST', '/settings/test-aria2');
+        setDot('aria2', 'ok', `aria2: ${result.version||'online'}`);
+        aria2Ok = true;
+        break;
+      } catch {
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, attempt * 800));
+        } else {
+          setDot('aria2', 'error', 'aria2: offline');
+        }
+      }
     }
   } else {
     setDot('aria2', 'warn', 'aria2: not configured');
   }
 }
 
-// Premium status — called once on startup, then every 12 hours
-let _premiumCheckInterval = null;
+
 async function checkPremiumStatus() {
   try {
     const cfg = settingsData;
@@ -1069,53 +1067,66 @@ function fmtDuration(secs) {
 }
 
 async function loadStats() {
-  try {
-    const s = await api('GET', '/stats');
-    const versionEl = document.getElementById('sidebar-version');
-    if (versionEl && s.version) versionEl.textContent = `v${String(s.version).replace(/^v/i, '')}`;
-    if (settingsData) settingsData.paused = !!s.paused;
-    renderTopbarActions();
-    // Set AllDebrid dot immediately from stats response (fast, no extra call needed)
-    setDot('api', 'ok', 'AllDebrid: online');
-    const bs = s.by_status || {};
-    const total = Object.values(bs).reduce((a,b)=>a+b,0);
-    // completed_count kommt direkt vom API (nicht aus by_status, damit der Dashboard-Fix greift)
-    const completed = s.completed_count ?? bs.completed ?? 0;
-    const queuePct = pct(completed, total || 0);
-    document.getElementById('s-total').textContent = total;
-    document.getElementById('s-completed').textContent = completed;
-    document.getElementById('s-active').textContent = s.active_downloads||0;
-    document.getElementById('s-processing').textContent = s.paused ? 'Paused' : (bs.processing||0)+(bs.uploading||0);
-    document.getElementById('s-error').textContent = s.error_count ?? bs.error ?? 0;
-    document.getElementById('s-size').textContent = fmtSize(s.total_completed_bytes);
-    document.getElementById('s-blocked').textContent = `${s.total_blocked_files||0} blocked files`;
-    document.getElementById('i-queue-health').textContent = `${queuePct}%`;
-    document.getElementById('i-queue-copy').textContent = `${s.active_downloads||0} active / ${s.queued_downloads||0} queued`;
-    document.getElementById('i-last-day').textContent = s.completed_last_24h||0;
-    document.getElementById('i-last-week').textContent = s.completed_last_7d||0;
-    document.getElementById('i-success-rate').textContent = s.success_rate_pct != null ? s.success_rate_pct+'%' : '—';
-    document.getElementById('i-avg-duration').textContent = fmtDuration(s.avg_download_duration_seconds);
-    document.getElementById('i-avg-size').textContent = s.avg_torrent_size_bytes ? fmtSize(s.avg_torrent_size_bytes) : '—';
-    const active = s.active_downloads || 0;
-    const nb = document.getElementById('nb-active');
-    nb.textContent = active; nb.style.display = active > 0 ? '' : 'none';
-    const dbEl = document.getElementById('i-db-type');
-    if (dbEl && s.db_type) {
-      const dbLabels = {sqlite:'SQLite', postgres:'PostgreSQL', sqlite_fallback:'⚠️ SQLite (fallback)'};
-      dbEl.textContent = dbLabels[s.db_type] || s.db_type;
-      if (s.db_type === 'sqlite_fallback') {
-        dbEl.style.color = 'var(--accent)';
-        dbEl.title = 'PostgreSQL unreachable — running on SQLite fallback.';
-      } else { dbEl.style.color = ''; dbEl.title = ''; }
+  // Retry up to 5 times — server may be slow on first request after container start
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      const s = await api('GET', '/stats');
+      // ── populate sidebar version ────────────────────────────────────────
+      const versionEl = document.getElementById('sidebar-version');
+      if (versionEl && s.version) versionEl.textContent = `v${String(s.version).replace(/^v/i, '')}`;
+      if (settingsData) settingsData.paused = !!s.paused;
+      renderTopbarActions();
+      setDot('api', 'ok', 'AllDebrid: online');
+      // ── stat cards ─────────────────────────────────────────────────────
+      const bs = s.by_status || {};
+      const total = Object.values(bs).reduce((a,b)=>a+b,0);
+      const completed = s.completed_count ?? bs.completed ?? 0;
+      const queuePct = pct(completed, total || 0);
+      document.getElementById('s-total').textContent = total;
+      document.getElementById('s-completed').textContent = completed;
+      document.getElementById('s-active').textContent = s.active_downloads||0;
+      document.getElementById('s-processing').textContent = s.paused ? 'Paused' : (bs.processing||0)+(bs.uploading||0);
+      document.getElementById('s-error').textContent = s.error_count ?? bs.error ?? 0;
+      document.getElementById('s-size').textContent = fmtSize(s.total_completed_bytes);
+      document.getElementById('s-blocked').textContent = `${s.total_blocked_files||0} blocked files`;
+      document.getElementById('i-queue-health').textContent = `${queuePct}%`;
+      document.getElementById('i-queue-copy').textContent = `${s.active_downloads||0} active / ${s.queued_downloads||0} queued`;
+      document.getElementById('i-last-day').textContent = s.completed_last_24h||0;
+      document.getElementById('i-last-week').textContent = s.completed_last_7d||0;
+      document.getElementById('i-success-rate').textContent = s.success_rate_pct != null ? s.success_rate_pct+'%' : '—';
+      document.getElementById('i-avg-duration').textContent = fmtDuration(s.avg_download_duration_seconds);
+      document.getElementById('i-avg-size').textContent = s.avg_torrent_size_bytes ? fmtSize(s.avg_torrent_size_bytes) : '—';
+      const active = s.active_downloads || 0;
+      const nb = document.getElementById('nb-active');
+      if (nb) { nb.textContent = active; nb.style.display = active > 0 ? '' : 'none'; }
+      // ── DB info + dot ──────────────────────────────────────────────────
+      const dbEl = document.getElementById('i-db-type');
+      if (dbEl && s.db_type) {
+        const dbLabels = {sqlite:'SQLite', postgres:'PostgreSQL', sqlite_fallback:'⚠️ SQLite (fallback)'};
+        dbEl.textContent = dbLabels[s.db_type] || s.db_type;
+        dbEl.style.color = s.db_type === 'sqlite_fallback' ? 'var(--accent)' : '';
+        dbEl.title       = s.db_type === 'sqlite_fallback' ? 'PostgreSQL unreachable — running on SQLite fallback.' : '';
+      }
+      setDot('db',
+        s.db_type === 'sqlite_fallback' ? 'error' : 'ok',
+        s.db_type === 'sqlite_fallback' ? 'DB: SQLite (fallback)'
+          : s.db_type === 'postgres'    ? 'DB: PostgreSQL'
+          : 'DB: SQLite'
+      );
+      return; // success — stop retrying
+    } catch(e) {
+      if (attempt < 5) {
+        const delay = attempt * 500; // 500ms, 1000ms, 1500ms, 2000ms
+        console.warn(`loadStats attempt ${attempt} failed, retrying in ${delay}ms:`, e.message);
+        await new Promise(r => setTimeout(r, delay));
+      } else {
+        console.warn('loadStats failed after 5 attempts:', e.message);
+        setDot('api', 'error', 'AllDebrid: unreachable');
+      }
     }
-    setDot('db',
-      s.db_type === 'sqlite_fallback' ? 'error' : 'ok',
-      s.db_type === 'sqlite_fallback' ? 'DB: SQLite (fallback)'
-        : s.db_type === 'postgres'    ? 'DB: PostgreSQL'
-        : 'DB: SQLite'
-    );
-  } catch(e) { console.warn('loadStats error:', e); }
+  }
 }
+
 
 async function loadRecent() {
   try {
@@ -2736,10 +2747,15 @@ async function testPostgres() {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 (async()=>{
-  // Fire settings + stats in parallel — stats does not need settings
+  // Mark sidebar dots as 'checking' immediately — gives visual feedback before API responds
+  setDot('api',   'check', 'AllDebrid: checking…');
+  setDot('aria2', 'check', 'aria2: checking…');
+  setDot('db',    'check', 'DB: checking…');
+
+  // Fire settings + stats in parallel — stats does not need settings to load
   const [_settingsResult, _statsOk] = await Promise.allSettled([
     api('GET', '/settings'),
-    loadStats(),          // populates dashboard immediately
+    loadStats(),   // retries up to 5× — populates dashboard + sets api/db dots
   ]);
   if (_settingsResult.status === 'fulfilled') {
     settingsData = _settingsResult.value;
@@ -2747,9 +2763,9 @@ async function testPostgres() {
     console.warn('Settings load failed:', _settingsResult.reason);
   }
   renderTopbarActions();
-  // Background work — does not delay first render
+  // Background work — must not delay first render
   loadRecent().catch(() => {});
-  checkConnections().catch(() => {});
+  checkConnections().catch(() => {});  // sets aria2 dot
   checkPremiumStatus().catch(() => {});
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
   setInterval(checkFlexgetRunning, 10000);
@@ -2761,6 +2777,16 @@ async function testPostgres() {
     if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
   }, 15000);
   setInterval(()=>checkConnections().catch(()=>{}), 60000);
+  // Safety net: if loadStats failed on startup, retry after 3s without backoff
+  setTimeout(async () => {
+    const el = document.getElementById('s-total');
+    if (el && (el.textContent === '—' || el.textContent === '')) {
+      console.info('loadStats safety-net retry after 3s');
+      await loadStats();
+      loadRecent().catch(()=>{});
+      checkConnections().catch(()=>{});
+    }
+  }, 3000);
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>

@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.1.1] — 2026-04-19
+
+### Fixed
+- **UI values empty on load (root cause found and fixed)** —
+  `loadStats()` had no retry logic: if `/api/stats` failed or timed out on the
+  first request (common right after container start while the DB connection is
+  being established), the `catch` block silently discarded the error and the
+  dashboard stayed blank. The user had to click elsewhere to trigger a second
+  call that succeeded. Fixed:
+  - `loadStats()` now retries up to **5 times** with increasing delays
+    (500 ms → 1 s → 1.5 s → 2 s). On permanent failure it sets the
+    AllDebrid dot to red and logs to console.
+  - **Safety-net setTimeout**: 3 seconds after startup, checks whether
+    `s-total` is still blank and triggers a fresh `loadStats()` if so.
+  - **Sidebar dots** are set to yellow "checking…" immediately on startup
+    (before any API call) so the user sees active feedback, not stale defaults.
+  - `checkConnections()` simplified: AllDebrid + DB dots are already set by
+    `loadStats()`; `checkConnections()` now only handles the **aria2** dot,
+    with up to **3 retries** (800 ms apart) before marking it as offline.
+
+### Added
+- `.dot.check` CSS now pulses (animation) to communicate "actively checking".
+- `.dot.warn` CSS (yellow, no pulse) for "not configured" states.
+
 ## [1.1.0] — 2026-04-19
 
 ### Fixed
