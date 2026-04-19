@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.5] — 2026-04-19
+
+### Fixed
+- **loadStats retry loop ran 10× even on success** — `loadStats()` returned
+  `undefined` (bare `return;`) on success. The startup retry loop tested
+  `while (!loaded)` — `!undefined === true` — so it kept retrying even after
+  `/api/stats` had been successfully fetched and the DOM updated.
+  Fix: `loadStats()` now returns `true` on success and `false` on error.
+  The internal 5-attempt retry inside `loadStats()` was also removed — the
+  outer IIFE loop already handles retries, no duplication needed.
+- **aria2 dot slow to appear** — `checkConnections()` was started only after
+  the `loadStats` retry loop finished. Now it fires immediately at startup
+  parallel to the stats retry, so the aria2 dot appears as soon as the
+  aria2 test resolves.
+
 ## [1.1.4] — 2026-04-19
 
 ### Fixed

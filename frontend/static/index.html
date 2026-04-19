@@ -1115,16 +1115,10 @@ async function loadStats() {
           : s.db_type === 'postgres'    ? 'DB: PostgreSQL'
           : 'DB: SQLite'
       );
-      return; // success — stop retrying
+      return true; // signal success to caller
     } catch(e) {
-      if (attempt < 5) {
-        const delay = attempt * 500; // 500ms, 1000ms, 1500ms, 2000ms
-        console.warn(`loadStats attempt ${attempt} failed, retrying in ${delay}ms:`, e.message);
-        await new Promise(r => setTimeout(r, delay));
-      } else {
-        console.warn('loadStats failed after 5 attempts:', e.message);
-        setDot('api', 'error', 'AllDebrid: unreachable');
-      }
+      console.warn('loadStats error:', e.message);
+      return false; // signal failure to caller — caller handles retry
     }
   }
 }
@@ -2785,15 +2779,18 @@ async function testPostgres() {
       if (statsAttempt >= 10) { dbg('Aufgegeben nach 10 Versuchen'); break; }
     }
   }
-  if (statsLoaded) {
-    dbg('Stats geladen ✓ — starte Hintergrund-Tasks');
-    // Nach 10s Debug-Panel ausblenden
-    setTimeout(() => { const el = document.getElementById('debug-status'); if (el) el.style.display = 'none'; }, 10000);
-  }
-
+  // Hintergrund-Tasks sofort starten — nicht auf Stats warten
   loadRecent().catch(() => {});
-  checkConnections().catch(() => {});
+  checkConnections().catch(() => {});   // setzt aria2-Dot
   checkPremiumStatus().catch(() => {});
+
+  if (statsLoaded) {
+    dbg('Stats geladen ✓');
+    setTimeout(() => { const el = document.getElementById('debug-status'); if (el) el.style.display = 'none'; }, 5000);
+  } else {
+    dbg('Stats konnten nicht geladen werden. Bitte Seite neu laden.');
+    setDot('api', 'error', 'AllDebrid: Fehler');
+  }
 
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
   setInterval(checkFlexgetRunning, 10000);
