@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.9] — 2026-04-19
+
+### Fixed
+- **Dashboard still empty on first load** — `checkPremiumStatus()` was `await`ed
+  in the startup sequence, blocking all rendering until the AllDebrid API responded
+  (1–3s). Changed to fire-and-forget alongside `loadRecent()` and `checkConnections()`.
+  Only `loadStats()` is awaited — it populates the dashboard in ~100ms.
+- **FlexGet webhook returns HTTP 400 on Discord URLs** — the webhook sent a generic
+  JSON payload (`{"event": "...", "source": "flexget"}`) which Discord rejects.
+  Fixed: Discord URLs are auto-detected and the payload is formatted as a proper
+  Discord embed (`{"embeds": [{"title": ..., "color": ..., "fields": [...]}]}`).
+  Non-Discord URLs still receive the raw JSON payload.
+  4xx responses from the webhook endpoint now log a WARNING with the response body.
+
+### Changed
+- **Per-task FlexGet webhooks removed** — replaced by a single optional FlexGet
+  webhook URL in Settings → FlexGet. When empty, falls back to the Discord webhook
+  from Settings → Discord. All events (run_started, task_started, task_ok,
+  task_error, run_finished, server_unreachable, server_recovered) go through
+  one configurable endpoint.
+
 ## [1.0.8] — 2026-04-19
 
 ### Fixed

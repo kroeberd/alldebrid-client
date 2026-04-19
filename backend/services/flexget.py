@@ -352,48 +352,7 @@ async def _check_reachable() -> bool:
 
 # ── Task webhook helpers ──────────────────────────────────────────────────────
 
-async def _emit_task_webhook(task: str, event: str, payload: Dict[str, Any]) -> None:
-    """
-    Emit a task-specific webhook if a matching URL is configured.
 
-    Config key: flexget_task_webhooks_json
-    Format: [{"task": "movies", "url": "https://…", "events": ["task_started", "task_ok", "task_error"]}]
-
-    Falls back to the global FlexGet webhook for unconfigured tasks.
-    """
-    cfg = _cfg()
-    raw = (getattr(cfg, "flexget_task_webhooks_json", "") or "").strip()
-    url = ""
-    if raw:
-        try:
-            task_webhooks = json.loads(raw)
-            for entry in task_webhooks:
-                if not isinstance(entry, dict):
-                    continue
-                if entry.get("task", "").strip().lower() != task.strip().lower():
-                    continue
-                # Check if this event is in the entry's event filter (empty = all events)
-                allowed = entry.get("events") or []
-                if allowed and event not in allowed:
-                    continue
-                url = (entry.get("url") or "").strip()
-                break
-        except Exception as exc:
-            logger.debug("flexget_task_webhooks_json parse error: %s", exc)
-
-    if not url:
-        # Fall back to global FlexGet webhook (which itself falls back to Discord)
-        logger.debug("FlexGet task webhook (%s/%s): no task-specific URL — using global", task, event)
-        await _emit_flexget_webhook(event, {"task": task, **payload})
-        return
-
-    try:
-        body = {"event": event, "source": "flexget", "task": task, **payload}
-        async with aiohttp.ClientSession() as s:
-            resp = await s.post(url, json=body, timeout=aiohttp.ClientTimeout(total=10))
-            logger.info("FlexGet task webhook sent: task=%s event=%s status=%s", task, event, resp.status)
-    except Exception as exc:
-        logger.warning("FlexGet task webhook failed (%s/%s): %s", task, event, exc)
 
 
 # ── Main entry points ─────────────────────────────────────────────────────────
@@ -480,7 +439,8 @@ async def run_flexget_tasks(
             async with lock:
                 _running_tasks.add(task.strip().lower())
                 ts = datetime.now(timezone.utc).isoformat()
-                await _emit_task_webhook(task, "task_started", {
+                await _emit_flexget_webhook("task_started", {
+                    "task": task,
                     "triggered_by": triggered_by,
                     "timestamp": ts,
                 })
@@ -491,7 +451,7 @@ async def run_flexget_tasks(
 
                 task_results.append(result)
                 event = "task_ok" if result.get("status") == "ok" else "task_error"
-                await _emit_task_webhook(task, event, result)
+                await _emit_flexget_webhook(event, {"task": task, **result})
     else:
         # Run all tasks — no per-task mutex for "all" mode, use global lock
         task_results = await client.execute_tasks(None)
@@ -515,8 +475,44 @@ async def run_flexget_tasks(
     return task_results
 
 
+def _is_discord_url(url: str) -> bool:
+    try:
+        from urllib.parse import urlparse
+        host = (urlparse(url).hostname or "").lower()
+        return host in {"discord.com", "discordapp.com", "canary.discord.com", "ptb.discord.com"}
+    except Exception:
+        return False
+
+
+def _flexget_discord_body(event: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Format FlexGet event as a Discord webhook payload (embeds)."""
+    colours = {
+        "run_started":      0x3B82F6,   # blue
+        "run_finished":     0x22C55E,   # green
+        "task_started":     0x6366F1,   # indigo
+        "task_ok":          0x22C55E,   # green
+        "task_error":       0xEF4444,   # red
+        "server_unreachable": 0xF97316, # orange
+        "server_recovered": 0x22C55E,   # green
+    }
+    colour = colours.get(event, 0x6B7280)
+    title  = f"FlexGet — {event.replace('_', ' ').title()}"
+
+    fields = []
+    for k, v in payload.items():
+        if k == "result" or (isinstance(v, (dict, list)) and len(str(v)) > 80):
+            continue
+        fields.append({"name": k.replace("_", " ").title(), "value": str(v)[:512], "inline": True})
+
+    return {"embeds": [{"title": title, "color": colour, "fields": fields[:25]}]}
+
+
 async def _emit_flexget_webhook(event: str, payload: Dict[str, Any]) -> None:
-    """Send global FlexGet event to configured webhook URL (falls back to Discord)."""
+    """
+    Send FlexGet event to the configured webhook URL.
+    Falls back to the main Discord webhook when no FlexGet-specific URL is set.
+    Automatically formats as Discord embed when a Discord URL is detected.
+    """
     cfg = _cfg()
     url = (getattr(cfg, "flexget_webhook_url", "") or "").strip()
     if not url:
@@ -525,10 +521,17 @@ async def _emit_flexget_webhook(event: str, payload: Dict[str, Any]) -> None:
         logger.debug("FlexGet webhook (%s): no URL configured — skipping", event)
         return
     try:
-        body = {"event": event, "source": "flexget", **payload}
+        if _is_discord_url(url):
+            body = _flexget_discord_body(event, payload)
+        else:
+            body = {"event": event, "source": "flexget", **payload}
         async with aiohttp.ClientSession() as s:
             resp = await s.post(url, json=body, timeout=aiohttp.ClientTimeout(total=10))
-            logger.info("FlexGet webhook sent: event=%s status=%s url=%s", event, resp.status, url[:60])
+            if resp.status >= 400:
+                text = await resp.text()
+                logger.warning("FlexGet webhook (%s) returned %s: %s", event, resp.status, text[:200])
+            else:
+                logger.info("FlexGet webhook sent: event=%s status=%s url=%s", event, resp.status, url[:60])
     except Exception as exc:
         logger.warning("FlexGet webhook failed (%s): %s", event, exc)
 

@@ -869,7 +869,6 @@ let currentFilter = '';
 let settingsData = {};
 let flexgetAvailableTasks = [];
 let flexgetTaskSchedules = [];
-var fgTaskWebhooks = [];   // var: hoisted, avoids TDZ in onclick handlers
 
 function renderTopbarActions() {
   const el = document.getElementById('topbar-actions');
@@ -1656,8 +1655,7 @@ async function loadSettings() {
 function renderSettings() {
   const s = settingsData;
   flexgetTaskSchedules = parseFlexgetTaskSchedules(s.flexget_task_schedules_json);
-  fgTaskWebhooks = parseFgTaskWebhooks(s.flexget_task_webhooks_json);
-  renderFgTaskWebhooks();
+
   // Define tabs
   const tabs = [
     { id:'tab-general',      label:'⚡ General' },
@@ -2201,16 +2199,11 @@ function renderSettings() {
           <input class="input" type="number" id="s-flexget_retry_delay_minutes" value="${s.flexget_retry_delay_minutes??5}" min="0" max="60"/>
           <span class="form-hint">If FlexGet does not respond, wait this many minutes and try once more. 0 = no retry. A webhook is sent if still unreachable, and again when it recovers.</span>
         </div>
-        <div class="form-group">
-          <label class="form-label">Per-task Webhooks</label>
-          <span class="form-hint" style="margin-bottom:6px;display:block">Optional: override the global FlexGet webhook for specific tasks. Leave URL empty to use the global webhook. Leave events empty to receive all events.</span>
-          <div id="fg-task-webhooks-editor" style="margin-bottom:8px"></div>
-          <button class="btn btn-ghost btn-sm" onclick="addFgTaskWebhook()">+ Add Task Webhook</button>
-        </div>
+
         <div class="form-group">
           <label class="form-label">FlexGet Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
-          <input class="input" id="s-flexget_webhook_url" value="${s.flexget_webhook_url||''}" placeholder="Leave empty to use main Discord webhook"/>
-          <span class="form-hint">Receives: run_started, task_ok, task_error, run_finished, server_unreachable, server_recovered. Falls back to main Discord webhook when empty.</span>
+          <input class="input" id="s-flexget_webhook_url" value="${s.flexget_webhook_url||''}" placeholder="Leave empty to use Discord webhook from Settings → Discord"/>
+          <span class="form-hint">Optional. Receives all FlexGet events (run_started, task_started, task_ok, task_error, run_finished, server_unreachable, server_recovered) as Discord embeds or JSON. Falls back to Settings → Discord webhook when empty.</span>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
           <button class="btn btn-blue btn-sm" onclick="flexgetListTasks()">🔍 List Tasks</button>
@@ -2351,7 +2344,7 @@ function getFormSettings() {
     flexget_webhook_url: t('flexget_webhook_url'),
     flexget_task_schedules_json: serializeFlexgetTaskSchedules(),
     flexget_retry_delay_minutes: n('flexget_retry_delay_minutes'),
-    flexget_task_webhooks_json: serializeFgTaskWebhooks(),
+
     stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
     stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
     stats_report_interval_hours: n('stats_report_interval_hours'),
@@ -2607,71 +2600,6 @@ async function loadFlexgetHistory() {
 }
 
 
-// ── Per-task FlexGet webhook editor ─────────────────────────────────────────
-function parseFgTaskWebhooks(raw) {
-  try { var p = JSON.parse(raw || '[]'); return Array.isArray(p) ? p : []; }
-  catch(e) { return []; }
-}
-
-function serializeFgTaskWebhooks() {
-  return JSON.stringify(fgTaskWebhooks.filter(function(w){ return w.task && w.url; }));
-}
-
-function renderFgTaskWebhooks() {
-  var host = document.getElementById('fg-task-webhooks-editor');
-  if (!host) return;
-  if (!fgTaskWebhooks.length) { host.innerHTML = ''; return; }
-  // Build rows via DOM to avoid HTML-attribute quoting issues
-  var rows = fgTaskWebhooks.map(function(w, i) {
-    var wrap = document.createElement('div');
-    wrap.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px';
-
-    function col(labelText, el) {
-      var g = document.createElement('div');
-      g.className = 'form-group'; g.style.margin = '0';
-      var lbl = document.createElement('label');
-      lbl.className = 'form-label'; lbl.style.fontSize = '10px';
-      lbl.textContent = labelText;
-      g.appendChild(lbl); g.appendChild(el); return g;
-    }
-
-    var taskIn = document.createElement('input');
-    taskIn.className = 'input'; taskIn.setAttribute('list','flexget-task-options');
-    taskIn.value = w.task || ''; taskIn.placeholder = 'taskname';
-    taskIn.oninput = function(){ fgTaskWebhooks[i].task = this.value; };
-
-    var urlIn = document.createElement('input');
-    urlIn.className = 'input'; urlIn.value = w.url || '';
-    urlIn.placeholder = 'https://… (optional, falls back to FlexGet webhook)';
-    urlIn.oninput = function(){ fgTaskWebhooks[i].url = this.value; };
-
-    var evIn = document.createElement('input');
-    evIn.className = 'input'; evIn.value = (w.events || []).join(',');
-    evIn.placeholder = 'task_started,task_ok,task_error (empty=all)';
-    evIn.oninput = function(){
-      fgTaskWebhooks[i].events = this.value.split(',').map(function(e){ return e.trim(); }).filter(Boolean);
-    };
-
-    var delBtn = document.createElement('button');
-    delBtn.textContent = '✕';
-    delBtn.style.cssText = 'width:100%;background:transparent;border:1px solid var(--red);' +
-      'color:var(--red);padding:5px 0;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;margin-top:18px';
-    delBtn.onclick = function(){ fgTaskWebhooks.splice(i,1); renderFgTaskWebhooks(); };
-
-    wrap.appendChild(col('Task name', taskIn));
-    wrap.appendChild(col('Webhook URL (optional)', urlIn));
-    wrap.appendChild(col('Events (empty=all)', evIn));
-    wrap.appendChild(delBtn);
-    return wrap;
-  });
-  host.innerHTML = '';
-  rows.forEach(function(r){ host.appendChild(r); });
-}
-
-function addFgTaskWebhook() {
-  fgTaskWebhooks.push({ task: '', url: '', events: [] });
-  renderFgTaskWebhooks();
-}
 
 async function checkFlexgetRunning() {
   try {
@@ -2802,14 +2730,17 @@ async function testPostgres() {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 (async()=>{
-  try { settingsData = await api('GET','/settings'); } catch(e){ console.warn('Settings load failed:', e); settingsData = settingsData || {}; }
+  // Load settings and stats in parallel — neither should block the other
+  const [_settingsResult] = await Promise.allSettled([api('GET','/settings')]);
+  if (_settingsResult.status === 'fulfilled') settingsData = _settingsResult.value;
+  else { console.warn('Settings load failed:', _settingsResult.reason); }
   renderTopbarActions();
-  // Await both so errors are caught and dashboard populates before proceeding
+  // Render dashboard stats immediately (awaited so DOM is populated before paint)
   await loadStats();
-  loadRecent().catch(() => {});          // fire-and-forget — updates table async
-  checkConnections().catch(() => {});    // fire-and-forget — aria2 check may be slow
-  // Premium: once on startup (only if API key configured), then every 12 hours
-  await checkPremiumStatus();
+  // Everything else fires in background — does not delay first render
+  loadRecent().catch(() => {});
+  checkConnections().catch(() => {});
+  checkPremiumStatus().catch(() => {});   // fire-and-forget — AllDebrid API call
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
   setInterval(checkFlexgetRunning, 10000);
   checkFlexgetRunning();

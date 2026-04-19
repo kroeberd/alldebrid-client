@@ -114,10 +114,7 @@ class AppSettings(BaseModel):
     flexget_task_schedules_json: str = "[]"
     # Minutes to wait before retrying when FlexGet is unreachable (0 = disabled)
     flexget_retry_delay_minutes: int = 5
-    # Per-task webhook config (JSON array)
-    # Format: [{"task":"movies","url":"https://…","events":["task_started","task_ok","task_error"]}]
-    # events: empty list = all events
-    flexget_task_webhooks_json: str = "[]"
+
     # Schedule: interval in minutes (0 = disabled, max 720 = 12h)
     flexget_schedule_minutes: int = 0
     # Minutes to wait before retrying when FlexGet is unreachable (default 5)
