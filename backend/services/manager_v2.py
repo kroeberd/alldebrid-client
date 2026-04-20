@@ -459,31 +459,33 @@ class TorrentManager:
             local_status = row["status"]
 
             # Ready on AllDebrid but locally stuck — trigger download
-            if provider_status == "ready" and local_status in ("error", "pending", "uploading", "processing", "ready", "queued"):
-                if local_status in ("error", "queued"):
-                    logger.info(
-                        "full_alldebrid_sync: torrent %s (local=%s) is ready on AllDebrid → starting download",
-                        row["id"], local_status,
+            # NEVER restart a torrent that is already downloading/queued in aria2.
+            # Those are handled by _dispatch_pending_aria2_queue / reconcile_aria2_on_startup.
+            _restartable = ("error", "pending", "uploading", "processing", "ready")
+            if provider_status == "ready" and local_status in _restartable:
+                logger.info(
+                    "full_alldebrid_sync: torrent %s (local=%s) is ready on AllDebrid → starting download",
+                    row["id"], local_status,
+                )
+                async with get_db() as db:
+                    await db.execute(
+                        """UPDATE torrents
+                           SET status='ready', error_message=NULL, polling_failures=0,
+                               provider_status=?, provider_status_code=?, updated_at=CURRENT_TIMESTAMP
+                           WHERE id=?""",
+                        (provider_status, int(normalized["status_code"]), row["id"]),
                     )
-                    async with get_db() as db:
-                        await db.execute(
-                            """UPDATE torrents
-                               SET status='ready', error_message=NULL, polling_failures=0,
-                                   provider_status=?, provider_status_code=?, updated_at=CURRENT_TIMESTAMP
-                               WHERE id=?""",
-                            (provider_status, int(normalized["status_code"]), row["id"]),
-                        )
-                        await db.commit()
-                    name = magnet.get("filename") or magnet.get("name") or row["name"]
-                    asyncio.create_task(self._start_download(row["id"], ad_id, str(name)))
+                    await db.commit()
+                name = magnet.get("filename") or magnet.get("name") or row["name"]
+                asyncio.create_task(self._start_download(row["id"], ad_id, str(name)))
+                updated += 1
+            elif provider_status == "ready" and local_status in ("queued", "downloading", "paused"):
+                # Already in progress locally — do not restart. Just keep provider_status in sync.
+                try:
+                    await self._apply_provider_update(row, magnet, normalized)
                     updated += 1
-                else:
-                    # Let normal _apply_provider_update handle it
-                    try:
-                        await self._apply_provider_update(row, magnet, normalized)
-                        updated += 1
-                    except Exception as exc:
-                        logger.error("full_alldebrid_sync: update failed for %s: %s", ad_id, exc)
+                except Exception as exc:
+                    logger.error("full_alldebrid_sync: update failed for %s: %s", ad_id, exc)
 
             elif local_status not in ("completed", "deleted") and provider_status != (row["provider_status"] or ""):
                 # Status changed — apply update
@@ -955,6 +957,21 @@ class TorrentManager:
     async def _start_download(self, torrent_id: int, ad_id: str, name: str):
         if self.is_paused() or torrent_id in self._active:
             return
+        # Guard: do not restart a torrent that is already actively downloading.
+        # _active protects against in-process duplicates; this covers post-restart races.
+        try:
+            async with get_db() as _guard_db:
+                _t = await (await _guard_db.execute(
+                    "SELECT status FROM torrents WHERE id=?", (torrent_id,)
+                )).fetchone()
+                if _t and _t["status"] in ("queued", "downloading", "paused"):
+                    logger.debug(
+                        "_start_download: torrent %s already in progress (status=%s) — skipping",
+                        torrent_id, _t["status"],
+                    )
+                    return
+        except Exception:
+            pass  # DB error → proceed cautiously (original behaviour)
         self._active.add(torrent_id)
         try:
             async with self.sem():
@@ -969,6 +986,27 @@ class TorrentManager:
         cfg = get_settings()
         client_name = self.download_client_name()
         initial_status = "queued"  # aria2 is the only download client
+
+        # Cancel any existing aria2 jobs for this torrent before clearing the DB rows.
+        # Without this, the old aria2 entries become orphans that download in parallel.
+        try:
+            async with get_db() as _pre_db:
+                old_gids = await (await _pre_db.execute(
+                    "SELECT download_id FROM download_files "
+                    "WHERE torrent_id=? AND download_client='aria2' "
+                    "AND download_id IS NOT NULL AND status NOT IN ('completed','error','blocked')",
+                    (torrent_id,),
+                )).fetchall()
+            for _r in old_gids:
+                _gid = str(_r["download_id"] or "")
+                if _gid:
+                    try:
+                        await self.aria2().remove(_gid)
+                        logger.debug("_download: cancelled stale aria2 GID %s for torrent %s", _gid, torrent_id)
+                    except Exception:
+                        pass  # GID already gone — fine
+        except Exception as exc:
+            logger.debug("_download: stale aria2 cleanup skipped: %s", exc)
 
         async with get_db() as db:
             await db.execute("DELETE FROM download_files WHERE torrent_id=?", (torrent_id,))

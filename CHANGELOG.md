@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.2.1] — 2026-04-20
+
+### Fixed
+- **Downloads restarted while already in progress** — three independent fixes for
+  a race condition that caused active torrents to be downloaded again:
+
+  **Root cause:** `full_alldebrid_sync` checked `local_status in ('error', 'pending',
+  'uploading', 'processing', 'ready', 'queued')` before calling `_start_download`.
+  `'queued'` was incorrectly included — a torrent with `status=queued` is already
+  being downloaded by aria2. After a container restart `_active` (the in-memory
+  guard) is empty, so the `torrent_id in self._active` check passes, and `_download`
+  is called again, which begins with `DELETE FROM download_files WHERE torrent_id=?`
+  — wiping the existing aria2 GIDs and creating duplicate entries.
+
+  **Fix 1 — `full_alldebrid_sync`**: `'queued'`, `'downloading'`, and `'paused'`
+  removed from the restartable set. Torrents in these states are handled by
+  `_dispatch_pending_aria2_queue` / `reconcile_aria2_on_startup`, not by a fresh
+  `_start_download`.
+
+  **Fix 2 — `_start_download` DB guard**: before adding to `_active`, queries the
+  DB and returns early if `status` is already `queued`, `downloading`, or `paused`.
+  This guards against post-restart races where `_active` is empty but the torrent
+  is genuinely mid-download.
+
+  **Fix 3 — `_download` stale aria2 cleanup**: before deleting `download_files`
+  rows, cancels any active aria2 GIDs for the torrent. Without this, re-downloading
+  a legitimately stale torrent (e.g. after `error`) would leave the old aria2 entry
+  downloading in parallel.
+
 ## [1.2.0] — 2026-04-19
 
 ### Fixed
