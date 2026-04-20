@@ -1,4 +1,4 @@
-name: Build & Push (Smart) - GHCR + Docker Hub
+name: Docker Build
 
 on:
   push:
