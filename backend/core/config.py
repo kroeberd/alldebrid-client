@@ -117,13 +117,8 @@ class AppSettings(BaseModel):
     # Max seconds to wait for a single FlexGet task (0 = use default of 3600s = 1h)
     flexget_task_timeout_seconds: int = 0
 
-    # Schedule: interval in minutes (0 = disabled, max 720 = 12h)
+    # Legacy schedule fields (kept for migration compatibility)
     flexget_schedule_minutes: int = 0
-    # Minutes to wait before retrying when FlexGet is unreachable (default 5)
-    flexget_retry_delay_minutes: int = 5
-    # Max seconds to wait for a single FlexGet task (0 = use default of 3600s = 1h)
-    flexget_task_timeout_seconds: int = 0
-    # Jitter: random offset added to schedule interval (seconds, 0 = disabled)
     flexget_jitter_seconds: int = 0
 
     # ── Statistics & Reporting ────────────────────────────────────────────────

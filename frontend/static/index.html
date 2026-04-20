@@ -2350,6 +2350,7 @@ function getFormSettings() {
     postgres_db: t('postgres_db'), postgres_user: t('postgres_user'),
     postgres_password: t('postgres_password'), postgres_schema: t('postgres_schema'),
     postgres_ssl: c('postgres_ssl'),
+    postgres_application_name: t('postgres_application_name'),
     discord_username: t('discord_username') || 'AllDebrid-Client',
     discord_avatar_url: t('discord_avatar_url'),
     discord_webhook_url: t('discord_webhook_url'),
@@ -2409,6 +2410,8 @@ async function saveSettings() {
     const d = getFormSettings();
     await api('PUT','/settings',d);
     settingsData = d;
+    // Re-render so defaults set by backend are immediately visible
+    renderSettings();
     toast('Settings saved!','success');
     checkConnections();
   } catch(e) { toast(e.message,'error'); }

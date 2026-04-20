@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.1.7] — 2026-04-19
+
+### Fixed
+- **Settings changes not visually confirmed after Save** — `saveSettings()` now
+  calls `renderSettings()` after a successful PUT, so any value normalised or
+  adjusted by the backend (e.g. defaults, type coercion) is immediately reflected
+  in the form without needing a manual tab switch.
+- **Duplicate config fields** — `flexget_retry_delay_minutes` and
+  `flexget_task_timeout_seconds` were declared twice in `AppSettings` (Pydantic
+  keeps the last definition, so behaviour was correct, but it was confusing and
+  caused the field to appear twice in serialised config). Removed the duplicates;
+  legacy `flexget_schedule_minutes` and `flexget_jitter_seconds` kept for
+  migration compatibility.
+- **`postgres_application_name` not saved** — field existed in `AppSettings` but
+  was missing from `getFormSettings()`, so it was always reset to its default on
+  Save. Added to the form settings collection.
+- **Full button/API audit** — verified every `onclick` handler maps to a defined
+  JS function, every JS function's `api()` call maps to an existing backend route,
+  and every `s-{field}` DOM element is covered by `getFormSettings()`.
+  No broken buttons found; the above missing field was the only gap.
+
 ## [1.1.7] — 2026-04-20
 
 ### Fixed
