@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.1.8] — 2026-04-19
+
+### Added
+- **Config validation and sanitisation at startup** (`backend/core/config_validator.py`)
+  Runs as step 0 of the startup sequence — before database init, before scheduler.
+  Checks every setting for common problems and automatically fixes the ones that
+  can be safely corrected:
+
+  | Check | Action |
+  |---|---|
+  | `discord_avatar_url` is a data URI | Reset to default logo URL |
+  | `flexget_task_schedules_json` is not valid JSON | Reset to `[]` |
+  | `db_type` not in `sqlite`, `postgres` | Reset to `sqlite` |
+  | `download_client` not `aria2` | Reset to `aria2` |
+  | Numeric field below minimum | Clamp to minimum |
+  | Numeric field above maximum | Clamp to maximum |
+  | URL fields malformed | Warning only (not auto-cleared) |
+  | API key suspiciously short | Warning only |
+
+  If any field is corrected, the fixed config is written back to `config.json`
+  immediately so the user sees clean values on the next settings page load.
+  All issues are logged at WARNING level; a clean config logs a single INFO line.
+  14/14 unit tests in `tests/test_config_validator.py`.
+
 ## [1.1.7] — 2026-04-19
 
 ### Fixed

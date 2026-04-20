@@ -153,8 +153,11 @@ def load_settings() -> AppSettings:
             with open(CONFIG_PATH, "r") as f:
                 data = json.load(f)
             loaded = {k: v for k, v in data.items() if k in AppSettings.model_fields}
-        except Exception:
-            pass
+        except Exception as exc:
+            import logging
+            logging.getLogger("alldebrid.config").warning(
+                "Config file could not be read (%s) — using defaults", exc
+            )
     return _build_effective_settings(loaded)
 
 

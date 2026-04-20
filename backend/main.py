@@ -304,6 +304,20 @@ async def _reset_stuck_downloads_postgres():
 async def lifespan(app: FastAPI):
     logger.info("Starting AllDebrid-Client...")
 
+    # 0. Validate and sanitise config — fix obvious misconfigurations before anything else
+    try:
+        from core.config import get_settings, apply_settings, save_settings
+        from core.config_validator import validate_and_sanitise
+        _raw_cfg = get_settings()
+        _clean_cfg = validate_and_sanitise(_raw_cfg)
+        if _clean_cfg is not _raw_cfg:
+            # Corrections were made — persist them so the user sees clean values
+            save_settings(_clean_cfg)
+            apply_settings(_clean_cfg)
+            logger.info("Config sanitised and saved — check warnings above for details")
+    except Exception as _ve:
+        logger.warning("Config validation skipped due to error: %s", _ve)
+
     # 1. PostgreSQL: wait for readiness, fall back to SQLite if needed
     if _is_postgres():
         pg_ok = await _wait_for_postgres()
