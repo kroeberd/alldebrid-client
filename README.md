@@ -4,6 +4,8 @@
   <p><strong>Self-hosted torrent automation via AllDebrid</strong><br/>Web UI · aria2 delivery · Discord notifications · PostgreSQL support · FlexGet integration</p>
 
   [![Release](https://img.shields.io/github/v/release/kroeberd/alldebrid-client?style=flat-square&color=f97316)](https://github.com/kroeberd/alldebrid-client/releases)
+  [![Release Build](https://github.com/kroeberd/alldebrid-client/actions/workflows/release.yml/badge.svg)](https://github.com/kroeberd/alldebrid-client/actions/workflows/release.yml)
+  [![Docker Build](https://github.com/kroeberd/alldebrid-client/actions/workflows/build-and-push-smart.yml/badge.svg)](https://github.com/kroeberd/alldebrid-client/actions/workflows/build-and-push-smart.yml)
   [![Docker Pulls](https://img.shields.io/docker/pulls/kroeberd/alldebrid-client?style=flat-square&color=3b82f6)](https://hub.docker.com/r/kroeberd/alldebrid-client)
   [![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/8Vb9cj4ksv)
   [![License](https://img.shields.io/github/license/kroeberd/alldebrid-client?style=flat-square)](LICENSE)
