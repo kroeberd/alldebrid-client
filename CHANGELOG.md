@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.7] — 2026-04-20
+
+### Fixed
+- **Mobile: sidebar footer (dots + alldebrid.com link) always visible** —
+  The `nav` element now has `flex: 1` and `overflow-y: auto`, so it scrolls
+  independently. The `.sidebar-footer` has `flex-shrink: 0` and always stays
+  at the bottom, even when the nav list is longer than the screen.
+  Applies to both the desktop sticky sidebar and the mobile overlay sidebar.
+- **Mobile: Settings Save/Test buttons visible** — `.save-bar` is now
+  `position: sticky; bottom: 0` on mobile instead of `position: static`,
+  so it stays anchored to the bottom of the viewport while scrolling through
+  settings. `padding-bottom: env(safe-area-inset-bottom)` added so it clears
+  the browser navigation bar on notched phones (iPhone, Android gesture nav).
+- **Mobile: safe area insets** — `viewport-fit=cover` added to the viewport
+  meta tag so `env(safe-area-inset-bottom)` works correctly on all devices.
+
 ## [1.1.6] — 2026-04-19
 
 ### Changed
