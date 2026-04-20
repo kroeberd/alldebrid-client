@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.2.2] — 2026-04-20
+
+### Fixed
+- **_start_download guard broke legitimate restarts** (regression from v1.2.1) —
+  the DB-status guard checked `status IN (queued, downloading, paused)` but
+  `_reset_torrent_for_redownload()` sets `status='downloading'` before calling
+  `_start_download`. The guard therefore blocked the intended restart.
+  Fixed: guard now checks whether active `download_files` rows exist, not just
+  status. If download_files is empty (as after a reset) the restart is allowed
+  even when status is `downloading`.
+- **safe_name: torrent names starting with `..`** — `safe_name("../evil")` produced
+  `.._evil` which starts with `..`. While not a path traversal (slashes are already
+  replaced), it created confusing folder names. `safe_name` now strips leading dots.
+
+### Added
+- **Comprehensive download-logic test suite** (`tests/test_download_logic.py`,
+  37 tests covering):
+  - Status machine invariants (`_terminal_torrent_status`, restartable set)
+  - `is_blocked`: extension, keyword, size filters
+  - `_download` final-status decision for all-blocked / partial / normal cases
+  - `_finalize_aria2_torrent` completion-detection logic
+  - `normalize_provider_state` AllDebrid status-code mapping
+  - `safe_name` / `safe_rel_path` path sanitisation
+  - Config validator integration with download settings
+
 ## [1.2.1] — 2026-04-20
 
 ### Fixed
