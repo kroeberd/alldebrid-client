@@ -87,7 +87,6 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); disp
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   height: 100vh; position: sticky; top: 0;
-  overflow: hidden;
 }
 #sidebar nav {
   flex: 1;
@@ -448,7 +447,6 @@ textarea.input { resize: vertical; }
     left: 0; top: 0; bottom: 0; z-index: 200;
     width: 80vw; max-width: 280px; min-width: unset; height: 100vh;
     transform: translateX(-100%); transition: transform .25s ease;
-    overflow: hidden;
   }
   #sidebar nav {
     flex: 1;
@@ -521,11 +519,15 @@ textarea.input { resize: vertical; }
   .stab  { padding: 7px 9px; font-size: 11px; }
   .save-bar {
     flex-wrap: wrap; gap: 6px; margin: 0 !important;
-    position: sticky !important; bottom: 0;
-    padding-bottom: max(13px, env(safe-area-inset-bottom, 0px));
-    z-index: 10;
+    position: fixed !important;
+    bottom: 0; left: 0; right: 0;
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom, 10px)) !important;
+    box-shadow: 0 -2px 12px rgba(0,0,0,.15);
+    z-index: 50;
   }
   .save-bar .btn { font-size: 11px; padding: 6px 10px; }
+  /* Space so settings content isn't hidden behind the fixed bar */
+  #view-settings { padding-bottom: 80px; }
   .ev-search-row { flex-direction: column; }
   .etime { font-size: 10px; }
   .modal-box { width: 95vw !important; margin: 10px auto; max-height: 90vh; overflow-y: auto; }
