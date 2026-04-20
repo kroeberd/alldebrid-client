@@ -1055,7 +1055,11 @@ class TorrentManager:
         total_size_bytes = _size_sum(blocked_items + transferred_items + queued_items + failed_items)
 
         # All files go through aria2 — final_status is queued or error
-        if failed_count == 0 and (completed_count + queued_count) == downloadable_count and downloadable_count > 0:
+        if blocked_count == total_files and total_files > 0 and failed_count == 0:
+            # ALL files filtered — nothing to download; treat as completed so
+            # the torrent is removed from AllDebrid and counted in statistics.
+            final_status = "completed"
+        elif failed_count == 0 and (completed_count + queued_count) == downloadable_count and downloadable_count > 0:
             # completed_count > 0 means files already existed on disk (skipped)
             final_status = "queued" if queued_count > 0 else "completed"
         elif blocked_count > 0 and failed_count == 0 and (completed_count + queued_count) > 0:
@@ -1070,9 +1074,19 @@ class TorrentManager:
             )
             if final_status == "completed":
                 await db.execute("UPDATE torrents SET completed_at=CURRENT_TIMESTAMP WHERE id=?", (torrent_id,))
+            # Build a descriptive event message
+            if blocked_count == total_files and total_files > 0:
+                _evt_msg = f"All {blocked_count} file(s) filtered/blocked — marked completed, removed from AllDebrid"
+                _evt_lvl = "info"
+            elif blocked_count > 0:
+                _evt_msg = f"Download {final_status}: {completed_count + queued_count} files prepared, {blocked_count} filtered"
+                _evt_lvl = "info" if final_status in {"completed", "queued", "paused"} else "warn"
+            else:
+                _evt_msg = f"Download {final_status}: {completed_count + queued_count} files prepared"
+                _evt_lvl = "info" if final_status in {"completed", "queued", "paused"} else "warn"
             await db.execute(
                 "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
-                (torrent_id, "info" if final_status in {"completed", "queued", "paused"} else "warn", f"Download {final_status}: {completed_count + queued_count} files prepared"),
+                (torrent_id, _evt_lvl, _evt_msg),
             )
             await db.commit()
 
@@ -1088,7 +1102,9 @@ class TorrentManager:
         if final_status == "completed":
             await self._delete_magnet_after_completion(torrent_id, ad_id)
             await self._mark_finished(torrent_id, name=name)
-            if cfg.discord_notify_finished:
+            # For all-blocked torrents: partial notification already sent above;
+            # skip the completed notification to avoid a confusing "0 files" message.
+            if cfg.discord_notify_finished and blocked_count < total_files:
                 await self.notify().send_complete(name, file_count=completed_count, destination=str(destination_root), download_client="aria2")
         elif final_status in {"queued", "paused"}:
             await self._log_event(

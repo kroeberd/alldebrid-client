@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.0] — 2026-04-19
+
+### Fixed
+- **Filtered torrents not removed from AllDebrid** — when ALL files in a torrent
+  were blocked by the filter rules, `_download()` set `final_status='error'` instead
+  of `'completed'`, so `_delete_magnet_after_completion()` was never called and the
+  torrent stayed on AllDebrid indefinitely. Analysis of all filter scenarios:
+
+  | Scenario | Before | After |
+  |---|---|---|
+  | Some files blocked, rest downloaded | `status=queued` → downloads → `completed` → **deleted from AllDebrid** ✓ | unchanged ✓ |
+  | All files blocked | `status=error` → stays on AllDebrid forever ✗ | `status=completed` → **deleted from AllDebrid** ✓ |
+
+  Additional improvements for the all-blocked case:
+  - Event log message: `"All N file(s) filtered/blocked — marked completed, removed from AllDebrid"`
+  - Discord 'completed' notification suppressed (partial-filter notification was already sent)
+  - Event messages for partial-filter runs now include the blocked count
+
 ## [1.1.9] — 2026-04-19
 
 ### Added
