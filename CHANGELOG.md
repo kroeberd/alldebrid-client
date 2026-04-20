@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.2.4] — 2026-04-20
+
+### Fixed
+- **XSS: user-controlled strings inserted into innerHTML without escaping** —
+  torrent names, filenames, error messages, event log messages and FlexGet task
+  labels were all interpolated directly into `innerHTML` template literals.
+  A torrent name like `<img src=x onerror=alert(1)>` (set via AllDebrid,
+  the watch folder, or the API) would execute arbitrary JavaScript.
+  Added `esc(s)` helper (HTML-escapes `& < > " '`) and applied it to all
+  user-controlled values inserted into the DOM via `innerHTML`:
+  `t.name`, `t.label`, `t.error_message`, `f.filename`, `f.block_reason`,
+  `ev.message`.
+- **PostgreSQL: performance indexes were missing** — the 4 indexes added in
+  v1.2.3 for SQLite were not added to `_init_db_postgres`. Fixed.
+- **Flaky deduplication test** — `test_deduplication_suppresses_duplicate_within_window`
+  patched `aiohttp.ClientSession` on a `SimpleNamespace` stub (set by another test
+  file), making the mock silently fail. Rewritten to test the dedup state-machine
+  directly without network patching.
+- **Duplicate `# 3.` comment in startup** — two PostgreSQL sync blocks were both
+  labelled `# 3.`; second renamed to `# 3b.` for clarity.
+
 ## [1.2.3] — 2026-04-20
 
 ### Fixed

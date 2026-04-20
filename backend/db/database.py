@@ -495,6 +495,18 @@ async def _init_db_postgres():
                 await _ensure_column_pg(conn, "torrents", col, defn)
             for col, defn in _SCHEMA_COLUMNS_FILES:
                 await _ensure_column_pg(conn, "download_files", col, defn)
+            # Performance indexes (idempotent)
+            for ddl in [
+                "CREATE INDEX IF NOT EXISTS idx_dlfiles_torrent_status "
+                "ON download_files (torrent_id, status, blocked)",
+                "CREATE INDEX IF NOT EXISTS idx_torrents_alldebrid_id "
+                "ON torrents (alldebrid_id)",
+                "CREATE INDEX IF NOT EXISTS idx_torrents_status "
+                "ON torrents (status)",
+                "CREATE INDEX IF NOT EXISTS idx_events_torrent_id "
+                "ON events (torrent_id)",
+            ]:
+                await conn.execute(ddl)
     finally:
         await conn.close()
     logger.info("PostgreSQL database initialised")

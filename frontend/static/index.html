@@ -957,6 +957,13 @@ async function api(method, path, body) {
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
+function esc(s) {
+  // Escape HTML special chars to prevent XSS when inserting user-controlled
+  // content (torrent names, filenames, labels) into innerHTML.
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function toast(msg, type = 'info') {
   const icons = {success:'✅',error:'❌',warn:'⚠️',info:'ℹ️'};
   const el = document.createElement('div');
@@ -1192,7 +1199,7 @@ async function loadRecent() {
       return;
     }
     tb.innerHTML = items.map(t => `<tr onclick="showDetail(${t.id})" style="cursor:pointer">
-      <td><div class="t-name">${t.name||'(unnamed)'}</div></td>
+      <td><div class="t-name">${esc(t.name)||'(unnamed)'}</div></td>
       <td>${badge(t.status)}</td>
       <td>${progress(t.progress,t.status)}</td>
       <td class="sz">${fmtSize(t.size_bytes)}</td>
@@ -1232,12 +1239,12 @@ async function loadTorrents() {
     tb.innerHTML = items.map(t => `<tr>
       <td onclick="event.stopPropagation()"><input type="checkbox" class="t-chk" data-id="${t.id}" onchange="onCheckboxChange()"/></td>
       <td onclick="showDetail(${t.id})" style="cursor:pointer">
-        <div class="t-name">${t.name||'(unnamed)'}</div>
+        <div class="t-name">${esc(t.name)||'(unnamed)'}</div>
         <div class="t-hash">${(t.hash||'').substring(0,16)}${t.hash?'…':''}</div>
       </td>
       <td class="sz">
         <div>${t.source||'—'}</div>
-        ${t.label?`<span class="lbl-badge">🏷 ${t.label}</span>`:''}
+        ${t.label?`<span class="lbl-badge">🏷 ${esc(t.label)}</span>`:''}
       </td>
       <td>${badge(t.status)}</td>
       <td>${progress(t.progress,t.status)}</td>
@@ -1328,7 +1335,7 @@ async function showDetail(id) {
         <div style="grid-column:1/-1"><div class="dk">AllDebrid ID</div><div class="dv">${t.alldebrid_id||'—'}</div></div>
         <div style="grid-column:1/-1"><div class="dk">Hash</div><div class="dv" style="font-size:11px">${t.hash||'—'}</div></div>
         ${t.local_path?`<div style="grid-column:1/-1"><div class="dk">Local Path</div><div class="dv" style="font-size:11px">${t.local_path}</div></div>`:''}
-        ${t.error_message?`<div style="grid-column:1/-1"><div class="dk">Error</div><div class="dv" style="color:var(--red)">${t.error_message}</div></div>`:''}
+        ${t.error_message?`<div style="grid-column:1/-1"><div class="dk">Error</div><div class="dv" style="color:var(--red)">${esc(t.error_message)}</div></div>`:''}
       </div>
       ${t.files&&t.files.length?`
         <div class="sec-label">Files (${t.files.length})</div>
@@ -1336,8 +1343,8 @@ async function showDetail(id) {
           <table>
             <thead><tr><th>Filename</th><th>Size</th><th>Status</th></tr></thead>
             <tbody>${t.files.map(f=>`<tr>
-              <td style="font-family:var(--mono);font-size:11px">${f.filename}
-                ${f.blocked?`<span class="badge badge-error" style="font-size:9px;margin-left:6px">BLOCKED: ${f.block_reason}</span>`:''}
+              <td style="font-family:var(--mono);font-size:11px">${esc(f.filename)}
+                ${f.blocked?`<span class="badge badge-error" style="font-size:9px;margin-left:6px">BLOCKED: ${esc(f.block_reason)}</span>`:''}
               </td>
               <td class="sz">${fmtSize(f.size_bytes)}</td>
               <td>${badge(f.status)}</td>
@@ -1350,7 +1357,7 @@ async function showDetail(id) {
         ${t.events.map(ev=>`
           <div class="event-item">
             <div class="elevel ${ev.level}"></div>
-            <div class="emsg">${ev.message}</div>
+            <div class="emsg">${esc(ev.message)}</div>
             <div class="etime">${fmtDate(ev.created_at)}</div>
           </div>`).join('')}
       `:''}
@@ -1561,7 +1568,7 @@ function filterEvents() {
   el.innerHTML = evs.map(ev=>`
     <div class="event-item">
       <div class="elevel ${ev.level}"></div>
-      <div><div class="emsg">${ev.message}</div>${ev.torrent_name?`<div class="ename">${ev.torrent_name}</div>`:''}</div>
+      <div><div class="emsg">${esc(ev.message)}</div>${ev.torrent_name?`<div class="ename">${ev.torrent_name}</div>`:''}</div>
       <div class="etime">${fmtDate(ev.created_at)}</div>
     </div>`).join('');
 }
@@ -1603,7 +1610,7 @@ async function loadDetailedStats() {
     document.getElementById('detail-latest-events').innerHTML = latest.length ? latest.map(ev => `
       <div class="event-item">
         <div class="elevel ${ev.level}"></div>
-        <div><div class="emsg">${ev.message}</div>${ev.torrent_name?`<div class="ename">${ev.torrent_name}</div>`:''}</div>
+        <div><div class="emsg">${esc(ev.message)}</div>${ev.torrent_name?`<div class="ename">${ev.torrent_name}</div>`:''}</div>
         <div class="etime">${fmtDate(ev.created_at)}</div>
       </div>`).join('') : '<div class="empty">No recent signals yet.</div>';
   } catch(e) { toast(e.message,'error'); }
@@ -1736,7 +1743,7 @@ function renderSettings() {
     { id:'tab-automations',  label:'📊 Reporting' },
   ];
   document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
-    `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${t.label}</div>`
+    `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${esc(t.label)}</div>`
   ).join('');
   document.getElementById('settings-form').innerHTML = `
 

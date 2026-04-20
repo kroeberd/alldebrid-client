@@ -349,7 +349,7 @@ async def lifespan(app: FastAPI):
         except Exception as exc:
             logger.warning("Startup SQLite→PG sync failed (non-fatal): %s", exc)
 
-    # 3. Startup sync: ensure SQLite data is present in PostgreSQL
+    # 3b. Secondary startup sync: verify row counts match between SQLite and PostgreSQL
     if _is_postgres():
         try:
             sync_results = await _startup_sync_sqlite_to_postgres()
