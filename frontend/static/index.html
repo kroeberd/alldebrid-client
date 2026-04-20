@@ -616,6 +616,13 @@ textarea.input { resize: vertical; }
         ↗ alldebrid.com
       </a>
     </div>
+    <div class="conn-row" id="aria2ng-row" style="display:none;margin-top:4px">
+      <a id="aria2ng-link" href="#" target="_blank" rel="noopener"
+         style="font-size:10px;color:var(--text3);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .15s"
+         onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">
+        ↗ aria2ng
+      </a>
+    </div>
   </div>
 </aside>
 
@@ -1015,6 +1022,35 @@ function progress(pct, status) {
 }
 
 // ── Status Bar ─────────────────────────────────────────────────────────────
+
+function getAria2ngUrl(aria2Url) {
+  // Derive aria2ng URL from aria2 JSON-RPC URL.
+  // Example: http://192.168.1.100:6800/jsonrpc → http://192.168.1.100:6880/
+  if (!aria2Url) return '';
+  try {
+    const u = new URL(aria2Url);
+    u.port = '6880';
+    u.pathname = '/';
+    u.search = '';
+    return u.toString();
+  } catch(e) {
+    return '';
+  }
+}
+
+function updateAria2ngLink() {
+  const aria2Url = (settingsData || {}).aria2_url || '';
+  const row  = document.getElementById('aria2ng-row');
+  const link = document.getElementById('aria2ng-link');
+  if (!row || !link) return;
+  if (aria2Url) {
+    link.href = getAria2ngUrl(aria2Url) || '#';
+    row.style.display = 'flex';
+  } else {
+    row.style.display = 'none';
+  }
+}
+
 async function checkConnections() {
   // AllDebrid dot is already set by loadStats() — skip duplicate /stats call
   const cfg = settingsData || {};
@@ -1039,6 +1075,7 @@ async function checkConnections() {
   } else {
     setDot('aria2', 'warn', 'aria2: not configured');
   }
+  updateAria2ngLink();
 }
 
 
@@ -2412,6 +2449,7 @@ async function saveSettings() {
     settingsData = d;
     // Re-render so defaults set by backend are immediately visible
     renderSettings();
+    updateAria2ngLink();
     toast('Settings saved!','success');
     checkConnections();
   } catch(e) { toast(e.message,'error'); }
@@ -2788,6 +2826,7 @@ async function testPostgres() {
     dbg('Settings FEHLER: ' + e.message);
   }
   renderTopbarActions();
+  updateAria2ngLink();
 
   // Stats laden mit sichtbarem Retry
   dbg('Starte loadStats…');

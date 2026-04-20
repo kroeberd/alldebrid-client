@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.9] — 2026-04-19
+
+### Added
+- **aria2ng shortcut in sidebar** — when an aria2 URL is configured in Settings,
+  a clickable `↗ aria2ng` link appears at the bottom of the sidebar.
+  - URL is derived automatically from the configured aria2 JSON-RPC URL:
+    host is kept, port is replaced with `6880` (aria2ng default).
+    Example: `http://192.168.1.100:6800/jsonrpc` → `http://192.168.1.100:6880/`
+  - Link is hidden when no aria2 URL is configured.
+  - Updates immediately after saving Settings (no reload required).
+  - Opens in a new tab.
+
 ## [1.1.8] — 2026-04-19
 
 ### Added
