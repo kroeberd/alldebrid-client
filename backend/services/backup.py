@@ -18,7 +18,8 @@ def _cfg():
     try:
         from core.config import get_settings
         return get_settings()
-    except Exception:
+    except Exception as exc:
+        logger.warning("backup: could not read config: %s", exc)
         return None
 
 

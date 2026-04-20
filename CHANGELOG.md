@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.2.3] — 2026-04-20
+
+### Fixed
+- **TOCTOU race in `_start_download`** — the in-memory guard `torrent_id in self._active`
+  was checked synchronously, but `_active.add()` happened *after* several `await`
+  expressions (DB queries). Two concurrent tasks could both pass the check and both
+  start the same download. Fixed: `_active.add()` now happens immediately after the
+  synchronous check, before any `await`. If subsequent validation (DB status check)
+  decides to skip, the id is discarded via `finally: _active.discard()`.
+- **`stats_snapshots` table grew without bound** — `stats_snapshot_keep_days` existed
+  in config but was never applied. `take_stats_snapshot()` now prunes rows older than
+  `keep_days` in the same transaction as the insert.
+- **Missing DB indexes** — no indexes existed despite every sync query filtering on
+  these columns. Added (idempotent `CREATE INDEX IF NOT EXISTS`):
+  `idx_dlfiles_torrent_status (torrent_id, status, blocked)`,
+  `idx_torrents_alldebrid_id (alldebrid_id)`,
+  `idx_torrents_status (status)`,
+  `idx_events_torrent_id (torrent_id)`.
+- **Duplicate `/stats/comprehensive` route** — defined twice in `routes.py`; the second
+  (formatted report) now lives at `/stats/report-data`.
+- **`backup._cfg()` silent failure** — exceptions were swallowed without logging;
+  now logged at WARNING level.
+
 ## [1.2.2] — 2026-04-20
 
 ### Fixed

@@ -694,7 +694,7 @@ async def get_comprehensive_stats(hours: int = Query(24, ge=1, le=8760)):
 
 
 @router.get("/stats/report")
-@router.get("/stats/comprehensive")
+@router.get("/stats/report-data")
 async def get_stats_report(hours: int = Query(24, ge=1, le=8760)):
     """Formatted report for a given time window."""
     from services.stats import generate_report

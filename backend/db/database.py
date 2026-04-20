@@ -381,6 +381,25 @@ async def _init_db_sqlite():
             await _ensure_column(db, "download_files", col, defn)
         await db.commit()
 
+    # ── Performance indexes (idempotent) ─────────────────────────────────────
+    async with aiosqlite.connect(DB_PATH) as idx_db:
+        for ddl in [
+            # download_files: all sync/finalize queries filter on these
+            "CREATE INDEX IF NOT EXISTS idx_dlfiles_torrent_status "
+            "ON download_files (torrent_id, status, blocked)",
+            # torrents: full_alldebrid_sync, sync_alldebrid_status scan these
+            "CREATE INDEX IF NOT EXISTS idx_torrents_alldebrid_id "
+            "ON torrents (alldebrid_id)",
+            "CREATE INDEX IF NOT EXISTS idx_torrents_status "
+            "ON torrents (status)",
+            # events: detail view always queries by torrent_id
+            "CREATE INDEX IF NOT EXISTS idx_events_torrent_id "
+            "ON events (torrent_id)",
+        ]:
+            await idx_db.execute(ddl)
+        await idx_db.commit()
+    logger.debug("SQLite indexes ensured")
+
     # Verify critical columns are present after migration
     async with aiosqlite.connect(DB_PATH) as verify_db:
         cur = await verify_db.execute("PRAGMA table_info(torrents)")

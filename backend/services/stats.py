@@ -54,17 +54,24 @@ def _f(v) -> float:
 # ── Snapshot writer ───────────────────────────────────────────────────────────
 
 async def take_stats_snapshot() -> None:
-    """Capture a point-in-time snapshot of all key metrics."""
+    """Capture a point-in-time snapshot and prune old ones per keep_days setting."""
     try:
         metrics = await collect_all_metrics(hours=24)
         from db.database import get_db
+        from core.config import get_settings
         async with get_db() as db:
             await db.execute(
                 "INSERT INTO stats_snapshots (snapshot_json, created_at) VALUES (?, CURRENT_TIMESTAMP)",
                 (json.dumps(metrics),),
             )
+            # Prune snapshots older than stats_snapshot_keep_days (default 30)
+            keep_days = max(1, int(getattr(get_settings(), "stats_snapshot_keep_days", 30) or 30))
+            await db.execute(
+                "DELETE FROM stats_snapshots WHERE created_at < datetime('now', ? || ' days')",
+                (f"-{keep_days}",),
+            )
             await db.commit()
-        logger.debug("Stats snapshot taken")
+        logger.debug("Stats snapshot taken (kept last %d days)", keep_days)
     except Exception as exc:
         logger.warning("Stats snapshot failed: %s", exc)
 

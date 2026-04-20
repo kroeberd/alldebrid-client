@@ -965,48 +965,54 @@ class TorrentManager:
     async def _start_download(self, torrent_id: int, ad_id: str, name: str):
         if self.is_paused() or torrent_id in self._active:
             return
-        # Guard: do not restart a torrent that is actively downloading.
-        #
-        # We check both status AND whether download_files records exist.
-        # If download_files is empty (e.g. after _reset_torrent_for_redownload),
-        # the torrent is NOT actively downloading even if status='downloading' —
-        # the reset cleared the rows precisely so _download can re-register them.
-        #
-        # Terminal statuses (completed/deleted) are never restarted.
+        # Atomically claim this torrent_id BEFORE any await to prevent TOCTOU:
+        # two concurrent tasks could both pass "torrent_id in self._active"
+        # if there is an await between the check and the add.
+        # We add first, then validate — if validation fails we discard and return.
+        self._active.add(torrent_id)
         try:
-            async with get_db() as _guard_db:
-                _t = await (await _guard_db.execute(
-                    "SELECT status FROM torrents WHERE id=?", (torrent_id,)
-                )).fetchone()
-                if _t is None:
-                    return  # torrent no longer exists
-                _status = _t["status"]
-                if _status in ("completed", "deleted"):
-                    logger.debug(
-                        "_start_download: torrent %s is terminal (status=%s) — skipping",
-                        torrent_id, _status,
-                    )
-                    return
-                if _status in ("queued", "downloading", "paused"):
-                    # Only skip if there are actual active download_files.
-                    # Empty download_files = after a reset → restart is intended.
-                    _file_count = await (await _guard_db.execute(
-                        "SELECT COUNT(*) AS c FROM download_files "
-                        "WHERE torrent_id=? AND blocked=0 "
-                        "  AND status IN ('pending','queued','downloading','paused')",
-                        (torrent_id,),
+            # Guard: do not restart a torrent that is actively downloading.
+            # Check both status AND whether download_files records exist.
+            # If download_files is empty (after _reset_torrent_for_redownload)
+            # the torrent is NOT actively downloading — restart is intended.
+            try:
+                async with get_db() as _guard_db:
+                    _t = await (await _guard_db.execute(
+                        "SELECT status FROM torrents WHERE id=?", (torrent_id,)
                     )).fetchone()
-                    if _file_count and _file_count["c"] > 0:
+                    if _t is None:
+                        logger.debug("_start_download: torrent %s no longer exists", torrent_id)
+                        return
+                    _status = _t["status"]
+                    if _status in ("completed", "deleted"):
                         logger.debug(
-                            "_start_download: torrent %s already in progress "
-                            "(status=%s, %d active files) — skipping",
-                            torrent_id, _status, _file_count["c"],
+                            "_start_download: torrent %s is terminal (status=%s) — skipping",
+                            torrent_id, _status,
                         )
                         return
+                    if _status in ("queued", "downloading", "paused"):
+                        _file_count = await (await _guard_db.execute(
+                            "SELECT COUNT(*) AS c FROM download_files "
+                            "WHERE torrent_id=? AND blocked=0 "
+                            "  AND status IN ('pending','queued','downloading','paused')",
+                            (torrent_id,),
+                        )).fetchone()
+                        if _file_count and _file_count["c"] > 0:
+                            logger.debug(
+                                "_start_download: torrent %s already in progress "
+                                "(status=%s, %d active files) — skipping",
+                                torrent_id, _status, _file_count["c"],
+                            )
+                            return
+            except Exception as exc:
+                logger.debug("_start_download guard DB check failed: %s — proceeding", exc)
+            async with self.sem():
+                await self._download(torrent_id, ad_id, name)
         except Exception as exc:
-            logger.debug("_start_download guard DB check failed: %s", exc)
-            # proceed cautiously (original behaviour)
-        self._active.add(torrent_id)
+            logger.error("Download failed db_id=%s: %s", torrent_id, exc)
+            await self._fail_torrent(torrent_id, str(exc), notify=True)
+        finally:
+            self._active.discard(torrent_id)
         try:
             async with self.sem():
                 await self._download(torrent_id, ad_id, name)
