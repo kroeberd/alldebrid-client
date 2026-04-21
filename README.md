@@ -3,7 +3,7 @@
   <h1>AllDebrid-Client</h1>
   <p><strong>Self-hosted torrent automation via AllDebrid</strong><br/>Web UI · aria2 delivery · Discord notifications · PostgreSQL support · FlexGet integration</p>
 
-  [![Website](https://img.shields.io/badge/alldebrid-client.de-ff6b2b?logo=googlechrome&logoColor=white)](https://ad-client.mediastarr.de/)
+  [![Website](https://img.shields.io/badge/ad-client.mediastarr.de-ff6b2b?logo=googlechrome&logoColor=white)](https://ad-client.mediastarr.de/)
   [![Release](https://img.shields.io/github/v/release/kroeberd/alldebrid-client?style=flat-square&color=f97316)](https://github.com/kroeberd/alldebrid-client/releases)
   [![Docker Pulls](https://img.shields.io/docker/pulls/kroeberd/alldebrid-client?style=flat-square&color=3b82f6)](https://hub.docker.com/r/kroeberd/alldebrid-client)
   [![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/8Vb9cj4ksv)
