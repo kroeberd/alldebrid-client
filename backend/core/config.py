@@ -93,6 +93,13 @@ class AppSettings(BaseModel):
     backup_keep_days: int = 7
     backup_interval_hours: int = 24
 
+    # Database maintenance
+    db_backup_enabled: bool = True
+    db_backup_folder: str = "/app/data/db-backups"
+    db_backup_keep_days: int = 7
+    db_wipe_enabled: bool = False
+    db_backup_before_wipe: bool = True
+
     # aria2 download retry on error
     # How many times to retry a failed aria2 download before giving up (0 = no retry)
     aria2_error_retry_count: int = 3

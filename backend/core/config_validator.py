@@ -89,6 +89,7 @@ def _validate(cfg) -> List[Tuple[str, str, Any, Any]]:
         "full_sync_interval_minutes":     (1, 1440),
         "backup_keep_days":               (1, 365),
         "backup_interval_hours":          (1, 168),
+        "db_backup_keep_days":            (1, 365),
         "flexget_retry_delay_minutes":    (0, 60),
         "flexget_task_timeout_seconds":   (0, 86400),
         "stats_snapshot_interval_minutes":(0, 1440),

@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.9] — 2026-04-21
+
+### Fixed
+- **Disabling FlexGet now takes effect immediately** — toggling `flexget_enabled`
+  off now clears in-memory FlexGet runtime state and hides stale running-task
+  indicators instead of continuing to look active until the next natural cycle.
+
+### Added
+- **Dedicated database maintenance settings** — the Database tab now includes
+  separate controls for database-only backups and database wiping, independent
+  from the existing full data backup settings.
+
+- **Database backup endpoint and UI action** — you can now export JSON snapshots
+  of the database tables on demand and browse the stored database backup sets
+  directly from the settings UI.
+
+- **Guarded database wipe workflow** — a dedicated wipe toggle, pause
+  requirement, confirmation step, and optional automatic pre-wipe database
+  backup were added to make destructive cleanup explicit and safer.
+
 ## [1.2.8] — 2026-04-21
 
 ### Fixed

@@ -90,6 +90,7 @@ async def get_version_ep():
 
 @router.put("/settings")
 async def update_settings(new: AppSettings):
+    previous = get_settings()
     env_db_type = os.getenv("DB_TYPE", "").strip()
     if env_db_type == "postgres_internal":
         new = new.model_copy(update={"db_type": "postgres"})
@@ -97,6 +98,9 @@ async def update_settings(new: AppSettings):
     save_settings(clean)
     apply_settings(clean)
     manager.reset_services()
+    if getattr(previous, "flexget_enabled", False) != getattr(clean, "flexget_enabled", False):
+        from services.flexget import reset_runtime_state
+        reset_runtime_state()
     return {"ok": True}
 
 
@@ -652,6 +656,39 @@ async def list_backups():
     return {"backups": _list()}
 
 
+@router.post("/admin/database/backup")
+async def trigger_database_backup():
+    from services.db_maintenance import run_database_backup
+    return await run_database_backup()
+
+
+@router.get("/admin/database/backups")
+async def list_database_backups():
+    from services.db_maintenance import list_database_backups as _list
+    return {"backups": _list()}
+
+
+@router.post("/admin/database/wipe")
+async def wipe_database_admin(body: dict | None = None):
+    cfg = get_settings()
+    if not getattr(cfg, "db_wipe_enabled", False):
+        raise HTTPException(400, "Database wipe is disabled in settings")
+    if not getattr(cfg, "paused", False):
+        raise HTTPException(409, "Pause processing before wiping the database")
+    if not (body or {}).get("confirm"):
+        raise HTTPException(400, "Wipe confirmation required")
+
+    backup_result = None
+    if getattr(cfg, "db_backup_before_wipe", True):
+        from services.db_maintenance import run_database_backup
+        backup_result = await run_database_backup()
+
+    from services.db_maintenance import wipe_database
+    result = await wipe_database()
+    manager.reset_services()
+    return {**result, "backup": backup_result}
+
+
 
 # ── FlexGet ────────────────────────────────────────────────────────────────────
 
@@ -669,6 +706,8 @@ async def flexget_list_tasks():
 @router.get("/flexget/running")
 async def flexget_running():
     """Return which FlexGet tasks are currently executing (for UI indicator)."""
+    if not getattr(get_settings(), "flexget_enabled", False):
+        return {"running": []}
     from services.flexget import running_tasks
     return {"running": running_tasks()}
 

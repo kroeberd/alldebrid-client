@@ -95,6 +95,26 @@ class SettingsSaveTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved["cfg"].discord_avatar_url, "")
         self.assertEqual(saved["applied"].discord_avatar_url, "")
 
+    async def test_update_settings_resets_flexget_runtime_when_toggled_off(self):
+        previous = routes.AppSettings(flexget_enabled=True)
+        saved = {}
+
+        def fake_save(cfg):
+            saved["cfg"] = cfg
+
+        def fake_apply(cfg):
+            saved["applied"] = cfg
+
+        with patch("api.routes.get_settings", return_value=previous), \
+             patch("api.routes.save_settings", side_effect=fake_save), \
+             patch("api.routes.apply_settings", side_effect=fake_apply), \
+             patch("services.flexget.reset_runtime_state") as reset_runtime_state, \
+             patch.object(routes.manager, "reset_services", MagicMock()):
+            result = await routes.update_settings(routes.AppSettings(flexget_enabled=False))
+
+        self.assertEqual(result, {"ok": True})
+        reset_runtime_state.assert_called_once()
+
     async def test_update_settings_persists_reporting_window(self):
         saved = {}
 
@@ -177,6 +197,29 @@ class TorrentListingRouteTests(unittest.IsolatedAsyncioTestCase):
         sql, params = db.fetchall_calls[0]
         self.assertIn("LIMIT ? OFFSET ?", sql)
         self.assertEqual(params[-2:], [250, 25])
+
+
+class FlexGetRouteTests(unittest.IsolatedAsyncioTestCase):
+    async def test_flexget_running_returns_empty_when_disabled(self):
+        with patch("api.routes.get_settings", return_value=SimpleNamespace(flexget_enabled=False)):
+            result = await routes.flexget_running()
+        self.assertEqual(result, {"running": []})
+
+
+class DatabaseMaintenanceRouteTests(unittest.IsolatedAsyncioTestCase):
+    async def test_database_wipe_requires_feature_toggle(self):
+        cfg = SimpleNamespace(db_wipe_enabled=False, paused=True, db_backup_before_wipe=True)
+        with patch("api.routes.get_settings", return_value=cfg):
+            with self.assertRaises(routes.HTTPException) as exc:
+                await routes.wipe_database_admin({"confirm": True})
+        self.assertEqual(exc.exception.status_code, 400)
+
+    async def test_database_wipe_requires_pause(self):
+        cfg = SimpleNamespace(db_wipe_enabled=True, paused=False, db_backup_before_wipe=True)
+        with patch("api.routes.get_settings", return_value=cfg):
+            with self.assertRaises(routes.HTTPException) as exc:
+                await routes.wipe_database_admin({"confirm": True})
+        self.assertEqual(exc.exception.status_code, 409)
 
 
 class _FakeResponse:

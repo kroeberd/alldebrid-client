@@ -59,6 +59,18 @@ def running_tasks() -> List[str]:
     return list(_running_tasks)
 
 
+def reset_runtime_state() -> None:
+    """
+    Clear in-memory runtime state so disabling FlexGet takes effect immediately.
+    This does not cancel an in-flight HTTP request, but it removes scheduled
+    state and hides stale running-task indicators after settings changes.
+    """
+    global _last_reachable
+    _running_tasks.clear()
+    _task_locks.clear()
+    _last_reachable = None
+
+
 # ── Config helpers ────────────────────────────────────────────────────────────
 
 def _cfg():

@@ -2029,6 +2029,43 @@ function renderSettings() {
         <div id="migration-result" style="margin-top:10px;font-size:12px;display:none"></div>
       </div>
     </div>
+
+    <div class="scard">
+      <div class="scard-header">🛠️ Database Maintenance</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Database Backup Folder</label>
+          <input class="input" id="s-db_backup_folder" value="${s.db_backup_folder||'/app/data/db-backups'}"/>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Enable Database Backups</div><div class="ts">Create JSON snapshots of the database only</div></div>
+          <label class="toggle"><input type="checkbox" id="s-db_backup_enabled" ${s.db_backup_enabled!==false?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Keep database backups for (days)</label>
+          <input class="input" type="number" id="s-db_backup_keep_days" value="${s.db_backup_keep_days??7}" min="1" max="365"/>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="triggerDatabaseBackup()">💽 Run DB Backup Now</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadDatabaseBackupList()">📋 List DB Backups</button>
+        </div>
+        <div id="db-backup-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Allow Database Wipe</div><div class="ts">Required before the wipe action can run</div></div>
+            <label class="toggle"><input type="checkbox" id="s-db_wipe_enabled" ${s.db_wipe_enabled?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="toggle-row" style="margin-top:10px">
+            <div class="toggle-info"><div class="tl">Backup Before Wipe</div><div class="ts">Run a DB backup automatically before deleting rows</div></div>
+            <label class="toggle"><input type="checkbox" id="s-db_backup_before_wipe" ${s.db_backup_before_wipe!==false?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-hint" style="margin-top:10px">Pause processing first. Wipe clears torrents, files, events, FlexGet runs, and stats snapshots.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn btn-danger btn-sm" onclick="wipeDatabase()">🗑️ Wipe Database</button>
+          </div>
+        </div>
+      </div>
+    </div>
     </div>
 
     <div class="stab-panel" id="tab-filters">
@@ -2431,6 +2468,9 @@ function getFormSettings() {
     full_sync_interval_minutes: n('full_sync_interval_minutes'),
     backup_enabled: c('backup_enabled'), backup_folder: t('backup_folder'),
     backup_interval_hours: n('backup_interval_hours'), backup_keep_days: n('backup_keep_days'),
+    db_backup_enabled: c('db_backup_enabled'), db_backup_folder: t('db_backup_folder'),
+    db_backup_keep_days: n('db_backup_keep_days'),
+    db_wipe_enabled: c('db_wipe_enabled'), db_backup_before_wipe: c('db_backup_before_wipe'),
     blocked_extensions: l('blocked_extensions'), blocked_keywords: l('blocked_keywords'),
     min_file_size_mb: n('min_file_size_mb'), poll_interval_seconds: n('poll_interval_seconds', 30),
     watch_interval_seconds: n('watch_interval_seconds', 10),
@@ -2482,6 +2522,7 @@ async function saveSettings() {
     updateAria2ngLink();
     toast('Settings saved!','success');
     checkConnections();
+    checkFlexgetRunning();
   } catch(e) { toast(e.message,'error'); }
 }
 
@@ -2525,6 +2566,9 @@ function _updatePremiumLabel(r) {
 function switchSettingsTab(id) {
   document.querySelectorAll('.stab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
   document.querySelectorAll('.stab-panel').forEach(p => p.classList.toggle('active', p.id === id));
+  if (id === 'tab-database') {
+    loadDatabaseBackupList();
+  }
   if (id === 'tab-flexget') {
     flexgetListTasks();
     loadFlexgetHistory();
@@ -2628,6 +2672,52 @@ async function loadBackupList() {
   } catch(e) { toast(e.message, 'error'); }
 }
 
+async function triggerDatabaseBackup() {
+  try {
+    toast('Running database backup…', 'info');
+    const r = await api('POST', '/admin/database/backup');
+    if (r.skipped) { toast('Database backup disabled in settings', 'warn'); return; }
+    toast(`Database backup done (${Object.values(r.tables || {}).reduce((a, b) => a + b, 0)} rows exported)`, 'success');
+    loadDatabaseBackupList();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function loadDatabaseBackupList() {
+  try {
+    const r = await api('GET', '/admin/database/backups');
+    const el = document.getElementById('db-backup-list');
+    if (!el) return;
+    if (!r.backups.length) { el.textContent = 'No database backups found.'; return; }
+    el.innerHTML = r.backups.map(b =>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span>${b.name}</span>
+        <span style="color:var(--text3)">${b.files.join(', ')} — ${Math.round(b.size_bytes/1024)} KB</span>
+      </div>`
+    ).join('');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function wipeDatabase() {
+  const enabled = document.getElementById('s-db_wipe_enabled')?.checked;
+  if (!enabled) { toast('Enable database wipe in settings first', 'warn'); return; }
+  if (!confirm('This will remove all database rows. Continue?')) return;
+  const confirmText = prompt('Type WIPE to confirm database wipe');
+  if (confirmText !== 'WIPE') return;
+  try {
+    toast('Wiping database…', 'warn');
+    const r = await api('POST', '/admin/database/wipe', {confirm: true});
+    if (r.backup && !r.backup.skipped) {
+      toast('Database wiped. Pre-wipe backup created.', 'success');
+    } else {
+      toast('Database wiped.', 'success');
+    }
+    loadDatabaseBackupList();
+    loadStats().catch(()=>{});
+    loadRecent().catch(()=>{});
+    if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
+  } catch(e) { toast(e.message, 'error'); }
+}
+
 async function flexgetListTasks(syncToEditor = false) {
   const el = document.getElementById('flexget-task-list');
   if (el) el.textContent = '⏳ Loading tasks…';
@@ -2706,6 +2796,11 @@ async function loadFlexgetHistory() {
 
 
 async function checkFlexgetRunning() {
+  if (!settingsData.flexget_enabled) {
+    const row = document.getElementById('flexget-running-row');
+    if (row) row.style.display = 'none';
+    return;
+  }
   try {
     const r = await api('GET', '/flexget/running');
     const running = Array.isArray(r.running) && r.running.length > 0;
