@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from pathlib import Path
 
 from core.config import get_settings
@@ -33,6 +33,16 @@ def _folder() -> Path:
 def _keep_days() -> int:
     cfg = get_settings()
     return max(1, int(getattr(cfg, "db_backup_keep_days", 7) or 7))
+
+
+def _json_default(value):
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    raise TypeError(f"Object of type {value.__class__.__name__} is not JSON serializable")
 
 
 async def run_database_backup() -> dict:
@@ -63,7 +73,7 @@ async def run_database_backup() -> dict:
 
     json_path = backup_dir / "database.json"
     if not errors:
-        json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        json_path.write_text(json.dumps(payload, indent=2, default=_json_default), encoding="utf-8")
 
     removed = _rotate_old_backups(backup_folder, _keep_days())
     result = {

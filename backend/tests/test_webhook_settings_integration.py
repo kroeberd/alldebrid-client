@@ -2,6 +2,7 @@ import sys
 import types
 import unittest
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -220,6 +221,48 @@ class DatabaseMaintenanceRouteTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(routes.HTTPException) as exc:
                 await routes.wipe_database_admin({"confirm": True})
         self.assertEqual(exc.exception.status_code, 409)
+
+
+class DatabaseBackupServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_database_backup_serializes_datetime_rows(self):
+        from services import db_maintenance
+        temp_root = Path(__file__).resolve().parent / "_tmp_db_backup"
+        if temp_root.exists():
+            import shutil
+            shutil.rmtree(temp_root)
+        temp_root.mkdir(parents=True, exist_ok=True)
+
+        cfg = SimpleNamespace(
+            db_backup_enabled=True,
+            db_backup_folder=str(temp_root),
+            db_backup_keep_days=7,
+        )
+        row = {
+            "id": 1,
+            "created_at": datetime(2026, 4, 21, 12, 34, 56, tzinfo=timezone.utc),
+        }
+
+        class _BackupDb:
+            async def fetchall(self, sql, params=()):
+                return [row]
+
+        @asynccontextmanager
+        async def _db_ctx():
+            yield _BackupDb()
+
+        try:
+            with patch("services.db_maintenance.get_settings", return_value=cfg), \
+                 patch("services.db_maintenance.get_db", return_value=_db_ctx()), \
+                 patch("services.db_maintenance._is_postgres", return_value=False):
+                result = await db_maintenance.run_database_backup()
+
+            self.assertEqual(result["errors"], [])
+            exported = Path(result["file"]).read_text(encoding="utf-8")
+            self.assertIn("2026-04-21T12:34:56+00:00", exported)
+        finally:
+            if temp_root.exists():
+                import shutil
+                shutil.rmtree(temp_root)
 
 
 class _FakeResponse:
