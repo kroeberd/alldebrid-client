@@ -18,8 +18,8 @@ class TestValidateAndSanitise:
     def test_data_uri_avatar_reset(self):
         cfg = make_cfg(discord_avatar_url="data:image/png;base64,abc123")
         result = validate_and_sanitise(cfg)
-        assert not result.discord_avatar_url.startswith("data:")
-        assert result.discord_avatar_url.startswith("https://")
+        # data URIs are cleared (Discord rejects them; user must configure a valid PNG/JPG URL)
+        assert result.discord_avatar_url == ""
 
     def test_invalid_json_schedules_reset(self):
         cfg = make_cfg(flexget_task_schedules_json="{not valid json}")
@@ -86,7 +86,7 @@ class TestValidateAndSanitise:
         assert result.db_type == "sqlite"
 
     def test_returns_same_object_when_no_fixes(self):
-        cfg = make_cfg()
+        # Use explicit safe values to ensure no validator rule fires
+        cfg = make_cfg(discord_avatar_url="")  # empty is valid (no avatar)
         result = validate_and_sanitise(cfg)
-        # When nothing is fixed, we get back the same (or equivalent) object
         assert result.model_dump() == cfg.model_dump()

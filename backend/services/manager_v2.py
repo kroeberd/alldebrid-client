@@ -1860,7 +1860,12 @@ class TorrentManager:
         await self._delete_magnet_after_completion(torrent_id, torrent_dict["alldebrid_id"])
         await self._mark_finished(torrent_id, name=torrent_dict.get("name",""))
         if get_settings().discord_notify_finished:
-            await self.notify().send_complete(torrent_dict["name"], file_count=completed_count, download_client="aria2")
+            await self.notify().send_complete(
+                torrent_dict["name"],
+                file_count=completed_count,
+                size_bytes=total_size,
+                download_client="aria2",
+            )
 
     async def pause_torrent(self, torrent_id: int):
         if self.download_client_name() != "aria2":

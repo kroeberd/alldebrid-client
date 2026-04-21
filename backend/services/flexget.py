@@ -530,10 +530,10 @@ def _flexget_discord_body(event: str, payload: Dict[str, Any]) -> Dict[str, Any]
         _cfg    = _gs()
         _avatar = (getattr(_cfg, "discord_avatar_url", "") or "").strip()
         if not _avatar or _avatar.startswith("data:"):
-            _avatar = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+            _avatar = ""  # no SVG default — Discord rejects SVG
         _botname = (getattr(_cfg, "discord_username", "") or _app).strip() or _app
     except Exception:
-        _avatar  = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+        _avatar  = ""  # no SVG default — Discord rejects SVG
         _botname = _app
 
     colours = {
@@ -561,7 +561,10 @@ def _flexget_discord_body(event: str, payload: Dict[str, Any]) -> Dict[str, Any]
         "footer":    {"text": _app, "icon_url": _avatar},
         "fields":    fields[:25],
     }
-    return {"username": _botname, "avatar_url": _avatar, "embeds": [embed]}
+    payload_fg: dict = {"username": _botname, "embeds": [embed]}
+    if _avatar:
+        payload_fg["avatar_url"] = _avatar
+    return payload_fg
 
 
 async def _emit_flexget_webhook(event: str, payload: Dict[str, Any]) -> None:
@@ -583,12 +586,12 @@ async def _emit_flexget_webhook(event: str, payload: Dict[str, Any]) -> None:
         else:
             body = {"event": event, "source": "flexget", **payload}
         async with aiohttp.ClientSession() as s:
-            resp = await s.post(url, json=body, timeout=aiohttp.ClientTimeout(total=10))
-            if resp.status >= 400:
-                text = await resp.text()
-                logger.warning("FlexGet webhook (%s) returned %s: %s", event, resp.status, text[:200])
-            else:
-                logger.info("FlexGet webhook sent: event=%s status=%s url=%s", event, resp.status, url[:60])
+                async with s.post(url, json=body, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status >= 400:
+                        text = await resp.text()
+                        logger.warning("FlexGet webhook (%s) returned %s: %s", event, resp.status, text[:200])
+                    else:
+                        logger.info("FlexGet webhook sent: event=%s status=%s url=%s", event, resp.status, url[:60])
     except Exception as exc:
         logger.warning("FlexGet webhook failed (%s): %s", event, exc)
 

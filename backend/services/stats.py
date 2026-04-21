@@ -339,10 +339,10 @@ async def send_stats_report(
             _cfg    = _gs()
             _avatar = (getattr(_cfg, "discord_avatar_url", "") or "").strip()
             if not _avatar or _avatar.startswith("data:"):
-                _avatar = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+                _avatar = ""  # no SVG default — Discord rejects SVG
             _botname = (getattr(_cfg, "discord_username", "") or _app).strip() or _app
         except Exception:
-            _avatar  = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+            _avatar  = ""  # no SVG default — Discord rejects SVG
             _botname = _app
         embeds = [{
             "title":       f"📊 Statistics Report — Last {hours}h",
@@ -363,10 +363,11 @@ async def send_stats_report(
             "footer":    {"text": f"{_app} · {triggered_by}", "icon_url": _avatar},
         }]
         send_payload: Dict[str, Any] = {
-            "username":   _botname,
-            "avatar_url": _avatar,
-            "embeds":     embeds,
+            "username": _botname,
+            "embeds":   embeds,
         }
+        if _avatar:
+            send_payload["avatar_url"] = _avatar
     else:
         send_payload = payload
 

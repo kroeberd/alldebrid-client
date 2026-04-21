@@ -54,7 +54,7 @@ class AppSettings(BaseModel):
     discord_webhook_url: str = ""
     discord_webhook_added: str = ""
     discord_username: str = "AllDebrid-Client"
-    discord_avatar_url: str = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+    discord_avatar_url: str = ""  # Discord only accepts PNG/JPG/WEBP — SVG rejected
     discord_notify_added: bool = True
     discord_notify_finished: bool = True
     discord_notify_error: bool = True

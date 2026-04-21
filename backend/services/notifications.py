@@ -28,25 +28,35 @@ APP_NAME    = "AllDebrid-Client"
 APP_VERSION = read_version()
 REPO_URL    = "https://github.com/kroeberd/alldebrid-client"
 # Default logo — overridden at runtime by discord_avatar_url from settings
-_DEFAULT_LOGO = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
+# No SVG default — Discord only accepts PNG/JPG/WEBP for avatar_url
 
 
 def _get_discord_identity() -> tuple[str, str]:
-    """Returns (username, avatar_url) from settings, with safe defaults.
-    Discord requires an HTTPS/HTTP URL for avatar_url — data URIs are rejected
-    with a 400 error. If a data URI is stored (legacy), fall back to the default logo.
+    """Returns (username, avatar_url) from settings.
+    Returns empty string for avatar if not set, if a data URI is stored,
+    or if a SVG URL is stored (Discord only accepts PNG/JPG/WEBP).
     """
     try:
         from core.config import get_settings
         cfg = get_settings()
         name   = (getattr(cfg, "discord_username",   "") or APP_NAME).strip() or APP_NAME
         avatar = (getattr(cfg, "discord_avatar_url", "") or "").strip()
-        # Reject data URIs — Discord only accepts real HTTP(S) URLs
-        if not avatar or avatar.startswith("data:"):
-            avatar = _DEFAULT_LOGO
+        # Discord only accepts PNG/JPG/WEBP — reject data URIs and SVG
+        if not avatar or avatar.startswith("data:") or avatar.lower().endswith(".svg"):
+            avatar = ""
         return name, avatar
     except Exception:
-        return APP_NAME, _DEFAULT_LOGO
+        return APP_NAME, ""
+
+def _is_discord_url(url: str) -> bool:
+    """Returns True if the URL looks like a Discord webhook."""
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(url).hostname or ""
+        return "discord" in host or "discordapp" in host
+    except Exception:
+        return False
+
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 COLOR_INFO    = 0x3B82F6   # Blue    — general
@@ -58,7 +68,7 @@ COLOR_PARTIAL = 0xF97316   # Orange  — filtered files
 
 # ── Throttling ────────────────────────────────────────────────────────────────
 _RATE_LIMIT_SECONDS   = 2.0
-_DEDUP_WINDOW_SECONDS = 30.0
+_DEDUP_WINDOW_SECONDS = 10.0  # Reduced from 30s — prevents suppressing different torrents with same name
 
 
 def _fmt_bytes(b: int) -> str:
@@ -232,23 +242,20 @@ class NotificationService:
         )
 
     async def test(self) -> bool:
-        """Sends a test message. Returns True if successful."""
+        """Sends a test message. Returns True if actually sent to Discord."""
         if not self.webhook_url:
             return False
-        try:
-            await self._send(
-                url=self.webhook_url,
-                title="🔔 Test Notification",
-                description=f"**{APP_NAME}** is connected and ready.",
-                color=COLOR_INFO,
-                fields=[
-                    {"name": "Version", "value": APP_VERSION, "inline": True},
-                    {"name": "Time",    "value": _now_utc(),  "inline": True},
-                ],
-            )
-            return True
-        except Exception:
-            return False
+        return await self._send(
+            url=self.webhook_url,
+            title="🔔 Test Notification",
+            description=f"**{APP_NAME}** is connected and ready.",
+            color=COLOR_INFO,
+            fields=[
+                {"name": "Version", "value": APP_VERSION, "inline": True},
+                {"name": "Time",    "value": _now_utc(),  "inline": True},
+            ],
+            bypass_dedup=True,  # Test button should always reach Discord
+        )
 
     # ── Internal implementation ───────────────────────────────────────────────
 
@@ -259,7 +266,9 @@ class NotificationService:
         description: str,
         color: int = COLOR_INFO,
         fields: Optional[List[Dict[str, Any]]] = None,
-    ) -> None:
+        bypass_dedup: bool = False,
+    ) -> bool:
+        """Send a Discord embed. Returns True if sent, False if deduplicated or failed."""
         if not url:
             return
 
@@ -273,9 +282,9 @@ class NotificationService:
             now = time.monotonic()
 
             last_hash = self._sent_hashes.get(dedup_key, 0.0)
-            if now - last_hash < _DEDUP_WINDOW_SECONDS:
+            if not bypass_dedup and now - last_hash < _DEDUP_WINDOW_SECONDS:
                 logger.debug("Discord: duplicate suppressed (%s)", title)
-                return
+                return False
 
             # Rate limiting
             wait = max(0.0, _RATE_LIMIT_SECONDS - (now - self._last_sent_at.get(url, 0.0)))
@@ -310,11 +319,22 @@ class NotificationService:
                 for f in fields[:25]
             ]
 
-        payload = {
-            "username":   _bot_name,
-            "avatar_url": _bot_avatar,
-            "embeds":     [embed],
-        }
+        if _is_discord_url(url):
+            payload = {
+                "username": _bot_name,
+                "embeds":   [embed],
+            }
+            if _bot_avatar:
+                payload["avatar_url"] = _bot_avatar
+        else:
+            # Generic webhook: send a simple flat JSON payload
+            payload = {
+                "event":       embed.get("title", ""),
+                "description": embed.get("description", ""),
+                "color":       embed.get("color", 0),
+                "fields":      {f["name"]: f["value"] for f in (embed.get("fields") or [])},
+                "timestamp":   embed.get("timestamp", ""),
+            }
 
         try:
             async with aiohttp.ClientSession(
@@ -328,9 +348,12 @@ class NotificationService:
                         await asyncio.sleep(retry_after)
                         async with session.post(url, json=payload) as resp2:
                             if resp2.status not in (200, 204):
-                                logger.warning("Discord retry status %d", resp2.status)
+                                body2 = await resp2.text()
+                                raise Exception(f"Discord webhook {resp2.status} after retry: {body2[:200]}")
                     elif resp.status not in (200, 204):
                         body = await resp.text()
-                        logger.warning("Discord webhook %d: %s", resp.status, body[:200])
+                        raise Exception(f"Discord webhook {resp.status}: {body[:200]}")
+            return True
         except Exception as exc:
             logger.error("Discord notification failed: %s", exc)
+            return False

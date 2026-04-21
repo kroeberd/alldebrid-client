@@ -63,12 +63,15 @@ def _validate(cfg) -> List[Tuple[str, str, Any, Any]]:
         if val and not _is_valid_url(val):
             warn(field, "not a valid HTTP(S) URL — webhook will not fire", val)
 
-    # Discord avatar must not be a data URI
+    # Discord avatar must be a real HTTP URL, not a data URI or SVG
     avatar = cfg.discord_avatar_url or ""
     if avatar.startswith("data:"):
-        default = "https://raw.githubusercontent.com/kroeberd/alldebrid-client/main/docs/logo.svg"
-        warn("discord_avatar_url", "data URI not accepted by Discord — reset to default",
-             avatar[:60] + "…", default)
+        warn("discord_avatar_url", "data URI not accepted by Discord — cleared",
+             avatar[:60] + "…", "")
+    elif avatar.lower().endswith(".svg"):
+        warn("discord_avatar_url",
+             "SVG not accepted by Discord (use PNG/JPG/WEBP) — cleared",
+             avatar, "")
 
     # ── Numeric ranges ────────────────────────────────────────────────────────
     numeric_bounds = {

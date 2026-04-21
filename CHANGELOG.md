@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.2.5] — 2026-04-21
+
+### Fixed
+- **Discord webhooks failing with HTTP 400** — the root cause of webhook
+  problems: `discord_avatar_url` defaulted to a `.svg` URL
+  (`raw.githubusercontent.com/…/logo.svg`). Discord's webhook API rejects SVG
+  for `avatar_url` with HTTP 400. Every notification without an explicitly
+  configured avatar therefore silently failed.
+
+  Fixes applied across the entire webhook stack:
+  - `config.py`: `discord_avatar_url` default changed from the SVG URL to `""`
+  - `notifications._get_discord_identity()`: now rejects SVG URLs (in addition to
+    data URIs) and returns empty string — Discord will fall back to the webhook's
+    own avatar
+  - `config_validator`: SVG URLs in `discord_avatar_url` are now detected and
+    cleared on startup, so existing configs with the bad default are auto-corrected
+  - All three webhook senders (`notifications.py`, `flexget.py`, `stats.py`):
+    `avatar_url` is now only included in the payload when it is non-empty
+
+- **`test()` always returned success** — `_send()` logged HTTP errors at WARNING
+  level but never raised, so `test()` always returned `True` and the route always
+  responded `{"ok": True}`. Fixed: `_send()` now raises on non-200/204 status,
+  returns `bool`, and the test route correctly surfaces failures as HTTP 502.
+
+- **Test-button deduplicated on second click** — the test message is always
+  identical, so a second click within 30 s was silently suppressed by the dedup
+  guard. `test()` now passes `bypass_dedup=True` to `_send()`.
+
+- **FlexGet webhook connection leak** — `resp = await s.post(url, …)` instead of
+  `async with s.post(url, …) as resp:` left the HTTP connection open.
+
 ## [1.2.4] — 2026-04-20
 
 ### Fixed
