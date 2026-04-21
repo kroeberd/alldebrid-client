@@ -26,12 +26,33 @@ from core.config import (
     load_settings,
     save_settings,
 )
+from core.config_validator import validate_and_sanitise
 from core.version import read_version
 from db.database import DB_PATH, _is_postgres, get_db
 from services.manager_v2 import manager
 
 logger = logging.getLogger("alldebrid.routes")
 router = APIRouter()
+
+
+def _public_base_url(request: Request) -> str:
+    """Return the externally reachable base URL for generated links."""
+    configured = (os.getenv("PUBLIC_BASE_URL", "") or "").strip().rstrip("/")
+    if configured:
+        return configured
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "localhost:8080"
+    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme or "http"
+    return f"{scheme}://{host}".rstrip("/")
+
+
+def _avatar_reachability_warning(public_url: str) -> str:
+    """Return a warning when Discord likely cannot fetch the generated avatar URL."""
+    if _is_public_url(public_url):
+        return ""
+    return (
+        "Avatar uploaded, but the generated URL is private or loopback and may not be reachable by Discord. "
+        "Set PUBLIC_BASE_URL to a public HTTP(S) address or use a public avatar URL directly."
+    )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -72,8 +93,9 @@ async def update_settings(new: AppSettings):
     env_db_type = os.getenv("DB_TYPE", "").strip()
     if env_db_type == "postgres_internal":
         new = new.model_copy(update={"db_type": "postgres"})
-    save_settings(new)
-    apply_settings(new)
+    clean = validate_and_sanitise(new)
+    save_settings(clean)
+    apply_settings(clean)
     manager.reset_services()
     return {"ok": True}
 
@@ -107,18 +129,19 @@ async def upload_avatar(request: Request, file: UploadFile = File(...)):
         old.unlink(missing_ok=True)
     (config_dir / f"avatar.{ext}").write_bytes(data)
 
-    host   = request.headers.get("x-forwarded-host") or request.headers.get("host") or "localhost:8080"
-    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme or "http"
-    public_url = f"{scheme}://{host}/api/avatar"
+    public_url = f"{_public_base_url(request)}/api/avatar"
+    warning = _avatar_reachability_warning(public_url)
 
-    if not _is_public_url(public_url):
+    if warning:
         logger.warning(
-            "Avatar uploaded, but URL %s may not be reachable by Discord "
-            "(private/loopback host). Set a public base URL via a reverse proxy.",
+            "Avatar uploaded, but URL %s may not be reachable by Discord",
             public_url,
         )
 
-    return {"ok": True, "url": public_url, "size_bytes": len(data), "content_type": ct}
+    payload = {"ok": True, "url": public_url, "size_bytes": len(data), "content_type": ct}
+    if warning:
+        payload["warning"] = warning
+    return payload
 
 
 @router.get("/avatar")

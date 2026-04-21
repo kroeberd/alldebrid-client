@@ -16,6 +16,13 @@ def _coerce_int_setting(value, default: int) -> int:
         return int(default)
 
 
+def _has_reporting_webhook(cfg) -> bool:
+    """Return True when reporting can send to either the dedicated or Discord webhook."""
+    stats_webhook = (getattr(cfg, "stats_report_webhook_url", "") or "").strip()
+    discord_webhook = (getattr(cfg, "discord_webhook_url", "") or "").strip()
+    return bool(stats_webhook or discord_webhook)
+
+
 async def watch_folder_loop():
     while True:
         try:
@@ -214,8 +221,7 @@ async def stats_report_loop():
     while True:
         cfg = get_settings()
         interval_h = max(0, _coerce_int_setting(getattr(cfg, "stats_report_interval_hours", 0), 0))
-        webhook_url = (getattr(cfg, "stats_report_webhook_url", "") or "").strip()
-        if interval_h <= 0 or not webhook_url:
+        if interval_h <= 0 or not _has_reporting_webhook(cfg):
             await asyncio.sleep(300)
             continue
         await asyncio.sleep(max(300, interval_h * 3600))

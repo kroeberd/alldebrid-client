@@ -332,18 +332,12 @@ async def send_stats_report(
     }
 
     if _is_discord_webhook(url):
-        # Avatar + username aus Settings
         _app = "AllDebrid-Client"
         try:
-            from core.config import get_settings as _gs
-            _cfg    = _gs()
-            _avatar = (getattr(_cfg, "discord_avatar_url", "") or "").strip()
-            if not _avatar or _avatar.startswith("data:"):
-                _avatar = ""  # no SVG default — Discord rejects SVG
-            _botname = (getattr(_cfg, "discord_username", "") or _app).strip() or _app
+            from services.notifications import _get_discord_identity
+            _botname, _avatar = _get_discord_identity()
         except Exception:
-            _avatar  = ""  # no SVG default — Discord rejects SVG
-            _botname = _app
+            _botname, _avatar = _app, ""
         embeds = [{
             "title":       f"📊 Statistics Report — Last {hours}h",
             "description": "Automated activity summary from AllDebrid-Client.",
