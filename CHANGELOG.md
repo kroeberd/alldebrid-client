@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.2.12] — 2026-04-21
+
+### Fixed
+- **PostgreSQL: "value out of int32 range" for size_bytes / alldebrid_id** —
+  asyncpg 0.29 maps Python `int` to PostgreSQL `int4` (32-bit) by default.
+  Values larger than 2 147 483 647 — such as `size_bytes` for files ≥ 2 GB or
+  `alldebrid_id` values issued by AllDebrid — triggered
+  `invalid input for query argument $N: <value> (value out of int32 range)`.
+
+  This caused every sync cycle to fail with an exception caught by the straggler
+  check's `try/except`, so the 13–14 stuck torrents were detected but never
+  finalised (the exception prevented `_finalize_aria2_torrent` from completing).
+
+  Fix: new `_pg_safe()` helper in `db/database.py` converts any Python `int`
+  outside the int4 range to `str` before passing it to asyncpg.  PostgreSQL
+  casts the string to the target column type (`BIGINT`, `TEXT`, etc.) without
+  error.  Applied consistently in `execute()`, `execute_returning_id()`, and
+  `executemany()`.
+
 ## [1.2.11] — 2026-04-21
 
 ### Fixed

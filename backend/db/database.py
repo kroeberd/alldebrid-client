@@ -57,6 +57,16 @@ def _build_dsn() -> str:
     )
 
 
+def _pg_safe(v):
+    """Cast Python int values that exceed PostgreSQL int4 range to str so asyncpg
+    does not raise 'value out of int32 range'.  PostgreSQL will cast str to the
+    correct column type (BIGINT, TEXT, etc.) automatically."""
+    if isinstance(v, int) and not isinstance(v, bool):
+        if not (-2_147_483_648 <= v <= 2_147_483_647):
+            return str(v)
+    return v
+
+
 class _CursorWrapper:
     """
     Wraps cursor results so (await db.execute(...)).fetchall() works for both backends.
@@ -166,23 +176,28 @@ class _DbConnection:
             cursor = await self._raw.execute(sql, params)
             return _CursorWrapper("sqlite", cursor)
         else:
+            # For PostgreSQL: asyncpg infers int4 for Python int by default.
+            # Values > 2^31-1 (e.g. size_bytes=5.7 GB, alldebrid_id>2B) cause
+            # "value out of int32 range".  We force all large ints through str so
+            # PostgreSQL casts them to the target column type without overflow.
+            safe_params = tuple(_pg_safe(p) for p in params)
+
             # For PostgreSQL: use fetch() for SELECT (returns rows), execute() for DML.
-            # We detect SELECT by looking at the first non-whitespace keyword.
             stripped = sql.lstrip()
             if stripped.upper().startswith("SELECT") or stripped.upper().startswith("WITH"):
-                rows = await self._raw.fetch(sql, *params)
+                rows = await self._raw.fetch(sql, *safe_params)
                 pg_rows = [dict(r) for r in rows]
             else:
-                await self._raw.execute(sql, *params)
+                await self._raw.execute(sql, *safe_params)
                 pg_rows = []
             return _CursorWrapper("postgres", None, pg_rows=pg_rows)
 
     async def executemany(self, sql: str, params_list: List[Sequence[Any]]):
         sql = self._adapt(sql)
         if self._backend == "sqlite":
-            await self._raw.executemany(sql, params_list)
+            await self._raw.executemany(sql, [tuple(_pg_safe(p) for p in row) for row in params_list])
         else:
-            await self._raw.executemany(sql, params_list)
+            await self._raw.executemany(sql, [tuple(_pg_safe(p) for p in row) for row in params_list])
 
     async def fetchall(self, sql: str, params: Sequence[Any] = ()) -> List[Dict[str, Any]]:
         sql = self._adapt(sql)
@@ -215,7 +230,7 @@ class _DbConnection:
         else:
             # PostgreSQL: append RETURNING id
             pg_sql = sql_adapted.rstrip().rstrip(";") + " RETURNING id"
-            row = await self._raw.fetchrow(pg_sql, *params)
+            row = await self._raw.fetchrow(pg_sql, *tuple(_pg_safe(p) for p in params))
             return int(row["id"]) if row else None
 
     async def commit(self):
