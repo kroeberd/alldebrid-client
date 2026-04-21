@@ -60,7 +60,12 @@ if "pydantic" not in sys.modules:
 
 from services.alldebrid import AllDebridService, flatten_files
 from services.aria2 import Aria2Service, Aria2RPCError, Aria2ConnectionError
-from services.manager_v2 import normalize_provider_state, safe_rel_path, TorrentManager
+from services.manager_v2 import (
+    TransientAllDebridStateError,
+    normalize_provider_state,
+    safe_rel_path,
+    TorrentManager,
+)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -632,6 +637,63 @@ class Aria2RecoverySafetyTests(unittest.IsolatedAsyncioTestCase):
 
         mgr._update_file_state.assert_not_awaited()
         mgr._reset_torrent_for_redownload.assert_awaited_once()
+
+
+class AllDebridFileFetchSafetyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_fetch_ready_files_raises_transient_when_status_is_ready_but_files_are_missing(self):
+        mgr = TorrentManager()
+        fake_ad = types.SimpleNamespace(
+            get_magnet_files=AsyncMock(return_value=[{"id": "ad-1", "files": []}]),
+            get_magnet_status=AsyncMock(return_value=[{
+                "id": "ad-1",
+                "statusCode": 4,
+                "status": "Ready",
+                "size": 100,
+                "downloaded": 100,
+            }]),
+        )
+        mgr.ad = lambda: fake_ad
+
+        with patch("services.manager_v2.asyncio.sleep", new=AsyncMock()):
+            with self.assertRaises(TransientAllDebridStateError):
+                await mgr._fetch_ready_files("ad-1")
+
+    async def test_start_download_defers_transient_missing_files_without_failing_torrent(self):
+        mgr = TorrentManager()
+        mgr.is_paused = lambda: False
+        mgr._download = AsyncMock(side_effect=TransientAllDebridStateError("files not exposed yet"))
+        mgr._fail_torrent = AsyncMock()
+
+        class FakeCursor:
+            def __init__(self, result):
+                self._result = result
+            async def fetchone(self):
+                return self._result
+
+        executed = []
+
+        class FakeDb:
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+            async def execute(self, sql, params=()):
+                executed.append((sql, params))
+                if "SELECT status FROM torrents WHERE id=?" in sql:
+                    return FakeCursor({"status": "ready"})
+                if "SELECT COUNT(*) AS c FROM download_files" in sql:
+                    return FakeCursor({"c": 0})
+                return FakeCursor(None)
+            async def commit(self):
+                return None
+
+        with patch("services.manager_v2.get_db", return_value=FakeDb()):
+            await mgr._start_download(5, "ad-5", "Deferred")
+
+        self.assertEqual(mgr._download.await_count, 1)
+        mgr._fail_torrent.assert_not_awaited()
+        update_sql = [sql for sql, _ in executed if "UPDATE torrents SET status='ready'" in sql]
+        self.assertEqual(len(update_sql), 1)
 
 
 # ═════════════════════════════════════════════════════════════════════════════

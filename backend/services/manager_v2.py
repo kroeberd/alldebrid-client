@@ -26,6 +26,10 @@ _ad_rate_sem: asyncio.Semaphore | None = None
 _ad_rate_lock = asyncio.Lock()
 
 
+class TransientAllDebridStateError(Exception):
+    """Raised when AllDebrid is temporarily inconsistent but not actually failed."""
+
+
 async def _get_ad_semaphore() -> asyncio.Semaphore:
     """Returns a semaphore that enforces alldebrid_rate_limit_per_minute."""
     global _ad_rate_sem
@@ -1014,14 +1018,18 @@ class TorrentManager:
                 logger.debug("_start_download guard DB check failed: %s — proceeding", exc)
             async with self.sem():
                 await self._download(torrent_id, ad_id, name)
-        except Exception as exc:
-            logger.error("Download failed db_id=%s: %s", torrent_id, exc)
-            await self._fail_torrent(torrent_id, str(exc), notify=True)
-        finally:
-            self._active.discard(torrent_id)
-        try:
-            async with self.sem():
-                await self._download(torrent_id, ad_id, name)
+        except TransientAllDebridStateError as exc:
+            logger.warning("Download deferred db_id=%s: %s", torrent_id, exc)
+            async with get_db() as db:
+                await db.execute(
+                    "UPDATE torrents SET status='ready', error_message=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (torrent_id,),
+                )
+                await db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
+                    (torrent_id, "warn", str(exc)),
+                )
+                await db.commit()
         except Exception as exc:
             logger.error("Download failed db_id=%s: %s", torrent_id, exc)
             await self._fail_torrent(torrent_id, str(exc), notify=True)
@@ -1210,6 +1218,24 @@ class TorrentManager:
                     if flat_files:
                         return flat_files
             await asyncio.sleep(attempt)
+        try:
+            status_rows = await self.ad().get_magnet_status(ad_id)
+        except Exception:
+            status_rows = []
+        if status_rows:
+            magnet = status_rows[0]
+            normalized = normalize_provider_state(magnet)
+            provider_status = str(normalized["provider_status"])
+            provider_message = str(normalized["message"] or "").strip()
+            status_code = int(normalized["status_code"])
+            if provider_status in {"ready", "processing", "queued"}:
+                raise TransientAllDebridStateError(
+                    f"AllDebrid did not expose downloadable files yet (status {provider_status} [{status_code}] {provider_message})"
+                )
+            if provider_status == "error":
+                raise Exception(
+                    f"AllDebrid reported magnet error {status_code}: {provider_message}".strip()
+                )
         return []
 
     def _remote_aria2_path(self, local_path: Path) -> str:
