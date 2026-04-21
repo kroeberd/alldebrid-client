@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.2.7] — 2026-04-21
+
+### Fixed
+- **Settings are now sanitized on save** — `PUT /api/settings` now runs the
+  same config validation and sanitization path that was previously only applied
+  during startup. Invalid Discord avatar values and malformed schedule JSON are
+  corrected immediately instead of persisting until the next restart.
+
+- **Scheduled stats reporting now matches the UI fallback contract** — the
+  scheduler previously required `stats_report_webhook_url` to be set, even
+  though the UI and manual send path documented a fallback to the main Discord
+  webhook. Automatic reports now use the same fallback logic as manual reports.
+
+- **Discord avatar upload now generates more usable URLs** — avatar uploads now
+  respect `PUBLIC_BASE_URL` when configured and return a user-facing warning if
+  the generated URL is private or loopback and therefore likely unreachable by
+  Discord.
+
+- **Statistics webhook identity now uses the same avatar rules as regular
+  notifications** — reporting webhooks now reuse the shared Discord identity
+  helper, ensuring SVG URLs and data URIs are excluded consistently across all
+  webhook senders.
+
+- **Release metadata version references were synchronized** — the Docker image
+  label and the Unraid template overview version are now aligned with the
+  repository version.
+
 ## [1.2.6] — 2026-04-21
 
 ### Changed
