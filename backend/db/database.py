@@ -58,12 +58,11 @@ def _build_dsn() -> str:
 
 
 def _pg_safe(v):
-    """Cast Python int values that exceed PostgreSQL int4 range to str so asyncpg
-    does not raise 'value out of int32 range'.  PostgreSQL will cast str to the
-    correct column type (BIGINT, TEXT, etc.) automatically."""
-    if isinstance(v, int) and not isinstance(v, bool):
-        if not (-2_147_483_648 <= v <= 2_147_483_647):
-            return str(v)
+    """Ensure Python int values are passed as native int to asyncpg.
+    asyncpg 0.29+ infers int8 for values that overflow int4, but only when
+    the value is passed as a plain Python int — never as str.
+    This is now a no-op kept for API compatibility; the real fix is that
+    size_bytes columns are migrated to BIGINT in _ensure_bigint_columns()."""
     return v
 
 
@@ -195,7 +194,7 @@ class _DbConnection:
     async def executemany(self, sql: str, params_list: List[Sequence[Any]]):
         sql = self._adapt(sql)
         if self._backend == "sqlite":
-            await self._raw.executemany(sql, [tuple(_pg_safe(p) for p in row) for row in params_list])
+            await self._raw.executemany(sql, params_list)
         else:
             await self._raw.executemany(sql, [tuple(_pg_safe(p) for p in row) for row in params_list])
 
@@ -522,6 +521,25 @@ async def _init_db_postgres():
                 "ON events (torrent_id)",
             ]:
                 await conn.execute(ddl)
+
+            # Migrate size_bytes columns to BIGINT on existing databases.
+            # AllDebrid IDs and file sizes can exceed INT4 max (2 147 483 647);
+            # without BIGINT, asyncpg raises "value out of int32 range".
+            for tbl_col in [
+                ("torrents",       "size_bytes"),
+                ("download_files", "size_bytes"),
+            ]:
+                tbl, col = tbl_col
+                col_row = await conn.fetchrow(
+                    "SELECT data_type FROM information_schema.columns "
+                    "WHERE table_name=$1 AND column_name=$2",
+                    tbl, col,
+                )
+                if col_row and col_row["data_type"].lower() in ("integer", "int4"):
+                    await conn.execute(
+                        f"ALTER TABLE {tbl} ALTER COLUMN {col} TYPE BIGINT"
+                    )
+                    logger.info("Migrated %s.%s from INT4 to BIGINT", tbl, col)
     finally:
         await conn.close()
     logger.info("PostgreSQL database initialised")

@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.2.14] — 2026-04-21
+
+### Fixed
+- **`str object cannot be interpreted as an integer`** — regression introduced
+  in v1.2.12: `_pg_safe()` converted large Python ints to `str` to work around
+  asyncpg's int4 inference, but `str` parameters passed to asyncpg for columns
+  typed `INTEGER`/`INT4` (e.g. `provider_status_code`, `polling_failures`) caused
+  PostgreSQL to reject them with `invalid input for query argument $N: 'NNNN'
+  (str object cannot be interpreted as integer)`.
+
+  **Root cause:** the fix was wrong.  asyncpg 0.29 does support Python int natively
+  for any integer column size.  The actual problem was that `size_bytes` columns
+  were created as `INT4` (instead of `BIGINT`) in databases that pre-date the
+  current schema, and PostgreSQL rejects values > 2 147 483 647 for INT4.
+
+  **Real fix:**
+  1. `_pg_safe()` reverted to a no-op (passes values through unchanged).
+  2. `executemany()` SQLite branch no longer calls `_pg_safe()` (another
+     regression in v1.2.12 where both branches applied it).
+  3. New idempotent migration in `_init_db_postgres()`: if `torrents.size_bytes`
+     or `download_files.size_bytes` is found to be `INT4`, it is altered to
+     `BIGINT` at startup.  This runs once and is a no-op on new or already-
+     migrated databases.
+
 ## [1.2.13] — 2026-04-21
 
 ### Fixed
