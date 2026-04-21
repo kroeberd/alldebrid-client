@@ -1,6 +1,7 @@
 import sys
 import types
 import unittest
+from contextlib import asynccontextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -118,6 +119,64 @@ class SettingsSaveTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved["cfg"].stats_report_interval_hours, 12)
         self.assertEqual(saved["cfg"].stats_report_window_hours, 168)
         self.assertEqual(saved["applied"].stats_report_window_hours, 168)
+
+
+class _FakeDb:
+    def __init__(self, rows=None, total=0):
+        self.rows = rows or []
+        self.total = total
+        self.fetchall_calls = []
+        self.fetchone_calls = []
+
+    async def fetchall(self, sql, params=()):
+        self.fetchall_calls.append((sql, list(params)))
+        return self.rows
+
+    async def fetchone(self, sql, params=()):
+        self.fetchone_calls.append((sql, list(params)))
+        return {"cnt": self.total}
+
+
+@asynccontextmanager
+async def _fake_db_context(db):
+    yield db
+
+
+class TorrentListingRouteTests(unittest.IsolatedAsyncioTestCase):
+    async def test_list_torrents_uses_search_and_status_filters_without_limit_clause(self):
+        db = _FakeDb(rows=[{"id": 1, "name": "Example"}], total=1)
+
+        with patch("api.routes.get_db", return_value=_fake_db_context(db)):
+            result = await routes.list_torrents(
+                status="completed",
+                search="Example",
+                limit=0,
+                offset=0,
+            )
+
+        self.assertEqual(result["total"], 1)
+        self.assertEqual(result["items"], [{"id": 1, "name": "Example"}])
+        sql, params = db.fetchall_calls[0]
+        self.assertIn("t.status = ?", sql)
+        self.assertIn("LOWER(COALESCE(t.name, '')) LIKE ?", sql)
+        self.assertNotIn("LIMIT ? OFFSET ?", sql)
+        self.assertEqual(
+            params,
+            ["completed", "%example%", "%example%", "%example%", "%example%"],
+        )
+        total_sql, total_params = db.fetchone_calls[0]
+        self.assertIn("SELECT COUNT(*) AS cnt FROM torrents t WHERE", total_sql)
+        self.assertEqual(total_params, params)
+
+    async def test_list_torrents_appends_limit_and_offset_when_requested(self):
+        db = _FakeDb(rows=[], total=0)
+
+        with patch("api.routes.get_db", return_value=_fake_db_context(db)):
+            await routes.list_torrents(status=None, search=None, limit=250, offset=25)
+
+        sql, params = db.fetchall_calls[0]
+        self.assertIn("LIMIT ? OFFSET ?", sql)
+        self.assertEqual(params[-2:], [250, 25])
 
 
 class _FakeResponse:

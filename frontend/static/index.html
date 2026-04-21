@@ -730,7 +730,7 @@ textarea.input { resize: vertical; }
       </div>
       <div class="card">
         <div class="card-header">
-          <span class="card-title">All Torrents</span>
+          <span class="card-title" id="torrent-card-title">All Torrents</span>
           <div class="filter-tabs">
             <div class="ftab active" onclick="setFilter(this,'')">All</div>
             <div class="ftab" onclick="setFilter(this,'downloading')">Active</div>
@@ -740,10 +740,15 @@ textarea.input { resize: vertical; }
           </div>
           <button class="btn btn-ghost btn-sm" onclick="loadTorrents()" style="margin-left:8px">↻</button>
         </div>
+        <div style="padding:10px 14px 0">
+          <div class="ev-search-row">
+            <input class="input" id="torrent-search" placeholder="Search by torrent name, hash, source, or label..." oninput="onTorrentSearchInput()"/>
+          </div>
+        </div>
         <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
         <table class="t-table" style="min-width:500px">
           <thead><tr><th style="width:32px"><input type="checkbox" id="chk-all" onchange="toggleAllCheckboxes(this)"/></th><th>Name</th><th>Source / Label</th><th>Status</th><th>Progress</th><th class="sz">Size</th><th class="sz">Added</th><th>Actions</th></tr></thead>
-          <tbody id="t-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+          <tbody id="t-tbody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
         </table>
         </div>
       </div>
@@ -901,6 +906,7 @@ textarea.input { resize: vertical; }
 <script>
 const API = '/api';
 let currentFilter = '';
+let currentTorrentSearch = '';
 let settingsData = {};
 let flexgetAvailableTasks = [];
 let flexgetTaskSchedules = [];
@@ -1227,13 +1233,23 @@ function setFilter(el, status) {
   loadTorrents();
 }
 
+function onTorrentSearchInput() {
+  currentTorrentSearch = (document.getElementById('torrent-search')?.value || '').trim();
+  loadTorrents();
+}
+
 async function loadTorrents() {
   try {
-    const qs = currentFilter ? `?status=${currentFilter}&limit=100` : '?limit=100';
-    const {items} = await api('GET', '/torrents'+qs);
+    const params = new URLSearchParams();
+    params.set('limit', '0');
+    if (currentFilter) params.set('status', currentFilter);
+    if (currentTorrentSearch) params.set('search', currentTorrentSearch);
+    const {items, total} = await api('GET', '/torrents?'+params.toString());
     const tb = document.getElementById('t-tbody');
+    const title = document.getElementById('torrent-card-title');
+    if (title) title.textContent = `All Torrents (${total ?? items.length})`;
     if (!items.length) {
-      tb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">🧲</div>No torrents found.</div></td></tr>';
+      tb.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">&#129522;</div>${currentTorrentSearch || currentFilter ? 'No torrents match the current filter or search.' : 'No torrents found.'}</div></td></tr>`;
       return;
     }
     tb.innerHTML = items.map(t => `<tr>

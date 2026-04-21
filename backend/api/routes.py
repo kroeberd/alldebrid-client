@@ -264,20 +264,42 @@ async def test_radarr():
 @router.get("/torrents")
 async def list_torrents(
     status: Optional[str] = None,
-    limit: int = Query(50, le=200),
+    search: Optional[str] = None,
+    limit: int = Query(0, ge=0, le=5000),
     offset: int = 0,
 ):
     async with get_db() as db:
-        where  = "WHERE t.status = ?" if status else ""
-        params = [status] if status else []
-        rows = await db.fetchall(
-            f"""SELECT t.*,
+        clauses = []
+        params = []
+
+        if status:
+            clauses.append("t.status = ?")
+            params.append(status)
+
+        if search:
+            clauses.append(
+                """(
+                    LOWER(COALESCE(t.name, '')) LIKE ?
+                    OR LOWER(COALESCE(t.hash, '')) LIKE ?
+                    OR LOWER(COALESCE(t.source, '')) LIKE ?
+                    OR LOWER(COALESCE(t.label, '')) LIKE ?
+                )"""
+            )
+            needle = f"%{search.strip().lower()}%"
+            params.extend([needle, needle, needle, needle])
+
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        query = f"""SELECT t.*,
                 (SELECT COUNT(*) FROM download_files WHERE torrent_id=t.id) as file_count,
                 (SELECT COUNT(*) FROM download_files WHERE torrent_id=t.id AND blocked=1) as blocked_count
                 FROM torrents t {where}
-                ORDER BY t.created_at DESC LIMIT ? OFFSET ?""",
-            params + [limit, offset],
-        )
+                ORDER BY t.created_at DESC"""
+        query_params = list(params)
+        if limit > 0:
+            query += " LIMIT ? OFFSET ?"
+            query_params.extend([limit, offset])
+
+        rows = await db.fetchall(query, query_params)
         total_row = await db.fetchone(
             f"SELECT COUNT(*) AS cnt FROM torrents t {where}", params
         )
