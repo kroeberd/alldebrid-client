@@ -2411,7 +2411,12 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">Automatic Report Interval (hours, 0 = disabled)</label>
           <input class="input" type="number" id="s-stats_report_interval_hours" value="${s.stats_report_interval_hours??0}" min="0" max="168"/>
-          <span class="form-hint">When enabled, the selected window length is sent to the webhook on this interval.</span>
+          <span class="form-hint">How often the report is sent automatically. 0 = disabled.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Report Window (hours)</label>
+          <input class="input" type="number" id="s-stats_report_window_hours" value="${s.stats_report_window_hours??24}" min="1" max="8760"/>
+          <span class="form-hint">Time window covered by each automatic report (default: 24h).</span>
         </div>
         <div class="form-group">
           <label class="form-label">Time Window</label>
@@ -2514,6 +2519,7 @@ function getFormSettings() {
     stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
     stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
     stats_report_interval_hours: n('stats_report_interval_hours'),
+    stats_report_window_hours:    n('stats_report_window_hours'),
     stats_report_window_hours: reportWindowHours,
     stats_report_webhook_url: t('stats_report_webhook_url'),
   };

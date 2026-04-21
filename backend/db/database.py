@@ -207,7 +207,7 @@ class _DbConnection:
             rows = await cur.fetchall()
             return [dict(r) for r in rows]
         else:
-            rows = await self._raw.fetch(sql, *params)
+            rows = await self._raw.fetch(sql, *tuple(_pg_safe(p) for p in params))
             return [dict(r) for r in rows]
 
     async def fetchone(self, sql: str, params: Sequence[Any] = ()) -> Optional[Dict[str, Any]]:
@@ -218,7 +218,7 @@ class _DbConnection:
             row = await cur.fetchone()
             return dict(row) if row else None
         else:
-            row = await self._raw.fetchrow(sql, *params)
+            row = await self._raw.fetchrow(sql, *tuple(_pg_safe(p) for p in params))
             return dict(row) if row else None
 
     async def execute_returning_id(self, sql: str, params: tuple = ()) -> Optional[int]:

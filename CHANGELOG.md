@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.13] — 2026-04-21
+
+### Fixed
+- **PostgreSQL int32 overflow in fetchall/fetchone** — `_pg_safe()` was applied
+  to `execute()` and `execute_returning_id()` in v1.2.12 but not to the standalone
+  `fetchall()` and `fetchone()` methods on `_DbConnection`. Any SELECT with a large
+  int parameter (e.g. `WHERE torrent_id=<big_id>`) could still trigger the overflow.
+  Now applied to all four query methods.
+
+### Changed
+- **Reporting: Report Window field added to Settings UI** — `stats_report_window_hours`
+  was already in the config and used by the scheduler but had no UI input field.
+  Added to the Reporting tab alongside the interval setting, and included in
+  `getFormSettings()` so it is saved when pressing Save Settings.
+
 ## [1.2.12] — 2026-04-21
 
 ### Fixed

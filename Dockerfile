@@ -3,7 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="AllDebrid-Client"
-LABEL org.opencontainers.image.version="1.2.12"
+LABEL org.opencontainers.image.version="1.2.13"
 LABEL org.opencontainers.image.description="Automated torrent downloading via AllDebrid with a branded web UI"
 
 # System deps
