@@ -767,6 +767,33 @@ class TorrentManager:
         for torrent_id in touched:
             await self._finalize_aria2_torrent(torrent_id)
 
+        # ── Stragglers (same logic as sync_aria2_downloads) ──────────────────
+        try:
+            async with get_db() as db:
+                straggler_rows = await (await db.execute(
+                    """SELECT DISTINCT torrent_id
+                       FROM download_files
+                       WHERE torrent_id IN (
+                           SELECT id FROM torrents
+                           WHERE status IN ('queued', 'downloading')
+                             AND download_client = 'aria2'
+                       )
+                       GROUP BY torrent_id
+                       HAVING SUM(CASE WHEN blocked=0 AND status != 'completed' THEN 1 ELSE 0 END) = 0
+                          AND SUM(CASE WHEN blocked=0 THEN 1 ELSE 0 END) > 0""",
+                )).fetchall()
+            straggler_ids = {r["torrent_id"] for r in straggler_rows} - touched
+            if straggler_ids:
+                logger.info(
+                    "deep_sync: found %d straggler torrent(s) with all files completed "
+                    "but torrent still active — finalising: %s",
+                    len(straggler_ids), sorted(straggler_ids),
+                )
+                for torrent_id in straggler_ids:
+                    await self._finalize_aria2_torrent(torrent_id)
+        except Exception as exc:
+            logger.warning("deep_sync: straggler check failed: %s", exc)
+
 
     async def cleanup_stuck_downloads(self):
         """
@@ -1589,6 +1616,38 @@ class TorrentManager:
         # Finalize torrents where aria2 reported complete or error
         for torrent_id in touched:
             await self._finalize_aria2_torrent(torrent_id)
+
+        # ── Stragglers: torrents stuck in active state but all files already done ──
+        # Happens when _finalize previously threw an exception after files were marked
+        # completed, or after a restart where download_files rows survived but the
+        # torrent status was not updated.  The normal rows query (status IN queued/
+        # downloading/paused) skips files that are already 'completed', so these
+        # torrents never appear in touched and _finalize is never called again.
+        try:
+            async with get_db() as db:
+                straggler_rows = await (await db.execute(
+                    """SELECT DISTINCT torrent_id
+                       FROM download_files
+                       WHERE torrent_id IN (
+                           SELECT id FROM torrents
+                           WHERE status IN ('queued', 'downloading')
+                             AND download_client = 'aria2'
+                       )
+                       GROUP BY torrent_id
+                       HAVING SUM(CASE WHEN blocked=0 AND status != 'completed' THEN 1 ELSE 0 END) = 0
+                          AND SUM(CASE WHEN blocked=0 THEN 1 ELSE 0 END) > 0""",
+                )).fetchall()
+            straggler_ids = {r["torrent_id"] for r in straggler_rows} - touched
+            if straggler_ids:
+                logger.info(
+                    "sync_aria2: found %d straggler torrent(s) with all files completed "
+                    "but torrent still active — finalising now: %s",
+                    len(straggler_ids), sorted(straggler_ids),
+                )
+                for torrent_id in straggler_ids:
+                    await self._finalize_aria2_torrent(torrent_id)
+        except Exception as exc:
+            logger.warning("sync_aria2: straggler check failed: %s", exc)
 
         await self._dispatch_pending_aria2_queue()
 

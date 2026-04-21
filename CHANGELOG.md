@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.2.11] — 2026-04-21
+
+### Fixed
+- **Downloads not completing despite files already downloaded** — root cause:
+  `sync_aria2_downloads()` and `deep_sync_aria2_finished()` both query
+  `download_files WHERE status IN ('queued', 'downloading', 'paused')`.
+  When all files were already marked `completed` in a previous sync cycle
+  (but `_finalize_aria2_torrent()` subsequently threw an exception, or the
+  container restarted after the file update but before finalisation), the
+  query returned zero rows, `touched` remained empty, and `_finalize` was
+  never called again — leaving the torrent stuck in `queued`/`downloading`
+  indefinitely.
+
+  Fix: both sync functions now run a **straggler query** after their main loop:
+  ```sql
+  SELECT DISTINCT torrent_id FROM download_files
+  WHERE torrent_id IN (SELECT id FROM torrents WHERE status IN ('queued','downloading') ...)
+  GROUP BY torrent_id
+  HAVING SUM(CASE WHEN blocked=0 AND status != 'completed' THEN 1 ELSE 0 END) = 0
+     AND SUM(CASE WHEN blocked=0 THEN 1 ELSE 0 END) > 0
+  ```
+  Any torrent found by this query (active status, but all non-blocked files
+  already completed) is passed directly to `_finalize_aria2_torrent()`,
+  which marks it completed, deletes the magnet from AllDebrid, and sends
+  the Discord notification.
+
 ## [1.2.10] — 2026-04-21
 
 ### Fixed
