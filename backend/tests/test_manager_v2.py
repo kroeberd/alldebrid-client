@@ -512,6 +512,128 @@ class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(mgr._log_file.await_count, 1)
 
 
+class Aria2RecoverySafetyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_reconcile_startup_finalizes_completed_torrent_when_aria2_entry_is_gone(self):
+        mgr = TorrentManager()
+        mgr.download_client_name = lambda: "aria2"
+        mgr._dedupe_aria2_downloads_on_startup = AsyncMock(return_value=[])
+        mgr._reset_torrent_for_redownload = AsyncMock()
+        mgr._dispatch_pending_aria2_queue = AsyncMock()
+        mgr._finalize_aria2_torrent = AsyncMock()
+        mgr._get_torrent_completion_snapshot = AsyncMock(return_value={
+            "id": 7,
+            "alldebrid_id": "ad-7",
+            "name": "Recovered Torrent",
+            "status": "queued",
+            "done": 1,
+            "total": 1,
+        })
+        mgr.aria2 = lambda: types.SimpleNamespace(get_all=AsyncMock(return_value=[]))
+
+        startup_rows = [{
+            "torrent_id": 7,
+            "alldebrid_id": "ad-7",
+            "name": "Recovered Torrent",
+            "file_id": 70,
+            "download_id": "gid-missing",
+            "download_url": "https://example.invalid/file",
+            "local_path": "/downloads/file.mp4",
+            "status": "queued",
+        }]
+        class FakeCursor:
+            def __init__(self, result):
+                self._result = result
+            async def fetchall(self):
+                return self._result
+            async def fetchone(self):
+                return self._result
+
+        class FakeDb:
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+            async def execute(self, sql, params=()):
+                if "FROM torrents t" in sql and "JOIN download_files f" in sql:
+                    return FakeCursor(startup_rows)
+                if "SELECT alldebrid_id, name FROM torrents WHERE id=?" in sql:
+                    return FakeCursor({"alldebrid_id": "ad-7", "name": "Recovered Torrent"})
+                raise AssertionError(f"Unexpected SQL: {sql}")
+
+        with patch("services.manager_v2.get_db", return_value=FakeDb()):
+            await mgr.reconcile_aria2_on_startup()
+
+        mgr._reset_torrent_for_redownload.assert_not_awaited()
+        mgr._finalize_aria2_torrent.assert_awaited_once_with(7)
+
+    async def test_sync_downloads_treats_removed_as_lost_not_completed(self):
+        mgr = TorrentManager()
+        mgr.download_client_name = lambda: "aria2"
+        mgr.is_paused = lambda: False
+        mgr._dispatch_pending_aria2_queue = AsyncMock()
+        mgr._reset_torrent_for_redownload = AsyncMock()
+        mgr._update_file_state = AsyncMock()
+        mgr._start_download = AsyncMock()
+        mgr._get_torrent_completion_snapshot = AsyncMock(return_value={
+            "id": 11,
+            "alldebrid_id": "ad-11",
+            "name": "Removed Torrent",
+            "status": "queued",
+            "done": 0,
+            "total": 1,
+        })
+        mgr.aria2 = lambda: types.SimpleNamespace(
+            get_all=AsyncMock(return_value=[
+                types.SimpleNamespace(
+                    gid="gid-1",
+                    status="removed",
+                    total_length=123,
+                    completed_length=123,
+                    error_code="",
+                    error_message="",
+                    files=[{"path": "/downloads/file.mp4", "uris": [{"uri": "https://example.invalid/file"}]}],
+                )
+            ])
+        )
+
+        sync_rows = [{
+            "torrent_id": 11,
+            "name": "Removed Torrent",
+            "alldebrid_id": "ad-11",
+            "torrent_status": "queued",
+            "file_id": 111,
+            "filename": "file.mp4",
+            "local_path": "/downloads/file.mp4",
+            "download_url": "https://example.invalid/file",
+            "download_id": "gid-1",
+            "status": "queued",
+            "blocked": 0,
+        }]
+        class FakeCursor:
+            def __init__(self, result):
+                self._result = result
+            async def fetchall(self):
+                return self._result
+            async def fetchone(self):
+                return self._result
+
+        class FakeDb:
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+            async def execute(self, sql, params=()):
+                if "FROM torrents t" in sql and "JOIN download_files f" in sql:
+                    return FakeCursor(sync_rows)
+                raise AssertionError(f"Unexpected SQL: {sql}")
+
+        with patch("services.manager_v2.get_db", return_value=FakeDb()):
+            await mgr.sync_aria2_downloads()
+
+        mgr._update_file_state.assert_not_awaited()
+        mgr._reset_torrent_for_redownload.assert_awaited_once()
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Dashboard data flow
 # ═════════════════════════════════════════════════════════════════════════════

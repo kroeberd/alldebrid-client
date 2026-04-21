@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.10] — 2026-04-21
+
+### Fixed
+- **aria2 completion/error reconciliation is now safer** — torrents that already
+  have all required files completed are no longer reset to a re-download/error
+  state on startup just because the finished aria2 entry has already been
+  cleaned up.
+
+- **`removed` aria2 jobs are no longer treated as successful downloads** — the
+  sync and import paths now treat `removed` as lost state that must be
+  re-queued or revalidated, instead of incorrectly marking files as completed.
+
+- **Regression coverage for post-download false-error cases was added** — new
+  manager tests now lock in the expected behavior for completed torrents with
+  missing aria2 entries and for `removed` aria2 jobs during sync.
+
 ## [1.2.9] — 2026-04-21
 
 ### Fixed

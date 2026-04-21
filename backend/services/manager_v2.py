@@ -645,6 +645,12 @@ class TorrentManager:
                     torrent_id, file_id, row["filename"],
                 )
 
+            elif dl.status == "removed":
+                logger.info(
+                    "deep_sync: aria2 job was removed for torrent %s file %s (%s) â€” leaving recovery to the regular sync loop",
+                    torrent_id, file_id, row["filename"],
+                )
+                continue
             elif dl.status == "error":
                 # aria2 reports error — check retry count before restarting
                 reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
@@ -1501,7 +1507,7 @@ class TorrentManager:
                 await self._update_file_state(row["file_id"], "queued", row["local_path"], size_bytes=sz)
             elif dl.status == "active":
                 await self._update_file_state(row["file_id"], "downloading", row["local_path"], size_bytes=sz)
-            elif dl.status in {"complete", "removed"}:
+            elif dl.status == "complete":
                 if row["status"] != "completed":
                     await self._update_file_state(row["file_id"], "completed", row["local_path"], size_bytes=sz)
                     touched.add(row["torrent_id"])
@@ -1509,6 +1515,13 @@ class TorrentManager:
                 await self.aria2().remove(dl.gid)
                 logger.debug("aria2 cleanup: removed GID %s for file %s (torrent %s)",
                              dl.gid, row["file_id"], row["torrent_id"])
+            elif dl.status == "removed":
+                logger.info(
+                    "sync_aria2: aria2 job was removed for torrent %s file %s -> scheduling reset",
+                    row["torrent_id"], row["file_id"],
+                )
+                reset_on_sync.add(row["torrent_id"])
+                continue
             elif dl.status == "error":
                 reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
                 await self._update_file_state(row["file_id"], "error", row["local_path"], reason=reason, size_bytes=sz)
@@ -1517,16 +1530,7 @@ class TorrentManager:
 
         # Reset torrents whose entries are gone from aria2 (can't confirm completion)
         for torrent_id in reset_on_sync - touched:
-            async with get_db() as db:
-                t = await (await db.execute(
-                    """SELECT t.id, t.alldebrid_id, t.name, t.status,
-                              COUNT(CASE WHEN f.blocked=0 AND f.status='completed' THEN 1 END) AS done,
-                              COUNT(CASE WHEN f.blocked=0 THEN 1 END) AS total
-                       FROM torrents t
-                       LEFT JOIN download_files f ON f.torrent_id=t.id
-                       WHERE t.id=? GROUP BY t.id""",
-                    (torrent_id,),
-                )).fetchone()
+            t = await self._get_torrent_completion_snapshot(torrent_id)
             if not t:
                 continue
             # Don't reset if torrent is already in a terminal state
@@ -1656,6 +1660,14 @@ class TorrentManager:
                     )
                 else:
                     # Case 3: gone — reset whole torrent and re-queue
+                    snapshot = await self._get_torrent_completion_snapshot(row["torrent_id"])
+                    if snapshot and snapshot["status"] not in ("completed", "deleted", "error") and snapshot["total"] > 0 and snapshot["done"] >= snapshot["total"]:
+                        logger.info(
+                            "Startup reconcile: torrent %s already has all %d files completed -> finalising instead of reset",
+                            row["torrent_id"], snapshot["total"],
+                        )
+                        touched.add(row["torrent_id"])
+                        continue
                     logger.info(
                         "Startup reconcile: GID %s not in aria2 for torrent %s (path=%s, url=%s) -> resetting",
                         gid, row["torrent_id"], remote_path or "-", url or "-",
@@ -1669,10 +1681,20 @@ class TorrentManager:
 
             # Cases 1 + 2: sync status from aria2
             sz = dl.total_length if dl.total_length > 0 else None
-            if dl.status in {"complete", "removed"}:
+            if dl.status == "complete":
                 await self._update_file_state(row["file_id"], "completed", row["local_path"], size_bytes=sz)
                 await self.aria2().remove(dl.gid)
                 touched.add(row["torrent_id"])
+            elif dl.status == "removed":
+                logger.info(
+                    "Startup reconcile: aria2 job was removed for torrent %s file %s -> scheduling reset",
+                    row["torrent_id"], row["file_id"],
+                )
+                reset_torrents.add(row["torrent_id"])
+                await self._reset_torrent_for_redownload(
+                    row["torrent_id"],
+                    f"aria2 entry removed (GID {dl.gid}) -> reset for re-download on startup",
+                )
             elif dl.status == "error":
                 reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
                 await self._update_file_state(row["file_id"], "error", row["local_path"], reason=reason, size_bytes=sz)
@@ -1777,6 +1799,30 @@ class TorrentManager:
                     (status, local_path, reason, file_id),
                 )
             await db.commit()
+
+    async def _get_torrent_completion_snapshot(self, torrent_id: int) -> Optional[dict]:
+        async with get_db() as db:
+            row = await (
+                await db.execute(
+                    """SELECT t.id, t.alldebrid_id, t.name, t.status,
+                              COUNT(CASE WHEN f.blocked=0 AND f.status='completed' THEN 1 END) AS done,
+                              COUNT(CASE WHEN f.blocked=0 THEN 1 END) AS total
+                       FROM torrents t
+                       LEFT JOIN download_files f ON f.torrent_id=t.id
+                       WHERE t.id=? GROUP BY t.id""",
+                    (torrent_id,),
+                )
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "id": row["id"],
+            "alldebrid_id": row["alldebrid_id"],
+            "name": row["name"],
+            "status": row["status"],
+            "done": int(row["done"] or 0),
+            "total": int(row["total"] or 0),
+        }
 
     async def _finalize_aria2_torrent(self, torrent_id: int):
         async with get_db() as db:
@@ -2145,10 +2191,12 @@ class TorrentManager:
                         if dl is None:
                             # Not tracked in aria2 — needs re-queue
                             needs_reset = True
-                        elif dl.status in {"complete", "removed"}:
+                        elif dl.status == "complete":
                             await self._update_file_state(fr["file_id"], "completed", fr["local_path"])
                             await self.aria2().remove(dl.gid)
                             completed += 1
+                        elif dl.status == "removed":
+                            needs_reset = True
                         elif dl.status == "error":
                             reason = f"{dl.error_code}: {dl.error_message}".strip(": ")
                             await self._update_file_state(fr["file_id"], "error", fr["local_path"], reason=reason)
