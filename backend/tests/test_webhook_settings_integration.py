@@ -87,6 +87,7 @@ class SettingsSaveTests(unittest.IsolatedAsyncioTestCase):
 
         with patch("api.routes.save_settings", side_effect=fake_save), \
              patch("api.routes.apply_settings", side_effect=fake_apply), \
+             patch.object(routes.manager, "apply_aria2_memory_tuning", AsyncMock(return_value={"ok": True})), \
              patch.object(routes.manager, "reset_services", MagicMock()):
             result = await routes.update_settings(
                 routes.AppSettings(discord_avatar_url="data:image/png;base64,abc123")
@@ -109,6 +110,7 @@ class SettingsSaveTests(unittest.IsolatedAsyncioTestCase):
         with patch("api.routes.get_settings", return_value=previous), \
              patch("api.routes.save_settings", side_effect=fake_save), \
              patch("api.routes.apply_settings", side_effect=fake_apply), \
+             patch.object(routes.manager, "apply_aria2_memory_tuning", AsyncMock(return_value={"ok": True})), \
              patch("services.flexget.reset_runtime_state") as reset_runtime_state, \
              patch.object(routes.manager, "reset_services", MagicMock()):
             result = await routes.update_settings(routes.AppSettings(flexget_enabled=False))
@@ -127,6 +129,7 @@ class SettingsSaveTests(unittest.IsolatedAsyncioTestCase):
 
         with patch("api.routes.save_settings", side_effect=fake_save), \
              patch("api.routes.apply_settings", side_effect=fake_apply), \
+             patch.object(routes.manager, "apply_aria2_memory_tuning", AsyncMock(return_value={"ok": True})), \
              patch.object(routes.manager, "reset_services", MagicMock()):
             result = await routes.update_settings(
                 routes.AppSettings(

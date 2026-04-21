@@ -98,6 +98,11 @@ async def update_settings(new: AppSettings):
     save_settings(clean)
     apply_settings(clean)
     manager.reset_services()
+    if getattr(clean, "aria2_url", "").strip():
+        try:
+            await manager.apply_aria2_memory_tuning()
+        except Exception as exc:
+            logger.warning("Could not apply aria2 memory settings immediately: %s", exc)
     if getattr(previous, "flexget_enabled", False) != getattr(clean, "flexget_enabled", False):
         from services.flexget import reset_runtime_state
         reset_runtime_state()
@@ -203,6 +208,14 @@ async def test_aria2():
     try:
         result = await manager.test_aria2()
         return {"ok": True, **result}
+    except Exception as e:
+        raise HTTPException(502, str(e))
+
+
+@router.post("/settings/aria2-housekeeping")
+async def run_aria2_housekeeping_ep():
+    try:
+        return await manager.run_aria2_housekeeping()
     except Exception as e:
         raise HTTPException(502, str(e))
 

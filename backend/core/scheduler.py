@@ -126,12 +126,29 @@ async def backup_loop():
         await asyncio.sleep(interval_h * 3600)
 
 
+async def aria2_housekeeping_loop():
+    """Periodically purges aria2 stopped results and reapplies memory-relevant global options."""
+    await asyncio.sleep(90)
+    while True:
+        cfg = get_settings()
+        interval_min = max(0, _coerce_int_setting(getattr(cfg, "aria2_purge_interval_minutes", 60), 60))
+        if interval_min <= 0:
+            await asyncio.sleep(300)
+            continue
+        await asyncio.sleep(interval_min * 60)
+        try:
+            await manager.run_aria2_housekeeping()
+        except Exception as e:
+            logger.error(f"aria2 housekeeping error: {e}")
+
+
 async def start_scheduler():
     _tasks.append(asyncio.create_task(watch_folder_loop()))
     _tasks.append(asyncio.create_task(sync_status_loop()))
     _tasks.append(asyncio.create_task(full_sync_loop()))
     _tasks.append(asyncio.create_task(sync_download_clients_loop()))
     _tasks.append(asyncio.create_task(deep_sync_loop()))
+    _tasks.append(asyncio.create_task(aria2_housekeeping_loop()))
     _tasks.append(asyncio.create_task(backup_loop()))
     _tasks.append(asyncio.create_task(flexget_loop()))
     _tasks.append(asyncio.create_task(stats_snapshot_loop()))

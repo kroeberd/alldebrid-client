@@ -1880,6 +1880,27 @@ function renderSettings() {
           <button class="btn btn-ghost" onclick="runDeepSync()">🔍 Run Deep Sync Now</button>
           <span class="form-hint" style="margin-top:6px;display:block">Immediately checks all pending aria2 files on disk and marks completed ones.</span>
         </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Result Purge Interval (minutes)</label>
+          <input class="input" type="number" id="s-aria2_purge_interval_minutes" value="${s.aria2_purge_interval_minutes??60}" min="0" max="1440"/>
+          <span class="form-hint">Automatically purges stopped result entries from aria2. 0 = disabled.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 max-download-result</label>
+          <input class="input" type="number" id="s-aria2_max_download_result" value="${s.aria2_max_download_result??200}" min="10" max="5000"/>
+          <span class="form-hint">Lower values reduce how many stopped results aria2 keeps in memory.</span>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Keep Unfinished Download Results</div>
+            <div class="td">Usually best disabled to avoid large unfinished result history in aria2 memory.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-aria2_keep_unfinished_download_result" ${s.aria2_keep_unfinished_download_result?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="form-group">
+          <button class="btn btn-ghost" onclick="runAria2Housekeeping()">Run aria2 Cleanup Now</button>
+        </div>
+        <div id="aria2-memory-diagnostics" class="form-hint" style="line-height:1.6"></div>
         <div class="toggle-row">
           <div class="toggle-info">
             <div class="tl">Start aria2 Jobs Paused</div>
@@ -2448,6 +2469,9 @@ function getFormSettings() {
     aria2_max_active_downloads: n('aria2_max_active_downloads', n('max_concurrent_downloads', 3)),
     aria2_start_paused: c('aria2_start_paused'),
     aria2_poll_interval_seconds: n('aria2_poll_interval_seconds', 5),
+    aria2_purge_interval_minutes: n('aria2_purge_interval_minutes', 60),
+    aria2_max_download_result: n('aria2_max_download_result', 200),
+    aria2_keep_unfinished_download_result: c('aria2_keep_unfinished_download_result'),
     db_type: t('db_type'),
     postgres_host: t('postgres_host'), postgres_port: n('postgres_port'),
     postgres_db: t('postgres_db'), postgres_user: t('postgres_user'),
@@ -2581,11 +2605,39 @@ async function testAria2() {
     await api('PUT','/settings', current);
     settingsData = await api('GET','/settings');
     const r = await api('POST','/settings/test-aria2');
+    renderAria2Diagnostics(r.diagnostics || null);
     toast(`aria2: ${r.version||'online'} ✓`,'success');
     setDot('aria2','ok',`aria2: ${r.version||'online'}`);
   } catch(e) {
     toast('aria2: '+e.message,'error');
     setDot('aria2','error','aria2: error');
+  }
+}
+
+function renderAria2Diagnostics(diag) {
+  const el = document.getElementById('aria2-memory-diagnostics');
+  if (!el) return;
+  if (!diag) {
+    el.textContent = '';
+    return;
+  }
+  const opts = diag.global_options || {};
+  el.innerHTML =
+    `<b>aria2 memory diagnostics</b><br>` +
+    `Active: ${diag.active_count ?? 0} · Waiting: ${diag.waiting_count ?? 0} · Stopped: ${diag.stopped_count ?? 0}<br>` +
+    `max-download-result: ${opts['max-download-result'] || 'n/a'} · keep-unfinished-download-result: ${opts['keep-unfinished-download-result'] || 'n/a'}`;
+}
+
+async function runAria2Housekeeping() {
+  try {
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = await api('GET','/settings');
+    const r = await api('POST', '/settings/aria2-housekeeping');
+    renderAria2Diagnostics(r.diagnostics || null);
+    toast('aria2 cleanup finished', 'success');
+  } catch(e) {
+    toast(e.message, 'error');
   }
 }
 

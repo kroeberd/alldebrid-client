@@ -2192,7 +2192,27 @@ class TorrentManager:
     async def test_aria2(self) -> dict:
         if not get_settings().aria2_url:
             raise Exception("aria2 URL not configured")
-        return await self.aria2().test()
+        test = await self.aria2().test()
+        diagnostics = await self.aria2().get_memory_diagnostics()
+        return {**test, "diagnostics": diagnostics}
+
+    async def apply_aria2_memory_tuning(self) -> dict:
+        cfg = get_settings()
+        if not getattr(cfg, "aria2_url", "").strip():
+            return {"ok": False, "skipped": True, "reason": "aria2 URL not configured"}
+        options = {
+            "max-download-result": str(int(getattr(cfg, "aria2_max_download_result", 200) or 200)),
+            "keep-unfinished-download-result": "true" if bool(getattr(cfg, "aria2_keep_unfinished_download_result", False)) else "false",
+        }
+        await self.aria2().change_global_options(options)
+        return {"ok": True, "applied": options}
+
+    async def run_aria2_housekeeping(self) -> dict:
+        cfg = get_settings()
+        await self.apply_aria2_memory_tuning()
+        await self.aria2().purge_download_results()
+        diagnostics = await self.aria2().get_memory_diagnostics()
+        return {"ok": True, "diagnostics": diagnostics}
 
 
 manager = TorrentManager()

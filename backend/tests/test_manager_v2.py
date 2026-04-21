@@ -181,6 +181,34 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result), 3)
         self.assertEqual({dl.gid for dl in result}, {"a1", "w1", "s1"})
 
+    async def test_get_memory_diagnostics_reports_counts_and_options(self):
+        service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
+
+        async def fake_call(method, params=None):
+            if method == "aria2.tellActive":
+                return [{"gid": "a1", "status": "active", "files": []}]
+            if method == "aria2.tellWaiting":
+                return [{"gid": "w1", "status": "waiting", "files": []}]
+            if method == "aria2.tellStopped":
+                return [
+                    {"gid": "s1", "status": "complete", "files": []},
+                    {"gid": "s2", "status": "error", "files": []},
+                ]
+            if method == "aria2.getGlobalOption":
+                return {
+                    "max-download-result": "200",
+                    "keep-unfinished-download-result": "false",
+                }
+            return []
+
+        service._call = fake_call
+        result = await service.get_memory_diagnostics()
+        self.assertEqual(result["active_count"], 1)
+        self.assertEqual(result["waiting_count"], 1)
+        self.assertEqual(result["stopped_count"], 2)
+        self.assertEqual(result["global_options"]["max-download-result"], "200")
+        self.assertEqual(result["global_options"]["keep-unfinished-download-result"], "false")
+
     async def test_ensure_download_retry_on_connection_error(self):
         """ensure_download() retries on connection errors."""
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
@@ -1071,6 +1099,22 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
             aria2_max_active_downloads=0, max_concurrent_downloads=5,
         )):
             self.assertEqual(mgr._aria2_slot_limit(), 5)
+
+    async def test_apply_aria2_memory_tuning_uses_settings_values(self):
+        mgr = TorrentManager()
+        fake_aria2 = types.SimpleNamespace(change_global_options=AsyncMock())
+        mgr.aria2 = lambda: fake_aria2
+        with patch("services.manager_v2.get_settings", return_value=types.SimpleNamespace(
+            aria2_url="http://localhost:6800/jsonrpc",
+            aria2_max_download_result=150,
+            aria2_keep_unfinished_download_result=False,
+        )):
+            result = await mgr.apply_aria2_memory_tuning()
+        self.assertTrue(result["ok"])
+        fake_aria2.change_global_options.assert_awaited_once_with({
+            "max-download-result": "150",
+            "keep-unfinished-download-result": "false",
+        })
 
 
 if __name__ == "__main__":

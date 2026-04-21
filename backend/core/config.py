@@ -39,6 +39,9 @@ class AppSettings(BaseModel):
     aria2_start_paused: bool = False
     aria2_poll_interval_seconds: int = 5
     aria2_max_active_downloads: int = 3
+    aria2_purge_interval_minutes: int = 60
+    aria2_max_download_result: int = 200
+    aria2_keep_unfinished_download_result: bool = False
 
     # Sonarr integration
     sonarr_enabled: bool = False
