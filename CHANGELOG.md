@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.6] — 2026-04-21
+
+### Changed
+- **Discord avatar field: hint updated** — placeholder and help-text now
+  explicitly state that Discord only accepts PNG/JPG/WEBP (not SVG).
+- **`_send()`: success logged at DEBUG level** — previously no logging on
+  successful delivery; now logs `Discord notification sent: <title>` at DEBUG
+  and includes the title in the error message on failure for easier tracing.
+
 ## [1.2.5] — 2026-04-21
 
 ### Fixed

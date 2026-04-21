@@ -1892,9 +1892,9 @@ function renderSettings() {
           <input class="input" id="s-discord_username" value="${s.discord_username||'AllDebrid-Client'}" placeholder="AllDebrid-Client"/>
         </div>
         <div class="form-group">
-          <label class="form-label">Bot Avatar <span style="font-weight:400;color:var(--muted)">(Discord requires a public URL — use Upload to host via this app)</span></label>
+          <label class="form-label">Bot Avatar <span style="font-weight:400;color:var(--muted)">(Discord requires PNG/JPG/WEBP — no SVG. Use Upload to host via this app)</span></label>
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-            <input class="input" id="s-discord_avatar_url" value="${s.discord_avatar_url||''}" placeholder="https://… or leave empty for default logo" style="flex:1"/>
+            <input class="input" id="s-discord_avatar_url" value="${s.discord_avatar_url||''}" placeholder="https://…/avatar.png (PNG/JPG/WEBP, leave empty for no avatar)" style="flex:1"/>
             <label class="btn btn-ghost btn-sm" style="cursor:pointer;white-space:nowrap">
               📎 Upload
               <input type="file" accept="image/png,image/jpeg,image/gif,image/webp"

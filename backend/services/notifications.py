@@ -353,7 +353,8 @@ class NotificationService:
                     elif resp.status not in (200, 204):
                         body = await resp.text()
                         raise Exception(f"Discord webhook {resp.status}: {body[:200]}")
+            logger.debug("Discord notification sent: %s", title[:60])
             return True
         except Exception as exc:
-            logger.error("Discord notification failed: %s", exc)
+            logger.error("Discord notification failed (%s): %s", title[:60], exc)
             return False
