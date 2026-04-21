@@ -435,6 +435,64 @@ class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
 
         mgr._delete_magnet_after_completion.assert_not_awaited()
 
+    async def test_finalize_updates_large_total_size_without_case_expression(self):
+        """Large BIGINT totals are written directly so PostgreSQL does not infer an int4 CASE parameter."""
+        mgr = TorrentManager()
+        mgr._delete_magnet_after_completion = AsyncMock(return_value=True)
+        mgr._mark_finished = AsyncMock()
+        notify_mock = MagicMock()
+        notify_mock.send_complete = AsyncMock()
+        mgr.notify = lambda: notify_mock
+
+        torrent_row = {
+            "id": 116, "status": "queued", "alldebrid_id": "ad-116", "name": "Big Torrent",
+            "hash": None, "magnet": None, "size_bytes": 0, "progress": 0,
+            "download_url": None, "local_path": None, "source": None,
+            "provider_status": None, "provider_status_code": None,
+            "polling_failures": 0, "download_client": "aria2",
+            "error_message": None, "created_at": None, "updated_at": None,
+            "completed_at": None,
+        }
+        counts_row = {
+            "required_count": 1, "completed_count": 1, "error_count": 0,
+            "active_count": 0, "paused_count": 0, "total_files": 1,
+        }
+
+        class FakeCursor:
+            def __init__(self, result): self._result = result
+            async def fetchone(self): return self._result
+
+        executed = []
+
+        async def fake_execute(sql, params=()):
+            executed.append((sql, params))
+            if "SELECT * FROM torrents" in sql:
+                return FakeCursor(torrent_row)
+            if "SUM(CASE WHEN blocked=0" in sql:
+                return FakeCursor(counts_row)
+            if "SUM(size_bytes)" in sql:
+                return FakeCursor({"total": 4505585317})
+            return FakeCursor(None)
+
+        fake_db = AsyncMock()
+        fake_db.__aenter__ = AsyncMock(return_value=fake_db)
+        fake_db.__aexit__ = AsyncMock(return_value=False)
+        fake_db.execute = fake_execute
+        fake_db.commit = AsyncMock()
+
+        with patch("services.manager_v2.aiosqlite.connect", return_value=fake_db), \
+             patch("services.manager_v2.get_settings", return_value=types.SimpleNamespace(
+                 discord_notify_finished=True, discord_notify_error=False
+             )):
+            await mgr._finalize_aria2_torrent(116)
+
+        update_calls = [item for item in executed if "UPDATE torrents" in item[0] and "size_bytes" in item[0]]
+        self.assertEqual(len(update_calls), 1)
+        update_sql, update_params = update_calls[0]
+        self.assertNotIn("CASE WHEN", update_sql)
+        self.assertEqual(update_params, (4505585317, 116))
+        mgr._delete_magnet_after_completion.assert_awaited_once_with(116, "ad-116")
+
     async def test_delete_magnet_keeps_completed_status(self):
         """
         _delete_magnet_after_completion() does NOT change status to 'deleted'.
@@ -932,6 +990,39 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
             await svc.send_error("Torrent")
 
         self.assertEqual(send_count["n"], 0)
+
+    async def test_send_logs_exception_type_when_error_message_is_empty(self):
+        """Discord failures with empty exception strings still log a useful error type."""
+        from services.notifications import NotificationService
+
+        class EmptyError(Exception):
+            def __str__(self):
+                return ""
+
+        class FakePostContext:
+            async def __aenter__(self):
+                raise EmptyError()
+            async def __aexit__(self, *a):
+                return False
+
+        class FakeClientSession:
+            def __init__(self, *a, **kw): pass
+            async def __aenter__(self): return self
+            async def __aexit__(self, *a): return False
+            def post(self, *a, **kw): return FakePostContext()
+
+        NotificationService._sent_hashes = {}
+        NotificationService._last_sent_at = {}
+        NotificationService._throttle_lock = None
+
+        with patch("services.notifications.aiohttp.ClientSession", FakeClientSession), \
+             patch("services.notifications.logger.error") as log_error:
+            svc = NotificationService("https://discord.invalid/webhook")
+            result = await svc.send("Title", "Description")
+
+        self.assertFalse(result)
+        log_args = log_error.call_args[0]
+        self.assertIn("EmptyError", log_args[2])
 
 
 # ═════════════════════════════════════════════════════════════════════════════

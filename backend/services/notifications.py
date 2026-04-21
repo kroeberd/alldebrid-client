@@ -356,5 +356,11 @@ class NotificationService:
             logger.debug("Discord notification sent: %s", title[:60])
             return True
         except Exception as exc:
-            logger.error("Discord notification failed (%s): %s", title[:60], exc)
+            detail = str(exc).strip() or repr(exc)
+            logger.error(
+                "Discord notification failed (%s) [%s]: %s",
+                title[:60],
+                exc.__class__.__name__,
+                detail,
+            )
             return False

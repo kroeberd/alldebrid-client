@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.2.15] — 2026-04-21
+
+### Fixed
+- **PostgreSQL straggler finalization still failed for large completed torrents** — the
+  aria2 straggler pass could repeatedly detect fully completed torrents but fail during
+  `_finalize_aria2_torrent()` when writing very large `size_bytes` totals back to
+  PostgreSQL. The `UPDATE torrents ... size_bytes=CASE WHEN ? > 0 THEN ? ELSE size_bytes END`
+  form kept re-binding the large size value in a way that could still trip PostgreSQL
+  type inference on some databases.
+
+  **Fix:** `_finalize_aria2_torrent()` now uses explicit SQL branches:
+  - when `total_size > 0`, it writes `size_bytes=?` directly
+  - when `total_size == 0`, it leaves `size_bytes` unchanged
+
+  This removes the problematic `CASE WHEN` expression and allows large completed
+  torrents to finalize cleanly instead of looping forever in the straggler check.
+
+- **Discord completion/error notification failures logged no useful reason** — some
+  webhook failures produced an exception with an empty string, which resulted in log
+  lines like `Discord notification failed (...):` with no actionable detail.
+
+  **Fix:** notification logging now includes the exception class name and falls back to
+  `repr(exc)` when the exception message is empty, making Discord webhook failures
+  diagnosable from the logs.
+
 ## [1.2.14] — 2026-04-21
 
 ### Fixed

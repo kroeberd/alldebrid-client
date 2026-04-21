@@ -1977,14 +1977,22 @@ class TorrentManager:
                     )
                 ).fetchone()
                 total_size = int(size_row["total"] or 0)
-                await db.execute(
-                    """UPDATE torrents
-                       SET status='completed', completed_at=CURRENT_TIMESTAMP,
-                           size_bytes=CASE WHEN ? > 0 THEN ? ELSE size_bytes END,
-                           updated_at=CURRENT_TIMESTAMP
-                       WHERE id=?""",
-                    (total_size, total_size, torrent_id),
-                )
+                if total_size > 0:
+                    await db.execute(
+                        """UPDATE torrents
+                           SET status='completed', completed_at=CURRENT_TIMESTAMP,
+                               size_bytes=?, updated_at=CURRENT_TIMESTAMP
+                           WHERE id=?""",
+                        (total_size, torrent_id),
+                    )
+                else:
+                    await db.execute(
+                        """UPDATE torrents
+                           SET status='completed', completed_at=CURRENT_TIMESTAMP,
+                               updated_at=CURRENT_TIMESTAMP
+                           WHERE id=?""",
+                        (torrent_id,),
+                    )
                 await db.execute("INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)", (torrent_id, "info", event_msg))
                 await db.commit()
 
