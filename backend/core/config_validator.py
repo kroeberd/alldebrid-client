@@ -94,6 +94,7 @@ def _validate(cfg) -> List[Tuple[str, str, Any, Any]]:
         "stats_snapshot_interval_minutes":(0, 1440),
         "stats_snapshot_keep_days":       (1, 365),
         "stats_report_interval_hours":    (0, 168),
+        "stats_report_window_hours":      (1, 8760),
         "min_file_size_mb":               (0, 100_000),
         "postgres_port":                  (1, 65535),
     }

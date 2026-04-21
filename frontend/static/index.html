@@ -2342,10 +2342,10 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">Time Window</label>
           <select class="input" id="stats-report-hours" onchange="loadComprehensiveStats()">
-            <option value="24">Last 24 hours</option>
-            <option value="168">Last 7 days</option>
-            <option value="720">Last 30 days</option>
-            <option value="8760">All time (~1 year)</option>
+            <option value="24"${Number(s.stats_report_window_hours ?? 24)===24?' selected':''}>Last 24 hours</option>
+            <option value="168"${Number(s.stats_report_window_hours ?? 24)===168?' selected':''}>Last 7 days</option>
+            <option value="720"${Number(s.stats_report_window_hours ?? 24)===720?' selected':''}>Last 30 days</option>
+            <option value="8760"${Number(s.stats_report_window_hours ?? 24)===8760?' selected':''}>All time (~1 year)</option>
           </select>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
@@ -2374,6 +2374,12 @@ function getFormSettings() {
   };
   const c = id => g(id)?.checked||false;
   const l = id => g(id)?.value?.split('\n').map(x=>x.trim()).filter(Boolean)||[];
+  const reportHoursRaw = document.getElementById('stats-report-hours')?.value;
+  const reportWindowHours = (() => {
+    if (reportHoursRaw == null || reportHoursRaw === '') return Number(settingsData.stats_report_window_hours ?? 24);
+    const parsed = parseInt(reportHoursRaw, 10);
+    return Number.isNaN(parsed) ? Number(settingsData.stats_report_window_hours ?? 24) : parsed;
+  })();
   return {
     ...settingsData,
     alldebrid_api_key: t('alldebrid_api_key'),
@@ -2428,6 +2434,7 @@ function getFormSettings() {
     stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
     stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
     stats_report_interval_hours: n('stats_report_interval_hours'),
+    stats_report_window_hours: reportWindowHours,
     stats_report_webhook_url: t('stats_report_webhook_url'),
   };
 }
@@ -2453,7 +2460,7 @@ async function saveSettings() {
   try {
     const d = getFormSettings();
     await api('PUT','/settings',d);
-    settingsData = d;
+    settingsData = await api('GET','/settings');
     // Re-render so defaults set by backend are immediately visible
     renderSettings();
     updateAria2ngLink();
@@ -2466,7 +2473,7 @@ async function testDiscord() {
   try {
     const current = getFormSettings();
     await api('PUT','/settings', current);
-    settingsData = current;
+    settingsData = await api('GET','/settings');
     await api('POST','/settings/test-discord');
     toast('Discord notification sent ✓','success');
   } catch(e) { toast('Discord: '+e.message,'error'); }
@@ -2512,7 +2519,7 @@ async function testAria2() {
   try {
     const current = getFormSettings();
     await api('PUT','/settings', current);
-    settingsData = current;
+    settingsData = await api('GET','/settings');
     const r = await api('POST','/settings/test-aria2');
     toast(`aria2: ${r.version||'online'} ✓`,'success');
     setDot('aria2','ok',`aria2: ${r.version||'online'}`);

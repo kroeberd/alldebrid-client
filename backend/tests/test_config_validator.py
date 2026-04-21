@@ -74,6 +74,11 @@ class TestValidateAndSanitise:
         result = validate_and_sanitise(cfg)
         assert result.postgres_port == 65535
 
+    def test_stats_report_window_clamped(self):
+        cfg = make_cfg(stats_report_window_hours=999999)
+        result = validate_and_sanitise(cfg)
+        assert result.stats_report_window_hours == 8760
+
     def test_multiple_fixes_applied(self):
         cfg = make_cfg(
             discord_avatar_url="data:image/png;base64,xxx",

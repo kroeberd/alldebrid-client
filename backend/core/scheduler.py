@@ -23,6 +23,11 @@ def _has_reporting_webhook(cfg) -> bool:
     return bool(stats_webhook or discord_webhook)
 
 
+def _stats_report_window_hours(cfg) -> int:
+    """Return the configured report window in hours for webhook reporting."""
+    return max(1, _coerce_int_setting(getattr(cfg, "stats_report_window_hours", 24), 24))
+
+
 async def watch_folder_loop():
     while True:
         try:
@@ -221,12 +226,13 @@ async def stats_report_loop():
     while True:
         cfg = get_settings()
         interval_h = max(0, _coerce_int_setting(getattr(cfg, "stats_report_interval_hours", 0), 0))
+        window_h = _stats_report_window_hours(cfg)
         if interval_h <= 0 or not _has_reporting_webhook(cfg):
             await asyncio.sleep(300)
             continue
         await asyncio.sleep(max(300, interval_h * 3600))
         try:
             from services.stats import send_stats_report
-            await send_stats_report(hours=interval_h, triggered_by="schedule")
+            await send_stats_report(hours=window_h, triggered_by="schedule")
         except Exception as e:
             logger.error(f"Stats report error: {e}")

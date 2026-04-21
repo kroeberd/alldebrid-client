@@ -94,6 +94,31 @@ class SettingsSaveTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved["cfg"].discord_avatar_url, "")
         self.assertEqual(saved["applied"].discord_avatar_url, "")
 
+    async def test_update_settings_persists_reporting_window(self):
+        saved = {}
+
+        def fake_save(cfg):
+            saved["cfg"] = cfg
+
+        def fake_apply(cfg):
+            saved["applied"] = cfg
+
+        with patch("api.routes.save_settings", side_effect=fake_save), \
+             patch("api.routes.apply_settings", side_effect=fake_apply), \
+             patch.object(routes.manager, "reset_services", MagicMock()):
+            result = await routes.update_settings(
+                routes.AppSettings(
+                    stats_report_interval_hours=12,
+                    stats_report_window_hours=168,
+                    stats_report_webhook_url="https://discord.com/api/webhooks/test",
+                )
+            )
+
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(saved["cfg"].stats_report_interval_hours, 12)
+        self.assertEqual(saved["cfg"].stats_report_window_hours, 168)
+        self.assertEqual(saved["applied"].stats_report_window_hours, 168)
+
 
 class _FakeResponse:
     def __init__(self, payload_store):

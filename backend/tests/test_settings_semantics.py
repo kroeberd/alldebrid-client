@@ -40,7 +40,7 @@ if "aiosqlite" not in sys.modules:
         connect=lambda *a, **kw: None,
     )
 
-from core.scheduler import _coerce_int_setting
+from core.scheduler import _coerce_int_setting, _stats_report_window_hours
 from services import manager_v2
 
 
@@ -53,6 +53,14 @@ class SchedulerSettingsTests(unittest.TestCase):
 
     def test_coerce_int_setting_uses_default_for_invalid(self):
         self.assertEqual(_coerce_int_setting("invalid", 10), 10)
+
+    def test_stats_report_window_uses_configured_value(self):
+        cfg = types.SimpleNamespace(stats_report_window_hours=168)
+        self.assertEqual(_stats_report_window_hours(cfg), 168)
+
+    def test_stats_report_window_falls_back_to_default(self):
+        cfg = types.SimpleNamespace(stats_report_window_hours=None)
+        self.assertEqual(_stats_report_window_hours(cfg), 24)
 
 
 class AllDebridRateLimitTests(unittest.IsolatedAsyncioTestCase):

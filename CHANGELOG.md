@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.8] — 2026-04-21
+
+### Fixed
+- **Reporting settings now persist correctly** — the reporting time-window
+  selector is now backed by a real persisted setting,
+  `stats_report_window_hours`, instead of being a UI-only value.
+
+- **Scheduled reports now use the configured report window instead of the send
+  interval** — automatic reporting previously sent a report covering the same
+  number of hours as the schedule cadence. The scheduler now keeps those values
+  separate and uses `stats_report_interval_hours` only for cadence and
+  `stats_report_window_hours` for report content.
+
+- **Reporting settings reload cleanly after save** — the settings UI now
+  refreshes itself from `GET /api/settings` after saving or running inline
+  settings-dependent tests, so persisted values and sanitized values are shown
+  immediately instead of relying on the pre-save form payload.
+
 ## [1.2.7] — 2026-04-21
 
 ### Fixed
