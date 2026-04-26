@@ -3245,6 +3245,13 @@ async function testJackett() {
   var el=document.getElementById('jackett-test-result');
   if (el) { el.style.color='var(--text2)'; el.textContent='Testing...'; }
   try {
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = await api('GET','/settings');
+    renderSettings();
+    updateJackettNav();
+    el=document.getElementById('jackett-test-result');
+    if (el) { el.style.color='var(--text2)'; el.textContent='Testing...'; }
     var r=await api('POST', '/settings/test-jackett');
     if (el) { el.style.color='var(--green)'; el.textContent='Connected - Jackett '+(r.version||''); }
   } catch(e) {

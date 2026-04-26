@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.4] — 2026-04-26
+
+### Fixed
+- **Jackett test connection used stale saved settings** — the Jackett Settings tab
+  tested the backend connection without first persisting the values currently
+  entered in the form. This meant users could enter a valid URL and API key,
+  click **Test Connection**, and still get a backend error because the test was
+  executed with the previous saved configuration. The Jackett test action now
+  saves the current settings first, reloads them from the backend, and only then
+  calls the Jackett test endpoint.
+
 ## [1.3.3] — 2026-04-26
 
 ### Fixed
