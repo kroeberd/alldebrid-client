@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.3] — 2026-04-26
+
+### Fixed
+- **Jackett settings tab rendering was broken in the 1.3.x UI** — the
+  `tab-jackett` panel was accidentally nested inside the Reporting panel in the
+  settings renderer, which caused the Jackett tab to stop behaving like an
+  independent tab. The settings markup now closes the Reporting panel before the
+  Jackett panel starts, so the Jackett tab can be opened normally again.
+
+- **Settings DOM contained duplicated PostgreSQL test buttons** — several
+  unrelated settings panels accidentally rendered extra `btn-test-postgres`
+  elements with the same `id`, making the settings DOM more fragile and harder
+  to reason about. These duplicate button injections were removed, leaving only
+  the intended top-level database test action.
+
 ## [1.3.2] — 2026-04-26
 
 ### Fixed
