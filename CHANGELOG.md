@@ -1,5 +1,72 @@
 # Changelog
 
+## [1.3.0] — 2026-04-26
+
+### Added
+- **Jackett torrent search integration** — search any tracker indexed by a Jackett
+  instance directly from the AllDebrid-Client UI and add results to the download
+  queue with a single click.
+
+  **Backend (`backend/services/jackett.py`, new):**
+  - `search()` — proxies `GET /api/v2.0/indexers/all/results` on the configured
+    Jackett instance; normalises every result to a stable dict with `title`,
+    `indexer`, `size_bytes`, `size_human`, `seeders`, `leechers`, `pub_date`,
+    `magnet`, `torrent_url`, `has_link`; sorts by seeders descending.
+  - `test_connection()` — pings `/api/v2.0/server/config`, validates API key,
+    returns Jackett version string.
+  - `get_indexers()` — returns the list of configured Jackett indexers (id + name)
+    for the filter dropdown.
+  - `send_jackett_webhook()` — fires a `jackett_torrent_added` Discord embed;
+    uses `jackett_webhook_url` when set, falls back to `discord_webhook_url` +
+    `discord_notify_added` flag; silently skips when both are unconfigured.
+  - Error handling: Jackett unreachable, invalid API key, HTTP error, no results,
+    missing magnet/torrent link — all produce a structured `error` field instead
+    of raising.
+
+  **API (`backend/api/routes.py`), 5 new routes:**
+  - `POST /settings/test-jackett` — connection + API key test
+  - `GET  /jackett/indexers` — live indexer list for the filter dropdown
+  - `POST /jackett/search` — search (body: `query`, `category`, `tracker`, `limit`)
+  - `POST /jackett/add` — add magnet or torrent URL to the download queue; fires
+    webhook on success
+  - `GET  /jackett/categories` — standard Torznab category list
+
+  **Config (`backend/core/config.py`), 4 new fields:**
+  `jackett_enabled`, `jackett_url` (default `http://localhost:9117`),
+  `jackett_api_key`, `jackett_webhook_url`.
+
+  **Config validator (`backend/core/config_validator.py`):**
+  `jackett_url` and `jackett_webhook_url` are now validated for HTTP(S) format
+  on startup.
+
+  **Frontend (`frontend/static/index.html`):**
+  - New **🔍 Search** nav item — hidden automatically when `jackett_enabled` is
+    `false`, shown immediately after saving Settings.
+  - **Search view** — query field with Enter key support, category dropdown
+    (All / Movies / TV / Music / Books / Games / Software / XXX), live indexer
+    dropdown (populated from the running Jackett config), Search button.
+    Results table: Title, Indexer, Size, Seeds, Peers, Date, per-row Add button.
+    Status feedback: searching spinner, empty state, error message, success toast,
+    disabled Add button replaced with "Added" on success.
+  - **Settings → Jackett tab** — Enable toggle, URL field, API key (password
+    input), dedicated webhook URL, live "Test Connection" button with inline
+    result.
+  - All 4 Jackett fields included in `getFormSettings()` so they are persisted
+    on Save.
+
+  **Security:**
+  - API key is never sent to the browser; all Jackett requests are proxied
+    through the backend.
+  - Jackett URL validated on startup; webhook URL validated the same way as all
+    other webhook fields.
+
+  **Tests (`backend/tests/test_jackett.py`, 18 new):**
+  - `_fmt_size`: zero, negative, bytes, MB, GB
+  - `_normalise_result`: all fields, magnet-preferred, torrent-URL fallback,
+    no link, date parsing (valid / empty / malformed), missing optional fields,
+    Peers→leechers mapping
+  - `CATEGORIES`: all_zero, required keys present, positive IDs
+
 ## [1.2.15] — 2026-04-21
 
 ### Fixed
