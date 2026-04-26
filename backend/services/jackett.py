@@ -257,8 +257,7 @@ async def send_jackett_webhook(
     else:
         return  # nothing to send
 
-    from services.notifications import NotificationService, _now_utc, _fmt_size as _nfmt
-    from services.notifications import COLOR_ADDED
+    from services.notifications import NotificationService, _now_utc, COLOR_ADDED
 
     try:
         sz_human = _fmt_size(size_bytes)

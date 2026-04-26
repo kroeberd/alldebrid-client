@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.1] — 2026-04-26
+
+### Fixed
+- **Jackett Settings tab not visible** — the Jackett panel was inserted into the
+  static HTML outside of the `renderSettings()` template literal. Because
+  `settings-form.innerHTML` is fully replaced on every Settings open, the panel
+  was overwritten immediately and never shown. Fixed by embedding the panel
+  directly inside the template literal so it is rendered with every other tab.
+
+- **`send_jackett_webhook()` import error** — the function attempted to import
+  `_fmt_size` from `services.notifications`, which does not export that name.
+  This caused an `ImportError` whenever a torrent was added via Jackett search
+  and a webhook was configured. Fixed by using the local `_fmt_size` from
+  `services/jackett.py` instead.
+
 ## [1.3.0] — 2026-04-26
 
 ### Added
