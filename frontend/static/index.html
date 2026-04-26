@@ -608,6 +608,10 @@ textarea.input { resize: vertical; }
       <div class="dot" id="dot-db"></div>
       <span id="lbl-db">DB: —</span>
     </div>
+    <div class="conn-row">
+      <div class="dot" id="dot-jackett"></div>
+      <span id="lbl-jackett">Jackett: —</span>
+    </div>
     <div class="conn-row" id="flexget-running-row" style="display:none">
       <div class="dot" id="dot-flexget" style="background:var(--accent);animation:pulse 1s infinite"></div>
       <span id="lbl-flexget" style="color:var(--accent)">FlexGet: running…</span>
@@ -1164,6 +1168,19 @@ async function checkConnections() {
     setDot('aria2', 'warn', 'aria2: not configured');
   }
   updateAria2ngLink();
+
+  if (cfg.jackett_enabled && cfg.jackett_url && cfg.jackett_api_key) {
+    try {
+      const result = await api('POST', '/settings/test-jackett');
+      setDot('jackett', 'ok', `Jackett: ${result.version || 'online'}`);
+    } catch(e) {
+      setDot('jackett', 'error', `Jackett: ${e.message || 'error'}`);
+    }
+  } else if (cfg.jackett_enabled) {
+    setDot('jackett', 'warn', 'Jackett: incomplete');
+  } else {
+    setDot('jackett', 'warn', 'Jackett: disabled');
+  }
 }
 
 
@@ -1183,6 +1200,10 @@ function setDot(id, state, label) {
   if (!d || !l) return;  // element not in DOM yet
   d.className = 'dot' + (state ? ' '+state : '');
   l.textContent = label;
+}
+
+function getActiveSettingsTab() {
+  return document.querySelector('.stab.active')?.dataset.tab || 'tab-general';
 }
 
 async function pauseProcessing() {
@@ -2650,11 +2671,13 @@ async function triggerFullSync() {
 
 async function saveSettings() {
   try {
+    const activeTab = getActiveSettingsTab();
     const d = getFormSettings();
     await api('PUT','/settings',d);
     settingsData = await api('GET','/settings');
     // Re-render so defaults set by backend are immediately visible
     renderSettings();
+    switchSettingsTab(activeTab);
     updateAria2ngLink();
     updateJackettNav();
     toast('Settings saved!','success');
@@ -2665,9 +2688,12 @@ async function saveSettings() {
 
 async function testDiscord() {
   try {
+    const activeTab = getActiveSettingsTab();
     const current = getFormSettings();
     await api('PUT','/settings', current);
     settingsData = await api('GET','/settings');
+    renderSettings();
+    switchSettingsTab(activeTab);
     await api('POST','/settings/test-discord');
     toast('Discord notification sent ✓','success');
   } catch(e) { toast('Discord: '+e.message,'error'); }
@@ -2714,9 +2740,12 @@ function switchSettingsTab(id) {
 
 async function testAria2() {
   try {
+    const activeTab = getActiveSettingsTab();
     const current = getFormSettings();
     await api('PUT','/settings', current);
     settingsData = await api('GET','/settings');
+    renderSettings();
+    switchSettingsTab(activeTab);
     const r = await api('POST','/settings/test-aria2');
     renderAria2Diagnostics(r.diagnostics || null);
     toast(`aria2: ${r.version||'online'} ✓`,'success');
@@ -3245,10 +3274,12 @@ async function testJackett() {
   var el=document.getElementById('jackett-test-result');
   if (el) { el.style.color='var(--text2)'; el.textContent='Testing...'; }
   try {
+    const activeTab = getActiveSettingsTab();
     const current = getFormSettings();
     await api('PUT','/settings', current);
     settingsData = await api('GET','/settings');
     renderSettings();
+    switchSettingsTab(activeTab);
     updateJackettNav();
     el=document.getElementById('jackett-test-result');
     if (el) { el.style.color='var(--text2)'; el.textContent='Testing...'; }

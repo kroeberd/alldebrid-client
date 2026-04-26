@@ -1,4 +1,5 @@
 """Tests for the Jackett integration service."""
+import asyncio
 import sys, types
 for mod, stub in {
     "aiohttp": types.SimpleNamespace(
@@ -119,3 +120,89 @@ class TestCategories:
         for name, cid in CATEGORIES.items():
             if name != "All":
                 assert cid > 0, f"{name} category should have positive ID"
+
+
+class _FakeResponse:
+    def __init__(self, status, data):
+        self.status = status
+        self._data = data
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def json(self, content_type=None):
+        return self._data
+
+    async def text(self):
+        return str(self._data)
+
+
+class _FakeSession:
+    def __init__(self, responses, *args, **kwargs):
+        self._responses = list(responses)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    def get(self, *args, **kwargs):
+        if not self._responses:
+            raise AssertionError("No more fake Jackett responses configured")
+        return self._responses.pop(0)
+
+
+class TestConnectionFallback:
+    def test_falls_back_to_indexers_when_server_config_is_unavailable(self):
+        from services import jackett as jackett_mod
+
+        cfg = types.SimpleNamespace(
+            jackett_url="http://jackett:9117",
+            jackett_api_key="secret",
+        )
+        fake_session_factory = lambda *a, **kw: _FakeSession([
+            _FakeResponse(404, {"error": "not found"}),
+            _FakeResponse(200, [{"id": "tracker-a", "name": "Tracker A"}]),
+        ])
+
+        original_cfg = jackett_mod._cfg
+        original_session = jackett_mod.aiohttp.ClientSession
+        try:
+            jackett_mod._cfg = lambda: cfg
+            jackett_mod.aiohttp.ClientSession = fake_session_factory
+            result = asyncio.run(jackett_mod.test_connection())
+        finally:
+            jackett_mod._cfg = original_cfg
+            jackett_mod.aiohttp.ClientSession = original_session
+
+        assert result["ok"] is True
+        assert result["version"] == "reachable"
+
+    def test_invalid_api_key_on_fallback_is_reported(self):
+        from services import jackett as jackett_mod
+
+        cfg = types.SimpleNamespace(
+            jackett_url="http://jackett:9117",
+            jackett_api_key="wrong",
+        )
+        fake_session_factory = lambda *a, **kw: _FakeSession([
+            _FakeResponse(404, {"error": "not found"}),
+            _FakeResponse(401, {"error": "unauthorized"}),
+        ])
+
+        original_cfg = jackett_mod._cfg
+        original_session = jackett_mod.aiohttp.ClientSession
+        try:
+            jackett_mod._cfg = lambda: cfg
+            jackett_mod.aiohttp.ClientSession = fake_session_factory
+            result = asyncio.run(jackett_mod.test_connection())
+        finally:
+            jackett_mod._cfg = original_cfg
+            jackett_mod.aiohttp.ClientSession = original_session
+
+        assert result["ok"] is False
+        assert result["error"] == "Invalid API key"

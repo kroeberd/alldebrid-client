@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.3.5] — 2026-04-26
+
+### Fixed
+- **Jackett test connection still returned 502 on some valid setups** — the
+  backend test previously relied on `GET /api/v2.0/server/config` only. Some
+  Jackett installations or reverse-proxy setups do not expose that endpoint
+  consistently even though authenticated API access works. The connection test
+  now falls back to the authenticated `GET /api/v2.0/indexers?configured=true`
+  endpoint and treats a successful indexer listing as a valid Jackett connection.
+
+- **Settings test actions reset the active tab back to General** — saving or
+  testing settings caused the settings UI to re-render and reactivate the first
+  tab. The frontend now preserves and restores the currently active settings tab
+  across Save, Discord test, aria2 test, and Jackett test actions.
+
+- **Jackett had no sidebar health indicator** — the sidebar now shows a dedicated
+  Jackett status dot with `ok`, `warn`, or `error` state based on whether Jackett
+  is enabled, fully configured, and reachable from the backend.
+
 ## [1.3.4] — 2026-04-26
 
 ### Fixed

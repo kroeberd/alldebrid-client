@@ -179,20 +179,31 @@ async def test_connection() -> Dict[str, Any]:
     if not api_key:
         return {"ok": False, "error": "Jackett API key not configured"}
 
-    endpoint = f"{url}/api/v2.0/server/config"
     try:
         timeout = aiohttp.ClientTimeout(total=8)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(
-                endpoint, params={"apikey": api_key}
+                f"{url}/api/v2.0/server/config", params={"apikey": api_key}
+            ) as resp:
+                if resp.status == 401:
+                    return {"ok": False, "error": "Invalid API key"}
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    version = data.get("app_version") or data.get("version") or "?"
+                    return {"ok": True, "version": version}
+
+            async with session.get(
+                f"{url}/api/v2.0/indexers",
+                params={"apikey": api_key, "configured": "true"},
             ) as resp:
                 if resp.status == 401:
                     return {"ok": False, "error": "Invalid API key"}
                 if resp.status != 200:
                     return {"ok": False, "error": f"HTTP {resp.status}"}
                 data = await resp.json(content_type=None)
-                version = data.get("app_version") or data.get("version") or "?"
-                return {"ok": True, "version": version}
+                if not isinstance(data, list):
+                    return {"ok": False, "error": "Unexpected Jackett response"}
+                return {"ok": True, "version": "reachable"}
     except aiohttp.ClientConnectorError:
         return {"ok": False, "error": "Jackett not reachable"}
     except Exception as exc:
