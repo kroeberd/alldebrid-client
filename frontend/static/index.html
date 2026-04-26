@@ -877,18 +877,6 @@ textarea.input { resize: vertical; }
             </select>
             <div class="form-hint">Choose a specific indexer or search all configured indexers.</div>
           </div>
-          <div style="min-width:170px">
-            <label class="form-label">Sort</label>
-            <select class="input" id="jackett-sort" style="width:100%" onchange="jackettApplySort()">
-              <option value="seeders_desc">Seeders ↓</option>
-              <option value="name_asc">Name A–Z</option>
-              <option value="name_desc">Name Z–A</option>
-              <option value="size_desc">Size ↓</option>
-              <option value="size_asc">Size ↑</option>
-              <option value="date_desc">Date ↓</option>
-              <option value="date_asc">Date ↑</option>
-            </select>
-          </div>
           <button class="btn btn-primary" onclick="jackettSearch()" id="jackett-search-btn"
             style="align-self:flex-end;white-space:nowrap">
             &#128269; Search
@@ -902,12 +890,12 @@ textarea.input { resize: vertical; }
         <table class="t-table" style="min-width:700px">
           <thead>
             <tr>
-              <th style="min-width:240px">Title</th>
-              <th>Indexer</th>
-              <th>Size</th>
-              <th style="text-align:center">Seeds</th>
-              <th style="text-align:center">Peers</th>
-              <th>Date</th>
+              <th style="min-width:240px;cursor:pointer" onclick="jackettCycleSort('title')">Title <span id="jackett-sort-title"></span></th>
+              <th style="cursor:pointer" onclick="jackettCycleSort('indexer')">Indexer <span id="jackett-sort-indexer"></span></th>
+              <th style="cursor:pointer" onclick="jackettCycleSort('size')">Size <span id="jackett-sort-size"></span></th>
+              <th style="text-align:center;cursor:pointer" onclick="jackettCycleSort('seeders')">Seeds <span id="jackett-sort-seeders"></span></th>
+              <th style="text-align:center;cursor:pointer" onclick="jackettCycleSort('peers')">Peers <span id="jackett-sort-peers"></span></th>
+              <th style="cursor:pointer" onclick="jackettCycleSort('date')">Date <span id="jackett-sort-date"></span></th>
               <th>Status</th>
               <th style="width:90px"></th>
             </tr>
@@ -3206,6 +3194,7 @@ async function testPostgres() {
 // ── Jackett Search ────────────────────────────────────────────────────────────
 
 window._jackettResults = [];
+window._jackettSort = { key: null, direction: null };
 
 function jackettSelectedTrackers() {
   var sel = document.getElementById('jackett-tracker');
@@ -3214,16 +3203,24 @@ function jackettSelectedTrackers() {
   return value ? [value] : [];
 }
 
-function jackettSortResults(items, mode) {
+function jackettSortResults(items) {
   var sorted = (items || []).slice();
   var byText = function(value) { return String(value || '').toLowerCase(); };
   var byDate = function(value) { return String(value || ''); };
-  switch (mode) {
-    case 'name_asc':
+  var mode = window._jackettSort || { key: null, direction: null };
+  var composite = mode.key && mode.direction ? (mode.key + '_' + mode.direction) : '';
+  switch (composite) {
+    case 'title_asc':
       sorted.sort(function(a, b) { return byText(a.title).localeCompare(byText(b.title)); });
       break;
-    case 'name_desc':
+    case 'title_desc':
       sorted.sort(function(a, b) { return byText(b.title).localeCompare(byText(a.title)); });
+      break;
+    case 'indexer_asc':
+      sorted.sort(function(a, b) { return byText(a.indexer).localeCompare(byText(b.indexer)); });
+      break;
+    case 'indexer_desc':
+      sorted.sort(function(a, b) { return byText(b.indexer).localeCompare(byText(a.indexer)); });
       break;
     case 'size_desc':
       sorted.sort(function(a, b) { return (b.size_bytes || 0) - (a.size_bytes || 0); });
@@ -3231,21 +3228,64 @@ function jackettSortResults(items, mode) {
     case 'size_asc':
       sorted.sort(function(a, b) { return (a.size_bytes || 0) - (b.size_bytes || 0); });
       break;
+    case 'seeders_asc':
+      sorted.sort(function(a, b) { return (a.seeders || 0) - (b.seeders || 0); });
+      break;
     case 'date_asc':
       sorted.sort(function(a, b) { return byDate(a.pub_date).localeCompare(byDate(b.pub_date)); });
       break;
     case 'date_desc':
       sorted.sort(function(a, b) { return byDate(b.pub_date).localeCompare(byDate(a.pub_date)); });
       break;
+    case 'peers_asc':
+      sorted.sort(function(a, b) { return (a.leechers || 0) - (b.leechers || 0); });
+      break;
+    case 'peers_desc':
+      sorted.sort(function(a, b) { return (b.leechers || 0) - (a.leechers || 0); });
+      break;
     case 'seeders_desc':
-    default:
       sorted.sort(function(a, b) {
         var seederDiff = (b.seeders || 0) - (a.seeders || 0);
         return seederDiff !== 0 ? seederDiff : byText(a.title).localeCompare(byText(b.title));
       });
       break;
+    default:
+      break;
   }
   return sorted;
+}
+
+function jackettUpdateSortIndicators() {
+  ['title', 'indexer', 'size', 'seeders', 'peers', 'date'].forEach(function(key) {
+    var el = document.getElementById('jackett-sort-' + key);
+    if (!el) return;
+    if (window._jackettSort.key === key && window._jackettSort.direction === 'asc') {
+      el.textContent = '↑';
+    } else if (window._jackettSort.key === key && window._jackettSort.direction === 'desc') {
+      el.textContent = '↓';
+    } else {
+      el.textContent = '';
+    }
+  });
+}
+
+function jackettCycleSort(key) {
+  var defaults = {
+    title: 'asc',
+    indexer: 'asc',
+    size: 'desc',
+    seeders: 'desc',
+    peers: 'desc',
+    date: 'desc'
+  };
+  if (window._jackettSort.key !== key) {
+    window._jackettSort = { key: key, direction: defaults[key] || 'asc' };
+  } else if (window._jackettSort.direction === (defaults[key] || 'asc')) {
+    window._jackettSort = { key: key, direction: (defaults[key] === 'asc' ? 'desc' : 'asc') };
+  } else {
+    window._jackettSort = { key: null, direction: null };
+  }
+  renderJackettResults();
 }
 
 function renderJackettResults() {
@@ -3255,8 +3295,8 @@ function renderJackettResults() {
   var state = document.getElementById('jackett-state');
   if (!tbody || !wrap) return;
 
-  var sortMode = ((document.getElementById('jackett-sort') || {}).value) || 'seeders_desc';
-  var results = jackettSortResults(window._jackettResults || [], sortMode);
+  var results = jackettSortResults(window._jackettResults || []);
+  jackettUpdateSortIndicators();
 
   tbody.innerHTML = '';
   if (!results.length) {
@@ -3296,10 +3336,6 @@ function renderJackettResults() {
   if (count) count.textContent = results.length + ' result(s)';
 }
 
-function jackettApplySort() {
-  renderJackettResults();
-}
-
 async function jackettSearch() {
   var query = (document.getElementById('jackett-query')||{value:''}).value.trim();
   if (!query) { toast('Please enter a search query', 'warn'); return; }
@@ -3337,7 +3373,7 @@ async function jackettSearch() {
 }
 
 async function jackettAdd(idx) {
-  var r = jackettSortResults(window._jackettResults || [], ((document.getElementById('jackett-sort') || {}).value) || 'seeders_desc')[idx];
+  var r = jackettSortResults(window._jackettResults || [])[idx];
   if (!r) return;
   var btn=document.getElementById('jbtn-'+idx);
   if (btn) { btn.disabled=true; btn.textContent='Adding...'; }

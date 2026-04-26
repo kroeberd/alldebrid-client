@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.8] — 2026-04-26
+
+### Fixed
+- **Jackett results could regress to `New` on later searches** — when a search
+  result came back without a stable hash, the UI only matched previously added
+  items by hash and forgot completed downloads on later searches. The backend
+  now also matches exact Jackett titles against torrent names and downloaded
+  file names, so previously added or completed items remain marked correctly.
+
+### Changed
+- **Jackett sorting moved to the table headers** — instead of a separate sort
+  dropdown, the search result headers are now clickable. Each click cycles the
+  selected column through default direction, reverse direction, and back to the
+  original backend order on the third click.
+
 ## [1.3.7] — 2026-04-26
 
 ### Changed

@@ -224,6 +224,27 @@ class JackettRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["results"][0]["existing_status"], "completed")
         self.assertFalse(result["results"][1]["already_added"])
 
+    async def test_jackett_search_marks_existing_titles_via_download_files(self):
+        db = _FakeDb(
+            rows=[{"id": 8, "hash": "zzz999", "status": "completed", "name": "Some Torrent", "filename": "Exact.Match.File.mp4"}],
+            total=1,
+        )
+        payload = {
+            "results": [
+                {"title": "Exact.Match.File.mp4", "hash": "", "magnet": "", "torrent_url": "http://example/test.torrent"},
+            ],
+            "total": 1,
+            "query": "test",
+            "error": None,
+        }
+        with patch("api.routes.get_db", return_value=_fake_db_context(db)), \
+             patch("services.jackett.search", AsyncMock(return_value=payload)):
+            result = await routes.jackett_search({"query": "test"})
+
+        self.assertTrue(result["results"][0]["already_added"])
+        self.assertEqual(result["results"][0]["existing_torrent_id"], 8)
+        self.assertEqual(result["results"][0]["existing_status"], "completed")
+
     async def test_jackett_add_prefers_torrent_file_before_magnet(self):
         row = {"id": 5, "status": "uploading", "alldebrid_id": "123"}
         with patch("services.jackett.download_torrent_file", AsyncMock(return_value={"filename": "item.torrent", "content": b"abc"})) as download_mock, \

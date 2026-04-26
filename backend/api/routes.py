@@ -816,24 +816,48 @@ async def jackett_search(body: dict):
     limit = min(int(body.get("limit") or 100), 500)
     result = await search(query=query, category=category, trackers=trackers, limit=limit)
     hashes = sorted({str(item.get("hash") or "").strip().lower() for item in result.get("results", []) if str(item.get("hash") or "").strip()})
-    if hashes:
-        placeholders = ",".join("?" for _ in hashes)
+    titles = sorted({str(item.get("title") or "").strip().lower() for item in result.get("results", []) if str(item.get("title") or "").strip()})
+
+    existing_by_hash: dict[str, dict] = {}
+    existing_by_title: dict[str, dict] = {}
+    if hashes or titles:
         async with get_db() as db:
-            rows = await db.fetchall(
-                f"SELECT id, hash, status, name FROM torrents WHERE LOWER(hash) IN ({placeholders})",
-                hashes,
-            )
-        existing_by_hash = {str(row["hash"]).strip().lower(): row for row in rows}
-        for item in result.get("results", []):
-            existing = existing_by_hash.get(str(item.get("hash") or "").strip().lower())
-            item["already_added"] = bool(existing)
-            item["existing_torrent_id"] = existing["id"] if existing else None
-            item["existing_status"] = existing["status"] if existing else ""
-    else:
-        for item in result.get("results", []):
-            item["already_added"] = False
-            item["existing_torrent_id"] = None
-            item["existing_status"] = ""
+            if hashes:
+                hash_placeholders = ",".join("?" for _ in hashes)
+                rows = await db.fetchall(
+                    f"SELECT id, hash, status, name FROM torrents WHERE LOWER(hash) IN ({hash_placeholders})",
+                    hashes,
+                )
+                existing_by_hash = {str(row["hash"]).strip().lower(): row for row in rows}
+            if titles:
+                title_placeholders = ",".join("?" for _ in titles)
+                title_rows = await db.fetchall(
+                    f"""SELECT DISTINCT t.id, t.hash, t.status, t.name, df.filename
+                        FROM torrents t
+                        LEFT JOIN download_files df ON df.torrent_id = t.id
+                        WHERE LOWER(COALESCE(t.name, '')) IN ({title_placeholders})
+                           OR LOWER(COALESCE(df.filename, '')) IN ({title_placeholders})""",
+                    [*titles, *titles],
+                )
+                for row in title_rows:
+                    torrent_name = str(row.get("name") or "").strip().lower()
+                    file_name = str(row.get("filename") or "").strip().lower()
+                    if torrent_name and torrent_name not in existing_by_title:
+                        existing_by_title[torrent_name] = row
+                    if file_name and file_name not in existing_by_title:
+                        existing_by_title[file_name] = row
+
+    for item in result.get("results", []):
+        item_hash = str(item.get("hash") or "").strip().lower()
+        item_title = str(item.get("title") or "").strip().lower()
+        existing = None
+        if item_hash:
+            existing = existing_by_hash.get(item_hash)
+        if not existing and item_title:
+            existing = existing_by_title.get(item_title)
+        item["already_added"] = bool(existing)
+        item["existing_torrent_id"] = existing["id"] if existing else None
+        item["existing_status"] = existing["status"] if existing else ""
     return result
 
 
