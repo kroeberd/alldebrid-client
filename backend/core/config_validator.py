@@ -52,13 +52,14 @@ def _validate(cfg) -> List[Tuple[str, str, Any, Any]]:
         warn("alldebrid_api_key", "looks too short to be valid", cfg.alldebrid_api_key)
 
     # ── URLs ──────────────────────────────────────────────────────────────────
-    for field in ("aria2_url", "sonarr_url", "radarr_url", "flexget_url"):
+    for field in ("aria2_url", "sonarr_url", "radarr_url", "flexget_url", "jackett_url"):
         val = getattr(cfg, field, "")
         if val and not _is_valid_url(val):
             warn(field, "not a valid HTTP(S) URL", val)
 
     for field in ("discord_webhook_url", "discord_webhook_added",
-                  "flexget_webhook_url", "stats_report_webhook_url"):
+                  "flexget_webhook_url", "stats_report_webhook_url",
+                  "jackett_webhook_url"):
         val = getattr(cfg, field, "")
         if val and not _is_valid_url(val):
             warn(field, "not a valid HTTP(S) URL — webhook will not fire", val)

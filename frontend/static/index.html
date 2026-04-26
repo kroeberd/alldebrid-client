@@ -564,6 +564,9 @@ textarea.input { resize: vertical; }
       <span class="icon">&#129522;</span><span class="nav-label">Torrents</span>
       <span class="nav-badge" id="nb-active" style="display:none">0</span>
     </div>
+    <div class="nav-item" data-view="search" onclick="nav(this)">
+      <span class="icon">&#128269;</span><span class="nav-label">Search</span>
+    </div>
     <div class="nav-group">Monitor</div>
     <div class="nav-item" data-view="events" onclick="nav(this)">
       <span class="icon">&#128203;</span><span class="nav-label">Event Log</span>
@@ -837,6 +840,76 @@ textarea.input { resize: vertical; }
       </div>
     </div>
 
+    <!-- Search -->
+    <div class="view" id="view-search">
+      <div class="view-header">
+        <h2 class="view-title">&#128269; Torrent Search</h2>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:1;min-width:220px">
+            <label class="form-label">Search</label>
+            <input class="input" id="jackett-query" placeholder="Title, keyword&#8230;"
+              onkeydown="if(event.key===&apos;Enter&apos;)jackettSearch()" style="width:100%">
+          </div>
+          <div style="min-width:140px">
+            <label class="form-label">Category</label>
+            <select class="input" id="jackett-cat" style="width:100%">
+              <option value="0">All</option>
+              <option value="2000">Movies</option>
+              <option value="5000">TV</option>
+              <option value="3000">Music</option>
+              <option value="7000">Books</option>
+              <option value="1000">Games</option>
+              <option value="4000">Software</option>
+              <option value="6000">XXX</option>
+            </select>
+          </div>
+          <div style="min-width:160px">
+            <label class="form-label">Indexer</label>
+            <select class="input" id="jackett-tracker" style="width:100%">
+              <option value="">All Indexers</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="jackettSearch()" id="jackett-search-btn"
+            style="align-self:flex-end;white-space:nowrap">
+            &#128269; Search
+          </button>
+        </div>
+      </div>
+
+      <div id="jackett-state" style="text-align:center;padding:40px 0;color:var(--text2);display:none"></div>
+
+      <div class="card" id="jackett-results-wrap" style="display:none;overflow-x:auto;padding:0">
+        <table class="t-table" style="min-width:700px">
+          <thead>
+            <tr>
+              <th style="min-width:240px">Title</th>
+              <th>Indexer</th>
+              <th>Size</th>
+              <th style="text-align:center">Seeds</th>
+              <th style="text-align:center">Peers</th>
+              <th>Date</th>
+              <th style="width:90px"></th>
+            </tr>
+          </thead>
+          <tbody id="jackett-tbody"></tbody>
+        </table>
+        <div id="jackett-result-count"
+          style="padding:8px 14px;font-size:11px;color:var(--text2);border-top:1px solid var(--border)"></div>
+      </div>
+
+      <div id="jackett-not-configured" class="card" style="display:none;text-align:center;color:var(--text2);padding:32px">
+        <div style="font-size:22px;margin-bottom:8px">&#128268;</div>
+        <div>Jackett is not configured.</div>
+        <div style="font-size:12px;margin-top:6px">
+          Go to <a href="#" onclick="nav(document.querySelector('[data-view=settings]'));setTimeout(function(){switchSettingsTab('tab-jackett');},200);return false"
+            style="color:var(--accent)">Settings &rarr; Jackett</a> to set up your instance.
+        </div>
+      </div>
+    </div>
+
     <!-- GitHub -->
     <div class="view" id="view-github">
       <div class="split-grid">
@@ -882,6 +955,57 @@ textarea.input { resize: vertical; }
         <button class="btn btn-ghost" onclick="testDiscord()">🔔 Test Discord</button>
         <button class="btn btn-ghost" onclick="testAD()">🔑 Test AllDebrid</button>
         <button class="btn btn-ghost" onclick="testAria2()">⬇️ Test aria2</button>
+
+        <div class="stab-panel" id="tab-jackett">
+
+          <div class="scard" style="border-color:rgba(59,130,246,.3)">
+            <div class="scard-header">&#8505;&#65039; Jackett Setup</div>
+            <div class="scard-body">
+              <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+                <b>Jackett</b> is a torrent-indexer proxy that lets you search dozens of trackers from one place.<br><br>
+                Set the <b>Jackett URL</b> (e.g. <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">http://jackett:9117</code>)
+                and paste your <b>API Key</b> from the Jackett dashboard.
+              </div>
+            </div>
+          </div>
+
+          <div class="scard">
+            <div class="scard-header">&#128269; Jackett Integration</div>
+            <div class="scard-body">
+              <div class="toggle-row">
+                <div class="toggle-info"><div class="tl">Enable Jackett</div><div class="td">Show the Search tab and allow torrent searches</div></div>
+                <label class="toggle"><input type="checkbox" id="s-jackett_enabled" ${s.jackett_enabled?'checked':''}><span class="ttrack"></span></label>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Jackett URL</label>
+                <input class="input" id="s-jackett_url" value="${s.jackett_url||'http://localhost:9117'}" placeholder="http://jackett:9117"/>
+                <span class="form-hint">Base URL of your Jackett instance (no trailing slash).</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">API Key</label>
+                <input class="input" id="s-jackett_api_key" value="${s.jackett_api_key||''}" placeholder="Jackett API key" type="password"/>
+                <span class="form-hint">Found in the Jackett dashboard. Proxied through the backend &mdash; never exposed to the browser.</span>
+              </div>
+              <div style="margin-top:8px">
+                <button class="btn btn-ghost btn-sm" onclick="testJackett()">&#128268; Test Connection</button>
+                <span id="jackett-test-result" style="margin-left:10px;font-size:12px;color:var(--text2)"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="scard">
+            <div class="scard-header">&#128276; Jackett Webhook</div>
+            <div class="scard-body">
+              <div class="form-group">
+                <label class="form-label">Webhook URL <span style="font-weight:400;color:var(--text2)">(optional)</span></label>
+                <input class="input" id="s-jackett_webhook_url" value="${s.jackett_webhook_url||''}" placeholder="https://discord.com/api/webhooks/&hellip;"/>
+                <span class="form-hint">Dedicated webhook for torrents added via Jackett. Falls back to the main Discord webhook if empty.</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
         <button class="btn btn-ghost" id="btn-test-postgres" style="display:none" onclick="testPostgres()">🗄️ Test DB</button>
         <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
       </div>
@@ -949,6 +1073,7 @@ function nav(el) {
   if (v === 'stats')     loadDetailedStats();
   if (v === 'changelog') loadChangelog();
   if (v === 'settings')  loadSettings();
+  if (v === 'search')    initSearchView();
   closeSidebar();
 }
 
@@ -1757,6 +1882,7 @@ function renderSettings() {
     { id:'tab-backup',       label:'💾 Backup' },
     { id:'tab-flexget',      label:'🤖 FlexGet' },
     { id:'tab-automations',  label:'📊 Reporting' },
+    { id:'tab-jackett',      label:'🔍 Jackett' },
   ];
   document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
     `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${esc(t.label)}</div>`
@@ -2520,6 +2646,11 @@ function getFormSettings() {
     stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
     stats_report_interval_hours: n('stats_report_interval_hours'),
     stats_report_window_hours:    n('stats_report_window_hours'),
+    // Jackett
+    jackett_enabled:     c('jackett_enabled'),
+    jackett_url:         t('jackett_url'),
+    jackett_api_key:     t('jackett_api_key'),
+    jackett_webhook_url: t('jackett_webhook_url'),
     stats_report_window_hours: reportWindowHours,
     stats_report_webhook_url: t('stats_report_webhook_url'),
   };
@@ -2550,6 +2681,7 @@ async function saveSettings() {
     // Re-render so defaults set by backend are immediately visible
     renderSettings();
     updateAria2ngLink();
+    updateJackettNav();
     toast('Settings saved!','success');
     checkConnections();
     checkFlexgetRunning();
@@ -3010,6 +3142,7 @@ async function testPostgres() {
   }
   renderTopbarActions();
   updateAria2ngLink();
+  updateJackettNav();
 
   // Stats laden mit sichtbarem Retry
   dbg('Starte loadStats…');
@@ -3050,6 +3183,122 @@ async function testPostgres() {
   }, 15000);
   setInterval(()=>checkConnections().catch(()=>{}), 60000);
 })();
+
+
+// ── Jackett Search ────────────────────────────────────────────────────────────
+
+async function jackettSearch() {
+  var query = (document.getElementById('jackett-query')||{value:''}).value.trim();
+  if (!query) { toast('Please enter a search query', 'warn'); return; }
+  var cat     = ((document.getElementById('jackett-cat')||{}).value)||'0';
+  var tracker = ((document.getElementById('jackett-tracker')||{}).value)||'';
+  var btn   = document.getElementById('jackett-search-btn');
+  var state = document.getElementById('jackett-state');
+  var wrap  = document.getElementById('jackett-results-wrap');
+  var tbody = document.getElementById('jackett-tbody');
+  var count = document.getElementById('jackett-result-count');
+
+  if (btn)   { btn.disabled=true; btn.textContent='Searching...'; }
+  if (state) { state.style.display='block'; state.textContent='Searching...'; }
+  if (wrap)  wrap.style.display='none';
+  if (tbody) tbody.innerHTML='';
+
+  try {
+    var data = await api('POST', '/jackett/search', {query:query, category:parseInt(cat), tracker:tracker});
+    if (data.error) {
+      if (state) { state.style.display='block'; state.textContent='Error: '+data.error; }
+      return;
+    }
+    if (!data.results || !data.results.length) {
+      if (state) { state.style.display='block'; state.textContent='No results found for: '+query; }
+      return;
+    }
+    if (state) state.style.display='none';
+    if (wrap)  wrap.style.display='';
+    if (count) count.textContent=data.total+' result(s) for: '+query;
+    data.results.forEach(function(r,i) {
+      var tr=document.createElement('tr');
+      var sc=r.seeders>10?'var(--green)':r.seeders>0?'var(--accent)':'var(--text3)';
+      var addBtn=( r.magnet||r.torrent_url)
+        ? '<button class="btn btn-primary btn-sm" onclick="jackettAdd('+i+')" id="jbtn-'+i+'">Add</button>'
+        : '<span style="font-size:11px;color:var(--text3)">No link</span>';
+      tr.innerHTML=
+        '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.title)+'">'+esc(r.title)+'</td>'+
+        '<td style="color:var(--text2);font-size:12px">'+esc(r.indexer)+'</td>'+
+        '<td style="white-space:nowrap;font-size:12px">'+esc(r.size_human)+'</td>'+
+        '<td style="text-align:center;color:'+sc+';font-weight:600">'+r.seeders+'</td>'+
+        '<td style="text-align:center;color:var(--text2)">'+r.leechers+'</td>'+
+        '<td style="font-size:11px;color:var(--text2)">'+esc(r.pub_date)+'</td>'+
+        '<td>'+addBtn+'</td>';
+      tbody.appendChild(tr);
+    });
+    window._jackettResults=data.results;
+  } catch(e) {
+    if (state) { state.style.display='block'; state.textContent='Error: '+e.message; }
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent='Search'; }
+  }
+}
+
+async function jackettAdd(idx) {
+  var r=(window._jackettResults||[])[idx];
+  if (!r) return;
+  var btn=document.getElementById('jbtn-'+idx);
+  if (btn) { btn.disabled=true; btn.textContent='...'; }
+  try {
+    await api('POST', '/jackett/add', {
+      magnet:r.magnet, torrent_url:r.torrent_url,
+      title:r.title, indexer:r.indexer, size_bytes:r.size_bytes
+    });
+    if (btn) { btn.textContent='Added'; btn.style.background='var(--green)'; }
+    toast('Added: '+r.title.slice(0,60), 'success');
+  } catch(e) {
+    if (btn) { btn.disabled=false; btn.textContent='Add'; }
+    toast('Failed: '+e.message, 'error');
+  }
+}
+
+async function testJackett() {
+  var el=document.getElementById('jackett-test-result');
+  if (el) { el.style.color='var(--text2)'; el.textContent='Testing...'; }
+  try {
+    var r=await api('POST', '/settings/test-jackett');
+    if (el) { el.style.color='var(--green)'; el.textContent='Connected - Jackett '+(r.version||''); }
+  } catch(e) {
+    if (el) { el.style.color='var(--red)'; el.textContent='Error: '+e.message; }
+  }
+}
+
+async function loadJackettIndexers() {
+  try {
+    var items=await api('GET', '/jackett/indexers');
+    var sel=document.getElementById('jackett-tracker');
+    if (!sel) return;
+    while (sel.options.length>1) sel.remove(1);
+    (items||[]).forEach(function(item) {
+      var opt=document.createElement('option');
+      opt.value=item.id; opt.textContent=item.name||item.id;
+      sel.appendChild(opt);
+    });
+  } catch(e) { /* indexers optional */ }
+}
+
+function initSearchView() {
+  var cfg=settingsData||{};
+  var notConf=document.getElementById('jackett-not-configured');
+  if (!cfg.jackett_enabled) {
+    if (notConf) notConf.style.display='';
+    return;
+  }
+  if (notConf) notConf.style.display='none';
+  loadJackettIndexers();
+}
+
+function updateJackettNav() {
+  var cfg=settingsData||{};
+  var el=document.querySelector('[data-view="search"]');
+  if (el) el.style.display=cfg.jackett_enabled?'':'none';
+}
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <div id="mobile-overlay" onclick="closeSidebar()"></div>

@@ -131,6 +131,12 @@ class AppSettings(BaseModel):
     flexget_schedule_minutes: int = 0
     flexget_jitter_seconds: int = 0
 
+    # ── Jackett ───────────────────────────────────────────────────────────────
+    jackett_enabled:    bool = False
+    jackett_url:        str  = "http://localhost:9117"
+    jackett_api_key:    str  = ""
+    jackett_webhook_url: str = ""  # falls leer → discord_webhook_url
+
     # ── Statistics & Reporting ────────────────────────────────────────────────
     # How often to take a stats snapshot (minutes, 0 = disabled)
     stats_snapshot_interval_minutes: int = 60

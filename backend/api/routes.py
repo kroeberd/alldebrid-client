@@ -783,6 +783,85 @@ async def flexget_history(limit: int = Query(50, le=200)):
 
 # ── Statistics & Reporting ──────────────────────────────────────────────────────
 
+# ── Jackett ────────────────────────────────────────────────────────────────────
+
+
+@router.post("/settings/test-jackett")
+async def test_jackett():
+    from services.jackett import test_connection
+    result = await test_connection()
+    if not result["ok"]:
+        raise HTTPException(502, result.get("error", "Jackett test failed"))
+    return result
+
+
+@router.get("/jackett/indexers")
+async def jackett_indexers():
+    from services.jackett import get_indexers
+    return await get_indexers()
+
+
+@router.post("/jackett/search")
+async def jackett_search(body: dict):
+    from services.jackett import search, CATEGORIES
+    query    = (body.get("query") or "").strip()
+    if not query:
+        raise HTTPException(400, "query is required")
+    category = int(body.get("category") or 0)
+    tracker  = (body.get("tracker") or "").strip()
+    limit    = min(int(body.get("limit") or 100), 500)
+    result   = await search(query=query, category=category, tracker=tracker, limit=limit)
+    return result
+
+
+@router.post("/jackett/add")
+async def jackett_add(body: dict):
+    """
+    Add a torrent found via Jackett to the download queue.
+    Accepts a magnet link or a .torrent URL.
+    Fires the Jackett webhook on success.
+    """
+    magnet      = (body.get("magnet")      or "").strip()
+    torrent_url = (body.get("torrent_url") or "").strip()
+    title       = (body.get("title")       or "").strip() or "Unknown"
+    indexer     = (body.get("indexer")     or "").strip()
+    size_bytes  = int(body.get("size_bytes") or 0)
+
+    if not magnet and not torrent_url:
+        raise HTTPException(400, "magnet or torrent_url is required")
+
+    # Prefer magnet; if only torrent_url, download it and re-upload via AllDebrid
+    link_to_add = magnet or torrent_url
+
+    try:
+        row = await manager.add_magnet_direct(link_to_add, source="jackett")
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
+
+    # Fire webhook (non-blocking, don't fail the request if it errors)
+    try:
+        from services.jackett import send_jackett_webhook
+        ad_id = str(row.get("alldebrid_id") or "") if row else ""
+        await send_jackett_webhook(
+            title=title,
+            indexer=indexer,
+            size_bytes=size_bytes,
+            magnet=link_to_add,
+            alldebrid_id=ad_id,
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger("alldebrid.jackett").warning("Webhook failed: %s", exc)
+
+    return row
+
+
+@router.get("/jackett/categories")
+async def jackett_categories():
+    from services.jackett import CATEGORIES
+    return [{"id": v, "name": k} for k, v in CATEGORIES.items()]
+
+
 @router.get("/stats/comprehensive")
 async def get_comprehensive_stats(hours: int = Query(24, ge=1, le=8760)):
     """Comprehensive stats for a given time window (hours)."""
