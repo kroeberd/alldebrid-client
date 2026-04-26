@@ -803,14 +803,37 @@ async def jackett_indexers():
 
 @router.post("/jackett/search")
 async def jackett_search(body: dict):
-    from services.jackett import search, CATEGORIES
-    query    = (body.get("query") or "").strip()
+    from services.jackett import search
+    query = (body.get("query") or "").strip()
     if not query:
         raise HTTPException(400, "query is required")
     category = int(body.get("category") or 0)
-    tracker  = (body.get("tracker") or "").strip()
-    limit    = min(int(body.get("limit") or 100), 500)
-    result   = await search(query=query, category=category, tracker=tracker, limit=limit)
+    tracker = (body.get("tracker") or "").strip()
+    trackers = body.get("trackers") or []
+    if tracker and tracker not in trackers:
+        trackers = [tracker, *trackers]
+    trackers = [str(t).strip() for t in trackers if str(t).strip()]
+    limit = min(int(body.get("limit") or 100), 500)
+    result = await search(query=query, category=category, trackers=trackers, limit=limit)
+    hashes = sorted({str(item.get("hash") or "").strip().lower() for item in result.get("results", []) if str(item.get("hash") or "").strip()})
+    if hashes:
+        placeholders = ",".join("?" for _ in hashes)
+        async with get_db() as db:
+            rows = await db.fetchall(
+                f"SELECT id, hash, status, name FROM torrents WHERE LOWER(hash) IN ({placeholders})",
+                hashes,
+            )
+        existing_by_hash = {str(row["hash"]).strip().lower(): row for row in rows}
+        for item in result.get("results", []):
+            existing = existing_by_hash.get(str(item.get("hash") or "").strip().lower())
+            item["already_added"] = bool(existing)
+            item["existing_torrent_id"] = existing["id"] if existing else None
+            item["existing_status"] = existing["status"] if existing else ""
+    else:
+        for item in result.get("results", []):
+            item["already_added"] = False
+            item["existing_torrent_id"] = None
+            item["existing_status"] = ""
     return result
 
 
@@ -830,11 +853,27 @@ async def jackett_add(body: dict):
     if not magnet and not torrent_url:
         raise HTTPException(400, "magnet or torrent_url is required")
 
-    # Prefer magnet; if only torrent_url, download it and re-upload via AllDebrid
-    link_to_add = magnet or torrent_url
-
     try:
-        row = await manager.add_magnet_direct(link_to_add, source="jackett")
+        added_via = ""
+        if torrent_url:
+            from services.jackett import download_torrent_file
+            try:
+                payload = await download_torrent_file(torrent_url)
+                row = await manager.add_torrent_file_direct(
+                    payload["content"],
+                    payload.get("filename") or f"{title or 'jackett'}.torrent",
+                    source="jackett",
+                )
+                added_via = "torrent_file"
+            except Exception as torrent_exc:
+                if not magnet:
+                    raise
+                logger.warning("Jackett add: torrent URL failed for %s, falling back to magnet: %s", title, torrent_exc)
+                row = await manager.add_magnet_direct(magnet, source="jackett")
+                added_via = "magnet_fallback"
+        else:
+            row = await manager.add_magnet_direct(magnet, source="jackett")
+            added_via = "magnet"
     except Exception as exc:
         raise HTTPException(400, str(exc))
 
@@ -846,13 +885,15 @@ async def jackett_add(body: dict):
             title=title,
             indexer=indexer,
             size_bytes=size_bytes,
-            magnet=link_to_add,
+            magnet=magnet or torrent_url,
             alldebrid_id=ad_id,
         )
     except Exception as exc:
         import logging
         logging.getLogger("alldebrid.jackett").warning("Webhook failed: %s", exc)
 
+    if row is not None:
+        row["added_via"] = added_via
     return row
 
 

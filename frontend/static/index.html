@@ -870,10 +870,22 @@ textarea.input { resize: vertical; }
               <option value="6000">XXX</option>
             </select>
           </div>
-          <div style="min-width:160px">
-            <label class="form-label">Indexer</label>
-            <select class="input" id="jackett-tracker" style="width:100%">
-              <option value="">All Indexers</option>
+          <div style="min-width:220px">
+            <label class="form-label">Indexers</label>
+            <select class="input" id="jackett-tracker" style="width:100%;min-height:108px" multiple>
+            </select>
+            <div class="form-hint">Select one or more indexers. Leave empty to search all.</div>
+          </div>
+          <div style="min-width:170px">
+            <label class="form-label">Sort</label>
+            <select class="input" id="jackett-sort" style="width:100%" onchange="jackettApplySort()">
+              <option value="seeders_desc">Seeders ↓</option>
+              <option value="name_asc">Name A–Z</option>
+              <option value="name_desc">Name Z–A</option>
+              <option value="size_desc">Size ↓</option>
+              <option value="size_asc">Size ↑</option>
+              <option value="date_desc">Date ↓</option>
+              <option value="date_asc">Date ↑</option>
             </select>
           </div>
           <button class="btn btn-primary" onclick="jackettSearch()" id="jackett-search-btn"
@@ -895,6 +907,7 @@ textarea.input { resize: vertical; }
               <th style="text-align:center">Seeds</th>
               <th style="text-align:center">Peers</th>
               <th>Date</th>
+              <th>Status</th>
               <th style="width:90px"></th>
             </tr>
           </thead>
@@ -3191,11 +3204,107 @@ async function testPostgres() {
 
 // ── Jackett Search ────────────────────────────────────────────────────────────
 
+window._jackettResults = [];
+
+function jackettSelectedTrackers() {
+  var sel = document.getElementById('jackett-tracker');
+  if (!sel) return [];
+  return Array.from(sel.selectedOptions || []).map(function(opt) {
+    return String(opt.value || '').trim();
+  }).filter(Boolean);
+}
+
+function jackettSortResults(items, mode) {
+  var sorted = (items || []).slice();
+  var byText = function(value) { return String(value || '').toLowerCase(); };
+  var byDate = function(value) { return String(value || ''); };
+  switch (mode) {
+    case 'name_asc':
+      sorted.sort(function(a, b) { return byText(a.title).localeCompare(byText(b.title)); });
+      break;
+    case 'name_desc':
+      sorted.sort(function(a, b) { return byText(b.title).localeCompare(byText(a.title)); });
+      break;
+    case 'size_desc':
+      sorted.sort(function(a, b) { return (b.size_bytes || 0) - (a.size_bytes || 0); });
+      break;
+    case 'size_asc':
+      sorted.sort(function(a, b) { return (a.size_bytes || 0) - (b.size_bytes || 0); });
+      break;
+    case 'date_asc':
+      sorted.sort(function(a, b) { return byDate(a.pub_date).localeCompare(byDate(b.pub_date)); });
+      break;
+    case 'date_desc':
+      sorted.sort(function(a, b) { return byDate(b.pub_date).localeCompare(byDate(a.pub_date)); });
+      break;
+    case 'seeders_desc':
+    default:
+      sorted.sort(function(a, b) {
+        var seederDiff = (b.seeders || 0) - (a.seeders || 0);
+        return seederDiff !== 0 ? seederDiff : byText(a.title).localeCompare(byText(b.title));
+      });
+      break;
+  }
+  return sorted;
+}
+
+function renderJackettResults() {
+  var wrap = document.getElementById('jackett-results-wrap');
+  var tbody = document.getElementById('jackett-tbody');
+  var count = document.getElementById('jackett-result-count');
+  var state = document.getElementById('jackett-state');
+  if (!tbody || !wrap) return;
+
+  var sortMode = ((document.getElementById('jackett-sort') || {}).value) || 'seeders_desc';
+  var results = jackettSortResults(window._jackettResults || [], sortMode);
+
+  tbody.innerHTML = '';
+  if (!results.length) {
+    wrap.style.display = 'none';
+    if (count) count.textContent = '';
+    if (state) { state.style.display = 'block'; state.textContent = 'No results found.'; }
+    return;
+  }
+
+  results.forEach(function(r, i) {
+    var tr = document.createElement('tr');
+    var sc = r.seeders > 10 ? 'var(--green)' : r.seeders > 0 ? 'var(--accent)' : 'var(--text3)';
+    var statusBadge = r.already_added
+      ? '<span class="badge badge-'+esc((r.existing_status || 'queued'))+'">'+esc(r.existing_status || 'added')+'</span>'
+      : '<span style="font-size:11px;color:var(--text3)">New</span>';
+    var addBtn = '';
+    if (!(r.magnet || r.torrent_url)) {
+      addBtn = '<span style="font-size:11px;color:var(--text3)">No link</span>';
+    } else if (r.already_added) {
+      addBtn = '<button class="btn btn-ghost btn-sm" disabled id="jbtn-'+i+'">Added</button>';
+    } else {
+      addBtn = '<button class="btn btn-primary btn-sm" onclick="jackettAdd('+i+')" id="jbtn-'+i+'">Add</button>';
+    }
+    tr.innerHTML =
+      '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.title)+'">'+esc(r.title)+'</td>'+
+      '<td style="color:var(--text2);font-size:12px">'+esc(r.indexer)+'</td>'+
+      '<td style="white-space:nowrap;font-size:12px">'+esc(r.size_human)+'</td>'+
+      '<td style="text-align:center;color:'+sc+';font-weight:600">'+(r.seeders || 0)+'</td>'+
+      '<td style="text-align:center;color:var(--text2)">'+(r.leechers || 0)+'</td>'+
+      '<td style="font-size:11px;color:var(--text2)">'+esc(r.pub_date)+'</td>'+
+      '<td>'+statusBadge+'</td>'+
+      '<td>'+addBtn+'</td>';
+    tbody.appendChild(tr);
+  });
+  wrap.style.display = '';
+  if (state) state.style.display = 'none';
+  if (count) count.textContent = results.length + ' result(s)';
+}
+
+function jackettApplySort() {
+  renderJackettResults();
+}
+
 async function jackettSearch() {
   var query = (document.getElementById('jackett-query')||{value:''}).value.trim();
   if (!query) { toast('Please enter a search query', 'warn'); return; }
   var cat     = ((document.getElementById('jackett-cat')||{}).value)||'0';
-  var tracker = ((document.getElementById('jackett-tracker')||{}).value)||'';
+  var trackers = jackettSelectedTrackers();
   var btn   = document.getElementById('jackett-search-btn');
   var state = document.getElementById('jackett-state');
   var wrap  = document.getElementById('jackett-results-wrap');
@@ -3208,7 +3317,7 @@ async function jackettSearch() {
   if (tbody) tbody.innerHTML='';
 
   try {
-    var data = await api('POST', '/jackett/search', {query:query, category:parseInt(cat), tracker:tracker});
+    var data = await api('POST', '/jackett/search', {query:query, category:parseInt(cat,10), trackers:trackers});
     if (data.error) {
       if (state) { state.style.display='block'; state.textContent='Error: '+data.error; }
       return;
@@ -3217,26 +3326,9 @@ async function jackettSearch() {
       if (state) { state.style.display='block'; state.textContent='No results found for: '+query; }
       return;
     }
-    if (state) state.style.display='none';
-    if (wrap)  wrap.style.display='';
     if (count) count.textContent=data.total+' result(s) for: '+query;
-    data.results.forEach(function(r,i) {
-      var tr=document.createElement('tr');
-      var sc=r.seeders>10?'var(--green)':r.seeders>0?'var(--accent)':'var(--text3)';
-      var addBtn=( r.magnet||r.torrent_url)
-        ? '<button class="btn btn-primary btn-sm" onclick="jackettAdd('+i+')" id="jbtn-'+i+'">Add</button>'
-        : '<span style="font-size:11px;color:var(--text3)">No link</span>';
-      tr.innerHTML=
-        '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.title)+'">'+esc(r.title)+'</td>'+
-        '<td style="color:var(--text2);font-size:12px">'+esc(r.indexer)+'</td>'+
-        '<td style="white-space:nowrap;font-size:12px">'+esc(r.size_human)+'</td>'+
-        '<td style="text-align:center;color:'+sc+';font-weight:600">'+r.seeders+'</td>'+
-        '<td style="text-align:center;color:var(--text2)">'+r.leechers+'</td>'+
-        '<td style="font-size:11px;color:var(--text2)">'+esc(r.pub_date)+'</td>'+
-        '<td>'+addBtn+'</td>';
-      tbody.appendChild(tr);
-    });
-    window._jackettResults=data.results;
+    window._jackettResults = data.results;
+    renderJackettResults();
   } catch(e) {
     if (state) { state.style.display='block'; state.textContent='Error: '+e.message; }
   } finally {
@@ -3245,7 +3337,7 @@ async function jackettSearch() {
 }
 
 async function jackettAdd(idx) {
-  var r=(window._jackettResults||[])[idx];
+  var r = jackettSortResults(window._jackettResults || [], ((document.getElementById('jackett-sort') || {}).value) || 'seeders_desc')[idx];
   if (!r) return;
   var btn=document.getElementById('jbtn-'+idx);
   if (btn) { btn.disabled=true; btn.textContent='Adding...'; }
@@ -3254,12 +3346,20 @@ async function jackettAdd(idx) {
       magnet:r.magnet, torrent_url:r.torrent_url,
       title:r.title, indexer:r.indexer, size_bytes:r.size_bytes
     });
+    (window._jackettResults || []).forEach(function(item) {
+      if ((item.hash && item.hash === r.hash) || (item.title === r.title && item.indexer === r.indexer)) {
+        item.already_added = true;
+        item.existing_torrent_id = row && row.id ? row.id : null;
+        item.existing_status = row && row.status ? row.status : 'uploading';
+      }
+    });
     if (btn) {
       btn.textContent='\u2705 Added';
       btn.style.background='var(--green)';
       btn.style.color='#fff';
     }
-    var label = r.magnet ? 'magnet' : 'torrent URL';
+    renderJackettResults();
+    var label = row && row.added_via ? row.added_via.replace(/_/g, ' ') : (r.torrent_url ? 'torrent file' : 'magnet');
     var adId = (row && row.alldebrid_id) ? ' (ID: '+row.alldebrid_id+')' : '';
     toast('\u2714 Queued via '+label+adId+'\n'+r.title.slice(0,50), 'success');
     // Badge aktualisieren
@@ -3295,10 +3395,12 @@ async function loadJackettIndexers() {
     var items=await api('GET', '/jackett/indexers');
     var sel=document.getElementById('jackett-tracker');
     if (!sel) return;
-    while (sel.options.length>1) sel.remove(1);
+    var selected = jackettSelectedTrackers();
+    sel.innerHTML = '';
     (items||[]).forEach(function(item) {
       var opt=document.createElement('option');
       opt.value=item.id; opt.textContent=item.name||item.id;
+      if (selected.indexOf(item.id) >= 0) opt.selected = true;
       sel.appendChild(opt);
     });
   } catch(e) { /* indexers optional */ }

@@ -3,40 +3,36 @@ Jackett integration service.
 
 Proxies torrent-search requests to a Jackett instance and normalises
 the results into a consistent format for the frontend.
-
-Jackett API endpoint used:
-  GET /api/v2.0/indexers/all/results
-    ?apikey=<key>&Query=<term>[&Category[]=<int>][&Tracker[]=<id>]
-
-Docs: https://github.com/Jackett/Jackett#jackett-api
 """
 from __future__ import annotations
 
 import logging
-import math
-import time
-from datetime import datetime, timezone
+import re
+import base64
+from datetime import datetime
+from email.message import Message
+from pathlib import PurePosixPath
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
+from xml.etree import ElementTree as ET
 
 import aiohttp
 
 logger = logging.getLogger("alldebrid.jackett")
 
 # Jackett category IDs (Torznab standard)
-CATEGORY_ALL   = 0
+CATEGORY_ALL = 0
 CATEGORIES: Dict[str, int] = {
-    "All":          0,
-    "Movies":       2000,
-    "TV":           5000,
-    "Music":        3000,
-    "Books":        7000,
-    "Games":        1000,
-    "Software":     4000,
-    "XXX":          6000,
+    "All": 0,
+    "Movies": 2000,
+    "TV": 5000,
+    "Music": 3000,
+    "Books": 7000,
+    "Games": 1000,
+    "Software": 4000,
+    "XXX": 6000,
 }
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _cfg():
     try:
@@ -47,7 +43,6 @@ def _cfg():
 
 
 def _fmt_size(size_bytes: int) -> str:
-    """Human-readable file size."""
     if not size_bytes or size_bytes < 0:
         return "—"
     for unit in ("B", "KB", "MB", "GB", "TB"):
@@ -57,13 +52,29 @@ def _fmt_size(size_bytes: int) -> str:
     return f"{size_bytes:.1f} PB"
 
 
+def _extract_btih(value: str) -> str:
+    match = re.search(r"xt=urn:btih:([a-fA-F0-9]{40}|[a-zA-Z2-7]{32})", value or "", re.I)
+    if not match:
+        return ""
+    infohash = match.group(1)
+    if len(infohash) == 32:
+        try:
+            infohash = base64.b32decode(infohash.upper()).hex()
+        except Exception:
+            return ""
+    return infohash.lower()
+
+
 def _normalise_result(item: Dict[str, Any]) -> Dict[str, Any]:
-    """Normalise a single Jackett result into a stable frontend-friendly dict."""
-    magnet   = (item.get("MagnetUri") or "").strip()
-    torrent  = (item.get("Link")       or "").strip()
-    size_b   = int(item.get("Size") or 0)
-    seeders  = int(item.get("Seeders")  or 0)
-    leechers = int(item.get("Peers")    or item.get("Leechers") or 0)
+    magnet = (item.get("MagnetUri") or "").strip()
+    torrent = (item.get("Link") or "").strip()
+    infohash = str(item.get("InfoHash") or "").strip().lower()
+    if not infohash and magnet:
+        infohash = _extract_btih(magnet)
+
+    size_b = int(item.get("Size") or 0)
+    seeders = int(item.get("Seeders") or 0)
+    leechers = int(item.get("Peers") or item.get("Leechers") or 0)
 
     pub_date = ""
     raw_date = item.get("PublishDate") or ""
@@ -75,104 +86,137 @@ def _normalise_result(item: Dict[str, Any]) -> Dict[str, Any]:
             pub_date = str(raw_date)[:10]
 
     return {
-        "title":      (item.get("Title") or "").strip(),
-        "indexer":    (item.get("Tracker") or item.get("TrackerId") or "").strip(),
-        "category":   (item.get("CategoryDesc") or "").strip(),
+        "title": (item.get("Title") or "").strip(),
+        "indexer": (item.get("Tracker") or item.get("TrackerId") or "").strip(),
+        "category": (item.get("CategoryDesc") or "").strip(),
         "size_bytes": size_b,
         "size_human": _fmt_size(size_b),
-        "seeders":    seeders,
-        "leechers":   leechers,
-        "pub_date":   pub_date,
-        "magnet":     magnet,
+        "seeders": seeders,
+        "leechers": leechers,
+        "pub_date": pub_date,
+        "magnet": magnet,
         "torrent_url": torrent,
-        # Prefer magnet; fall back to torrent URL
+        "hash": infohash,
         "has_link": bool(magnet or torrent),
     }
 
 
-# ── Service functions ─────────────────────────────────────────────────────────
-
-async def search(
-    query:    str,
-    category: int = CATEGORY_ALL,
-    tracker:  str = "",
-    limit:    int = 100,
-) -> Dict[str, Any]:
-    """
-    Search Jackett and return normalised results.
-
-    Returns:
-        {
-            "results": [...],
-            "total":   int,
-            "query":   str,
-            "error":   str | None,
-        }
-    """
-    cfg = _cfg()
-    if not cfg:
-        return {"results": [], "total": 0, "query": query, "error": "Config unavailable"}
-
-    if not cfg.jackett_enabled:
-        return {"results": [], "total": 0, "query": query, "error": "Jackett is disabled"}
-
-    url     = (cfg.jackett_url or "").rstrip("/")
-    api_key = (cfg.jackett_api_key or "").strip()
-    if not url or not api_key:
-        return {"results": [], "total": 0, "query": query,
-                "error": "Jackett URL or API key not configured"}
-
+def _build_result_params(query: str, category: int, trackers: List[str], limit: int, api_key: str) -> Dict[str, Any]:
     params: Dict[str, Any] = {
         "apikey": api_key,
-        "Query":  query.strip(),
-        "limit":  limit,
+        "Query": query.strip(),
+        "limit": limit,
     }
     if category and category != CATEGORY_ALL:
         params["Category[]"] = category
-    if tracker:
-        params["Tracker[]"] = tracker
+    tracker_values = [str(t).strip() for t in trackers if str(t).strip()]
+    if tracker_values:
+        params["Tracker[]"] = tracker_values
+    return params
+
+
+async def _get_json(session: aiohttp.ClientSession, endpoint: str, params: Dict[str, Any]) -> Any:
+    async with session.get(endpoint, params=params) as resp:
+        if resp.status == 401:
+            raise PermissionError("Invalid Jackett API key")
+        if resp.status != 200:
+            body = await resp.text()
+            raise RuntimeError(f"HTTP {resp.status}: {body[:200]}")
+        return await resp.json(content_type=None)
+
+
+async def _get_text(session: aiohttp.ClientSession, endpoint: str, params: Dict[str, Any]) -> str:
+    async with session.get(endpoint, params=params) as resp:
+        if resp.status == 401:
+            raise PermissionError("Invalid Jackett API key")
+        if resp.status != 200:
+            body = await resp.text()
+            raise RuntimeError(f"HTTP {resp.status}: {body[:200]}")
+        return await resp.text()
+
+
+def _parse_torznab_indexers(xml_text: str) -> List[Dict[str, str]]:
+    if not xml_text.strip():
+        return []
+    root = ET.fromstring(xml_text)
+    items: List[Dict[str, str]] = []
+    for indexer in root.findall(".//indexer"):
+        idx = (indexer.attrib.get("id") or "").strip()
+        name = (indexer.attrib.get("name") or idx).strip()
+        if idx:
+            items.append({"id": idx, "name": name})
+    if items:
+        return items
+    for item in root.findall(".//item"):
+        idx = (item.findtext("id") or item.attrib.get("id") or "").strip()
+        name = (item.findtext("title") or item.findtext("name") or idx).strip()
+        if idx:
+            items.append({"id": idx, "name": name})
+    return items
+
+
+def _filename_from_response(url: str, content_disposition: str) -> str:
+    msg = Message()
+    if content_disposition:
+        msg["content-disposition"] = content_disposition
+        filename = msg.get_filename()
+        if filename:
+            return filename
+    path = PurePosixPath(urlparse(url).path or "")
+    name = path.name or "download.torrent"
+    return name if name.lower().endswith(".torrent") else f"{name}.torrent"
+
+
+async def search(
+    query: str,
+    category: int = CATEGORY_ALL,
+    trackers: Optional[List[str]] = None,
+    limit: int = 100,
+) -> Dict[str, Any]:
+    cfg = _cfg()
+    if not cfg:
+        return {"results": [], "total": 0, "query": query, "error": "Config unavailable"}
+    if not cfg.jackett_enabled:
+        return {"results": [], "total": 0, "query": query, "error": "Jackett is disabled"}
+
+    url = (cfg.jackett_url or "").rstrip("/")
+    api_key = (cfg.jackett_api_key or "").strip()
+    if not url or not api_key:
+        return {"results": [], "total": 0, "query": query, "error": "Jackett URL or API key not configured"}
 
     endpoint = f"{url}/api/v2.0/indexers/all/results"
+    params = _build_result_params(query, category, trackers or [], limit, api_key)
 
     try:
         timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(endpoint, params=params) as resp:
-                if resp.status == 401:
-                    logger.warning("Jackett: invalid API key")
-                    return {"results": [], "total": 0, "query": query,
-                            "error": "Invalid Jackett API key"}
-                if resp.status != 200:
-                    body = await resp.text()
-                    logger.warning("Jackett: HTTP %d — %s", resp.status, body[:200])
-                    return {"results": [], "total": 0, "query": query,
-                            "error": f"Jackett returned HTTP {resp.status}"}
-                data = await resp.json(content_type=None)
-
+            data = await _get_json(session, endpoint, params)
     except aiohttp.ClientConnectorError as exc:
         logger.warning("Jackett: connection refused — %s", exc)
-        return {"results": [], "total": 0, "query": query,
-                "error": "Jackett not reachable — check URL and port"}
+        return {"results": [], "total": 0, "query": query, "error": "Jackett not reachable — check URL and port"}
+    except PermissionError as exc:
+        logger.warning("Jackett: %s", exc)
+        return {"results": [], "total": 0, "query": query, "error": str(exc)}
+    except RuntimeError as exc:
+        logger.warning("Jackett: %s", exc)
+        return {"results": [], "total": 0, "query": query, "error": str(exc)}
     except Exception as exc:
         logger.error("Jackett: unexpected error during search: %s", exc)
         return {"results": [], "total": 0, "query": query, "error": str(exc)}
 
     raw_results = data.get("Results") or []
-    normalised  = [_normalise_result(r) for r in raw_results]
-    # Sort: seeders desc, filter out results without any link
+    normalised = [_normalise_result(r) for r in raw_results]
     normalised.sort(key=lambda r: r["seeders"], reverse=True)
-
     logger.info("Jackett search %r → %d result(s)", query, len(normalised))
     return {"results": normalised, "total": len(normalised), "query": query, "error": None}
 
 
 async def test_connection() -> Dict[str, Any]:
-    """Ping Jackett and return status info."""
     cfg = _cfg()
     if not cfg:
         return {"ok": False, "error": "Config unavailable"}
 
-    url     = (cfg.jackett_url or "").rstrip("/")
+    url = (cfg.jackett_url or "").rstrip("/")
     api_key = (cfg.jackett_api_key or "").strip()
     if not url:
         return {"ok": False, "error": "Jackett URL not configured"}
@@ -182,70 +226,113 @@ async def test_connection() -> Dict[str, Any]:
     try:
         timeout = aiohttp.ClientTimeout(total=8)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(
-                f"{url}/api/v2.0/server/config", params={"apikey": api_key}
-            ) as resp:
-                if resp.status == 401:
-                    return {"ok": False, "error": "Invalid API key"}
-                if resp.status == 200:
-                    data = await resp.json(content_type=None)
-                    version = data.get("app_version") or data.get("version") or "?"
-                    return {"ok": True, "version": version}
+            try:
+                data = await _get_json(session, f"{url}/api/v2.0/server/config", {"apikey": api_key})
+                version = data.get("app_version") or data.get("version") or "?"
+                return {"ok": True, "version": version}
+            except PermissionError:
+                return {"ok": False, "error": "Invalid API key"}
+            except Exception:
+                pass
 
-            async with session.get(
-                f"{url}/api/v2.0/indexers",
-                params={"apikey": api_key, "configured": "true"},
-            ) as resp:
-                if resp.status == 401:
-                    return {"ok": False, "error": "Invalid API key"}
-                if resp.status != 200:
-                    return {"ok": False, "error": f"HTTP {resp.status}"}
-                data = await resp.json(content_type=None)
-                if not isinstance(data, list):
-                    return {"ok": False, "error": "Unexpected Jackett response"}
+            try:
+                data = await _get_json(session, f"{url}/api/v2.0/indexers", {"apikey": api_key, "configured": "true"})
+                if isinstance(data, list):
+                    return {"ok": True, "version": f"reachable ({len(data)} indexers)"}
+            except PermissionError:
+                return {"ok": False, "error": "Invalid API key"}
+            except Exception:
+                pass
+
+            try:
+                xml_text = await _get_text(
+                    session,
+                    f"{url}/api/v2.0/indexers/all/results/torznab/api",
+                    {"apikey": api_key, "t": "indexers", "configured": "true"},
+                )
+                indexers = _parse_torznab_indexers(xml_text)
+                if indexers:
+                    return {"ok": True, "version": f"reachable ({len(indexers)} indexers)"}
+            except PermissionError:
+                return {"ok": False, "error": "Invalid API key"}
+            except Exception:
+                pass
+
+            try:
+                await _get_json(
+                    session,
+                    f"{url}/api/v2.0/indexers/all/results",
+                    _build_result_params("__healthcheck__", CATEGORY_ALL, [], 1, api_key),
+                )
                 return {"ok": True, "version": "reachable"}
+            except PermissionError:
+                return {"ok": False, "error": "Invalid API key"}
+            except RuntimeError as exc:
+                return {"ok": False, "error": str(exc)}
     except aiohttp.ClientConnectorError:
         return {"ok": False, "error": "Jackett not reachable"}
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
+    return {"ok": False, "error": "Jackett test failed"}
 
 
 async def get_indexers() -> List[Dict[str, str]]:
-    """Return list of configured Jackett indexers (id + name)."""
     cfg = _cfg()
     if not cfg:
         return []
-    url     = (cfg.jackett_url or "").rstrip("/")
+    url = (cfg.jackett_url or "").rstrip("/")
     api_key = (cfg.jackett_api_key or "").strip()
     if not url or not api_key:
         return []
+
     try:
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(
-                f"{url}/api/v2.0/indexers",
-                params={"apikey": api_key, "configured": "true"},
-            ) as resp:
-                if resp.status != 200:
-                    return []
-                data = await resp.json(content_type=None)
-                return [
-                    {"id": item.get("id", ""), "name": item.get("name", "")}
+            try:
+                data = await _get_json(session, f"{url}/api/v2.0/indexers", {"apikey": api_key, "configured": "true"})
+                items = [
+                    {"id": str(item.get("id", "")).strip(), "name": str(item.get("name", "")).strip()}
                     for item in (data or [])
-                    if item.get("id")
+                    if str(item.get("id", "")).strip()
                 ]
+                if items:
+                    return items
+            except Exception:
+                pass
+
+            try:
+                xml_text = await _get_text(
+                    session,
+                    f"{url}/api/v2.0/indexers/all/results/torznab/api",
+                    {"apikey": api_key, "t": "indexers", "configured": "true"},
+                )
+                return _parse_torznab_indexers(xml_text)
+            except Exception:
+                return []
     except Exception:
         return []
 
 
-# ── Webhook ───────────────────────────────────────────────────────────────────
+async def download_torrent_file(url: str) -> Dict[str, Any]:
+    timeout = aiohttp.ClientTimeout(total=30)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.get(url, allow_redirects=True) as resp:
+            if resp.status != 200:
+                body = await resp.text()
+                raise RuntimeError(f"Jackett torrent URL returned HTTP {resp.status}: {body[:200]}")
+            data = await resp.read()
+            if not data:
+                raise RuntimeError("Jackett returned an empty torrent file")
+            filename = _filename_from_response(url, resp.headers.get("Content-Disposition", ""))
+            return {"filename": filename, "content": data}
+
 
 async def send_jackett_webhook(
     *,
-    title:       str,
-    indexer:     str,
-    size_bytes:  int,
-    magnet:      str,
+    title: str,
+    indexer: str,
+    size_bytes: int,
+    magnet: str,
     alldebrid_id: str = "",
 ) -> None:
     """
@@ -258,15 +345,14 @@ async def send_jackett_webhook(
         return
 
     jackett_hook = (cfg.jackett_webhook_url or "").strip()
-    default_hook = (cfg.discord_webhook_url  or "").strip()
+    default_hook = (cfg.discord_webhook_url or "").strip()
 
-    # Determine which URL to use
     if jackett_hook:
         webhook_url = jackett_hook
     elif cfg.discord_notify_added and default_hook:
         webhook_url = default_hook
     else:
-        return  # nothing to send
+        return
 
     from services.notifications import NotificationService, _now_utc, COLOR_ADDED
 
@@ -277,10 +363,10 @@ async def send_jackett_webhook(
 
     svc = NotificationService(webhook_url=webhook_url)
     fields = [
-        {"name": "Source",   "value": "🔍 Jackett Search", "inline": True},
-        {"name": "Indexer",  "value": indexer or "—",       "inline": True},
-        {"name": "Size",     "value": sz_human,              "inline": True},
-        {"name": "Time",     "value": _now_utc(),            "inline": True},
+        {"name": "Source", "value": "🔍 Jackett Search", "inline": True},
+        {"name": "Indexer", "value": indexer or "—", "inline": True},
+        {"name": "Size", "value": sz_human, "inline": True},
+        {"name": "Time", "value": _now_utc(), "inline": True},
     ]
     if alldebrid_id:
         fields.append({"name": "AllDebrid ID", "value": str(alldebrid_id), "inline": True})
@@ -291,7 +377,7 @@ async def send_jackett_webhook(
         description=f"**{title}**",
         color=COLOR_ADDED,
         fields=fields,
-        bypass_dedup=True,  # each torrent add is unique
+        bypass_dedup=True,
     )
     if sent:
         logger.info("Jackett webhook sent for %r", title[:60])

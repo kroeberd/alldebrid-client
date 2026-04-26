@@ -4,8 +4,9 @@ import sys, types
 for mod, stub in {
     "aiohttp": types.SimpleNamespace(
         ClientSession=object, ClientTimeout=lambda **k: None,
-        ClientConnectorError=Exception, ClientError=Exception,
+        ClientConnectorError=Exception, ClientError=Exception, FormData=object,
     ),
+    "aiofiles": types.SimpleNamespace(open=lambda *a, **kw: None),
     "aiosqlite": types.SimpleNamespace(connect=None, Row=object),
     "asyncpg":   types.SimpleNamespace(connect=None),
 }.items():
@@ -13,7 +14,7 @@ for mod, stub in {
         sys.modules[mod] = stub
 
 from services.jackett import (
-    _normalise_result, _fmt_size, CATEGORIES, CATEGORY_ALL
+    _normalise_result, _fmt_size, CATEGORIES, CATEGORY_ALL, _parse_torznab_indexers
 )
 
 
@@ -73,6 +74,17 @@ class TestNormaliseResult:
         assert r["magnet"] == ""
         assert r["torrent_url"] == "http://example.com/file.torrent"
         assert r["has_link"] is True
+
+    def test_hash_taken_from_infohash(self):
+        r = _normalise_result(self._make(InfoHash="ABCDEF1234567890"))
+        assert r["hash"] == "abcdef1234567890"
+
+    def test_hash_falls_back_to_magnet_btih(self):
+        r = _normalise_result(self._make(
+            MagnetUri="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567",
+            InfoHash="",
+        ))
+        assert r["hash"] == "0123456789abcdef0123456789abcdef01234567"
 
     def test_no_link(self):
         r = _normalise_result(self._make(MagnetUri="", Link=""))
@@ -180,7 +192,7 @@ class TestConnectionFallback:
             jackett_mod.aiohttp.ClientSession = original_session
 
         assert result["ok"] is True
-        assert result["version"] == "reachable"
+        assert result["version"] == "reachable (1 indexers)"
 
     def test_invalid_api_key_on_fallback_is_reported(self):
         from services import jackett as jackett_mod
@@ -206,3 +218,45 @@ class TestConnectionFallback:
 
         assert result["ok"] is False
         assert result["error"] == "Invalid API key"
+
+    def test_falls_back_to_results_endpoint_when_other_endpoints_fail(self):
+        from services import jackett as jackett_mod
+
+        cfg = types.SimpleNamespace(
+            jackett_url="http://jackett:9117",
+            jackett_api_key="secret",
+        )
+        fake_session_factory = lambda *a, **kw: _FakeSession([
+            _FakeResponse(404, {"error": "not found"}),
+            _FakeResponse(400, {"error": "bad request"}),
+            _FakeResponse(400, "bad request"),
+            _FakeResponse(200, {"Results": []}),
+        ])
+
+        original_cfg = jackett_mod._cfg
+        original_session = jackett_mod.aiohttp.ClientSession
+        try:
+            jackett_mod._cfg = lambda: cfg
+            jackett_mod.aiohttp.ClientSession = fake_session_factory
+            result = asyncio.run(jackett_mod.test_connection())
+        finally:
+            jackett_mod._cfg = original_cfg
+            jackett_mod.aiohttp.ClientSession = original_session
+
+        assert result["ok"] is True
+        assert result["version"] == "reachable"
+
+
+class TestTorznabIndexers:
+    def test_parses_indexers_from_torznab_xml(self):
+        xml = """
+        <indexers>
+          <indexer id="tracker-a" name="Tracker A" />
+          <indexer id="tracker-b" name="Tracker B" />
+        </indexers>
+        """
+        items = _parse_torznab_indexers(xml)
+        assert items == [
+            {"id": "tracker-a", "name": "Tracker A"},
+            {"id": "tracker-b", "name": "Tracker B"},
+        ]

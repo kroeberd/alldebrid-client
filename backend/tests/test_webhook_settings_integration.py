@@ -203,6 +203,47 @@ class TorrentListingRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(params[-2:], [250, 25])
 
 
+class JackettRouteTests(unittest.IsolatedAsyncioTestCase):
+    async def test_jackett_search_marks_existing_hashes(self):
+        db = _FakeDb(rows=[{"id": 7, "hash": "abc123", "status": "completed", "name": "Existing"}], total=1)
+        payload = {
+            "results": [
+                {"title": "Existing", "hash": "abc123", "magnet": "magnet:?xt=urn:btih:abc123", "torrent_url": ""},
+                {"title": "New", "hash": "def456", "magnet": "", "torrent_url": "http://example/test.torrent"},
+            ],
+            "total": 2,
+            "query": "test",
+            "error": None,
+        }
+        with patch("api.routes.get_db", return_value=_fake_db_context(db)), \
+             patch("services.jackett.search", AsyncMock(return_value=payload)):
+            result = await routes.jackett_search({"query": "test", "trackers": ["a", "b"]})
+
+        self.assertTrue(result["results"][0]["already_added"])
+        self.assertEqual(result["results"][0]["existing_torrent_id"], 7)
+        self.assertEqual(result["results"][0]["existing_status"], "completed")
+        self.assertFalse(result["results"][1]["already_added"])
+
+    async def test_jackett_add_prefers_torrent_file_before_magnet(self):
+        row = {"id": 5, "status": "uploading", "alldebrid_id": "123"}
+        with patch("services.jackett.download_torrent_file", AsyncMock(return_value={"filename": "item.torrent", "content": b"abc"})) as download_mock, \
+             patch.object(routes.manager, "add_torrent_file_direct", AsyncMock(return_value=row)) as add_torrent_mock, \
+             patch.object(routes.manager, "add_magnet_direct", AsyncMock(return_value={"id": 9})) as add_magnet_mock, \
+             patch("services.jackett.send_jackett_webhook", AsyncMock(return_value=None)):
+            result = await routes.jackett_add({
+                "magnet": "magnet:?xt=urn:btih:abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                "torrent_url": "http://example/item.torrent",
+                "title": "Example",
+                "indexer": "Tracker",
+                "size_bytes": 123,
+            })
+
+        download_mock.assert_awaited_once()
+        add_torrent_mock.assert_awaited_once()
+        add_magnet_mock.assert_not_awaited()
+        self.assertEqual(result["added_via"], "torrent_file")
+
+
 class FlexGetRouteTests(unittest.IsolatedAsyncioTestCase):
     async def test_flexget_running_returns_empty_when_disabled(self):
         with patch("api.routes.get_settings", return_value=SimpleNamespace(flexget_enabled=False)):

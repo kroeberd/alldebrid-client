@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.3.6] — 2026-04-26
+
+### Fixed
+- **Jackett add flow rejected valid `.torrent` results as invalid magnets** — the
+  backend `POST /api/jackett/add` route previously sent `magnet or torrent_url`
+  straight into the magnet-only manager path. When a Jackett result exposed only
+  a `.torrent` download URL, the client incorrectly raised
+  `Invalid magnet: no btih hash found`. The add flow now prefers downloading and
+  uploading the `.torrent` file to AllDebrid first, and only falls back to the
+  magnet when the torrent-file path fails and a magnet is available.
+
+- **Jackett health checks were too narrow and could show false HTTP 400/502
+  failures** — the backend connection test and indexer-loading path now try
+  multiple Jackett-compatible endpoints, including Torznab indexer discovery and
+  the actual `indexers/all/results` search endpoint. This makes the sidebar dot
+  and the Test Connection action much more tolerant of setup differences.
+
+### Added
+- **Jackett search now marks already added torrents** — search results are
+  annotated against existing torrent hashes in the database so previously added
+  items show their current local status instead of looking new every time.
+
+- **Multi-indexer selection in Jackett search** — the Search view now supports
+  selecting multiple individual Jackett indexers instead of only a single
+  dropdown value.
+
+- **Client-side Jackett result sorting** — the Search view can now sort by
+  seeders, name, size, and publish date.
+
 ## [1.3.5] — 2026-04-26
 
 ### Fixed

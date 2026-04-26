@@ -376,6 +376,26 @@ class TorrentManager:
             raise ValueError("Invalid magnet: no btih hash found")
         return await self._add_magnet(magnet, hash_value, source)
 
+    async def add_torrent_file_direct(self, file_bytes: bytes, filename: str, source: str = "manual") -> dict:
+        if self.is_paused():
+            raise Exception("Processing is paused")
+        if not get_settings().alldebrid_api_key:
+            raise Exception("AllDebrid API key not configured")
+        if not file_bytes:
+            raise ValueError("Empty torrent file")
+
+        async with self._upload_sem:
+            result = await self.ad().upload_torrent_file(file_bytes, filename or "upload.torrent")
+
+        ad_id = str(result.get("id", ""))
+        name = result.get("name") or result.get("filename") or Path(filename or "upload.torrent").stem
+        hash_value = str(result.get("hash", ad_id) or ad_id).lower()
+        logger.info("Torrent file uploaded %s (ad_id=%s)", name, ad_id)
+        row = await self._upsert(hash_value, None, name, ad_id, source)
+        if get_settings().discord_notify_added:
+            await self.notify().send_added(name, source=source, alldebrid_id=ad_id)
+        return row
+
     async def _add_magnet(self, magnet: str, hash_value: str, source: str) -> dict:
         async with get_db() as db:
             cur = await db.execute("SELECT * FROM torrents WHERE hash=?", (hash_value,))
