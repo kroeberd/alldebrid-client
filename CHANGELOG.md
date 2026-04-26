@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.10] — 2026-04-26
+
+### Fixed
+- **Jackett `.torrent` adds now preserve the Jackett infohash as the primary
+  local identity** — when a result was added through the `.torrent` upload path,
+  the client previously stored the AllDebrid-returned hash or fallback ID. That
+  made later Jackett searches miss already downloaded items and show them as
+  `New` again. The Jackett add route now forwards the original result hash into
+  the upload path so the local torrent record stays aligned with later Jackett
+  search results.
+
 ## [1.3.8] — 2026-04-26
 
 ### Fixed

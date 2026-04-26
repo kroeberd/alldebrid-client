@@ -61,6 +61,12 @@ class RouteHelperTests(unittest.TestCase):
         warning = routes._avatar_reachability_warning("https://example.com/api/avatar")
         self.assertEqual(warning, "")
 
+    def test_jackett_title_key_ignores_punctuation_and_extension(self):
+        self.assertEqual(
+            routes._jackett_title_key("CzechSexCasting.E435.Kathy.Deep.1080p.mp4"),
+            routes._jackett_title_key("CzechSexCasting E435 Kathy Deep 1080p.mkv"),
+        )
+
 
 class SchedulerWebhookTests(unittest.TestCase):
     def test_reporting_webhook_accepts_discord_fallback(self):
@@ -245,6 +251,27 @@ class JackettRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["results"][0]["existing_torrent_id"], 8)
         self.assertEqual(result["results"][0]["existing_status"], "completed")
 
+    async def test_jackett_search_marks_existing_titles_with_punctuation_variants(self):
+        db = _FakeDb(
+            rows=[{"id": 12, "hash": "zzz111", "status": "completed", "name": "Some Torrent", "filename": "CzechSexCasting E435 Kathy Deep 1080p.mkv"}],
+            total=1,
+        )
+        payload = {
+            "results": [
+                {"title": "CzechSexCasting.E435.Kathy.Deep.1080p.mp4", "hash": "", "magnet": "", "torrent_url": "http://example/test.torrent"},
+            ],
+            "total": 1,
+            "query": "test",
+            "error": None,
+        }
+        with patch("api.routes.get_db", return_value=_fake_db_context(db)), \
+             patch("services.jackett.search", AsyncMock(return_value=payload)):
+            result = await routes.jackett_search({"query": "test"})
+
+        self.assertTrue(result["results"][0]["already_added"])
+        self.assertEqual(result["results"][0]["existing_torrent_id"], 12)
+        self.assertEqual(result["results"][0]["existing_status"], "completed")
+
     async def test_jackett_add_prefers_torrent_file_before_magnet(self):
         row = {"id": 5, "status": "uploading", "alldebrid_id": "123"}
         with patch("services.jackett.download_torrent_file", AsyncMock(return_value={"filename": "item.torrent", "content": b"abc"})) as download_mock, \
@@ -263,6 +290,27 @@ class JackettRouteTests(unittest.IsolatedAsyncioTestCase):
         add_torrent_mock.assert_awaited_once()
         add_magnet_mock.assert_not_awaited()
         self.assertEqual(result["added_via"], "torrent_file")
+
+    async def test_jackett_add_passes_result_hash_to_torrent_upload_path(self):
+        row = {"id": 6, "status": "uploading", "alldebrid_id": "124"}
+        with patch("services.jackett.download_torrent_file", AsyncMock(return_value={"filename": "item.torrent", "content": b"abc"})), \
+             patch.object(routes.manager, "add_torrent_file_direct", AsyncMock(return_value=row)) as add_torrent_mock, \
+             patch("services.jackett.send_jackett_webhook", AsyncMock(return_value=None)):
+            await routes.jackett_add({
+                "hash": "ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                "magnet": "",
+                "torrent_url": "http://example/item.torrent",
+                "title": "Example",
+                "indexer": "Tracker",
+                "size_bytes": 123,
+            })
+
+        add_torrent_mock.assert_awaited_once_with(
+            b"abc",
+            "item.torrent",
+            source="jackett",
+            preferred_hash="abcdef1234567890abcdef1234567890abcdef12",
+        )
 
 
 class FlexGetRouteTests(unittest.IsolatedAsyncioTestCase):

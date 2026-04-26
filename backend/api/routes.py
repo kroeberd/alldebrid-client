@@ -10,6 +10,7 @@ import asyncio
 import ipaddress
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Optional
@@ -33,6 +34,15 @@ from services.manager_v2 import manager
 
 logger = logging.getLogger("alldebrid.routes")
 router = APIRouter()
+
+
+def _jackett_title_key(value: str) -> str:
+    """Return a tolerant comparison key for Jackett titles and stored filenames."""
+    text = (value or "").strip().lower()
+    if not text:
+        return ""
+    stem = Path(text).stem
+    return re.sub(r"[^a-z0-9]+", "", stem)
 
 
 def _public_base_url(request: Request) -> str:
@@ -820,6 +830,7 @@ async def jackett_search(body: dict):
 
     existing_by_hash: dict[str, dict] = {}
     existing_by_title: dict[str, dict] = {}
+    existing_by_title_key: dict[str, dict] = {}
     if hashes or titles:
         async with get_db() as db:
             if hashes:
@@ -844,17 +855,26 @@ async def jackett_search(body: dict):
                     file_name = str(row.get("filename") or "").strip().lower()
                     if torrent_name and torrent_name not in existing_by_title:
                         existing_by_title[torrent_name] = row
+                    torrent_key = _jackett_title_key(torrent_name)
+                    if torrent_key and torrent_key not in existing_by_title_key:
+                        existing_by_title_key[torrent_key] = row
                     if file_name and file_name not in existing_by_title:
                         existing_by_title[file_name] = row
+                    file_key = _jackett_title_key(file_name)
+                    if file_key and file_key not in existing_by_title_key:
+                        existing_by_title_key[file_key] = row
 
     for item in result.get("results", []):
         item_hash = str(item.get("hash") or "").strip().lower()
         item_title = str(item.get("title") or "").strip().lower()
+        item_title_key = _jackett_title_key(item_title)
         existing = None
         if item_hash:
             existing = existing_by_hash.get(item_hash)
         if not existing and item_title:
             existing = existing_by_title.get(item_title)
+        if not existing and item_title_key:
+            existing = existing_by_title_key.get(item_title_key)
         item["already_added"] = bool(existing)
         item["existing_torrent_id"] = existing["id"] if existing else None
         item["existing_status"] = existing["status"] if existing else ""
@@ -870,6 +890,7 @@ async def jackett_add(body: dict):
     """
     magnet      = (body.get("magnet")      or "").strip()
     torrent_url = (body.get("torrent_url") or "").strip()
+    result_hash = (body.get("hash")        or "").strip().lower()
     title       = (body.get("title")       or "").strip() or "Unknown"
     indexer     = (body.get("indexer")     or "").strip()
     size_bytes  = int(body.get("size_bytes") or 0)
@@ -887,6 +908,7 @@ async def jackett_add(body: dict):
                     payload["content"],
                     payload.get("filename") or f"{title or 'jackett'}.torrent",
                     source="jackett",
+                    preferred_hash=result_hash or None,
                 )
                 added_via = "torrent_file"
             except Exception as torrent_exc:
