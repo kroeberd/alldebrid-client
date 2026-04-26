@@ -846,7 +846,7 @@ textarea.input { resize: vertical; }
         <h2 class="view-title">&#128269; Torrent Search</h2>
       </div>
 
-      <div class="card" style="margin-bottom:16px">
+      <div class="card" id="jackett-search-bar" style="margin-bottom:16px">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div style="flex:1;min-width:220px">
             <label class="form-label">Search</label>
@@ -902,10 +902,10 @@ textarea.input { resize: vertical; }
 
       <div id="jackett-not-configured" class="card" style="display:none;text-align:center;color:var(--text2);padding:32px">
         <div style="font-size:22px;margin-bottom:8px">&#128268;</div>
-        <div>Jackett is not configured.</div>
+        <div>Jackett is not configured or not enabled.</div>
         <div style="font-size:12px;margin-top:6px">
           Go to <a href="#" onclick="nav(document.querySelector('[data-view=settings]'));setTimeout(function(){switchSettingsTab('tab-jackett');},200);return false"
-            style="color:var(--accent)">Settings &rarr; Jackett</a> to set up your instance.
+            style="color:var(--accent)">Settings &rarr; Jackett</a> to enable and configure your instance.
         </div>
       </div>
     </div>
@@ -3244,17 +3244,25 @@ async function jackettAdd(idx) {
   var r=(window._jackettResults||[])[idx];
   if (!r) return;
   var btn=document.getElementById('jbtn-'+idx);
-  if (btn) { btn.disabled=true; btn.textContent='...'; }
+  if (btn) { btn.disabled=true; btn.textContent='Adding...'; }
   try {
-    await api('POST', '/jackett/add', {
+    var row=await api('POST', '/jackett/add', {
       magnet:r.magnet, torrent_url:r.torrent_url,
       title:r.title, indexer:r.indexer, size_bytes:r.size_bytes
     });
-    if (btn) { btn.textContent='Added'; btn.style.background='var(--green)'; }
-    toast('Added: '+r.title.slice(0,60), 'success');
+    if (btn) {
+      btn.textContent='\u2705 Added';
+      btn.style.background='var(--green)';
+      btn.style.color='#fff';
+    }
+    var label = r.magnet ? 'magnet' : 'torrent URL';
+    var adId = (row && row.alldebrid_id) ? ' (ID: '+row.alldebrid_id+')' : '';
+    toast('\u2714 Queued via '+label+adId+'\n'+r.title.slice(0,50), 'success');
+    // Badge aktualisieren
+    if (typeof loadStats === 'function') loadStats().catch(function(){});
   } catch(e) {
     if (btn) { btn.disabled=false; btn.textContent='Add'; }
-    toast('Failed: '+e.message, 'error');
+    toast('\u274c Failed to add: '+e.message, 'error');
   }
 }
 
@@ -3286,12 +3294,17 @@ async function loadJackettIndexers() {
 function initSearchView() {
   var cfg=settingsData||{};
   var notConf=document.getElementById('jackett-not-configured');
-  if (!cfg.jackett_enabled) {
+  var searchBar=document.getElementById('jackett-search-bar');
+  if (!cfg.jackett_enabled || !cfg.jackett_url || !cfg.jackett_api_key) {
     if (notConf) notConf.style.display='';
+    if (searchBar) searchBar.style.display='none';
     return;
   }
   if (notConf) notConf.style.display='none';
+  if (searchBar) searchBar.style.display='';
   loadJackettIndexers();
+  // Focus auf das Suchfeld
+  setTimeout(function(){ var q=document.getElementById('jackett-query'); if(q)q.focus(); }, 100);
 }
 
 function updateJackettNav() {

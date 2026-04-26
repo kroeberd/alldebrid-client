@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.3.2] — 2026-04-26
+
+### Fixed
+- **Jackett Settings tab showed empty content** — in v1.3.0 the Jackett settings
+  panel was inserted into the static HTML *outside* the `renderSettings()` template
+  literal; v1.3.1 moved it into the template. This release confirms the fix and
+  adds the additional improvements below.
+
+- **Jackett webhook `_send()` return value ignored** — `send_jackett_webhook()` did
+  not check whether `_send()` succeeded; a failed webhook send (HTTP error, rate
+  limit) was silently swallowed. Now logs a WARNING when `_send()` returns `False`.
+  Also passes `bypass_dedup=True` so that adding the same torrent twice still sends
+  two webhook notifications.
+
+### Changed
+- **Search view: richer Add feedback** — the Add button now shows `Adding…` while
+  the request is in flight, changes to `✅ Added` (green) on success, and shows
+  the link type (`magnet` or `torrent URL`) plus the AllDebrid ID in the success
+  toast. On error the button re-enables immediately.
+
+- **Search view: smart not-configured state** — `initSearchView()` now checks
+  `jackett_url` and `jackett_api_key` in addition to `jackett_enabled`; if any
+  is missing the search bar is hidden and the "not configured" hint is shown.
+  Auto-focuses the query input when everything is configured.
+
+- **Search view: search bar has stable ID** (`id="jackett-search-bar"`) so
+  `initSearchView()` can show/hide it independently of the not-configured card.
+
 ## [1.3.1] — 2026-04-26
 
 ### Fixed

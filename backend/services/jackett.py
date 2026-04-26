@@ -274,11 +274,15 @@ async def send_jackett_webhook(
     if alldebrid_id:
         fields.append({"name": "AllDebrid ID", "value": str(alldebrid_id), "inline": True})
 
-    await svc._send(
+    sent = await svc._send(
         url=webhook_url,
         title="📥 Torrent Added via Jackett",
         description=f"**{title}**",
         color=COLOR_ADDED,
         fields=fields,
+        bypass_dedup=True,  # each torrent add is unique
     )
-    logger.info("Jackett webhook sent for %r", title[:60])
+    if sent:
+        logger.info("Jackett webhook sent for %r", title[:60])
+    else:
+        logger.warning("Jackett webhook not sent (HTTP error or rate limited) for %r", title[:60])
