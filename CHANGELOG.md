@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.3.7] — 2026-04-26
+
+### Changed
+- **Jackett indexer picker now uses a regular dropdown again** — the temporary
+  multi-select list was functional but visually too heavy for the search bar.
+  The UI now uses a standard dropdown like the other controls and includes an
+  explicit `All Indexers` option.
+
+### Documentation
+- **README refreshed for the current 1.3.x feature set** — added Jackett search,
+  reporting webhook, database maintenance, Fenrus status endpoint, and the
+  expanded REST API surface.
+
+- **Unraid templates refreshed** — updated both the in-repo template and the
+  external `kroeberd/unraid-templates` metadata so the AllDebrid-Client
+  description matches the current capabilities and release line.
+
 ## [1.3.6] — 2026-04-26
 
 ### Fixed

@@ -870,11 +870,12 @@ textarea.input { resize: vertical; }
               <option value="6000">XXX</option>
             </select>
           </div>
-          <div style="min-width:220px">
+          <div style="min-width:180px">
             <label class="form-label">Indexers</label>
-            <select class="input" id="jackett-tracker" style="width:100%;min-height:108px" multiple>
+            <select class="input" id="jackett-tracker" style="width:100%">
+              <option value="">All Indexers</option>
             </select>
-            <div class="form-hint">Select one or more indexers. Leave empty to search all.</div>
+            <div class="form-hint">Choose a specific indexer or search all configured indexers.</div>
           </div>
           <div style="min-width:170px">
             <label class="form-label">Sort</label>
@@ -3209,9 +3210,8 @@ window._jackettResults = [];
 function jackettSelectedTrackers() {
   var sel = document.getElementById('jackett-tracker');
   if (!sel) return [];
-  return Array.from(sel.selectedOptions || []).map(function(opt) {
-    return String(opt.value || '').trim();
-  }).filter(Boolean);
+  var value = String(sel.value || '').trim();
+  return value ? [value] : [];
 }
 
 function jackettSortResults(items, mode) {
@@ -3395,12 +3395,12 @@ async function loadJackettIndexers() {
     var items=await api('GET', '/jackett/indexers');
     var sel=document.getElementById('jackett-tracker');
     if (!sel) return;
-    var selected = jackettSelectedTrackers();
-    sel.innerHTML = '';
+    var selected = ((sel && sel.value) || '').trim();
+    sel.innerHTML = '<option value="">All Indexers</option>';
     (items||[]).forEach(function(item) {
       var opt=document.createElement('option');
       opt.value=item.id; opt.textContent=item.name||item.id;
-      if (selected.indexOf(item.id) >= 0) opt.selected = true;
+      if (selected === item.id) opt.selected = true;
       sel.appendChild(opt);
     });
   } catch(e) { /* indexers optional */ }

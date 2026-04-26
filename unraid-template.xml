@@ -9,9 +9,9 @@
   <Support>https://github.com/kroeberd/alldebrid-client/issues</Support>
   <Project>https://github.com/kroeberd/alldebrid-client</Project>
   <Overview>
-[b]AllDebrid-Client v1.3.6[/b]
+[b]AllDebrid-Client v1.3.7[/b]
 
-Self-hosted torrent automation via AllDebrid — Web UI, aria2 delivery, Discord notifications, PostgreSQL support, FlexGet integration.
+Self-hosted torrent automation via AllDebrid — Web UI, aria2 delivery, Discord notifications, PostgreSQL support, FlexGet, Jackett search, and reporting webhooks.
 
 [b]Features:[/b]
 • Full torrent lifecycle: upload → poll → unlock → aria2 → done → Discord
@@ -19,9 +19,12 @@ Self-hosted torrent automation via AllDebrid — Web UI, aria2 delivery, Discord
 • Slot-based aria2 queue with configurable concurrent download limit
 • Discord rich embeds for add / complete / error events
 • FlexGet v3 integration (schedule + manual trigger)
+• Jackett search with direct add from the UI
 • SQLite (default) or PostgreSQL (external)
 • Sonarr / Radarr import trigger
 • File filters — block by extension, keyword, minimum size
+• Reporting webhooks, stats snapshots, and JSON export
+• Database backup and guarded wipe tools
 • Automatic no-peer cleanup and stuck-download detection
 
 [b]Quick Setup:[/b]
