@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.4.1] — 2026-04-27
+
+### Fixed
+- **`_dispatch_pending_aria2_queue()` called `unlock_link` sequentially** — the
+  v1.4.0 parallelisation of `unlock_link` only covered the first call in
+  `_download()` (which writes `source_link` to the DB as a placeholder). The
+  actual dispatch loop in `_dispatch_pending_aria2_queue()` re-unlocked every
+  link sequentially when handing jobs off to aria2. For a 10-file torrent this
+  caused a ~3 s delay between the first and last file being sent to aria2.
+
+  Fix: the dispatch loop now fires all `unlock_link` calls concurrently via
+  `asyncio.gather()`, then iterates the results to call `aria2.ensure_download()`
+  and update the DB. Files that fail unlock are marked `error` individually;
+  the rest continue dispatching normally.
+
 ## [1.4.0] — 2026-04-27
 
 ### Summary: Jackett search, Downloads view, built-in aria2, and speed improvements

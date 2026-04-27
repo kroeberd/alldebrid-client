@@ -1510,15 +1510,33 @@ class TorrentManager:
             # may drop or answer inconsistently.
             dispatch_snapshot = await self._aria2_get_all()
 
-            for row in pending_rows:
-                source_link = str(row["download_url"] or "").strip()
-                local_path = Path(row["local_path"])
+            # ── Unlock all pending links in parallel then dispatch ─────────────
+            # Sequential unlock_link calls (200–600 ms each) are the bottleneck
+            # when dispatching a batch.  Fire them concurrently first.
+            async def _unlock_for_dispatch(row_: dict) -> dict:
+                sl = str(row_["download_url"] or "").strip()
                 try:
-                    unlocked = await _retry_async(self.ad().unlock_link, source_link)
-                    download_url = unlocked.get("link", "")
-                    if not download_url:
+                    result = await _retry_async(self.ad().unlock_link, sl)
+                    dl_url = result.get("link", "")
+                    if not dl_url:
                         raise Exception("Empty download URL from unlock")
+                    return {**row_, "_dl_url": dl_url, "_err": None}
+                except Exception as exc:
+                    return {**row_, "_dl_url": "", "_err": exc}
 
+            unlocked_rows = await asyncio.gather(
+                *[_unlock_for_dispatch(r) for r in pending_rows]
+            )
+
+            for row in unlocked_rows:
+                local_path = Path(row["local_path"])
+                if row["_err"]:
+                    logger.error("aria2 dispatch failed [%s]: %s", row["filename"], row["_err"])
+                    await self._update_file_state(row["file_id"], "error", row["local_path"], reason=str(row["_err"]))
+                    await self._finalize_aria2_torrent(row["torrent_id"])
+                    continue
+                try:
+                    download_url = row["_dl_url"]
                     remote_path = self._remote_aria2_path(local_path)
                     remote_dir  = str(PurePosixPath(remote_path).parent)
                     remote_name = PurePosixPath(remote_path).name
