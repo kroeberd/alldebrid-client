@@ -10,8 +10,7 @@ LABEL org.opencontainers.image.description="Automated torrent downloading via Al
 RUN apt-get update && apt-get install -y --no-install-recommends \
     aria2 \
     curl \
-    gosu \
-    shadow && rm -rf /var/lib/apt/lists/*
+    gosu && rm -rf /var/lib/apt/lists/*
 
 # Python deps
 COPY backend/requirements.txt .
