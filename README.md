@@ -74,8 +74,8 @@ docker run -d \
   --name alldebrid-client \
   --restart unless-stopped \
   -p 8080:8080 \
-  -e PUID=1000 \
-  -e PGID=1000 \
+  -e PUID=99 \
+  -e PGID=100 \
   -e TZ=Europe/Berlin \
   -v /path/to/config:/app/config \
   -v /path/to/downloads:/download \

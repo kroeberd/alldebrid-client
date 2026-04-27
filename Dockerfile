@@ -3,7 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="AllDebrid-Client"
-LABEL org.opencontainers.image.version="1.4.3"
+LABEL org.opencontainers.image.version="1.4.4"
 LABEL org.opencontainers.image.description="Automated torrent downloading via AllDebrid with a branded web UI"
 
 # System deps + gosu (for PUID/PGID user-switching)
@@ -30,7 +30,7 @@ RUN chmod +x /entrypoint.sh
 # Directories — owned by nobody:users (65534:100) by default
 # Override at runtime via PUID / PGID environment variables
 RUN mkdir -p /app/data/watch /app/data/processed /app/data/downloads /app/config /download && \
-    chown -R 65534:100 /app /download
+    chown -R 99:100 /app /download
 
 EXPOSE 8080
 

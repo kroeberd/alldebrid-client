@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.4] — 2026-04-27
+
+### Changed
+- **Default PUID/PGID changed to 99:100** (nobody:users) — matches the
+  Unraid default for all media containers (Sonarr, Radarr, Plex, etc.)
+  so downloaded files are accessible out of the box without configuring
+  environment variables. Override with `PUID` / `PGID` if needed.
+
 ## [1.4.3] — 2026-04-27
 
 ### Fixed

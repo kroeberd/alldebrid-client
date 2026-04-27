@@ -15,8 +15,8 @@
 
 set -e
 
-PUID="${PUID:-1000}"
-PGID="${PGID:-1000}"
+PUID="${PUID:-99}"
+PGID="${PGID:-100}"
 
 # ── Create / adjust group ─────────────────────────────────────────────────────
 if [ "${PGID}" != "0" ]; then
