@@ -595,7 +595,7 @@ class TorrentManager:
 
         # Fetch full aria2 state once — avoid hammering RPC per file
         try:
-            all_downloads = await self.aria2().get_all()
+            all_downloads = await self._aria2_get_all()
         except Aria2ConnectionError:
             logger.warning("deep_sync: aria2 not reachable, skipping")
             return
@@ -1320,6 +1320,20 @@ class TorrentManager:
             value = int(cfg.max_concurrent_downloads or 1)
         return max(1, value)
 
+    def _aria2_state_windows(self) -> tuple[int, int]:
+        cfg = get_settings()
+        waiting = int(getattr(cfg, "aria2_waiting_window", 100) or 100)
+        stopped = int(getattr(cfg, "aria2_stopped_window", 100) or 100)
+        return max(10, min(1000, waiting)), max(10, min(1000, stopped))
+
+    async def _aria2_get_all(self):
+        waiting, stopped = self._aria2_state_windows()
+        return await self.aria2().get_all(waiting_limit=waiting, stopped_limit=stopped)
+
+    async def _aria2_get_memory_diagnostics(self):
+        waiting, stopped = self._aria2_state_windows()
+        return await self.aria2().get_memory_diagnostics(waiting_limit=waiting, stopped_limit=stopped)
+
     async def _dispatch_pending_aria2_queue(self, all_downloads=None):
         """
         The single authoritative gate between our DB and aria2.
@@ -1341,7 +1355,7 @@ class TorrentManager:
         async with self._aria2_dispatch_lock:
             current_downloads = (
                 all_downloads if all_downloads is not None
-                else await self.aria2().get_all()
+                else await self._aria2_get_all()
             )
             limit = self._aria2_slot_limit()
             in_flight = [
@@ -1413,7 +1427,7 @@ class TorrentManager:
             # Passing this to ensure_download() avoids one get_all() call per
             # file, which would cause a burst of rapid RPC requests that aria2
             # may drop or answer inconsistently.
-            dispatch_snapshot = await self.aria2().get_all()
+            dispatch_snapshot = await self._aria2_get_all()
 
             for row in pending_rows:
                 source_link = str(row["download_url"] or "").strip()
@@ -1474,7 +1488,7 @@ class TorrentManager:
         if self.download_client_name() != "aria2" or self.is_paused():
             return
         try:
-            all_downloads = await self.aria2().get_all()
+            all_downloads = await self._aria2_get_all()
         except Exception:
             return
 
@@ -1508,7 +1522,7 @@ class TorrentManager:
         if self.is_paused() or self.download_client_name() != "aria2":
             return
 
-        all_downloads = await self.aria2().get_all()
+        all_downloads = await self._aria2_get_all()
         by_gid, uri_to_dl, path_to_dl = self._build_aria2_indexes(all_downloads)
 
         async with get_db() as db:
@@ -1706,7 +1720,7 @@ class TorrentManager:
         if self.download_client_name() != "aria2":
             return
         try:
-            all_downloads = await self.aria2().get_all()
+            all_downloads = await self._aria2_get_all()
         except Exception as exc:
             logger.warning("Startup aria2 reconciliation skipped: %s", exc)
             return
@@ -2211,7 +2225,7 @@ class TorrentManager:
         aria2_by_path: Dict[str, "Aria2DownloadStatus"] = {}
         if self.download_client_name() == "aria2":
             try:
-                for dl in await self.aria2().get_all():
+                for dl in await self._aria2_get_all():
                     for fi in dl.files or []:
                         current_path = _normalize_aria2_path(str(fi.get("path", "")))
                         if current_path:
@@ -2360,7 +2374,7 @@ class TorrentManager:
         if not get_settings().aria2_url:
             raise Exception("aria2 URL not configured")
         test = await self.aria2().test()
-        diagnostics = await self.aria2().get_memory_diagnostics()
+        diagnostics = await self._aria2_get_memory_diagnostics()
         return {**test, "diagnostics": diagnostics}
 
     async def apply_aria2_memory_tuning(self) -> dict:
@@ -2378,7 +2392,7 @@ class TorrentManager:
         cfg = get_settings()
         await self.apply_aria2_memory_tuning()
         await self.aria2().purge_download_results()
-        diagnostics = await self.aria2().get_memory_diagnostics()
+        diagnostics = await self._aria2_get_memory_diagnostics()
         return {"ok": True, "diagnostics": diagnostics}
 
 

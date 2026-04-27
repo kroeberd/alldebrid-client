@@ -389,6 +389,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Startup aria2 reconciliation failed: %s", e)
 
+    # 7. Apply aria2 memory tuning immediately on startup and run one cleanup pass
+    try:
+        await manager.run_aria2_housekeeping()
+        logger.info("Startup aria2 housekeeping completed")
+    except Exception as e:
+        logger.warning("Startup aria2 housekeeping failed: %s", e)
+
     await start_scheduler()
     yield
     logger.info("Shutting down AllDebrid-Client...")

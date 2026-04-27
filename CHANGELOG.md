@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.16] — 2026-04-27
+
+### Changed
+- **aria2 memory tuning is now applied immediately on startup and the default
+  cleanup profile is more aggressive** — the client now pushes its aria2 memory
+  options and runs one housekeeping pass during application startup instead of
+  waiting for the next manual test, save cycle, or scheduled purge.
+
+- **aria2 state polling now uses bounded waiting/stopped windows** — the client
+  no longer asks aria2 for up to 1000 waiting and 1000 stopped jobs on every
+  sync cycle by default. New settings expose dedicated waiting/stopped query
+  windows, and the diagnostics panel reports the active limits alongside the
+  current aria2 counters.
+
 ## [1.3.15] — 2026-04-27
 
 ### Fixed

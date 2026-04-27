@@ -82,6 +82,8 @@ def _validate(cfg) -> List[Tuple[str, str, Any, Any]]:
         "aria2_operation_timeout_seconds":(5, 300),
         "aria2_purge_interval_minutes":   (0, 1440),
         "aria2_max_download_result":      (10, 5000),
+        "aria2_waiting_window":           (10, 1000),
+        "aria2_stopped_window":           (10, 1000),
         "aria2_error_retry_count":        (0, 20),
         "aria2_error_retry_delay_seconds":(1, 3600),
         "aria2_deep_sync_interval_minutes":(0, 1440),

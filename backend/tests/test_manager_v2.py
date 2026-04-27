@@ -168,8 +168,10 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
     async def test_get_all_aggregates_all_three_endpoints(self):
         """get_all() aggregates active, waiting and stopped downloads."""
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
+        seen = []
 
         async def fake_call(method, params=None):
+            seen.append((method, params))
             if method == "aria2.tellActive":
                 return [{"gid": "a1", "status": "active", "totalLength": "100",
                          "completedLength": "50", "downloadSpeed": "10", "files": []}]
@@ -185,11 +187,15 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
         result = await service.get_all()
         self.assertEqual(len(result), 3)
         self.assertEqual({dl.gid for dl in result}, {"a1", "w1", "s1"})
+        self.assertIn(("aria2.tellWaiting", [0, 100, service._keys()]), seen)
+        self.assertIn(("aria2.tellStopped", [0, 100, service._keys()]), seen)
 
     async def test_get_memory_diagnostics_reports_counts_and_options(self):
         service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
+        seen = []
 
         async def fake_call(method, params=None):
+            seen.append((method, params))
             if method == "aria2.tellActive":
                 return [{"gid": "a1", "status": "active", "files": []}]
             if method == "aria2.tellWaiting":
@@ -211,8 +217,29 @@ class Aria2RobustnessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["active_count"], 1)
         self.assertEqual(result["waiting_count"], 1)
         self.assertEqual(result["stopped_count"], 2)
+        self.assertEqual(result["query_limits"]["waiting"], 100)
+        self.assertEqual(result["query_limits"]["stopped"], 100)
         self.assertEqual(result["global_options"]["max-download-result"], "200")
         self.assertEqual(result["global_options"]["keep-unfinished-download-result"], "false")
+        self.assertIn(("aria2.tellWaiting", [0, 100, service._keys()]), seen)
+        self.assertIn(("aria2.tellStopped", [0, 100, service._keys()]), seen)
+
+    async def test_get_memory_diagnostics_respects_custom_windows(self):
+        service = Aria2Service("http://localhost:6800/jsonrpc", timeout_seconds=5)
+        seen = []
+
+        async def fake_call(method, params=None):
+            seen.append((method, params))
+            if method == "aria2.getGlobalOption":
+                return {}
+            return []
+
+        service._call = fake_call
+        result = await service.get_memory_diagnostics(waiting_limit=25, stopped_limit=40)
+        self.assertEqual(result["query_limits"]["waiting"], 25)
+        self.assertEqual(result["query_limits"]["stopped"], 40)
+        self.assertIn(("aria2.tellWaiting", [0, 25, service._keys()]), seen)
+        self.assertIn(("aria2.tellStopped", [0, 40, service._keys()]), seen)
 
     async def test_ensure_download_retry_on_connection_error(self):
         """ensure_download() retries on connection errors."""
@@ -1390,6 +1417,44 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
             "max-download-result": "150",
             "keep-unfinished-download-result": "false",
         })
+
+    async def test_test_aria2_uses_configured_query_windows(self):
+        mgr = TorrentManager()
+        fake_aria2 = types.SimpleNamespace(
+            test=AsyncMock(return_value={"version": "1.37.0"}),
+            get_memory_diagnostics=AsyncMock(return_value={"active_count": 1}),
+        )
+        mgr.aria2 = lambda: fake_aria2
+        with patch("services.manager_v2.get_settings", return_value=types.SimpleNamespace(
+            aria2_url="http://localhost:6800/jsonrpc",
+            aria2_waiting_window=25,
+            aria2_stopped_window=40,
+        )):
+            result = await mgr.test_aria2()
+        self.assertEqual(result["version"], "1.37.0")
+        self.assertEqual(result["diagnostics"]["active_count"], 1)
+        fake_aria2.get_memory_diagnostics.assert_awaited_once_with(waiting_limit=25, stopped_limit=40)
+
+    async def test_run_aria2_housekeeping_uses_configured_query_windows(self):
+        mgr = TorrentManager()
+        fake_aria2 = types.SimpleNamespace(
+            change_global_options=AsyncMock(),
+            purge_download_results=AsyncMock(),
+            get_memory_diagnostics=AsyncMock(return_value={"stopped_count": 0}),
+        )
+        mgr.aria2 = lambda: fake_aria2
+        with patch("services.manager_v2.get_settings", return_value=types.SimpleNamespace(
+            aria2_url="http://localhost:6800/jsonrpc",
+            aria2_max_download_result=50,
+            aria2_keep_unfinished_download_result=False,
+            aria2_waiting_window=30,
+            aria2_stopped_window=45,
+        )):
+            result = await mgr.run_aria2_housekeeping()
+        self.assertTrue(result["ok"])
+        fake_aria2.change_global_options.assert_awaited_once()
+        fake_aria2.purge_download_results.assert_awaited_once()
+        fake_aria2.get_memory_diagnostics.assert_awaited_once_with(waiting_limit=30, stopped_limit=45)
 
 
 if __name__ == "__main__":

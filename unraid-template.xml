@@ -9,7 +9,7 @@
   <Support>https://github.com/kroeberd/alldebrid-client/issues</Support>
   <Project>https://github.com/kroeberd/alldebrid-client</Project>
   <Overview>
-[b]AllDebrid-Client v1.3.15[/b]
+[b]AllDebrid-Client v1.3.16[/b]
 
 Self-hosted torrent automation via AllDebrid — Web UI, aria2 delivery, Discord notifications, PostgreSQL support, FlexGet, Jackett search, and reporting webhooks.
 

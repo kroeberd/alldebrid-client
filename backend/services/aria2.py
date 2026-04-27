@@ -91,35 +91,51 @@ class Aria2Service:
     async def purge_download_results(self) -> Any:
         return await self._call("aria2.purgeDownloadResult")
 
-    async def get_memory_diagnostics(self) -> Dict[str, Any]:
+    async def get_memory_diagnostics(
+        self,
+        waiting_limit: int = 100,
+        stopped_limit: int = 100,
+    ) -> Dict[str, Any]:
+        waiting_limit = self._bounded_window(waiting_limit)
+        stopped_limit = self._bounded_window(stopped_limit)
         active, waiting, stopped = await asyncio.gather(
             self._call("aria2.tellActive", [self._keys()]),
-            self._call("aria2.tellWaiting", [0, 1000, self._keys()]),
-            self._call("aria2.tellStopped", [0, 1000, self._keys()]),
+            self._call("aria2.tellWaiting", [0, waiting_limit, self._keys()]),
+            self._call("aria2.tellStopped", [0, stopped_limit, self._keys()]),
         )
         options = await self.get_global_options()
         return {
             "active_count": len(active or []),
             "waiting_count": len(waiting or []),
             "stopped_count": len(stopped or []),
+            "query_limits": {
+                "waiting": waiting_limit,
+                "stopped": stopped_limit,
+            },
             "global_options": {
                 "max-download-result": str((options or {}).get("max-download-result", "")),
                 "keep-unfinished-download-result": str((options or {}).get("keep-unfinished-download-result", "")),
             },
         }
 
-    async def get_all(self) -> List[Aria2DownloadStatus]:
+    async def get_all(
+        self,
+        waiting_limit: int = 100,
+        stopped_limit: int = 100,
+    ) -> List[Aria2DownloadStatus]:
         """
         Fetches active, waiting and stopped downloads.
 
         On connection errors an empty list is returned and the error
         is logged as WARNING so the scheduler keeps running.
         """
+        waiting_limit = self._bounded_window(waiting_limit)
+        stopped_limit = self._bounded_window(stopped_limit)
         try:
             results = await asyncio.gather(
                 self._call("aria2.tellActive", [self._keys()]),
-                self._call("aria2.tellWaiting", [0, 1000, self._keys()]),
-                self._call("aria2.tellStopped", [0, 1000, self._keys()]),
+                self._call("aria2.tellWaiting", [0, waiting_limit, self._keys()]),
+                self._call("aria2.tellStopped", [0, stopped_limit, self._keys()]),
             )
         except Aria2ConnectionError as exc:
             logger.warning("aria2 unreachable (get_all): %s", exc)
@@ -261,6 +277,12 @@ class Aria2Service:
             lock = asyncio.Lock()
             self._uri_locks[uri] = lock
         return lock
+
+    def _bounded_window(self, value: int) -> int:
+        try:
+            return max(10, min(1000, int(value or 100)))
+        except Exception:
+            return 100
 
     def _target_path_from_options(self, options: Optional[Dict[str, Any]]) -> str:
         if not options:

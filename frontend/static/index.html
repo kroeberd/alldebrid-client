@@ -2016,13 +2016,23 @@ function renderSettings() {
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Result Purge Interval (minutes)</label>
-          <input class="input" type="number" id="s-aria2_purge_interval_minutes" value="${s.aria2_purge_interval_minutes??60}" min="0" max="1440"/>
+          <input class="input" type="number" id="s-aria2_purge_interval_minutes" value="${s.aria2_purge_interval_minutes??15}" min="0" max="1440"/>
           <span class="form-hint">Automatically purges stopped result entries from aria2. 0 = disabled.</span>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 max-download-result</label>
-          <input class="input" type="number" id="s-aria2_max_download_result" value="${s.aria2_max_download_result??200}" min="10" max="5000"/>
+          <input class="input" type="number" id="s-aria2_max_download_result" value="${s.aria2_max_download_result??50}" min="10" max="5000"/>
           <span class="form-hint">Lower values reduce how many stopped results aria2 keeps in memory.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Waiting Query Window</label>
+          <input class="input" type="number" id="s-aria2_waiting_window" value="${s.aria2_waiting_window??100}" min="10" max="1000"/>
+          <span class="form-hint">How many waiting jobs the client asks aria2 for per sync cycle. Lower values reduce RPC payload size and state pressure.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Stopped Query Window</label>
+          <input class="input" type="number" id="s-aria2_stopped_window" value="${s.aria2_stopped_window??100}" min="10" max="1000"/>
+          <span class="form-hint">How many stopped jobs the client inspects per sync cycle and diagnostics call.</span>
         </div>
         <div class="toggle-row">
           <div class="toggle-info">
@@ -2638,8 +2648,10 @@ function getFormSettings() {
     aria2_max_active_downloads: n('aria2_max_active_downloads', n('max_concurrent_downloads', 3)),
     aria2_start_paused: c('aria2_start_paused'),
     aria2_poll_interval_seconds: n('aria2_poll_interval_seconds', 5),
-    aria2_purge_interval_minutes: n('aria2_purge_interval_minutes', 60),
-    aria2_max_download_result: n('aria2_max_download_result', 200),
+    aria2_purge_interval_minutes: n('aria2_purge_interval_minutes', 15),
+    aria2_max_download_result: n('aria2_max_download_result', 50),
+    aria2_waiting_window: n('aria2_waiting_window', 100),
+    aria2_stopped_window: n('aria2_stopped_window', 100),
     aria2_keep_unfinished_download_result: c('aria2_keep_unfinished_download_result'),
     db_type: t('db_type'),
     postgres_host: t('postgres_host'), postgres_port: n('postgres_port'),
@@ -2806,10 +2818,12 @@ function renderAria2Diagnostics(diag) {
     return;
   }
   const opts = diag.global_options || {};
+  const limits = diag.query_limits || {};
   el.innerHTML =
     `<b>aria2 memory diagnostics</b><br>` +
     `Active: ${diag.active_count ?? 0} · Waiting: ${diag.waiting_count ?? 0} · Stopped: ${diag.stopped_count ?? 0}<br>` +
-    `max-download-result: ${opts['max-download-result'] || 'n/a'} · keep-unfinished-download-result: ${opts['keep-unfinished-download-result'] || 'n/a'}`;
+    `max-download-result: ${opts['max-download-result'] || 'n/a'} · keep-unfinished-download-result: ${opts['keep-unfinished-download-result'] || 'n/a'}<br>` +
+    `query window — waiting: ${limits.waiting ?? 'n/a'} · stopped: ${limits.stopped ?? 'n/a'}`;
 }
 
 async function runAria2Housekeeping() {
