@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.21] — 2026-04-27
+
+### Fixed
+- **Built-in aria2 now uses the configured Docker download mount** — internal
+  aria2 runs in the same container namespace as the app and therefore ignores
+  the external `aria2_download_path` override, using `download_folder` directly.
+- **Built-in aria2 startup diagnostics are now visible** — startup failures now
+  include process output, exit codes, log tails, and the active download folder
+  in the runtime status panel instead of silently reporting an offline RPC.
+
+### Changed
+- **Docker defaults now align with the documented `/download` mount** — fresh
+  installs default the download folder to `/download`, while the image still
+  keeps the legacy `/app/data/downloads` directory for compatibility.
+
 ## [1.3.20] — 2026-04-27
 
 ### Added

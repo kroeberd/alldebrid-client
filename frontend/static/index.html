@@ -2025,7 +2025,7 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">aria2 Download Root</label>
           <input class="input" id="s-aria2_download_path" value="${s.aria2_download_path||''}" placeholder="Optional remote root path"/>
-          <span class="form-hint">Leave empty when aria2 writes into the same mounted path as this app.</span>
+          <span class="form-hint">External aria2 only. Built-in aria2 always uses the Download Folder mount directly.</span>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Timeout (seconds)</label>
@@ -2926,12 +2926,15 @@ function renderAria2Runtime(data) {
   const version = data.version ? ` · v${data.version}` : '';
   const uptime = data.uptime_seconds ? ` · uptime ${Math.floor(data.uptime_seconds / 60)}m` : '';
   const secret = data.secret_managed ? ' · internal secret managed' : '';
+  const dir = data.download_dir ? `<br>Download folder: ${esc(data.download_dir)}` : '';
   const diag = data.diagnostics || {};
   const counts = diag && !diag.error
     ? `<br>Active: ${diag.active_count ?? 0} · Waiting: ${diag.waiting_count ?? 0} · Stopped: ${diag.stopped_count ?? 0}`
     : '';
   const err = data.last_error ? `<br><span style="color:var(--red)">${esc(data.last_error)}</span>` : '';
   el.innerHTML = `<b>${esc(state)}</b> · ${esc(mode)} · ${esc(rpc)}${esc(version)}${esc(uptime)}${secret}<br>${esc(data.rpc_url || '')}${counts}${err}`;
+  el.innerHTML += dir;
+  if (data.last_output) el.innerHTML += `<br><small>${esc(data.last_output)}</small>`;
   renderAria2Diagnostics(diag && !diag.error ? diag : null);
 }
 

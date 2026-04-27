@@ -3,7 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="AllDebrid-Client"
-LABEL org.opencontainers.image.version="1.3.20"
+LABEL org.opencontainers.image.version="1.3.21"
 LABEL org.opencontainers.image.description="Automated torrent downloading via AllDebrid with a branded web UI"
 
 # System deps
@@ -23,7 +23,7 @@ COPY CHANGELOG.md /app/CHANGELOG.md
 COPY VERSION /app/VERSION
 
 # Directories
-RUN mkdir -p /app/data/watch /app/data/processed /app/data/downloads /app/config
+RUN mkdir -p /app/data/watch /app/data/processed /app/data/downloads /app/config /download
 
 EXPOSE 8080
 

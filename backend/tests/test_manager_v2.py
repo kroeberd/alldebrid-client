@@ -1445,6 +1445,56 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(url, "http://127.0.0.1:6800/jsonrpc")
         self.assertEqual(secret, BUILTIN_ARIA2_SECRET)
 
+    def test_builtin_aria2_path_mapping_ignores_external_download_root(self):
+        mgr = TorrentManager()
+        cfg = types.SimpleNamespace(
+            aria2_mode="builtin",
+            download_folder="/download",
+            aria2_download_path="/external/downloads",
+        )
+        with patch("services.manager_v2.get_settings", return_value=cfg):
+            mapped = mgr._remote_aria2_path(Path("/download/movie/file.mkv"))
+        self.assertEqual(mapped, "/download/movie/file.mkv")
+
+    def test_external_aria2_path_mapping_uses_remote_download_root(self):
+        mgr = TorrentManager()
+        cfg = types.SimpleNamespace(
+            aria2_mode="external",
+            download_folder="/download",
+            aria2_download_path="/external/downloads",
+        )
+        with patch("services.manager_v2.get_settings", return_value=cfg):
+            mapped = mgr._remote_aria2_path(Path("/download/movie/file.mkv"))
+        self.assertEqual(mapped, "/external/downloads/movie/file.mkv")
+
+    def test_builtin_runtime_command_uses_download_folder_not_external_root(self):
+        from services.aria2_runtime import BuiltinAria2Runtime
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            download_dir = Path(tmp) / "download"
+            cfg = types.SimpleNamespace(
+                download_folder=str(download_dir),
+                aria2_download_path="/external/downloads",
+                aria2_builtin_log_file=str(Path(tmp) / "aria2.log"),
+                aria2_builtin_session_file=str(Path(tmp) / "aria2.session"),
+                aria2_builtin_port=6800,
+                aria2_max_download_result=50,
+                aria2_keep_unfinished_download_result=False,
+                aria2_max_active_downloads=3,
+                aria2_split=8,
+                aria2_min_split_size="10M",
+                aria2_max_connection_per_server=8,
+                aria2_disk_cache="64M",
+                aria2_file_allocation="falloc",
+                aria2_continue_downloads=True,
+                aria2_lowest_speed_limit="0",
+            )
+            with patch("services.aria2_runtime.get_settings", return_value=cfg):
+                command = BuiltinAria2Runtime()._command()
+        self.assertIn(f"--dir={download_dir}", command)
+        self.assertNotIn("--dir=/external/downloads", command)
+
     async def test_apply_aria2_memory_tuning_uses_settings_values(self):
         mgr = TorrentManager()
         fake_aria2 = types.SimpleNamespace(change_global_options=AsyncMock())

@@ -26,7 +26,7 @@ class AppSettings(BaseModel):
     # Folders
     watch_folder: str = "/app/data/watch"
     processed_folder: str = "/app/data/processed"
-    download_folder: str = "/app/data/downloads"
+    download_folder: str = "/download"
     max_concurrent_downloads: int = 3
     max_speed_mbps: int = 0
 

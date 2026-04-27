@@ -1350,7 +1350,7 @@ class TorrentManager:
 
     def _remote_aria2_path(self, local_path: Path) -> str:
         cfg = get_settings()
-        if cfg.aria2_download_path:
+        if cfg.aria2_download_path and not is_builtin_mode(cfg):
             relative = local_path.relative_to(Path(cfg.download_folder))
             return str(PurePosixPath(cfg.aria2_download_path.replace("\\", "/")) / PurePosixPath(str(relative).replace("\\", "/")))
         return str(PurePosixPath(str(local_path).replace("\\", "/")))

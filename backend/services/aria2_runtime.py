@@ -4,6 +4,7 @@ import asyncio
 import logging
 import shutil
 import time
+from collections import deque
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -63,6 +64,9 @@ class BuiltinAria2Runtime:
         self._process: Optional[asyncio.subprocess.Process] = None
         self._started_at: float = 0.0
         self._last_error: str = ""
+        self._last_output: deque[str] = deque(maxlen=30)
+        self._stdout_task: Optional[asyncio.Task] = None
+        self._stderr_task: Optional[asyncio.Task] = None
         self._lock = asyncio.Lock()
 
     def _service(self) -> Aria2Service:
@@ -81,10 +85,17 @@ class BuiltinAria2Runtime:
         session_file.touch(exist_ok=True)
         return log_file, session_file
 
+    def _download_dir(self) -> Path:
+        cfg = get_settings()
+        # Built-in aria2 runs in the same container as the app, so it must use
+        # the normal mounted download folder. aria2_download_path is only for a
+        # separate external aria2 container with a different path namespace.
+        return Path(getattr(cfg, "download_folder", "/download") or "/download")
+
     def _command(self) -> list[str]:
         cfg = get_settings()
         log_file, session_file = self._runtime_paths()
-        download_dir = Path(getattr(cfg, "aria2_download_path", "") or getattr(cfg, "download_folder", "/app/data/downloads"))
+        download_dir = self._download_dir()
         download_dir.mkdir(parents=True, exist_ok=True)
         options = aria2_global_options(cfg, include_safety=True)
         cmd = [
@@ -95,7 +106,6 @@ class BuiltinAria2Runtime:
             f"--rpc-secret={BUILTIN_ARIA2_SECRET}",
             "--rpc-allow-origin-all=false",
             f"--dir={download_dir}",
-            f"--input-file={session_file}",
             f"--save-session={session_file}",
             "--save-session-interval=30",
             "--auto-save-interval=30",
@@ -104,6 +114,8 @@ class BuiltinAria2Runtime:
             "--summary-interval=0",
             "--disable-ipv6=true",
         ]
+        if session_file.exists() and session_file.stat().st_size > 0:
+            cmd.append(f"--input-file={session_file}")
         cmd.extend(f"--{key}={value}" for key, value in options.items())
         return cmd
 
@@ -129,9 +141,11 @@ class BuiltinAria2Runtime:
             try:
                 self._process = await asyncio.create_subprocess_exec(
                     *self._command(),
-                    stdout=asyncio.subprocess.DEVNULL,
-                    stderr=asyncio.subprocess.DEVNULL,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
                 )
+                self._stdout_task = asyncio.create_task(self._drain_stream(self._process.stdout, "stdout"))
+                self._stderr_task = asyncio.create_task(self._drain_stream(self._process.stderr, "stderr"))
                 self._started_at = time.time()
                 self._last_error = ""
                 await self._wait_until_healthy()
@@ -159,6 +173,7 @@ class BuiltinAria2Runtime:
                         except asyncio.TimeoutError:
                             self._process.kill()
                 self._started_at = 0.0
+                await self._cancel_drain_tasks()
             except Exception as exc:
                 self._last_error = str(exc)
                 logger.warning("Built-in aria2 stop failed: %s", exc)
@@ -198,10 +213,12 @@ class BuiltinAria2Runtime:
             "process_running": process_running,
             "rpc_ok": rpc_ok,
             "rpc_url": builtin_rpc_url(cfg) if enabled else (getattr(cfg, "aria2_url", "") or ""),
+            "download_dir": str(self._download_dir()) if enabled else "",
             "secret_managed": enabled,
             "version": version,
             "uptime_seconds": int(time.time() - self._started_at) if self._started_at else 0,
             "last_error": self._last_error or rpc_error,
+            "last_output": "\n".join(self._last_output),
             "safety": aria2_global_options(cfg, include_safety=True) if enabled else {},
         }
 
@@ -209,6 +226,8 @@ class BuiltinAria2Runtime:
         deadline = time.time() + 10
         last_error = ""
         while time.time() < deadline:
+            if self._process and self._process.returncode is not None:
+                raise RuntimeError(self._startup_error("aria2 process exited before RPC became healthy"))
             try:
                 await self._service().test()
                 await self.apply_options()
@@ -216,7 +235,43 @@ class BuiltinAria2Runtime:
             except Exception as exc:
                 last_error = str(exc)
                 await asyncio.sleep(0.25)
-        raise RuntimeError(last_error or "aria2 RPC did not become healthy")
+        raise RuntimeError(self._startup_error(last_error or "aria2 RPC did not become healthy"))
+
+    async def _drain_stream(self, stream, name: str) -> None:
+        if not stream:
+            return
+        while True:
+            line = await stream.readline()
+            if not line:
+                return
+            text = line.decode("utf-8", errors="replace").strip()
+            if text:
+                self._last_output.append(f"{name}: {text}")
+
+    async def _cancel_drain_tasks(self) -> None:
+        tasks = [task for task in (self._stdout_task, self._stderr_task) if task]
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._stdout_task = None
+        self._stderr_task = None
+
+    def _startup_error(self, message: str) -> str:
+        log_file, _ = self._runtime_paths()
+        details = [message]
+        if self._process and self._process.returncode is not None:
+            details.append(f"exit code {self._process.returncode}")
+        if self._last_output:
+            details.append("process output: " + " | ".join(self._last_output))
+        try:
+            if log_file.exists():
+                tail = log_file.read_text(encoding="utf-8", errors="replace").splitlines()[-10:]
+                if tail:
+                    details.append("log tail: " + " | ".join(tail))
+        except Exception:
+            pass
+        return "; ".join(details)
 
 
 runtime = BuiltinAria2Runtime()
