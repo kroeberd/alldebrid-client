@@ -824,7 +824,14 @@ async def jackett_search(body: dict):
         trackers = [tracker, *trackers]
     trackers = [str(t).strip() for t in trackers if str(t).strip()]
     limit = min(int(body.get("limit") or 100), 500)
+    hide_dead = bool(body.get("hide_dead"))
     result = await search(query=query, category=category, trackers=trackers, limit=limit)
+    if hide_dead:
+        result["results"] = [
+            item for item in (result.get("results", []) or [])
+            if int(item.get("seeders") or 0) > 0
+        ]
+        result["total"] = len(result["results"])
     hashes = sorted({str(item.get("hash") or "").strip().lower() for item in result.get("results", []) if str(item.get("hash") or "").strip()})
     titles = sorted({str(item.get("title") or "").strip().lower() for item in result.get("results", []) if str(item.get("title") or "").strip()})
 

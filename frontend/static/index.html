@@ -917,6 +917,15 @@ textarea.input { resize: vertical; }
               <option value="">All Indexers</option>
             </select>
           </div>
+          <div style="min-width:160px">
+            <label class="form-label">Availability</label>
+            <label class="toggle" style="height:38px;padding:0 10px;border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface)">
+              <span style="font-size:12px;color:var(--text)">Hide dead torrents</span>
+              <span style="display:flex;align-items:center">
+                <input type="checkbox" id="jackett-hide-dead" style="margin:0">
+              </span>
+            </label>
+          </div>
           <button class="btn btn-primary" onclick="jackettSearch()" id="jackett-search-btn"
             style="align-self:flex-end;white-space:nowrap">
             &#128269; Search
@@ -3400,6 +3409,7 @@ async function jackettSearch() {
   if (!query) { toast('Please enter a search query', 'warn'); return; }
   var cat     = ((document.getElementById('jackett-cat')||{}).value)||'0';
   var trackers = jackettSelectedTrackers();
+  var hideDead = !!((document.getElementById('jackett-hide-dead')||{}).checked);
   var btn   = document.getElementById('jackett-search-btn');
   var state = document.getElementById('jackett-state');
   var wrap  = document.getElementById('jackett-results-wrap');
@@ -3412,7 +3422,7 @@ async function jackettSearch() {
   if (tbody) tbody.innerHTML='';
 
   try {
-    var data = await api('POST', '/jackett/search', {query:query, category:parseInt(cat,10), trackers:trackers});
+    var data = await api('POST', '/jackett/search', {query:query, category:parseInt(cat,10), trackers:trackers, hide_dead:hideDead});
     if (data.error) {
       if (state) { state.style.display='block'; state.textContent='Error: '+data.error; }
       return;
@@ -3421,7 +3431,7 @@ async function jackettSearch() {
       if (state) { state.style.display='block'; state.textContent='No results found for: '+query; }
       return;
     }
-    if (count) count.textContent=data.total+' result(s) for: '+query;
+    if (count) count.textContent=data.total+' result(s) for: '+query+(hideDead ? ' · dead torrents hidden' : '');
     window._jackettResults = data.results;
     renderJackettResults();
   } catch(e) {

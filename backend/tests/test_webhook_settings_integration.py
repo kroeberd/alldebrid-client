@@ -230,6 +230,43 @@ class JackettRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["results"][0]["existing_status"], "completed")
         self.assertFalse(result["results"][1]["already_added"])
 
+    async def test_jackett_search_can_hide_dead_torrents(self):
+        db = _FakeDb(rows=[], total=0)
+        payload = {
+            "results": [
+                {"title": "Alive", "hash": "abc123", "magnet": "magnet:?xt=urn:btih:abc123", "torrent_url": "", "seeders": 12},
+                {"title": "Dead", "hash": "def456", "magnet": "magnet:?xt=urn:btih:def456", "torrent_url": "", "seeders": 0},
+            ],
+            "total": 2,
+            "query": "test",
+            "error": None,
+        }
+        with patch("api.routes.get_db", return_value=_fake_db_context(db)), \
+             patch("services.jackett.search", AsyncMock(return_value=payload)):
+            result = await routes.jackett_search({"query": "test", "hide_dead": True})
+
+        self.assertEqual(result["total"], 1)
+        self.assertEqual(len(result["results"]), 1)
+        self.assertEqual(result["results"][0]["title"], "Alive")
+
+    async def test_jackett_search_keeps_dead_torrents_when_filter_disabled(self):
+        db = _FakeDb(rows=[], total=0)
+        payload = {
+            "results": [
+                {"title": "Alive", "hash": "abc123", "magnet": "magnet:?xt=urn:btih:abc123", "torrent_url": "", "seeders": 12},
+                {"title": "Dead", "hash": "def456", "magnet": "magnet:?xt=urn:btih:def456", "torrent_url": "", "seeders": 0},
+            ],
+            "total": 2,
+            "query": "test",
+            "error": None,
+        }
+        with patch("api.routes.get_db", return_value=_fake_db_context(db)), \
+             patch("services.jackett.search", AsyncMock(return_value=payload)):
+            result = await routes.jackett_search({"query": "test"})
+
+        self.assertEqual(result["total"], 2)
+        self.assertEqual(len(result["results"]), 2)
+
     async def test_jackett_search_marks_existing_titles_via_download_files(self):
         db = _FakeDb(
             rows=[{"id": 8, "hash": "zzz999", "status": "completed", "name": "Some Torrent", "filename": "Exact.Match.File.mp4"}],

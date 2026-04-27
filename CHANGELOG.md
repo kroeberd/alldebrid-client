@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.17] — 2026-04-27
+
+### Changed
+- **Jackett search can now hide dead torrents** — the Torrent Search view now
+  offers a dedicated “Hide dead torrents” option, and the backend filters out
+  results with zero seeders when that toggle is enabled so searches stay focused
+  on currently downloadable items.
+
 ## [1.3.16] — 2026-04-27
 
 ### Changed
