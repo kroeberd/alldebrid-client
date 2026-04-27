@@ -32,6 +32,7 @@ from core.version import read_version
 from db.database import DB_PATH, _is_postgres, get_db
 from services.manager_v2 import manager
 from services.aria2_runtime import runtime as aria2_runtime
+from services.aria2 import aria2_download_to_dict
 
 logger = logging.getLogger("alldebrid.routes")
 router = APIRouter()
@@ -280,6 +281,53 @@ async def aria2_runtime_apply():
         await aria2_runtime.apply_options()
         result = await manager.run_aria2_housekeeping()
         return {"ok": True, **result}
+    except Exception as e:
+        raise HTTPException(502, str(e))
+
+
+@router.get("/aria2/downloads")
+async def aria2_downloads():
+    cfg = get_settings()
+    try:
+        downloads = await manager.aria2().get_all(
+            getattr(cfg, "aria2_waiting_window", 100),
+            getattr(cfg, "aria2_stopped_window", 100),
+        )
+    except Exception as e:
+        raise HTTPException(502, str(e))
+    items = [aria2_download_to_dict(download) for download in downloads]
+    groups = {
+        "active": [item for item in items if item["status"] == "active"],
+        "waiting": [item for item in items if item["status"] in {"waiting", "paused"}],
+        "stopped": [item for item in items if item["status"] not in {"active", "waiting", "paused"}],
+    }
+    return {
+        "ok": True,
+        "items": items,
+        "groups": groups,
+        "summary": {
+            "active": len(groups["active"]),
+            "waiting": len(groups["waiting"]),
+            "stopped": len(groups["stopped"]),
+            "download_speed": sum(item["download_speed"] for item in groups["active"]),
+            "remaining_length": sum(item["remaining_length"] for item in items),
+        },
+    }
+
+
+@router.post("/aria2/downloads/{gid}/{action}")
+async def aria2_download_action(gid: str, action: str):
+    if action not in {"pause", "resume", "remove"}:
+        raise HTTPException(400, "Unsupported aria2 action")
+    try:
+        svc = manager.aria2()
+        if action == "pause":
+            await svc.pause(gid)
+        elif action == "resume":
+            await svc.resume(gid)
+        else:
+            await svc.remove(gid)
+        return {"ok": True, "gid": gid, "action": action}
     except Exception as e:
         raise HTTPException(502, str(e))
 

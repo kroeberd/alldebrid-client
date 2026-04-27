@@ -60,7 +60,7 @@ if "pydantic" not in sys.modules:
     sys.modules["pydantic"] = types.SimpleNamespace(BaseModel=_FakeModel)
 
 from services.alldebrid import AllDebridService, flatten_files
-from services.aria2 import Aria2Service, Aria2RPCError, Aria2ConnectionError
+from services.aria2 import Aria2Service, Aria2DownloadStatus, Aria2RPCError, Aria2ConnectionError
 from services.manager_v2 import (
     TransientAllDebridStateError,
     normalize_provider_state,
@@ -1494,6 +1494,31 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
                 command = BuiltinAria2Runtime()._command()
         self.assertIn(f"--dir={download_dir}", command)
         self.assertNotIn("--dir=/external/downloads", command)
+
+    def test_aria2_download_payload_reports_progress_and_files(self):
+        from services.aria2 import aria2_download_to_dict
+
+        download = Aria2DownloadStatus(
+            gid="abc123",
+            status="active",
+            total_length=1000,
+            completed_length=250,
+            download_speed=125,
+            files=[{
+                "path": "/download/movie/file.mkv",
+                "length": "1000",
+                "completedLength": "250",
+                "selected": "true",
+                "uris": [{"uri": "https://example.invalid/file.mkv"}],
+            }],
+        )
+        payload = aria2_download_to_dict(download)
+        self.assertEqual(payload["gid"], "abc123")
+        self.assertEqual(payload["name"], "file.mkv")
+        self.assertEqual(payload["progress"], 25.0)
+        self.assertEqual(payload["remaining_length"], 750)
+        self.assertEqual(payload["files"][0]["progress"], 25.0)
+        self.assertEqual(payload["files"][0]["uris"], ["https://example.invalid/file.mkv"])
 
     async def test_apply_aria2_memory_tuning_uses_settings_values(self):
         mgr = TorrentManager()

@@ -13,7 +13,7 @@ Improvements over the original:
 import asyncio
 import logging
 from dataclasses import dataclass
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional
 
 import aiohttp
@@ -59,6 +59,48 @@ class Aria2DownloadStatus:
     error_code: str = ""
     error_message: str = ""
     files: Optional[List[Dict[str, Any]]] = None
+
+
+def aria2_download_to_dict(download: Aria2DownloadStatus) -> Dict[str, Any]:
+    total = int(getattr(download, "total_length", 0) or 0)
+    completed = int(getattr(download, "completed_length", 0) or 0)
+    progress = round((completed / total) * 100, 2) if total > 0 else 0.0
+    files = []
+    for file_info in getattr(download, "files", None) or []:
+        path = str(file_info.get("path", "") or "")
+        length = int(file_info.get("length", 0) or 0)
+        completed_length = int(file_info.get("completedLength", 0) or 0)
+        selected = str(file_info.get("selected", "true")).lower() != "false"
+        uris = [
+            str(uri.get("uri", "") or "")
+            for uri in file_info.get("uris", []) or []
+            if str(uri.get("uri", "") or "").strip()
+        ]
+        files.append({
+            "path": path,
+            "name": Path(path).name if path else "",
+            "length": length,
+            "completed_length": completed_length,
+            "progress": round((completed_length / length) * 100, 2) if length > 0 else 0.0,
+            "selected": selected,
+            "uris": uris,
+        })
+    first_file = files[0] if files else {}
+    name = first_file.get("name") or getattr(download, "gid", "")
+    return {
+        "gid": getattr(download, "gid", ""),
+        "status": getattr(download, "status", ""),
+        "name": name,
+        "path": first_file.get("path", ""),
+        "total_length": total,
+        "completed_length": completed,
+        "remaining_length": max(total - completed, 0),
+        "progress": progress,
+        "download_speed": int(getattr(download, "download_speed", 0) or 0),
+        "error_code": getattr(download, "error_code", ""),
+        "error_message": getattr(download, "error_message", ""),
+        "files": files,
+    }
 
 
 class Aria2Service:

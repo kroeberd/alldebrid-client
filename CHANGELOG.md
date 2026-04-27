@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.23] — 2026-04-27
+
+### Added
+- **aria2 live download monitor** — the Download settings tab now shows the
+  active aria2 queue with per-job progress, speed, completed/remaining bytes,
+  target path, files, and error messages.
+- **aria2 job controls** — active aria2 jobs can now be paused, resumed, or
+  removed directly from the UI via dedicated API endpoints.
+- **Auto-refreshing aria2 queue view** — the live queue refreshes while the
+  Download tab is open so users can see what aria2 is doing without leaving the
+  client.
+
 ## [1.3.22] — 2026-04-27
 
 ### Fixed

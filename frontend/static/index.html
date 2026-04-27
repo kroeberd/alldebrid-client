@@ -366,6 +366,27 @@ td { padding: 11px 16px; vertical-align: middle; }
 .prog-pct { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-top: 3px; display: block; }
 
 /* ── Filter tabs ── */
+.aria2-queue { display: flex; flex-direction: column; gap: 10px; }
+.aria2-queue-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
+.aria2-summary { display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--text2); }
+.aria2-chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 4px 8px; }
+.aria2-job { border: 1px solid var(--border); border-radius: 10px; background: linear-gradient(180deg,var(--surface),var(--bg)); padding: 10px; display: grid; gap: 8px; }
+.aria2-job-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.aria2-job-title { min-width: 0; }
+.aria2-job-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aria2-job-meta { margin-top: 3px; font-family: var(--mono); font-size: 10px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aria2-job-grid { display: grid; grid-template-columns: repeat(4,minmax(90px,1fr)); gap: 8px; font-size: 11px; }
+.aria2-k { color: var(--text3); text-transform: uppercase; letter-spacing: .08em; font-size: 9px; }
+.aria2-v { color: var(--text); margin-top: 2px; font-family: var(--mono); }
+.aria2-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.aria2-file-list { font-size: 10px; color: var(--text2); border-top: 1px solid var(--border); padding-top: 6px; display: grid; gap: 4px; }
+.aria2-error { color: var(--red); font-size: 11px; }
+@media (max-width: 760px) {
+  .aria2-job-grid { grid-template-columns: repeat(2,minmax(90px,1fr)); }
+  .aria2-job-top { flex-direction: column; }
+  .aria2-actions { justify-content: flex-start; }
+}
+
 .filter-tabs { display: flex; gap: 3px; }
 .ftab { padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 600;
   cursor: pointer; color: var(--text2); border: 1px solid transparent; transition: all .15s; }
@@ -1037,6 +1058,7 @@ let currentTorrentSearch = '';
 let settingsData = {};
 let flexgetAvailableTasks = [];
 let flexgetTaskSchedules = [];
+let aria2DownloadsTimer = null;
 
 function renderTopbarActions() {
   const el = document.getElementById('topbar-actions');
@@ -1114,6 +1136,9 @@ function fmtSize(b) {
   const u = ['B','KB','MB','GB','TB']; let i = 0;
   while (b >= 1024 && i < u.length-1) {b/=1024; i++;}
   return b.toFixed(1)+' '+u[i];
+}
+function fmtSpeed(bps) {
+  return bps > 0 ? fmtSize(bps) + '/s' : '—';
 }
 function fmtDate(d) {
   if (!d) return '—';
@@ -1999,6 +2024,21 @@ function renderSettings() {
             </div>
           </div>
         </div>
+        <div class="scard" style="margin-bottom:0">
+          <div class="scard-header">aria2 Live Downloads</div>
+          <div class="scard-body">
+            <div class="aria2-queue-head">
+              <div class="form-hint">Live aria2 queue with progress, speed, status, and basic controls.</div>
+              <div class="input-row">
+                <button class="btn btn-blue btn-sm" onclick="loadAria2Downloads()">Refresh Queue</button>
+                <button class="btn btn-ghost btn-sm" onclick="runAria2Housekeeping()">Purge Results</button>
+              </div>
+            </div>
+            <div id="aria2-downloads" class="aria2-queue">
+              <div class="empty">Queue not loaded yet.</div>
+            </div>
+          </div>
+        </div>
         <div class="toggle-row">
           <div class="toggle-info">
             <div class="tl">Auto-start Built-in aria2</div>
@@ -2867,6 +2907,10 @@ function _updatePremiumLabel(r) {
 function switchSettingsTab(id) {
   document.querySelectorAll('.stab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
   document.querySelectorAll('.stab-panel').forEach(p => p.classList.toggle('active', p.id === id));
+  if (aria2DownloadsTimer) {
+    clearInterval(aria2DownloadsTimer);
+    aria2DownloadsTimer = null;
+  }
   if (id === 'tab-database') {
     loadDatabaseBackupList();
   }
@@ -2876,6 +2920,10 @@ function switchSettingsTab(id) {
   }
   if (id === 'tab-download') {
     loadAria2Runtime().catch(()=>{});
+    aria2DownloadsTimer = setInterval(() => {
+      const panel = document.getElementById('tab-download');
+      if (panel && panel.classList.contains('active')) loadAria2Downloads().catch(()=>{});
+    }, 5000);
   }
 }
 
@@ -2938,10 +2986,100 @@ function renderAria2Runtime(data) {
   renderAria2Diagnostics(diag && !diag.error ? diag : null);
 }
 
+function aria2StatusLabel(status) {
+  const map = {active:'Downloading', waiting:'Waiting', paused:'Paused', complete:'Complete', error:'Error', removed:'Removed'};
+  const cls = status === 'active' ? 'downloading' : status === 'complete' ? 'completed' : status === 'error' ? 'error' : status === 'paused' ? 'paused' : 'queued';
+  return `<span class="badge badge-${cls}">${map[status] || status || 'Unknown'}</span>`;
+}
+
+function renderAria2Downloads(data) {
+  const el = document.getElementById('aria2-downloads');
+  if (!el) return;
+  if (!data || !Array.isArray(data.items)) {
+    el.innerHTML = '<div class="empty">Queue not loaded yet.</div>';
+    return;
+  }
+  const summary = data.summary || {};
+  const items = data.items || [];
+  const ordered = items.slice().sort((a,b) => {
+    const weight = {active:0, waiting:1, paused:2, error:3, complete:4};
+    return (weight[a.status] ?? 9) - (weight[b.status] ?? 9);
+  });
+  const header = `
+    <div class="aria2-summary">
+      <span class="aria2-chip">Active: ${summary.active ?? 0}</span>
+      <span class="aria2-chip">Waiting: ${summary.waiting ?? 0}</span>
+      <span class="aria2-chip">Stopped: ${summary.stopped ?? 0}</span>
+      <span class="aria2-chip">Speed: ${fmtSpeed(summary.download_speed || 0)}</span>
+      <span class="aria2-chip">Remaining: ${fmtSize(summary.remaining_length || 0)}</span>
+    </div>`;
+  if (!ordered.length) {
+    el.innerHTML = header + '<div class="empty">No aria2 jobs currently visible.</div>';
+    return;
+  }
+  el.innerHTML = header + ordered.map(job => {
+    const canPause = job.status === 'active' || job.status === 'waiting';
+    const canResume = job.status === 'paused';
+    const files = (job.files || []).slice(0, 4).map(file => `
+      <div title="${esc(file.path || '')}">
+        ${esc(file.name || file.path || 'file')} · ${Math.max(0, file.progress || 0).toFixed(1)}% · ${fmtSize(file.completed_length || 0)} / ${fmtSize(file.length || 0)}
+      </div>`).join('');
+    const more = (job.files || []).length > 4 ? `<div>+ ${(job.files || []).length - 4} more file(s)</div>` : '';
+    const error = job.error_message ? `<div class="aria2-error">${esc(job.error_code || '')} ${esc(job.error_message)}</div>` : '';
+    return `
+      <div class="aria2-job">
+        <div class="aria2-job-top">
+          <div class="aria2-job-title">
+            <div class="aria2-job-name" title="${esc(job.name || '')}">${esc(job.name || job.gid || 'aria2 job')}</div>
+            <div class="aria2-job-meta" title="${esc(job.path || '')}">${esc(job.gid || '')}${job.path ? ' · ' + esc(job.path) : ''}</div>
+          </div>
+          <div class="aria2-actions">
+            ${canPause ? `<button class="btn btn-ghost btn-sm" onclick="aria2DownloadAction('${esc(job.gid)}','pause')">Pause</button>` : ''}
+            ${canResume ? `<button class="btn btn-blue btn-sm" onclick="aria2DownloadAction('${esc(job.gid)}','resume')">Resume</button>` : ''}
+            <button class="btn btn-danger btn-sm" onclick="aria2DownloadAction('${esc(job.gid)}','remove')">Remove</button>
+          </div>
+        </div>
+        <div>${progress(job.progress || 0, job.status === 'complete' ? 'completed' : 'downloading')}</div>
+        <div class="aria2-job-grid">
+          <div><div class="aria2-k">Status</div><div class="aria2-v">${aria2StatusLabel(job.status)}</div></div>
+          <div><div class="aria2-k">Speed</div><div class="aria2-v">${fmtSpeed(job.download_speed || 0)}</div></div>
+          <div><div class="aria2-k">Done</div><div class="aria2-v">${fmtSize(job.completed_length || 0)} / ${fmtSize(job.total_length || 0)}</div></div>
+          <div><div class="aria2-k">Remaining</div><div class="aria2-v">${fmtSize(job.remaining_length || 0)}</div></div>
+        </div>
+        ${error}
+        ${(files || more) ? `<div class="aria2-file-list">${files}${more}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+async function loadAria2Downloads() {
+  try {
+    const data = await api('GET', '/aria2/downloads');
+    renderAria2Downloads(data);
+    return data;
+  } catch(e) {
+    const el = document.getElementById('aria2-downloads');
+    if (el) el.innerHTML = `<div class="aria2-error">Queue error: ${esc(e.message)}</div>`;
+    throw e;
+  }
+}
+
+async function aria2DownloadAction(gid, action) {
+  try {
+    await api('POST', `/aria2/downloads/${encodeURIComponent(gid)}/${action}`);
+    toast(`aria2 ${action} sent`, 'success');
+    await loadAria2Downloads();
+    await loadAria2Runtime();
+  } catch(e) {
+    toast(`aria2 ${action}: ${e.message}`, 'error');
+  }
+}
+
 async function loadAria2Runtime() {
   try {
     const data = await api('GET', '/aria2/runtime');
     renderAria2Runtime(data);
+    loadAria2Downloads().catch(()=>{});
     return data;
   } catch(e) {
     const el = document.getElementById('aria2-runtime-status');
@@ -2957,6 +3095,7 @@ async function aria2RuntimeAction(action) {
     settingsData = await api('GET','/settings');
     const data = await api('POST', `/aria2/runtime/${action}`);
     renderAria2Runtime(data);
+    loadAria2Downloads().catch(()=>{});
     toast(`aria2 ${action} complete`, 'success');
   } catch(e) {
     toast(`aria2 ${action}: ${e.message}`, 'error');
