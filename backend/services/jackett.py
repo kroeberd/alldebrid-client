@@ -6,9 +6,12 @@ the results into a consistent format for the frontend.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import base64
+import hashlib
+import importlib
 from datetime import datetime
 from email.message import Message
 from pathlib import PurePosixPath
@@ -99,6 +102,43 @@ def _normalise_result(item: Dict[str, Any]) -> Dict[str, Any]:
         "hash": infohash,
         "has_link": bool(magnet or torrent),
     }
+
+
+def _extract_torrent_infohash(content: bytes) -> str:
+    if not content:
+        return ""
+    try:
+        bencodepy = importlib.import_module("bencodepy")
+        metainfo = bencodepy.decode(content)
+        info = metainfo.get(b"info")
+        if info is None:
+            info = metainfo.get("info")
+        if info is None:
+            return ""
+        encoded_info = bencodepy.encode(info)
+        return hashlib.sha1(encoded_info).hexdigest().lower()
+    except Exception:
+        return ""
+
+
+async def _fill_missing_hashes_from_torrent_files(results: List[Dict[str, Any]]) -> None:
+    pending = [item for item in results if not str(item.get("hash") or "").strip() and str(item.get("torrent_url") or "").strip()]
+    if not pending:
+        return
+
+    sem = asyncio.Semaphore(8)
+
+    async def _resolve(item: Dict[str, Any]) -> None:
+        async with sem:
+            try:
+                payload = await download_torrent_file(str(item.get("torrent_url") or "").strip())
+                infohash = str(payload.get("infohash") or "").strip().lower()
+                if infohash:
+                    item["hash"] = infohash
+            except Exception:
+                return
+
+    await asyncio.gather(*[_resolve(item) for item in pending])
 
 
 def _build_result_params(query: str, category: int, trackers: List[str], limit: int, api_key: str) -> Dict[str, Any]:
@@ -206,6 +246,7 @@ async def search(
 
     raw_results = data.get("Results") or []
     normalised = [_normalise_result(r) for r in raw_results]
+    await _fill_missing_hashes_from_torrent_files(normalised)
     normalised.sort(key=lambda r: r["seeders"], reverse=True)
     logger.info("Jackett search %r → %d result(s)", query, len(normalised))
     return {"results": normalised, "total": len(normalised), "query": query, "error": None}
@@ -324,7 +365,11 @@ async def download_torrent_file(url: str) -> Dict[str, Any]:
             if not data:
                 raise RuntimeError("Jackett returned an empty torrent file")
             filename = _filename_from_response(url, resp.headers.get("Content-Disposition", ""))
-            return {"filename": filename, "content": data}
+            return {
+                "filename": filename,
+                "content": data,
+                "infohash": _extract_torrent_infohash(data),
+            }
 
 
 async def send_jackett_webhook(

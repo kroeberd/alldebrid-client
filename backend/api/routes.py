@@ -908,7 +908,7 @@ async def jackett_add(body: dict):
                     payload["content"],
                     payload.get("filename") or f"{title or 'jackett'}.torrent",
                     source="jackett",
-                    preferred_hash=result_hash or None,
+                    preferred_hash=(result_hash or str(payload.get("infohash") or "").strip().lower() or None),
                 )
                 added_via = "torrent_file"
             except Exception as torrent_exc:

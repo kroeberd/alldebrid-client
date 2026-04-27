@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.11] — 2026-04-27
+
+### Fixed
+- **Jackett searches now backfill missing result hashes from `.torrent` files**
+  when an indexer omits `InfoHash` in the search response. The client now
+  derives the torrent infohash from the downloaded torrent metadata, uses that
+  for result matching, and also forwards it into the add flow. This prevents
+  already added or completed torrents from showing up as `New` again just
+  because the original Jackett result did not include a stable hash.
+
 ## [1.3.10] — 2026-04-26
 
 ### Fixed

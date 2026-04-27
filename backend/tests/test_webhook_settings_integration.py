@@ -312,6 +312,31 @@ class JackettRouteTests(unittest.IsolatedAsyncioTestCase):
             preferred_hash="abcdef1234567890abcdef1234567890abcdef12",
         )
 
+    async def test_jackett_add_falls_back_to_downloaded_torrent_infohash(self):
+        row = {"id": 7, "status": "uploading", "alldebrid_id": "125"}
+        with patch("services.jackett.download_torrent_file", AsyncMock(return_value={
+            "filename": "item.torrent",
+            "content": b"abc",
+            "infohash": "1234567890abcdef1234567890abcdef12345678",
+        })), \
+             patch.object(routes.manager, "add_torrent_file_direct", AsyncMock(return_value=row)) as add_torrent_mock, \
+             patch("services.jackett.send_jackett_webhook", AsyncMock(return_value=None)):
+            await routes.jackett_add({
+                "hash": "",
+                "magnet": "",
+                "torrent_url": "http://example/item.torrent",
+                "title": "Example",
+                "indexer": "Tracker",
+                "size_bytes": 123,
+            })
+
+        add_torrent_mock.assert_awaited_once_with(
+            b"abc",
+            "item.torrent",
+            source="jackett",
+            preferred_hash="1234567890abcdef1234567890abcdef12345678",
+        )
+
 
 class FlexGetRouteTests(unittest.IsolatedAsyncioTestCase):
     async def test_flexget_running_returns_empty_when_disabled(self):

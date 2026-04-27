@@ -9,12 +9,24 @@ for mod, stub in {
     "aiofiles": types.SimpleNamespace(open=lambda *a, **kw: None),
     "aiosqlite": types.SimpleNamespace(connect=None, Row=object),
     "asyncpg":   types.SimpleNamespace(connect=None),
+    "bencodepy": types.SimpleNamespace(
+        encode=lambda obj: b"encoded-info" if obj == {b"name": b"Example.mkv", b"piece length": 16384, b"pieces": b"01234567890123456789", b"length": 12345} else b"torrent-bytes",
+        decode=lambda data: {
+            b"info": {
+                b"name": b"Example.mkv",
+                b"piece length": 16384,
+                b"pieces": b"01234567890123456789",
+                b"length": 12345,
+            }
+        } if data == b"torrent-bytes" else {},
+    ),
 }.items():
     if mod not in sys.modules:
         sys.modules[mod] = stub
 
 from services.jackett import (
-    _normalise_result, _fmt_size, CATEGORIES, CATEGORY_ALL, _parse_torznab_indexers
+    _normalise_result, _fmt_size, CATEGORIES, CATEGORY_ALL, _parse_torznab_indexers,
+    _extract_torrent_infohash,
 )
 
 
@@ -119,6 +131,14 @@ class TestNormaliseResult:
         assert r["leechers"] == 7
 
 
+class TestTorrentInfohash:
+    def test_extract_torrent_infohash_from_bytes(self):
+        torrent_bytes = b"torrent-bytes"
+        infohash = _extract_torrent_infohash(torrent_bytes)
+        assert len(infohash) == 40
+        assert all(ch in "0123456789abcdef" for ch in infohash)
+
+
 class TestCategories:
     def test_all_category_zero(self):
         assert CATEGORY_ALL == 0
@@ -218,6 +238,53 @@ class TestConnectionFallback:
 
         assert result["ok"] is False
         assert result["error"] == "Invalid API key"
+
+
+class TestSearchHashEnrichment:
+    def test_search_enriches_missing_hashes_from_torrent_files(self):
+        from services import jackett as jackett_mod
+
+        cfg = types.SimpleNamespace(
+            jackett_enabled=True,
+            jackett_url="http://jackett:9117",
+            jackett_api_key="secret",
+        )
+        fake_session_factory = lambda *a, **kw: _FakeSession([
+            _FakeResponse(200, {
+                "Results": [
+                    {
+                        "Title": "Example Release",
+                        "Tracker": "Tracker A",
+                        "Size": 100,
+                        "Seeders": 5,
+                        "Peers": 1,
+                        "Link": "http://example.com/file.torrent",
+                        "MagnetUri": "",
+                        "InfoHash": "",
+                    }
+                ]
+            }),
+        ])
+
+        original_cfg = jackett_mod._cfg
+        original_session = jackett_mod.aiohttp.ClientSession
+        original_download = jackett_mod.download_torrent_file
+        try:
+            jackett_mod._cfg = lambda: cfg
+            jackett_mod.aiohttp.ClientSession = fake_session_factory
+
+            async def _fake_download(url: str):
+                return {"filename": "file.torrent", "content": b"abc", "infohash": "abcd" * 10}
+
+            jackett_mod.download_torrent_file = _fake_download
+            result = asyncio.run(jackett_mod.search("example"))
+        finally:
+            jackett_mod._cfg = original_cfg
+            jackett_mod.aiohttp.ClientSession = original_session
+            jackett_mod.download_torrent_file = original_download
+
+        assert result["error"] is None
+        assert result["results"][0]["hash"] == "abcd" * 10
 
     def test_falls_back_to_results_endpoint_when_other_endpoints_fail(self):
         from services import jackett as jackett_mod
