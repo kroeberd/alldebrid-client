@@ -177,9 +177,10 @@ class TestCategories:
 
 
 class _FakeResponse:
-    def __init__(self, status, data):
+    def __init__(self, status, data, headers=None):
         self.status = status
         self._data = data
+        self.headers = headers or {}
 
     async def __aenter__(self):
         return self
@@ -192,6 +193,11 @@ class _FakeResponse:
 
     async def text(self):
         return str(self._data)
+
+    async def read(self):
+        if isinstance(self._data, bytes):
+            return self._data
+        return str(self._data).encode("utf-8")
 
 
 class _FakeSession:
@@ -307,6 +313,44 @@ class TestSearchHashEnrichment:
 
         assert result["error"] is None
         assert result["results"][0]["hash"] == "abcd" * 10
+
+
+class TestTorrentDownloadCaching:
+    def test_download_torrent_file_uses_cache_for_repeated_requests(self):
+        from services import jackett as jackett_mod
+
+        class _FakeTorrentSession(_FakeSession):
+            calls = 0
+
+            def get(self, *args, **kwargs):
+                _FakeTorrentSession.calls += 1
+                return super().get(*args, **kwargs)
+
+        original_cfg = jackett_mod._cfg
+        original_session = jackett_mod.aiohttp.ClientSession
+        original_cache = dict(jackett_mod._TORRENT_DOWNLOAD_CACHE)
+        try:
+            jackett_mod._cfg = lambda: types.SimpleNamespace(
+                jackett_url="http://jackett:9117",
+                jackett_api_key="secret",
+            )
+            jackett_mod._TORRENT_DOWNLOAD_CACHE.clear()
+            jackett_mod.aiohttp.ClientSession = lambda *a, **kw: _FakeTorrentSession([
+                _FakeResponse(200, b"torrent-bytes", headers={"Content-Disposition": 'attachment; filename="item.torrent"'}),
+            ])
+
+            first = asyncio.run(jackett_mod.download_torrent_file("/dl/item.torrent"))
+            second = asyncio.run(jackett_mod.download_torrent_file("/dl/item.torrent"))
+        finally:
+            jackett_mod._cfg = original_cfg
+            jackett_mod.aiohttp.ClientSession = original_session
+            jackett_mod._TORRENT_DOWNLOAD_CACHE.clear()
+            jackett_mod._TORRENT_DOWNLOAD_CACHE.update(original_cache)
+
+        assert _FakeTorrentSession.calls == 1
+        assert first["filename"] == "item.torrent"
+        assert second["filename"] == "item.torrent"
+        assert first["infohash"] == second["infohash"]
 
     def test_falls_back_to_results_endpoint_when_other_endpoints_fail(self):
         from services import jackett as jackett_mod

@@ -12,6 +12,7 @@ import re
 import base64
 import hashlib
 import importlib
+import time
 from datetime import datetime
 from email.message import Message
 from pathlib import PurePosixPath
@@ -22,6 +23,8 @@ from xml.etree import ElementTree as ET
 import aiohttp
 
 logger = logging.getLogger("alldebrid.jackett")
+TORRENT_CACHE_TTL_SECONDS = 300
+_TORRENT_DOWNLOAD_CACHE: Dict[str, Dict[str, Any]] = {}
 
 # Jackett category IDs (Torznab standard)
 CATEGORY_ALL = 0
@@ -125,6 +128,29 @@ def _extract_torrent_infohash(content: bytes) -> str:
         return hashlib.sha1(encoded_info).hexdigest().lower()
     except Exception:
         return ""
+
+
+def _get_cached_torrent_payload(resolved_url: str) -> Optional[Dict[str, Any]]:
+    entry = _TORRENT_DOWNLOAD_CACHE.get(resolved_url)
+    if not entry:
+        return None
+    if float(entry.get("expires_at", 0) or 0) < time.monotonic():
+        _TORRENT_DOWNLOAD_CACHE.pop(resolved_url, None)
+        return None
+    return {
+        "filename": entry.get("filename") or "download.torrent",
+        "content": entry.get("content") or b"",
+        "infohash": entry.get("infohash") or "",
+    }
+
+
+def _store_cached_torrent_payload(resolved_url: str, payload: Dict[str, Any]) -> None:
+    _TORRENT_DOWNLOAD_CACHE[resolved_url] = {
+        "filename": payload.get("filename") or "download.torrent",
+        "content": payload.get("content") or b"",
+        "infohash": payload.get("infohash") or "",
+        "expires_at": time.monotonic() + TORRENT_CACHE_TTL_SECONDS,
+    }
 
 
 async def _fill_missing_hashes_from_torrent_files(results: List[Dict[str, Any]]) -> None:
@@ -400,6 +426,9 @@ async def download_torrent_file(url: str) -> Dict[str, Any]:
     resolved_url = _resolve_torrent_download_url(url)
     if not resolved_url:
         raise RuntimeError("Jackett torrent URL is empty")
+    cached = _get_cached_torrent_payload(resolved_url)
+    if cached:
+        return cached
     timeout = aiohttp.ClientTimeout(total=30)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(resolved_url, allow_redirects=True) as resp:
@@ -410,11 +439,13 @@ async def download_torrent_file(url: str) -> Dict[str, Any]:
             if not data:
                 raise RuntimeError("Jackett returned an empty torrent file")
             filename = _filename_from_response(resolved_url, resp.headers.get("Content-Disposition", ""))
-            return {
+            payload = {
                 "filename": filename,
                 "content": data,
                 "infohash": _extract_torrent_infohash(data),
             }
+            _store_cached_torrent_payload(resolved_url, payload)
+            return payload
 
 
 async def send_jackett_webhook(

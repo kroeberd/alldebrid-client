@@ -292,14 +292,28 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
   font-family: var(--font);
   font-size:13px;
   line-height:1.7;
-  color: #dbe7ff;
+  color: var(--text);
 }
-.changelog-shell h1 { font-size:17px; font-weight:700; color:#fff; margin:18px 0 6px; border-bottom:1px solid var(--border); padding-bottom:6px; }
-.changelog-shell h2 { font-size:14px; font-weight:700; color:#a5c8ff; margin:14px 0 4px; }
-.changelog-shell h3 { font-size:13px; font-weight:600; color:#7ba8e0; margin:10px 0 3px; }
+.changelog-shell strong,
+.changelog-shell b { color: var(--text); }
+.changelog-shell code {
+  background: rgba(255,140,66,.12);
+  color: var(--accent);
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-family: var(--mono);
+}
+body.light .changelog-shell {
+  background: linear-gradient(180deg, #ffffff, #f6f9fd);
+  border-color: var(--border2);
+  color: var(--text);
+}
+.changelog-shell h1 { font-size:17px; font-weight:700; color:var(--text); margin:18px 0 6px; border-bottom:1px solid var(--border); padding-bottom:6px; }
+.changelog-shell h2 { font-size:14px; font-weight:700; color:var(--accent); margin:14px 0 4px; }
+.changelog-shell h3 { font-size:13px; font-weight:600; color:var(--blue); margin:10px 0 3px; }
 .changelog-shell ul { margin:4px 0 8px 18px; padding:0; }
-.changelog-shell li { margin:2px 0; color:#c8daf5; }
-.changelog-shell p  { margin:3px 0; color:#dbe7ff; }
+.changelog-shell li { margin:2px 0; color:var(--text2); }
+.changelog-shell p  { margin:3px 0; color:var(--text2); }
 .changelog-shell hr { border:none; border-top:1px solid var(--border); margin:12px 0; }
 .changelog-shell br { display:block; content:''; margin:2px 0; }
 
@@ -3221,6 +3235,7 @@ async function testPostgres() {
 
 window._jackettResults = [];
 window._jackettSort = { key: null, direction: null };
+window._jackettAddInFlight = {};
 
 function jackettSelectedTrackers() {
   var sel = document.getElementById('jackett-tracker');
@@ -3335,16 +3350,20 @@ function renderJackettResults() {
   results.forEach(function(r, i) {
     var tr = document.createElement('tr');
     var sc = r.seeders > 10 ? 'var(--green)' : r.seeders > 0 ? 'var(--accent)' : 'var(--text3)';
+    var key = String(r.hash || r.torrent_url || (r.title + '|' + r.indexer));
+    var inFlight = !!(window._jackettAddInFlight && window._jackettAddInFlight[key]);
     var statusBadge = r.already_added
-      ? '<span class="badge badge-'+esc((r.existing_status || 'queued'))+'">'+esc(r.existing_status || 'added')+'</span>'
-      : '<span style="font-size:11px;color:var(--text3)">New</span>';
+        ? '<span class="badge badge-'+esc((r.existing_status || 'queued'))+'">'+esc(r.existing_status || 'added')+'</span>'
+        : '<span style="font-size:11px;color:var(--text3)">New</span>';
     var addBtn = '';
     if (!(r.magnet || r.torrent_url)) {
-      addBtn = '<span style="font-size:11px;color:var(--text3)">No link</span>';
+        addBtn = '<span style="font-size:11px;color:var(--text3)">No link</span>';
     } else if (r.already_added) {
-      addBtn = '<button class="btn btn-ghost btn-sm" disabled id="jbtn-'+i+'">Added</button>';
+        addBtn = '<button class="btn btn-ghost btn-sm" disabled id="jbtn-'+i+'">Added</button>';
+    } else if (inFlight) {
+        addBtn = '<button class="btn btn-ghost btn-sm" disabled id="jbtn-'+i+'">Adding...</button>';
     } else {
-      addBtn = '<button class="btn btn-primary btn-sm" onclick="jackettAdd('+i+')" id="jbtn-'+i+'">Add</button>';
+        addBtn = '<button class="btn btn-primary btn-sm" onclick="jackettAdd('+i+')" id="jbtn-'+i+'">Add</button>';
     }
     tr.innerHTML =
       '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.title)+'">'+esc(r.title)+'</td>'+
@@ -3401,13 +3420,16 @@ async function jackettSearch() {
 async function jackettAdd(idx) {
   var r = jackettSortResults(window._jackettResults || [])[idx];
   if (!r) return;
+  var key = String(r.hash || r.torrent_url || (r.title + '|' + r.indexer));
+  if (window._jackettAddInFlight && window._jackettAddInFlight[key]) return;
+  window._jackettAddInFlight[key] = true;
   var btn=document.getElementById('jbtn-'+idx);
   if (btn) { btn.disabled=true; btn.textContent='Adding...'; }
   try {
-    var row=await api('POST', '/jackett/add', {
-      magnet:r.magnet, torrent_url:r.torrent_url,
-      title:r.title, indexer:r.indexer, size_bytes:r.size_bytes
-    });
+      var row=await api('POST', '/jackett/add', {
+        hash:r.hash, magnet:r.magnet, torrent_url:r.torrent_url,
+        title:r.title, indexer:r.indexer, size_bytes:r.size_bytes
+      });
     (window._jackettResults || []).forEach(function(item) {
       if ((item.hash && item.hash === r.hash) || (item.title === r.title && item.indexer === r.indexer)) {
         item.already_added = true;
@@ -3419,18 +3441,21 @@ async function jackettAdd(idx) {
       btn.textContent='\u2705 Added';
       btn.style.background='var(--green)';
       btn.style.color='#fff';
-    }
-    renderJackettResults();
+      }
+      delete window._jackettAddInFlight[key];
+      renderJackettResults();
     var label = row && row.added_via ? row.added_via.replace(/_/g, ' ') : (r.torrent_url ? 'torrent file' : 'magnet');
     var adId = (row && row.alldebrid_id) ? ' (ID: '+row.alldebrid_id+')' : '';
     toast('\u2714 Queued via '+label+adId+'\n'+r.title.slice(0,50), 'success');
     // Badge aktualisieren
     if (typeof loadStats === 'function') loadStats().catch(function(){});
-  } catch(e) {
-    if (btn) { btn.disabled=false; btn.textContent='Add'; }
-    toast('\u274c Failed to add: '+e.message, 'error');
+    } catch(e) {
+      delete window._jackettAddInFlight[key];
+      if (btn) { btn.disabled=false; btn.textContent='Add'; }
+      renderJackettResults();
+      toast('\u274c Failed to add: '+e.message, 'error');
+    }
   }
-}
 
 async function testJackett() {
   var el=document.getElementById('jackett-test-result');

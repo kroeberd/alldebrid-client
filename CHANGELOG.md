@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.3.14] — 2026-04-27
+
+### Fixed
+- **Jackett add no longer re-fetches short-lived `.torrent` links unnecessarily**
+  after search-time hash enrichment. Downloaded torrent payloads are now cached
+  briefly in memory and reused by the add flow, which prevents repeated or
+  delayed add clicks from invalidating one-time tracker URLs and falling into
+  `HTTP 404`.
+
+- **Jackett add now always sends the resolved result hash from the frontend**
+  when available, and the UI keeps an in-flight state per result to avoid
+  duplicate add requests while a torrent is already being queued.
+
+- **Changelog readability improved in light mode** — the changelog panel now
+  uses the regular text color instead of a washed-out blue tone, and inline code
+  gets stronger contrast in both themes.
+
 ## [1.3.13] — 2026-04-27
 
 ### Changed
