@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.13] — 2026-04-27
+
+### Changed
+- **Dark and light themes were rebalanced around the radar logo palette** — the
+  dark mode now uses deeper navy surfaces with warmer amber accents that match
+  the logo more closely, while the light mode gets stronger text contrast and
+  clearer panel separation. Cards, inputs, tables, modals, toasts, and the
+  sidebar now share the same visual language so both themes are easier to read.
+
 ## [1.3.12] — 2026-04-27
 
 ### Fixed
