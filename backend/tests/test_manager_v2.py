@@ -13,6 +13,7 @@ Deckt ab:
 """
 import asyncio
 import unittest
+from contextlib import asynccontextmanager
 from pathlib import Path
 import sys
 import types
@@ -1000,6 +1001,35 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
         field_names = [f["name"] for f in captured_fields]
         self.assertIn("Reason", field_names)
 
+    async def test_send_error_includes_provider_context_fields(self):
+        """send_error() includes provider/source metadata for richer error webhooks."""
+        from services.notifications import NotificationService
+
+        captured_fields = []
+
+        async def fake_send(self, url, title, description, color, fields=None):
+            captured_fields.extend(fields or [])
+
+        with patch.object(NotificationService, "_send", fake_send):
+            svc = NotificationService("https://hook.invalid/x")
+            await svc.send_error(
+                "Failed Torrent",
+                reason="No downloadable files returned from AllDebrid",
+                context="Magnet stayed in provider error state",
+                source="AllDebrid polling",
+                provider="AllDebrid",
+                alldebrid_id="521903942",
+                status_code="8",
+            )
+
+        captured = {field["name"]: field["value"] for field in captured_fields}
+        self.assertEqual(captured.get("Source"), "AllDebrid polling")
+        self.assertEqual(captured.get("Provider"), "AllDebrid")
+        self.assertEqual(captured.get("AllDebrid ID"), "521903942")
+        self.assertEqual(captured.get("Status Code"), "8")
+        self.assertIn("No downloadable files", captured.get("Reason", ""))
+        self.assertIn("provider error state", captured.get("Context", ""))
+
     async def test_no_send_when_webhook_empty(self):
         """No message sent when webhook_url is empty."""
         from services.notifications import NotificationService
@@ -1455,6 +1485,54 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         fake_aria2.change_global_options.assert_awaited_once()
         fake_aria2.purge_download_results.assert_awaited_once()
         fake_aria2.get_memory_diagnostics.assert_awaited_once_with(waiting_limit=30, stopped_limit=45)
+
+    async def test_apply_provider_update_notifies_when_all_debrid_reports_no_peers(self):
+        mgr = TorrentManager()
+        mgr._notify_provider_error = AsyncMock()
+        mgr._log_event = AsyncMock()
+        mgr._set_deleted = AsyncMock()
+        delete_magnet = AsyncMock()
+        mgr.ad = lambda: types.SimpleNamespace(delete_magnet=delete_magnet)
+
+        fake_db = types.SimpleNamespace(
+            execute=AsyncMock(),
+            commit=AsyncMock(),
+        )
+
+        @asynccontextmanager
+        async def fake_get_db():
+            yield fake_db
+
+        row = {
+            "id": 67,
+            "name": "Broken Torrent",
+            "status": "downloading",
+            "provider_status": "processing",
+            "provider_status_code": 4,
+            "alldebrid_id": "516558854",
+        }
+        magnet = {"filename": "Broken Torrent"}
+        normalized = {
+            "provider_status": "error",
+            "local_status": "error",
+            "status_code": 8,
+            "progress": 0.0,
+            "size_bytes": 0,
+            "message": "No peer after 30 minutes",
+        }
+
+        with patch("services.manager_v2.get_db", fake_get_db):
+            await mgr._apply_provider_update(row, magnet, normalized)
+
+        mgr._notify_provider_error.assert_awaited_once_with(
+            "Broken Torrent",
+            reason="No peers found after 30 minutes — torrent removed",
+            context="AllDebrid reported the torrent as unavailable due to missing peers.",
+            alldebrid_id="516558854",
+            status_code=8,
+        )
+        delete_magnet.assert_awaited_once_with("516558854")
+        mgr._set_deleted.assert_awaited_once_with(67, "Auto-removed: no peers after 30 minutes")
 
 
 if __name__ == "__main__":

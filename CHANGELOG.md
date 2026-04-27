@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.19] — 2026-04-27
+
+### Fixed
+- **AllDebrid torrent failures now emit richer error webhooks consistently** —
+  provider-side torrent failures such as no-peer cleanup, repeated polling
+  failures, and explicit AllDebrid error states now trigger the error webhook
+  with source, provider, AllDebrid ID, status code, reason, and context fields.
+
+### Changed
+- **Webhook payloads are more presentable for both Discord and generic
+  integrations** — embeds now include repository/app metadata, and non-Discord
+  webhooks receive a structured payload with severity, app info, fields, and an
+  embed-compatible block for downstream formatting.
+
 ## [1.3.18] — 2026-04-27
 
 ### Changed

@@ -182,11 +182,23 @@ class NotificationService:
         name: str,
         reason: str = "",
         context: str = "",
+        source: str = "",
+        provider: str = "",
+        alldebrid_id: str = "",
+        status_code: str = "",
     ) -> None:
         """Error during processing or download."""
         if not self.webhook_url:
             return
         fields: List[Dict[str, Any]] = []
+        if source:
+            fields.append({"name": "Source", "value": source[:200], "inline": True})
+        if provider:
+            fields.append({"name": "Provider", "value": provider[:200], "inline": True})
+        if alldebrid_id:
+            fields.append({"name": "AllDebrid ID", "value": str(alldebrid_id)[:200], "inline": True})
+        if status_code:
+            fields.append({"name": "Status Code", "value": str(status_code)[:200], "inline": True})
         if reason:
             fields.append({"name": "Reason",  "value": reason[:1000],  "inline": False})
         if context:
@@ -304,6 +316,11 @@ class NotificationService:
             "description": description[:4096],
             "color":       color,
             "timestamp":   _discord_timestamp(),
+            "url":         REPO_URL,
+            "author": {
+                "name": APP_NAME,
+                "url": REPO_URL,
+            },
             "footer": {
                 "text":     f"{APP_NAME} v{APP_VERSION}",
                 "icon_url": _bot_avatar,
@@ -330,10 +347,23 @@ class NotificationService:
             # Generic webhook: send a simple flat JSON payload
             payload = {
                 "event":       embed.get("title", ""),
+                "event_key":   title.lower().replace(" ", "_"),
+                "severity":    (
+                    "error" if color == COLOR_ERROR else
+                    "warning" if color in (COLOR_WARNING, COLOR_PARTIAL) else
+                    "success" if color in (COLOR_SUCCESS, COLOR_ADDED) else
+                    "info"
+                ),
+                "app": {
+                    "name": APP_NAME,
+                    "version": APP_VERSION,
+                    "repository": REPO_URL,
+                },
                 "description": embed.get("description", ""),
                 "color":       embed.get("color", 0),
                 "fields":      {f["name"]: f["value"] for f in (embed.get("fields") or [])},
                 "timestamp":   embed.get("timestamp", ""),
+                "embed":       embed,
             }
 
         try:

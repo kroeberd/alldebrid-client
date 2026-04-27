@@ -248,6 +248,30 @@ class TorrentManager:
             added_webhook_url=getattr(cfg, "discord_webhook_added", ""),
         )
 
+    async def _notify_provider_error(
+        self,
+        name: str,
+        reason: str,
+        *,
+        context: str = "",
+        source: str = "AllDebrid",
+        provider: str = "AllDebrid",
+        alldebrid_id: str = "",
+        status_code: int | str | None = None,
+    ) -> None:
+        cfg = get_settings()
+        if not getattr(cfg, "discord_notify_error", False):
+            return
+        await self.notify().send_error(
+            name,
+            reason=reason,
+            context=context,
+            source=source,
+            provider=provider,
+            alldebrid_id=str(alldebrid_id or ""),
+            status_code="" if status_code is None else str(status_code),
+        )
+
     def download_client_name(self) -> str:
         # Direct download mode has been removed — aria2 is the only supported client
         return "aria2"
@@ -729,6 +753,8 @@ class TorrentManager:
                             torrent_name,
                             reason=f"aria2 error (retry {current_retry+1}/{max_retries}): {reason}",
                             context=f"File: {row['filename']!r} — auto-restarted" if new_gid else "restart failed",
+                            source="aria2",
+                            provider="aria2",
                         )
                 else:
                     # Max retries exhausted — mark as error, notify, remove from aria2
@@ -754,6 +780,8 @@ class TorrentManager:
                             torrent_name,
                             reason=f"aria2 download failed after {max_retries} retries: {reason}",
                             context=f"File: {row['filename']!r} — removed from queue",
+                            source="aria2",
+                            provider="aria2",
                         )
 
             elif dl.status == "active":
@@ -942,13 +970,14 @@ class TorrentManager:
                 await db.commit()
 
             # Discord webhook notification
-            if cfg.discord_notify_error:
-                await self.notify().send_error(
-                    name,
-                    reason="No peers found after 30 minutes — torrent removed",
-                    context=(f"AllDebrid ID {ad_id} deleted" if ad_id and ad_id.lower() not in ("none","null","")
-                             else "No AllDebrid ID available — cleaned up locally only"),
-                )
+            await self._notify_provider_error(
+                name,
+                reason="No peers found after 30 minutes — torrent removed",
+                context=(f"AllDebrid ID {ad_id} deleted" if ad_id and ad_id.lower() not in ("none","null","")
+                         else "No AllDebrid ID available — cleaned up locally only"),
+                alldebrid_id=str(ad_id or ""),
+                status_code=8,
+            )
 
     async def _apply_provider_update(self, row: Dict, magnet: Dict, normalized: Dict[str, object]):
         provider_status = str(normalized["provider_status"])
@@ -958,10 +987,11 @@ class TorrentManager:
         size_bytes = int(normalized["size_bytes"])
         provider_message = str(normalized["message"])
         current_status = row["status"]
+        provider_state_changed = provider_status != (row["provider_status"] or "") or status_code != int(row["provider_status_code"] or -1)
         persisted_status = current_status if current_status in {"queued", "downloading", "paused"} and provider_status == "ready" else local_status
 
         async with get_db() as db:
-            if provider_status != (row["provider_status"] or "") or status_code != int(row["provider_status_code"] or -1):
+            if provider_state_changed:
                 await db.execute(
                     "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
                     (row["id"], "info", f"AllDebrid status -> {provider_status} [{status_code}] {provider_message}".strip()),
@@ -996,12 +1026,27 @@ class TorrentManager:
                     "Auto-removing torrent %s (id=%s): no peers after 30 min",
                     row["id"], row.get("alldebrid_id", "?"),
                 )
+                await self._notify_provider_error(
+                    str(row["name"] or magnet.get("filename") or magnet.get("name") or f"torrent {row['id']}"),
+                    reason="No peers found after 30 minutes — torrent removed",
+                    context="AllDebrid reported the torrent as unavailable due to missing peers.",
+                    alldebrid_id=str(row.get("alldebrid_id") or ""),
+                    status_code=status_code,
+                )
                 await self._log_event(row["id"], "warn",
                     f"Auto-removed: no peers found after 30 minutes (code {status_code})")
                 await self.ad().delete_magnet(str(row["alldebrid_id"]))
                 await self._set_deleted(row["id"], "Auto-removed: no peers after 30 minutes")
             else:
                 await self._fail_torrent(row["id"], error_message, notify=True)
+        elif provider_status == "error" and current_status == "error" and provider_state_changed:
+            await self._notify_provider_error(
+                str(row["name"] or magnet.get("filename") or magnet.get("name") or f"torrent {row['id']}"),
+                reason=f"AllDebrid reported magnet error {status_code}",
+                context=provider_message,
+                alldebrid_id=str(row.get("alldebrid_id") or ""),
+                status_code=status_code,
+            )
 
     async def _increment_poll_failure(self, torrent_id: int, name: str, reason: str):
         async with get_db() as db:
@@ -1022,8 +1067,14 @@ class TorrentManager:
                     )
             await db.commit()
 
-        if failures >= PROVIDER_FAILURE_THRESHOLD and get_settings().discord_notify_error:
-            await self.notify().send_error(name, reason=reason)
+        if failures >= PROVIDER_FAILURE_THRESHOLD:
+            await self._notify_provider_error(
+                name,
+                reason=reason,
+                context=f"Polling failed {failures} times in a row",
+                source="AllDebrid polling",
+                provider="AllDebrid",
+            )
 
     async def _start_download(self, torrent_id: int, ad_id: str, name: str):
         if self.is_paused() or torrent_id in self._active:
@@ -1259,8 +1310,12 @@ class TorrentManager:
             )
             await self._dispatch_pending_aria2_queue()
         else:
-            if cfg.discord_notify_error:
-                await self.notify().send_error(name, reason="Kept on AllDebrid for inspection")
+            await self._notify_provider_error(
+                name,
+                reason="Kept on AllDebrid for inspection",
+                context="At least one file failed during preparation, so the torrent was left on AllDebrid.",
+                alldebrid_id=str(ad_id or ""),
+            )
 
     async def _fetch_ready_files(self, ad_id: str) -> List[Dict]:
         for attempt in range(1, READY_FILE_RETRIES + 1):
@@ -1997,7 +2052,12 @@ class TorrentManager:
                 )
                 await db.commit()
                 if get_settings().discord_notify_error:
-                    await self.notify().send_error(torrent_dict["name"], reason="One or more aria2 transfers failed")
+                    await self.notify().send_error(
+                        torrent_dict["name"],
+                        reason="One or more aria2 transfers failed",
+                        source="aria2",
+                        provider="aria2",
+                    )
                 return
             elif active_count > 0:
                 new_status = "paused" if paused_count == active_count and active_count > 0 else "queued"
@@ -2190,15 +2250,24 @@ class TorrentManager:
 
     async def _fail_torrent(self, torrent_id: int, message: str, notify: bool = False):
         async with get_db() as db:
-            row = await (await db.execute("SELECT name FROM torrents WHERE id=?", (torrent_id,))).fetchone()
+            row = await (await db.execute(
+                "SELECT name, alldebrid_id, provider_status_code FROM torrents WHERE id=?",
+                (torrent_id,),
+            )).fetchone()
             await db.execute(
                 "UPDATE torrents SET status='error', error_message=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                 (message, torrent_id),
             )
             await db.execute("INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)", (torrent_id, "error", message))
             await db.commit()
-        if notify and row and get_settings().discord_notify_error:
-            await self.notify().send_error(row["name"], reason=message)
+        if notify and row:
+            await self._notify_provider_error(
+                row["name"],
+                reason=message,
+                context="Torrent marked as failed during processing",
+                alldebrid_id=str(row.get("alldebrid_id") or ""),
+                status_code=row.get("provider_status_code"),
+            )
 
     async def _set_deleted(self, torrent_id: int, message: str):
         async with get_db() as db:
