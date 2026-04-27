@@ -45,6 +45,10 @@ fi
 
 echo "[entrypoint] PUID=${PUID} PGID=${PGID} → running as ${RUN_USER}"
 
+# ── Apply umask ──────────────────────────────────────────────────────────────
+UMASK="${UMASK:-002}"
+umask "${UMASK}" 2>/dev/null || true
+
 # ── Fix ownership of app directories ─────────────────────────────────────────
 # /app/data    — SQLite DB, backups, aria2 session/log, watch/processed folders
 # /app/config  — config.json
