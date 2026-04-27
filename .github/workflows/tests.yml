@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
+      - '.github/workflows/tests.yml'
   pull_request:
     branches: [main]
     paths:
       - 'backend/**'
+      - '.github/workflows/tests.yml'
   workflow_dispatch:
 
 jobs:
@@ -31,17 +33,66 @@ jobs:
           cd backend
           pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run all tests
         run: |
           cd backend
-          python -m pytest tests/test_manager_v2.py -v --tb=short
+          python -m pytest tests/ -v --tb=short
 
-      - name: Check Python syntax
+      - name: Check Python syntax (all service files)
         run: |
           cd backend
-          python -m py_compile api/routes.py core/config.py core/scheduler.py \
-            db/database.py db/migration.py main.py \
-            services/alldebrid.py services/aria2.py services/backup.py \
-            services/flexget.py services/integrations.py services/manager_v2.py \
-            services/notifications.py services/stats.py
+          python -m py_compile \
+            api/routes.py \
+            core/config.py \
+            core/config_validator.py \
+            core/scheduler.py \
+            db/database.py \
+            db/migration.py \
+            main.py \
+            services/alldebrid.py \
+            services/aria2.py \
+            services/backup.py \
+            services/db_maintenance.py \
+            services/flexget.py \
+            services/integrations.py \
+            services/jackett.py \
+            services/manager_v2.py \
+            services/notifications.py \
+            services/stats.py
           echo "All files syntax OK"
+
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies + audit tools
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pip-audit bandit
+
+      - name: pip-audit (known CVEs in dependencies)
+        run: |
+          cd backend
+          pip-audit -r requirements.txt --progress-spinner off
+
+      - name: bandit (Python security linting)
+        run: |
+          cd backend
+          bandit -r . \
+            --exclude ./tests \
+            --severity-level medium \
+            --confidence-level medium \
+            -f txt \
+            || true   # advisory only — does not fail the build

@@ -1,0 +1,35 @@
+# Dependabot: automated dependency update PRs.
+# - Python (pip): weekly check for backend/requirements.txt
+# - GitHub Actions: weekly check for workflow action versions
+version: 2
+updates:
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - python
+    groups:
+      # Group all non-breaking minor/patch updates into a single PR
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions

@@ -1,74 +1,60 @@
-name: Bug report
-description: Report a reproducible problem in AllDebrid-Client
-title: "[Bug]: "
-labels:
-  - bug
+name: Bug Report
+description: Something is not working as expected
+labels: ["bug"]
 body:
-  - type: markdown
+  - type: input
+    id: version
     attributes:
-      value: |
-        Thanks for taking the time to report a bug.
-        Please include enough detail so we can reproduce the issue.
+      label: Version
+      placeholder: "e.g. v1.4.0"
+    validations:
+      required: true
 
-  - type: textarea
-    id: summary
+  - type: dropdown
+    id: database
     attributes:
-      label: Summary
-      description: What happened?
-      placeholder: A short description of the bug
+      label: Database
+      options:
+        - SQLite (default)
+        - PostgreSQL
+    validations:
+      required: true
+
+  - type: dropdown
+    id: aria2
+    attributes:
+      label: aria2 mode
+      options:
+        - External aria2
+        - Built-in aria2
     validations:
       required: true
 
   - type: textarea
-    id: steps
+    id: description
     attributes:
-      label: Steps to reproduce
-      description: List the steps that trigger the problem
-      placeholder: |
-        1. Open ...
-        2. Configure ...
-        3. Start ...
-        4. See error ...
+      label: What happened?
+      placeholder: Describe the bug clearly.
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior
-      placeholder: What should have happened instead?
+      label: What did you expect?
     validations:
       required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: Logs or screenshots
-      description: Paste relevant logs, traceback output, or screenshots
-      render: shell
+      label: Relevant log output
+      description: Run with LOG_LEVEL=DEBUG and paste the relevant lines.
+      render: text
 
-  - type: input
-    id: version
+  - type: textarea
+    id: config
     attributes:
-      label: Version
-      description: Which release or tag are you using?
-      placeholder: v0.2.0
-
-  - type: dropdown
-    id: install
-    attributes:
-      label: Installation type
-      options:
-        - Docker
-        - Docker Compose
-        - Unraid
-        - Manual / local Python
-    validations:
-      required: true
-
-  - type: input
-    id: environment
-    attributes:
-      label: Environment
-      description: OS, Docker version, Unraid version, or browser if relevant
-      placeholder: Windows 11 + Docker Desktop 27 / Unraid 7 / Ubuntu 24.04
+      label: docker-compose / docker run command
+      description: Remove any secrets before pasting.
+      render: yaml
