@@ -17,7 +17,7 @@ from datetime import datetime
 from email.message import Message
 from pathlib import PurePosixPath
 from typing import Any, Dict, List, Optional
-from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse, urlsplit, urlunsplit
 from xml.etree import ElementTree as ET
 
 import aiohttp
@@ -72,6 +72,7 @@ def _extract_btih(value: str) -> str:
 
 
 def _normalise_result(item: Dict[str, Any]) -> Dict[str, Any]:
+    title = (item.get("Title") or "").strip()
     magnet = (item.get("MagnetUri") or "").strip()
     if not magnet:
         for key in ("Guid", "Comments", "Details", "InfoUrl"):
@@ -83,6 +84,10 @@ def _normalise_result(item: Dict[str, Any]) -> Dict[str, Any]:
     infohash = str(item.get("InfoHash") or "").strip().lower()
     if not infohash and magnet:
         infohash = _extract_btih(magnet)
+    if not magnet and infohash:
+        magnet = f"magnet:?xt=urn:btih:{infohash}"
+        if title:
+            magnet += f"&dn={quote(title)}"
 
     size_b = int(item.get("Size") or 0)
     seeders = int(item.get("Seeders") or 0)
@@ -98,7 +103,7 @@ def _normalise_result(item: Dict[str, Any]) -> Dict[str, Any]:
             pub_date = str(raw_date)[:10]
 
     return {
-        "title": (item.get("Title") or "").strip(),
+        "title": title,
         "indexer": (item.get("Tracker") or item.get("TrackerId") or "").strip(),
         "category": (item.get("CategoryDesc") or "").strip(),
         "size_bytes": size_b,
@@ -432,12 +437,19 @@ async def download_torrent_file(url: str) -> Dict[str, Any]:
     timeout = aiohttp.ClientTimeout(total=30)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(resolved_url, allow_redirects=True) as resp:
+            body = await resp.read()
+            preview = body[:400].decode("utf-8", errors="ignore").strip()
+            content_type = (resp.headers.get("Content-Type", "") or "").lower()
+            looks_like_html = preview.startswith("<!doctype") or preview.startswith("<html") or "<form" in preview[:400].lower()
             if resp.status != 200:
-                body = await resp.text()
-                raise RuntimeError(f"Jackett torrent URL returned HTTP {resp.status}: {body[:200]}")
-            data = await resp.read()
+                if looks_like_html or "text/html" in content_type:
+                    raise RuntimeError("Tracker download requires a valid Jackett login/session for this indexer")
+                raise RuntimeError(f"Jackett torrent URL returned HTTP {resp.status}: {preview[:200]}")
+            data = body
             if not data:
                 raise RuntimeError("Jackett returned an empty torrent file")
+            if looks_like_html or "text/html" in content_type:
+                raise RuntimeError("Tracker download returned an HTML login page instead of a torrent file")
             filename = _filename_from_response(resolved_url, resp.headers.get("Content-Disposition", ""))
             payload = {
                 "filename": filename,

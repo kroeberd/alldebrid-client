@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.15] — 2026-04-27
+
+### Fixed
+- **Jackett add now falls back more gracefully when a tracker returns an HTML
+  login page instead of a torrent file** — some private indexers expose a valid
+  search result but require an authenticated tracker session for the direct
+  `.torrent` download. The client now detects HTML/login responses explicitly,
+  reports them clearly, and uses a synthetic magnet built from the available
+  infohash whenever possible so valid results can still be queued.
+
 ## [1.3.14] — 2026-04-27
 
 ### Fixed

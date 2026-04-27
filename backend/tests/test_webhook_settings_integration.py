@@ -337,6 +337,25 @@ class JackettRouteTests(unittest.IsolatedAsyncioTestCase):
             preferred_hash="1234567890abcdef1234567890abcdef12345678",
         )
 
+    async def test_jackett_add_falls_back_to_magnet_when_torrent_download_requires_login(self):
+        row = {"id": 8, "status": "uploading", "alldebrid_id": "126"}
+        with patch("services.jackett.download_torrent_file", AsyncMock(side_effect=RuntimeError("Tracker download requires a valid Jackett login/session for this indexer"))), \
+             patch.object(routes.manager, "add_torrent_file_direct", AsyncMock()) as add_torrent_mock, \
+             patch.object(routes.manager, "add_magnet_direct", AsyncMock(return_value=row)) as add_magnet_mock, \
+             patch("services.jackett.send_jackett_webhook", AsyncMock(return_value=None)):
+            result = await routes.jackett_add({
+                "hash": "abcdef1234567890abcdef1234567890abcdef12",
+                "magnet": "magnet:?xt=urn:btih:abcdef1234567890abcdef1234567890abcdef12&dn=Example",
+                "torrent_url": "http://example/item.torrent",
+                "title": "Example",
+                "indexer": "Tracker",
+                "size_bytes": 123,
+            })
+
+        add_torrent_mock.assert_not_awaited()
+        add_magnet_mock.assert_awaited_once()
+        self.assertEqual(result["added_via"], "magnet_fallback")
+
 
 class FlexGetRouteTests(unittest.IsolatedAsyncioTestCase):
     async def test_flexget_running_returns_empty_when_disabled(self):

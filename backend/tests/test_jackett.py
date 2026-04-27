@@ -91,6 +91,16 @@ class TestNormaliseResult:
         r = _normalise_result(self._make(InfoHash="ABCDEF1234567890"))
         assert r["hash"] == "abcdef1234567890"
 
+    def test_infohash_creates_synthetic_magnet_when_missing(self):
+        r = _normalise_result(self._make(
+            MagnetUri="",
+            InfoHash="ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+            Title="Some Scene 1080p",
+        ))
+        assert r["hash"] == "abcdef1234567890abcdef1234567890abcdef12"
+        assert r["magnet"].startswith("magnet:?xt=urn:btih:abcdef1234567890abcdef1234567890abcdef12")
+        assert "dn=Some%20Scene%201080p" in r["magnet"]
+
     def test_hash_falls_back_to_magnet_btih(self):
         r = _normalise_result(self._make(
             MagnetUri="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567",
@@ -351,6 +361,33 @@ class TestTorrentDownloadCaching:
         assert first["filename"] == "item.torrent"
         assert second["filename"] == "item.torrent"
         assert first["infohash"] == second["infohash"]
+
+    def test_download_torrent_file_reports_html_login_page(self):
+        from services import jackett as jackett_mod
+
+        original_cfg = jackett_mod._cfg
+        original_session = jackett_mod.aiohttp.ClientSession
+        original_cache = dict(jackett_mod._TORRENT_DOWNLOAD_CACHE)
+        try:
+            jackett_mod._cfg = lambda: types.SimpleNamespace(
+                jackett_url="http://jackett:9117",
+                jackett_api_key="secret",
+            )
+            jackett_mod._TORRENT_DOWNLOAD_CACHE.clear()
+            jackett_mod.aiohttp.ClientSession = lambda *a, **kw: _FakeSession([
+                _FakeResponse(200, b"<html><body><h1>Not logged in!</h1></body></html>", headers={"Content-Type": "text/html"}),
+            ])
+
+            try:
+                asyncio.run(jackett_mod.download_torrent_file("/dl/item.torrent"))
+                assert False, "Expected runtime error"
+            except RuntimeError as exc:
+                assert "login page" in str(exc).lower() or "login/session" in str(exc).lower()
+        finally:
+            jackett_mod._cfg = original_cfg
+            jackett_mod.aiohttp.ClientSession = original_session
+            jackett_mod._TORRENT_DOWNLOAD_CACHE.clear()
+            jackett_mod._TORRENT_DOWNLOAD_CACHE.update(original_cache)
 
     def test_falls_back_to_results_endpoint_when_other_endpoints_fail(self):
         from services import jackett as jackett_mod
