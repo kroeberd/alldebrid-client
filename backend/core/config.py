@@ -42,7 +42,7 @@ class AppSettings(BaseModel):
     aria2_builtin_session_file: str = "/app/data/aria2/aria2.session"
     aria2_operation_timeout_seconds: int = 15
     aria2_start_paused: bool = False
-    aria2_poll_interval_seconds: int = 5
+    aria2_poll_interval_seconds: int = 1  # fast polling for responsive dispatch
     aria2_max_active_downloads: int = 3
     aria2_purge_interval_minutes: int = 15
     aria2_max_download_result: int = 50

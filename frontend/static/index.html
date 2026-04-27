@@ -3900,7 +3900,7 @@ async function loadAria2QueueView() {
     // Auto-refresh every 4s while view is active
     if (document.getElementById('view-aria2queue') &&
         document.getElementById('view-aria2queue').classList.contains('active')) {
-      _aria2qTimer = setTimeout(loadAria2QueueView, 4000);
+      _aria2qTimer = setTimeout(loadAria2QueueView, 1000);
     }
     // Read current speed limit
     loadAria2SpeedLimit();

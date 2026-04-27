@@ -372,8 +372,8 @@ class Aria2Service:
             # Enforce minimum interval between aria2 RPC calls
             now = _time.monotonic()
             gap = now - self._last_call_time
-            if gap < 0.05:  # 50ms minimum
-                await asyncio.sleep(0.05 - gap)
+            if gap < 0.02:  # 20ms minimum (reduced from 50ms for faster dispatch)
+                await asyncio.sleep(0.02 - gap)
             self._last_call_time = _time.monotonic()
 
         self._request_id += 1

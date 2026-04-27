@@ -1,14 +1,14 @@
 <div align="center">
   <img src="docs/logo.svg" width="96" alt="AllDebrid-Client Logo"/>
   <h1>AllDebrid-Client</h1>
-  <p><strong>Self-hosted torrent automation via AllDebrid</strong><br/>Web UI · optional built-in aria2 delivery · Discord notifications · PostgreSQL support · FlexGet integration · Jackett search</p>
+  <p><strong>Self-hosted torrent automation via AllDebrid</strong><br/>Web UI · built-in or external aria2 · Jackett search · Discord notifications · PostgreSQL · FlexGet · Sonarr/Radarr</p>
 
   [![Website](https://img.shields.io/badge/ad-client.mediastarr.de-ff6b2b?logo=googlechrome&logoColor=white)](https://ad-client.mediastarr.de/)
   [![Release](https://img.shields.io/github/v/release/kroeberd/alldebrid-client?style=flat-square&color=f97316)](https://github.com/kroeberd/alldebrid-client/releases)
   [![Docker Pulls](https://img.shields.io/docker/pulls/kroeberd/alldebrid-client?style=flat-square&color=3b82f6)](https://hub.docker.com/r/kroeberd/alldebrid-client)
   [![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/8Vb9cj4ksv)
   [![License](https://img.shields.io/github/license/kroeberd/alldebrid-client?style=flat-square)](LICENSE)
-  [![Tests](https://img.shields.io/badge/tests-50%20passing-22c55e?style=flat-square)](https://github.com/kroeberd/alldebrid-client/actions/workflows/tests.yml)
+  [![Tests](https://img.shields.io/badge/tests-188%20passing-22c55e?style=flat-square)](https://github.com/kroeberd/alldebrid-client/actions/workflows/tests.yml)
   [![CI](https://img.shields.io/github/actions/workflow/status/kroeberd/alldebrid-client/tests.yml?style=flat-square&label=CI)](https://github.com/kroeberd/alldebrid-client/actions/workflows/tests.yml)
   [![Release Build](https://github.com/kroeberd/alldebrid-client/actions/workflows/release.yml/badge.svg)](https://github.com/kroeberd/alldebrid-client/actions/workflows/release.yml)
   [![Docker Build](https://github.com/kroeberd/alldebrid-client/actions/workflows/Docker_Build.yml/badge.svg)](https://github.com/kroeberd/alldebrid-client/actions/workflows/Docker_Build.yml)
@@ -22,7 +22,7 @@ AllDebrid-Client automates the full torrent lifecycle via your AllDebrid account
 
 1. **Add** magnet links or `.torrent` files via the web UI, Jackett search, watch folder, Sonarr/Radarr, or REST API
 2. **Upload** to AllDebrid and poll until the torrent is ready
-3. **Unlock** download links and submit them to aria2
+3. **Unlock** download links in parallel and submit them to aria2
 4. **Monitor** aria2 until all files complete, then mark done and remove from AllDebrid
 5. **Notify** via Discord with rich embeds for every event
 
@@ -33,6 +33,25 @@ AllDebrid-Client automates the full torrent lifecycle via your AllDebrid account
 | Dashboard | Torrents | Settings |
 |-----------|----------|----------|
 | [![Dashboard](docs/screenshots/dashboard.svg)](docs/screenshots/dashboard.svg) | [![Torrents](docs/screenshots/torrents.svg)](docs/screenshots/torrents.svg) | [![Settings](docs/screenshots/settings.svg)](docs/screenshots/settings.svg) |
+
+---
+
+## Features
+
+| Category | Details |
+|----------|---------|
+| **Input sources** | Web UI paste, Jackett search, watch folder (`.torrent`/`.magnet`), Sonarr/Radarr download client, REST API |
+| **Download client** | External aria2 (any version) **or** optional built-in aria2 daemon (no extra setup) |
+| **Jackett search** | Search any Jackett-indexed tracker from the UI — category + indexer filters, direct Add button |
+| **Downloads view** | Live aria2 queue with 1-second auto-refresh, per-file progress bars, Pause/Resume/Remove, quick speed-limit preset |
+| **Discord webhooks** | Rich embeds for: Torrent Added, Download Complete, Error, Partial (filtered), FlexGet events, Stats reports |
+| **FlexGet v3** | Schedule and trigger tasks from the UI; per-event Discord notifications |
+| **Sonarr / Radarr** | Acts as a download client; triggers import on completion |
+| **File filters** | Block by extension, keyword, or minimum size before any download starts |
+| **Database** | SQLite (zero-config default) or external PostgreSQL |
+| **Statistics** | Rolling snapshots, configurable retention, periodic summary webhooks |
+| **Backups** | Scheduled SQLite backups with configurable retention |
+| **Config validation** | Invalid URLs, oversized values, stale JSON corrected automatically at startup |
 
 ---
 
@@ -62,99 +81,70 @@ docker run -d \
 
 ### Unraid
 
-Image: `kroeberd/alldebrid-client:latest` · Port: `8080`
-
----
-
-## Features
-
-### Core
-- 🔄 **Automatic lifecycle** — upload → poll → unlock → aria2 → done → Discord
-- 📁 **Watch folder** — automatically process `.torrent` and `.magnet` files
-- 🎯 **Slot-based aria2 queue** — configurable concurrent download limit
-- 🧩 **Optional built-in aria2** — managed internal aria2 daemon with start / stop / restart controls
-- 🔁 **Full-Sync** — regular reconciliation of all torrents against AllDebrid (every 5 min)
-- 🚫 **File filters** — block by extension, keyword, or minimum size
-- 🔍 **Jackett search** — search configured indexers directly from the UI and add results in one click
-- 📌 **Result awareness** — Jackett results show already-added torrents and current local status
-
-### Notifications
-- 🔔 **Discord** — rich embeds for add / complete / error / partial events
-- 🤖 **FlexGet integration** — trigger tasks manually or on a schedule (FlexGet v3 API)
-- 🌐 **Webhook events** — FlexGet-specific webhooks (run_started, task_ok, task_error, run_finished)
-- 📈 **Reporting webhook** — send scheduled or manual statistics reports to a dedicated webhook or Discord fallback
-
-### Database & Reliability
-- 🗄️ **SQLite** (default, no setup) or **PostgreSQL** (external)
-- 🔄 **Startup sync** — automatically copies missing SQLite rows to PostgreSQL on startup
-- 🛡️ **Automatic fallback** — continues with SQLite if PostgreSQL is unreachable
-- 💾 **Automatic backups** — configurable interval and retention
-- 🧹 **Database maintenance** — separate database backup and guarded wipe actions from the UI
-- 🧠 **aria2 housekeeping** — cleanup, memory tuning, and performance options for long-running installs
-
-### Integrations
-- 📺 **Sonarr / Radarr** — import trigger after download completes
-- 📊 **Statistics module** — comprehensive metrics, snapshots, time windows, JSON export, scheduled reports
-- 🔑 **PostgreSQL migration** — bidirectional, dry-run testable
-- 🧩 **Fenrus endpoint** — lightweight dashboard status endpoint for external dashboards
+Install **AllDebrid-Client** from the Community Apps store. All paths are pre-filled.
 
 ---
 
 ## Configuration
 
-All settings via the web UI under **Settings**:
+All settings are in the **Settings** page of the web UI. The most important ones to set after first start:
 
-| Tab | Settings |
-|-----|----------|
-| ⚡ **General** | AllDebrid API key, agent name, folder paths |
-| ⬇️ **Download** | external or built-in aria2 mode, runtime controls, download root, queue limits, performance tuning |
-| 🔔 **Discord** | Bot name, avatar, webhook URLs, notification toggles |
-| 🔗 **Integrations** | Sonarr, Radarr |
-| 🗄️ **Database** | SQLite / PostgreSQL, migration |
-| 🚫 **Filters** | Blocked extensions, keywords, minimum file size |
-| ⏱ **Polling** | AllDebrid interval, full-sync interval, watch folder |
-| 💾 **Backup** | Automatic backups, interval, retention |
-| 🤖 **FlexGet** | URL, API key, tasks, schedule, jitter, webhook |
-| 📊 **Reporting** | Statistics snapshots, report cadence/window, reporting webhook, export |
-| 🔍 **Jackett** | Jackett URL, API key, connection test, tracker search integration |
+| Setting | Where | Notes |
+|---------|-------|-------|
+| AllDebrid API key | Settings → General | Required |
+| Download folder | Settings → General | Must be writable by the container |
+| aria2 RPC URL | Settings → Download | e.g. `http://localhost:6800/jsonrpc` |
+| aria2 RPC secret | Settings → Download | Leave empty if no secret is set |
 
-### Environment variables
+Everything else has sensible defaults and can be tuned later.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CONFIG_PATH` | `/app/config/config.json` | Settings file path |
-| `DB_PATH` | `/app/data/alldebrid.db` | SQLite database path |
-| `TZ` | `Europe/Berlin` | Container timezone |
-| `DB_TYPE` | — | Set to `postgres` to enable PostgreSQL |
-| `LOG_LEVEL` | `INFO` | Set to `DEBUG` for verbose logs |
+### Built-in aria2
+
+Set **Download client** to `aria2-builtin` in Settings → Download. The container starts an embedded aria2 process — no separate container required. The Downloads view (sidebar) shows the live queue and lets you set a speed limit.
+
+### External aria2 (recommended for Unraid)
+
+Point to your existing aria2 via the RPC URL. The Downloads view works the same way.
 
 ---
 
-## PostgreSQL
+## Jackett Search
 
-See [docs/postgresql.md](docs/postgresql.md) for setup instructions and migration guide.
-
-**Quick setup:**
-
-```yaml
-# docker-compose.yml environment
-environment:
-  DB_TYPE: postgres
-  # Configure connection in Settings → Database
-```
+1. Install and run [Jackett](https://github.com/Jackett/Jackett)
+2. In AllDebrid-Client Settings → 🔍 Jackett: enter the Jackett URL and API key, enable Jackett, Save
+3. The **Search** sidebar entry appears — search by title, filter by category or indexer, click **Add** to queue a result
 
 ---
 
-## FlexGet Integration
+## Discord Webhooks
 
-FlexGet v3 is controlled via its REST API:
+Set `discord_webhook_url` in Settings → 🔔 Discord. Optionally set a separate URL for "torrent added" events (`discord_webhook_added`) and for Jackett additions (`jackett_webhook_url`).
 
-```yaml
-# FlexGet config.yml
-web_server:
-  bind: 0.0.0.0
-  port: 5050
-```
+**Events:**
+
+| Event | Trigger |
+|-------|---------|
+| 📥 Torrent Added | Magnet/torrent accepted by AllDebrid |
+| ✅ Download Complete | All files downloaded successfully |
+| ❌ Download Error | One or more files failed |
+| ⚠️ Partial | Some files filtered/blocked, rest downloaded |
+| 🌿 FlexGet | Run started / task result / run finished / unreachable / recovered |
+| 📊 Stats Report | Periodic summary webhook |
+
+---
+
+## Sonarr / Radarr
+
+In Sonarr/Radarr: **Settings → Download Clients → Add → Torrent Blackhole**
+
+- Watch folder: the same path mapped to the container's watch folder
+- Completed download folder: the same path mapped to the download folder
+
+Or add AllDebrid-Client as a custom script client pointing to the REST API.
+
+---
+
+## FlexGet
 
 ```bash
 flexget web gentoken   # generate API token
@@ -182,6 +172,10 @@ Enter the token in Settings → 🤖 FlexGet. Tasks are executed via `POST /api/
 | `POST` | `/api/jackett/search` | Search Jackett |
 | `POST` | `/api/jackett/add` | Add a Jackett result |
 | `GET` | `/api/jackett/indexers` | List configured Jackett indexers |
+| `GET` | `/api/aria2/downloads` | Live aria2 queue |
+| `POST` | `/api/aria2/downloads/{gid}/{action}` | Pause / resume / remove a job |
+| `GET` | `/api/aria2/global-options` | Current aria2 speed limits and options |
+| `POST` | `/api/aria2/global-options` | Set speed limit at runtime |
 | `GET` | `/api/aria2/runtime` | Built-in aria2 runtime status and diagnostics |
 | `POST` | `/api/aria2/runtime/start` | Start the built-in aria2 daemon |
 | `POST` | `/api/aria2/runtime/stop` | Stop the built-in aria2 daemon |
@@ -225,6 +219,7 @@ backend/
     alldebrid.py         # AllDebrid API client
     aria2.py             # aria2 JSON-RPC client (serialised, rate-limited)
     flexget.py           # FlexGet v3 REST client
+    jackett.py           # Jackett search proxy
     manager_v2.py        # Core orchestration (TorrentManager)
     notifications.py     # Discord webhook service
     stats.py             # Statistics and reporting module
@@ -238,6 +233,7 @@ frontend/
   static/index.html      # Single-file web UI (vanilla JS)
 docs/
   logo.svg               # App logo
+  logo.png               # PNG logo (for Unraid Community Apps)
   postgresql.md          # PostgreSQL setup guide
   migration.md           # Migration guide
   discord-webhooks.md    # Discord configuration

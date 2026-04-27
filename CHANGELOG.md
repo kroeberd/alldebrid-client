@@ -1,5 +1,87 @@
 # Changelog
 
+## [1.4.0] — 2026-04-27
+
+### Summary: Jackett search, Downloads view, built-in aria2, and speed improvements
+
+This release bundles all changes since v1.3.0 into a major release with one
+additional batch of performance improvements.
+
+---
+
+### Added (since v1.3.0)
+
+#### Jackett torrent search (v1.3.0)
+- **Search view** in the sidebar — search any Jackett-indexed tracker directly
+  from the UI. Query field, category filter (All/Movies/TV/Music/Books/Games/
+  Software/XXX), live indexer dropdown, results table with Title/Indexer/Size/
+  Seeds/Peers/Date, per-row Add button with inline status feedback.
+- **Settings → Jackett tab** — enable toggle, URL, API key (password input),
+  dedicated webhook URL, live Test Connection button.
+- **Backend**: `services/jackett.py` — `search()`, `test_connection()`,
+  `get_indexers()`, `send_jackett_webhook()`.
+- **5 new API routes**: `POST /jackett/search`, `POST /jackett/add`,
+  `GET /jackett/indexers`, `GET /jackett/categories`,
+  `POST /settings/test-jackett`.
+- **Webhook**: fires `jackett_torrent_added` embed; uses `jackett_webhook_url`
+  if set, falls back to main Discord webhook.
+- **Security**: API key proxied through backend — never sent to the browser.
+
+#### Downloads view (v1.3.24)
+- **New sidebar entry** (between Search and Monitor) — live aria2 queue with
+  auto-refresh every second while active.
+- Summary bar: active/waiting/stopped counts, total download speed, remaining bytes.
+- Per-row table: status dot, filename, animated progress bar, total size, speed,
+  status label, Pause/Resume/Remove buttons.
+- **Quick speed limit** dropdown in the view header: Unlimited / 1 / 2 / 5 / 10 /
+  20 / 50 MB/s + Custom (KB/s input). Sets `max-overall-download-limit` in aria2
+  at runtime via `aria2.changeGlobalOption`. Current limit is read back from aria2
+  on every view open and reflected in the preset.
+- **New API routes**: `GET /aria2/global-options`, `POST /aria2/global-options`.
+
+#### Built-in aria2 runtime (v1.3.20–v1.3.23)
+- Optional embedded aria2 daemon — start, stop and restart from the Settings UI
+  without leaving the app.
+- Runtime status and diagnostics panel; live queue controls.
+- Memory tuning: configurable `max-download-result` and
+  `keep-unfinished-download-result`; periodic purge of stopped results.
+
+---
+
+### Changed (since v1.3.0)
+
+#### Performance — v1.4.0
+- **`unlock_link` calls parallelised** — previously, each file in a multi-file
+  torrent was unlocked sequentially (200–600 ms per file × file count). Now all
+  unlock calls for a single torrent fire concurrently via `asyncio.gather()`.
+  A 10-file torrent drops from ~4 s to ~0.6 s for the unlock phase.
+- **`aria2_poll_interval_seconds` default: 5 → 1** — the dispatch loop now runs
+  every second instead of every 5 seconds. Downloads appear in aria2 within ~1 s
+  of being queued rather than up to 5 s later.
+- **aria2 RPC minimum interval: 50 ms → 20 ms** — the per-call rate limiter in
+  `Aria2Service._call()` is tightened; dispatching a 10-file queue takes ~200 ms
+  instead of ~500 ms.
+- **Downloads view auto-refresh: 4 s → 1 s** — the aria2 queue view now polls
+  every second for near-real-time progress feedback.
+
+#### Stability fixes (v1.3.1–v1.3.24)
+- Jackett Settings tab was not rendered (panel inserted outside `renderSettings()`
+  template literal) — fixed in v1.3.1/v1.3.3.
+- `send_jackett_webhook()` had a broken `_fmt_size` import — fixed in v1.3.1.
+- Jackett search showed stale/dead torrents from disconnected trackers — added
+  dead-torrent filter (0 seeders from single-tracker indexers) in v1.3.16.
+- Jackett magnet-hash backfilling and torrent-file link hardening (v1.3.11–v1.3.12).
+- aria2 download path and built-in daemon diagnostics improved (v1.3.20–v1.3.22).
+- PostgreSQL `size_bytes` INT4 overflow migration — `BIGINT` upgrade at startup
+  (v1.2.14, carried forward).
+- Stuck-torrent straggler check — torrents with all files `completed` but status
+  still `queued/downloading` are now auto-finalised on every sync cycle (v1.2.11).
+
+---
+
+### Tests
+- 188 passing (up from 133 at v1.3.0).
+
 ## [1.3.24] — 2026-04-27
 
 ### Added
