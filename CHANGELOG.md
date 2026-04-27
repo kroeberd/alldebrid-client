@@ -2,6 +2,42 @@
 
 ## [1.4.2] — 2026-04-27
 
+### Fixed
+- **Downloaded files owned by root** — the container ran the entire app as
+  `root`, so all files written to the download folder were owned by UID 0.
+  Other containers (Sonarr, Radarr, Plex, Jellyfin, etc.) running as a
+  regular user could not read, move, or import those files.
+
+  **Fix:** PUID / PGID environment variables are now supported, identical to
+  the LinuxServer.io convention:
+
+  ```yaml
+  environment:
+    - PUID=1000   # UID of the user on the host / in other containers
+    - PGID=1000   # GID of the group on the host / in other containers
+  ```
+
+  Run `id` on the host to find the correct values.
+
+  Implementation details:
+  - `entrypoint.sh` (new) — reads `PUID`/`PGID`, creates the user/group if
+    they don't exist, `chown`s `/app/data`, `/app/config`, and `/download`
+    to the requested UID:GID, then hands off to `gosu <user> uvicorn …`.
+  - `Dockerfile` — installs `gosu` and `shadow` (for `useradd`/`groupadd`);
+    creates a default `appuser` at UID/GID 1000; sets `ENTRYPOINT
+    ["/entrypoint.sh"]`; `chown`s all app directories to `1000:1000` at
+    build time so the image works correctly without any env vars.
+  - Built-in aria2 inherits the same UID/GID because it is launched as a
+    child process of uvicorn, which already runs as the target user.
+  - `docker-compose.yml` — `PUID=1000` / `PGID=1000` added as documented
+    defaults with an explanatory comment.
+  - `README.md` — new permission note in both the configuration table and
+    the `docker run` example.
+  - Unraid template — `PUID` and `PGID` added as `Display="always"` fields
+    so Unraid Community Apps prompts for them during install.
+
+## [1.4.2] — 2026-04-27
+
 ### Added
 - **PUID / PGID support** — downloaded files are now owned by a configurable
   UID/GID so that other containers (Sonarr, Radarr, Plex, Jellyfin, …) can read
