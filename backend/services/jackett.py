@@ -16,7 +16,7 @@ from datetime import datetime
 from email.message import Message
 from pathlib import PurePosixPath
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlsplit, urlunsplit
 from xml.etree import ElementTree as ET
 
 import aiohttp
@@ -70,6 +70,12 @@ def _extract_btih(value: str) -> str:
 
 def _normalise_result(item: Dict[str, Any]) -> Dict[str, Any]:
     magnet = (item.get("MagnetUri") or "").strip()
+    if not magnet:
+        for key in ("Guid", "Comments", "Details", "InfoUrl"):
+            value = str(item.get(key) or "").strip()
+            if value.lower().startswith("magnet:"):
+                magnet = value
+                break
     torrent = (item.get("Link") or "").strip()
     infohash = str(item.get("InfoHash") or "").strip().lower()
     if not infohash and magnet:
@@ -205,6 +211,42 @@ def _filename_from_response(url: str, content_disposition: str) -> str:
     path = PurePosixPath(urlparse(url).path or "")
     name = path.name or "download.torrent"
     return name if name.lower().endswith(".torrent") else f"{name}.torrent"
+
+
+def _resolve_torrent_download_url(url: str) -> str:
+    cfg = _cfg()
+    base_url = ((cfg.jackett_url or "").strip().rstrip("/") if cfg else "")
+    api_key = ((cfg.jackett_api_key or "").strip() if cfg else "")
+    candidate = (url or "").strip()
+    if not candidate:
+        return ""
+
+    if base_url and candidate.startswith("/"):
+        candidate = urljoin(f"{base_url}/", candidate.lstrip("/"))
+
+    parsed = urlsplit(candidate)
+    if not parsed.scheme and base_url:
+        candidate = urljoin(f"{base_url}/", candidate)
+        parsed = urlsplit(candidate)
+
+    if base_url and api_key:
+        base_parts = urlsplit(base_url)
+        same_host = (
+            parsed.scheme.lower() == base_parts.scheme.lower()
+            and parsed.netloc.lower() == base_parts.netloc.lower()
+        )
+        if same_host:
+            query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+            if "apikey" not in {k.lower() for k in query.keys()}:
+                query["apikey"] = api_key
+                candidate = urlunsplit((
+                    parsed.scheme,
+                    parsed.netloc,
+                    parsed.path,
+                    urlencode(query, doseq=True),
+                    parsed.fragment,
+                ))
+    return candidate
 
 
 async def search(
@@ -355,16 +397,19 @@ async def get_indexers() -> List[Dict[str, str]]:
 
 
 async def download_torrent_file(url: str) -> Dict[str, Any]:
+    resolved_url = _resolve_torrent_download_url(url)
+    if not resolved_url:
+        raise RuntimeError("Jackett torrent URL is empty")
     timeout = aiohttp.ClientTimeout(total=30)
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        async with session.get(url, allow_redirects=True) as resp:
+        async with session.get(resolved_url, allow_redirects=True) as resp:
             if resp.status != 200:
                 body = await resp.text()
                 raise RuntimeError(f"Jackett torrent URL returned HTTP {resp.status}: {body[:200]}")
             data = await resp.read()
             if not data:
                 raise RuntimeError("Jackett returned an empty torrent file")
-            filename = _filename_from_response(url, resp.headers.get("Content-Disposition", ""))
+            filename = _filename_from_response(resolved_url, resp.headers.get("Content-Disposition", ""))
             return {
                 "filename": filename,
                 "content": data,

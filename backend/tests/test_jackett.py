@@ -26,7 +26,7 @@ for mod, stub in {
 
 from services.jackett import (
     _normalise_result, _fmt_size, CATEGORIES, CATEGORY_ALL, _parse_torznab_indexers,
-    _extract_torrent_infohash,
+    _extract_torrent_infohash, _resolve_torrent_download_url,
 )
 
 
@@ -98,6 +98,11 @@ class TestNormaliseResult:
         ))
         assert r["hash"] == "0123456789abcdef0123456789abcdef01234567"
 
+    def test_magnet_can_be_taken_from_guid(self):
+        r = _normalise_result(self._make(MagnetUri="", Guid="magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+        assert r["magnet"].startswith("magnet:")
+        assert r["hash"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
     def test_no_link(self):
         r = _normalise_result(self._make(MagnetUri="", Link=""))
         assert r["has_link"] is False
@@ -137,6 +142,23 @@ class TestTorrentInfohash:
         infohash = _extract_torrent_infohash(torrent_bytes)
         assert len(infohash) == 40
         assert all(ch in "0123456789abcdef" for ch in infohash)
+
+
+class TestTorrentDownloadUrlResolution:
+    def test_relative_jackett_download_url_is_made_absolute_and_gets_apikey(self):
+        from services import jackett as jackett_mod
+        original_cfg = jackett_mod._cfg
+        try:
+            jackett_mod._cfg = lambda: types.SimpleNamespace(
+                jackett_url="http://jackett:9117",
+                jackett_api_key="secret",
+            )
+            resolved = _resolve_torrent_download_url("/dl/example.torrent")
+        finally:
+            jackett_mod._cfg = original_cfg
+
+        assert resolved.startswith("http://jackett:9117/dl/example.torrent")
+        assert "apikey=secret" in resolved
 
 
 class TestCategories:

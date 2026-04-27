@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.12] — 2026-04-27
+
+### Fixed
+- **Jackett torrent downloads are now more tolerant of indexer-specific download
+  links** — the client now resolves relative Jackett download URLs against the
+  configured Jackett base URL, injects the API key when the download stays on
+  the Jackett host, and also harvests magnet links from additional Jackett
+  fields such as `Guid`, `Comments`, `Details`, and `InfoUrl`. This improves the
+  add flow for results whose direct `.torrent` link previously returned `HTTP
+  404` even though the item was otherwise valid.
+
 ## [1.3.11] — 2026-04-27
 
 ### Fixed
