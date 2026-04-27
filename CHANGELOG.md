@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.18] — 2026-04-27
+
+### Changed
+- **Jackett availability filtering now uses a regular dropdown control** —
+  the Torrent Search form now presents availability as a standard select field
+  with `All torrents` and `Seeded only`, matching the layout and behavior of
+  the other search controls.
+
 ## [1.3.17] — 2026-04-27
 
 ### Changed
