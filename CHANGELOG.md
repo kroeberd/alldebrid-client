@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.22] — 2026-04-27
+
+### Fixed
+- **Existing installs with the old Docker default download path are migrated** —
+  `/app/data/downloads` is normalised to the documented `/download` mount during
+  config validation.
+
 ## [1.3.21] — 2026-04-27
 
 ### Fixed

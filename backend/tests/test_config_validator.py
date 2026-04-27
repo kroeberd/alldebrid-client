@@ -36,6 +36,11 @@ class TestValidateAndSanitise:
         result = validate_and_sanitise(cfg)
         assert result.download_client == "aria2"
 
+    def test_legacy_docker_download_folder_migrates_to_download_mount(self):
+        cfg = make_cfg(download_folder="/app/data/downloads")
+        result = validate_and_sanitise(cfg)
+        assert result.download_folder == "/download"
+
     def test_numeric_below_min_clamped(self):
         cfg = make_cfg(max_concurrent_downloads=0)
         result = validate_and_sanitise(cfg)

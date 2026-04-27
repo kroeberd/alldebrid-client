@@ -133,6 +133,10 @@ def _validate(cfg) -> List[Tuple[str, str, Any, Any]]:
         warn("download_client", f"unknown value '{cfg.download_client}' — reset to aria2",
              cfg.download_client, "aria2")
 
+    if getattr(cfg, "download_folder", "") == "/app/data/downloads":
+        warn("download_folder", "legacy Docker default migrated to documented /download mount",
+             cfg.download_folder, "/download")
+
     if getattr(cfg, "aria2_mode", "external") not in ("external", "builtin"):
         warn("aria2_mode", f"unknown value '{cfg.aria2_mode}' - reset to external",
              cfg.aria2_mode, "external")
