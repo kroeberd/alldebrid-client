@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.3.24] — 2026-04-27
+
+### Added
+- **Downloads view** — new sidebar entry between Search and the Monitor group.
+  Shows the live aria2 queue directly in the UI, similar to the ariang interface:
+  - Auto-refreshes every 4 seconds while the view is active (stops when hidden)
+  - Summary bar: active / waiting / stopped counts, total download speed, remaining data
+  - Table per download: status indicator, filename, progress bar (animated), total size,
+    current speed, status label, and per-row Pause / Resume / Remove buttons
+  - Buttons use event delegation (data-gid / data-act attributes) — no inline `onclick`
+    with GID interpolation
+  - Active-download badge on the sidebar entry keeps count visible from any view
+
+- **Quick speed-limit control** — in the Downloads view header, a preset dropdown
+  (Unlimited / 1 / 2 / 5 / 10 / 20 / 50 MB/s) instantly applies
+  `aria2.changeGlobalOption(max-overall-download-limit)` at runtime.
+  Selecting **Custom…** reveals a KB/s input + Apply button for arbitrary values.
+  The current limit is read from aria2 on every view open and reflected in the preset.
+
+- **API routes** (`backend/api/routes.py`):
+  - `GET  /aria2/global-options` — returns current `max-overall-download-limit` and
+    `max-overall-upload-limit` plus all limit/speed keys from aria2's global options
+  - `POST /aria2/global-options` — applies `max_download_speed` and/or
+    `max_upload_speed` (bytes/s, 0 = unlimited) via `aria2.changeGlobalOption`
+
 ## [1.3.23] — 2026-04-27
 
 ### Added

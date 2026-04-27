@@ -898,6 +898,43 @@ async def flexget_history(limit: int = Query(50, le=200)):
 # ── Jackett ────────────────────────────────────────────────────────────────────
 
 
+@router.get("/aria2/global-options")
+async def aria2_get_global_options():
+    """Return current aria2 global options (includes speed limits)."""
+    try:
+        opts = await manager.aria2().get_global_options()
+        return {
+            "ok": True,
+            "max_download_speed": int(opts.get("max-overall-download-limit") or 0),
+            "max_upload_speed":   int(opts.get("max-overall-upload-limit")   or 0),
+            "raw": {k: v for k, v in opts.items() if "limit" in k or "speed" in k},
+        }
+    except Exception as e:
+        raise HTTPException(502, str(e))
+
+
+@router.post("/aria2/global-options")
+async def aria2_set_global_options(body: dict):
+    """
+    Apply global aria2 options at runtime.
+    Accepts: max_download_speed (bytes/s, 0=unlimited), max_upload_speed.
+    """
+    options: dict = {}
+    if "max_download_speed" in body:
+        options["max-overall-download-limit"] = str(int(body["max_download_speed"]))
+    if "max_upload_speed" in body:
+        options["max-overall-upload-limit"]   = str(int(body["max_upload_speed"]))
+    if not options:
+        raise HTTPException(400, "No valid options provided")
+    try:
+        await manager.aria2().change_global_options(options)
+        return {"ok": True, "applied": options}
+    except Exception as e:
+        raise HTTPException(502, str(e))
+
+
+
+
 @router.post("/settings/test-jackett")
 async def test_jackett():
     from services.jackett import test_connection

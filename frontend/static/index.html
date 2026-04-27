@@ -629,6 +629,10 @@ textarea.input { resize: vertical; }
     <div class="nav-item" data-view="search" onclick="nav(this)">
       <span class="icon">&#128269;</span><span class="nav-label">Search</span>
     </div>
+    <div class="nav-item" data-view="aria2queue" onclick="nav(this)">
+      <span class="icon">&#9660;</span><span class="nav-label">Downloads</span>
+      <span class="nav-badge" id="nb-aria2-active" style="display:none">0</span>
+    </div>
     <div class="nav-group">Monitor</div>
     <div class="nav-item" data-view="events" onclick="nav(this)">
       <span class="icon">&#128203;</span><span class="nav-label">Event Log</span>
@@ -984,6 +988,64 @@ textarea.input { resize: vertical; }
       </div>
     </div>
 
+    <!-- Downloads (aria2 Queue) -->
+    <div class="view" id="view-aria2queue">
+      <div class="view-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <h2 class="view-title">&#9660; Downloads</h2>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+
+          <!-- Speed-Limit Quick-Setting -->
+          <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px">
+            <span style="font-size:11px;color:var(--text2);white-space:nowrap">&#9660; Limit:</span>
+            <select id="aria2-speed-preset" class="input" style="padding:3px 6px;font-size:12px;width:110px;height:28px" onchange="applyAria2SpeedPreset(this.value)">
+              <option value="0">Unlimited</option>
+              <option value="1048576">1 MB/s</option>
+              <option value="2097152">2 MB/s</option>
+              <option value="5242880">5 MB/s</option>
+              <option value="10485760">10 MB/s</option>
+              <option value="20971520">20 MB/s</option>
+              <option value="52428800">50 MB/s</option>
+              <option value="custom">Custom…</option>
+            </select>
+            <input id="aria2-speed-custom" type="number" min="0" step="512"
+              class="input" style="display:none;width:90px;padding:3px 6px;font-size:12px;height:28px"
+              placeholder="KB/s"
+              onkeydown="if(event.key===&#39;Enter&#39;)applyAria2SpeedCustom()">
+            <button id="aria2-speed-apply" class="btn btn-ghost btn-sm" style="display:none;padding:3px 8px;font-size:11px" onclick="applyAria2SpeedCustom()">Apply</button>
+            <span id="aria2-speed-status" style="font-size:11px;color:var(--text2)"></span>
+          </div>
+
+          <button class="btn btn-ghost btn-sm" onclick="loadAria2QueueView()" style="white-space:nowrap">&#8635; Refresh</button>
+          <button class="btn btn-ghost btn-sm" onclick="runAria2Housekeeping()" style="white-space:nowrap">&#128465; Purge</button>
+        </div>
+      </div>
+
+      <!-- Summary bar -->
+      <div id="aria2q-summary" class="card" style="display:flex;gap:16px;flex-wrap:wrap;padding:12px 16px;margin-bottom:12px;align-items:center">
+        <span style="font-size:12px;color:var(--text2)">Loading&#8230;</span>
+      </div>
+
+      <!-- Queue table -->
+      <div class="card" style="padding:0;overflow-x:auto">
+        <table class="t-table" id="aria2q-table" style="min-width:660px">
+          <thead>
+            <tr>
+              <th style="width:32px"></th>
+              <th>File</th>
+              <th style="width:120px">Progress</th>
+              <th style="width:70px">Size</th>
+              <th style="width:80px">Speed</th>
+              <th style="width:80px">Status</th>
+              <th style="width:100px"></th>
+            </tr>
+          </thead>
+          <tbody id="aria2q-tbody">
+            <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text2)">Loading&#8230;</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- GitHub -->
     <div class="view" id="view-github">
       <div class="split-grid">
@@ -1099,6 +1161,7 @@ function nav(el) {
   if (v === 'changelog') loadChangelog();
   if (v === 'settings')  loadSettings();
   if (v === 'search')    initSearchView();
+  if (v === 'aria2queue') loadAria2QueueView();
   closeSidebar();
 }
 
@@ -3806,6 +3869,194 @@ function updateJackettNav() {
   var cfg=settingsData||{};
   var el=document.querySelector('[data-view="search"]');
   if (el) el.style.display=cfg.jackett_enabled?'':'none';
+}
+
+
+// ── Downloads View (aria2 Queue) ─────────────────────────────────────────────
+
+var _aria2qTimer = null;
+
+async function loadAria2QueueView() {
+  clearTimeout(_aria2qTimer);
+  // Event-Delegation für Action-Buttons (einmalig registrieren)
+  var tb2 = document.getElementById('aria2q-tbody');
+  if (tb2 && !tb2._delegated) {
+    tb2._delegated = true;
+    tb2.addEventListener('click', function(e) {
+      var btn = e.target.closest('[data-gid]');
+      if (!btn) return;
+      var gid = decodeURIComponent(btn.getAttribute('data-gid')||'');
+      var act = btn.getAttribute('data-act')||'';
+      if (gid && act) aria2QueueAction(gid, act);
+    });
+  }
+  try {
+    var data = await api('GET', '/aria2/downloads');
+    renderAria2QueueView(data);
+    // Refresh badge
+    var badge = document.getElementById('nb-aria2-active');
+    var cnt = (data.summary || {}).active || 0;
+    if (badge) { badge.textContent = cnt; badge.style.display = cnt > 0 ? '' : 'none'; }
+    // Auto-refresh every 4s while view is active
+    if (document.getElementById('view-aria2queue') &&
+        document.getElementById('view-aria2queue').classList.contains('active')) {
+      _aria2qTimer = setTimeout(loadAria2QueueView, 4000);
+    }
+    // Read current speed limit
+    loadAria2SpeedLimit();
+  } catch(e) {
+    var tb = document.getElementById('aria2q-tbody');
+    if (tb) tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--red);padding:24px">Error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+function renderAria2QueueView(data) {
+  var summary = data.summary || {};
+  var items   = data.items   || [];
+
+  // Summary bar
+  var sb = document.getElementById('aria2q-summary');
+  if (sb) {
+    sb.innerHTML =
+      '<span class="aria2-chip" style="font-size:12px"><b>' + (summary.active||0) + '</b>&nbsp;active</span>' +
+      '<span class="aria2-chip" style="font-size:12px"><b>' + (summary.waiting||0) + '</b>&nbsp;waiting</span>' +
+      '<span class="aria2-chip" style="font-size:12px"><b>' + (summary.stopped||0) + '</b>&nbsp;stopped</span>' +
+      '<span class="aria2-chip" style="font-size:12px">&#9660;&nbsp;' + fmtSpeed(summary.download_speed||0) + '</span>' +
+      '<span class="aria2-chip" style="font-size:12px">Remaining:&nbsp;' + fmtSize(summary.remaining_length||0) + '</span>';
+  }
+
+  var tb = document.getElementById('aria2q-tbody');
+  if (!tb) return;
+
+  if (!items.length) {
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text2)">No downloads in aria2 queue.</td></tr>';
+    return;
+  }
+
+  // Sort: active first, then waiting/paused, then stopped
+  items = items.slice().sort(function(a,b) {
+    var w = {active:0, waiting:1, paused:2, error:3, complete:4, removed:5};
+    return ((w[a.status]||9) - (w[b.status]||9));
+  });
+
+  tb.innerHTML = items.map(function(job) {
+    var pct = Math.min(100, Math.max(0, job.progress||0));
+    var isActive  = job.status === 'active';
+    var isPaused  = job.status === 'paused';
+    var isWaiting = job.status === 'waiting';
+    var canPause  = isActive || isWaiting;
+    var canResume = isPaused;
+    var canRemove = job.status !== 'complete';
+    var barColor  = job.status === 'error' ? 'var(--red)' : isActive ? 'var(--accent)' : isPaused ? 'var(--text3)' : 'var(--green)';
+
+    var firstFile = (job.files||[])[0] || {};
+    var name = job.name || firstFile.name || job.gid || '—';
+    var fileCount = (job.files||[]).length;
+    var nameLabel = fileCount > 1 ? esc(name) + ' <span style="color:var(--text2);font-size:11px">(+' + (fileCount-1) + ' more)</span>' : esc(name);
+
+    var statusDot = isActive ? '<span style="color:var(--accent)">&#9679;</span>' :
+                   isPaused  ? '<span style="color:var(--text3)">&#9646;</span>' :
+                   job.status === 'error' ? '<span style="color:var(--red)">&#10007;</span>' :
+                   job.status === 'complete' ? '<span style="color:var(--green)">&#10003;</span>' :
+                   '<span style="color:var(--text3)">&#9675;</span>';
+
+    var progressBar =
+      '<div style="width:100%;background:var(--surface2);border-radius:3px;height:5px;overflow:hidden">' +
+        '<div style="width:'+pct+'%;background:'+barColor+';height:100%;border-radius:3px;transition:width .4s"></div>' +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--text2);margin-top:2px">' + pct.toFixed(1) + '%</div>';
+
+    var gEsc = encodeURIComponent(job.gid);
+    var actions =
+      (canPause  ? '<button class="btn btn-ghost btn-sm" style="padding:2px 7px;font-size:11px" data-gid="'+gEsc+'" data-act="pause"   title="Pause"  >&#9646;&#9646;</button>' : '') +
+      (canResume ? '<button class="btn btn-ghost btn-sm" style="padding:2px 7px;font-size:11px" data-gid="'+gEsc+'" data-act="resume"  title="Resume" >&#9654;</button>' : '') +
+      (canRemove ? '<button class="btn btn-ghost btn-sm" style="padding:2px 7px;font-size:11px;color:var(--red)" data-gid="'+gEsc+'" data-act="remove"  title="Remove" >&#128465;</button>' : '');
+
+    return '<tr>' +
+      '<td style="text-align:center">' + statusDot + '</td>' +
+      '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(job.name||'') + '">' + nameLabel + '</td>' +
+      '<td>' + progressBar + '</td>' +
+      '<td style="font-size:12px;white-space:nowrap">' + fmtSize(job.total_length||0) + '</td>' +
+      '<td style="font-size:12px;white-space:nowrap;color:var(--accent)">' + (isActive ? fmtSpeed(job.download_speed||0) : '—') + '</td>' +
+      '<td style="font-size:12px;white-space:nowrap">' + aria2StatusLabel(job.status) + '</td>' +
+      '<td style="white-space:nowrap">' + actions + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+async function aria2QueueAction(gid, action) {
+  try {
+    await api('POST', '/aria2/downloads/' + encodeURIComponent(gid) + '/' + action);
+    toast('aria2: ' + action + ' sent', 'success');
+    await loadAria2QueueView();
+  } catch(e) {
+    toast('aria2 ' + action + ': ' + e.message, 'error');
+  }
+}
+
+// ── Speed Limit ───────────────────────────────────────────────────────────────
+
+async function loadAria2SpeedLimit() {
+  try {
+    var data = await api('GET', '/aria2/global-options');
+    var bps  = parseInt(data.max_download_speed||0);
+    var sel  = document.getElementById('aria2-speed-preset');
+    var st   = document.getElementById('aria2-speed-status');
+    if (!sel) return;
+    // Match preset
+    var found = false;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value !== 'custom' && parseInt(sel.options[i].value||0) === bps) {
+        sel.value = sel.options[i].value;
+        found = true; break;
+      }
+    }
+    if (!found) {
+      sel.value = 'custom';
+      var ci = document.getElementById('aria2-speed-custom');
+      var cb = document.getElementById('aria2-speed-apply');
+      if (ci) { ci.style.display=''; ci.value = Math.round(bps/1024); }
+      if (cb) cb.style.display='';
+    }
+    if (st) st.textContent = bps > 0 ? '(' + fmtSpeed(bps) + ')' : '(unlimited)';
+  } catch(e) { /* aria2 might not be connected */ }
+}
+
+async function applyAria2SpeedPreset(val) {
+  var ci = document.getElementById('aria2-speed-custom');
+  var cb = document.getElementById('aria2-speed-apply');
+  if (val === 'custom') {
+    if (ci) ci.style.display=''; if (cb) cb.style.display=''; return;
+  }
+  if (ci) ci.style.display='none'; if (cb) cb.style.display='none';
+  await _setAria2Speed(parseInt(val||0));
+}
+
+async function applyAria2SpeedCustom() {
+  var ci = document.getElementById('aria2-speed-custom');
+  var kbps = parseInt((ci&&ci.value)||0);
+  await _setAria2Speed(kbps * 1024);
+}
+
+async function _setAria2Speed(bps) {
+  var st = document.getElementById('aria2-speed-status');
+  if (st) { st.style.color='var(--text2)'; st.textContent='Applying…'; }
+  try {
+    await api('POST', '/aria2/global-options', {max_download_speed: bps});
+    if (st) { st.style.color='var(--green)'; st.textContent = bps > 0 ? 'Set: ' + fmtSpeed(bps) : 'Unlimited'; }
+    setTimeout(function(){ if(st) st.style.color='var(--text2)'; }, 3000);
+  } catch(e) {
+    if (st) { st.style.color='var(--red)'; st.textContent='Error: '+e.message; }
+    toast('Speed limit error: '+e.message, 'error');
+  }
+}
+
+// Update Downloads badge from loadStats
+function updateAria2Badge(activeCount) {
+  var badge = document.getElementById('nb-aria2-active');
+  if (!badge) return;
+  badge.textContent = activeCount;
+  badge.style.display = activeCount > 0 ? '' : 'none';
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
