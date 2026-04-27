@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.4.2] — 2026-04-27
+
+### Added
+- **PUID / PGID support** — downloaded files are now owned by a configurable
+  UID/GID so that other containers (Sonarr, Radarr, Plex, Jellyfin, …) can read
+  and write them without permission errors.
+
+  **How it works:**
+  - Two new environment variables: `PUID` (default `1000`) and `PGID` (default `1000`).
+  - A new `/entrypoint.sh` runs as root on container start, creates/adjusts the
+    matching user and group, `chown`s `/app/data`, `/app/config`, and `/download`,
+    then hands off to the app via `gosu` running as that user.
+  - The app and the built-in aria2 daemon both run as the configured user — all
+    files created during a session (downloads, DB, session file, log) share the
+    same ownership.
+
+  **Dockerfile changes:**
+  - Added `gosu` and `shadow` (for `useradd`/`usermod`) to the system packages.
+  - Default `appuser` (UID 1000 / GID 1000) created at build time; runtime
+    `PUID`/`PGID` override it without rebuilding the image.
+  - `ENTRYPOINT ["/entrypoint.sh"]` replaces direct `CMD`.
+  - `/app` and `/download` are `chown`'d to `1000:1000` at build time as the
+    safe default.
+
+  **docker-compose.yml:** `PUID` and `PGID` added to the environment block with
+  a comment explaining how to find the right values (`id` on the host).
+
+  **Unraid template:** `PUID` and `PGID` appear as explicit, always-visible
+  config entries with descriptions linking them to the media-stack use-case.
+
+  **README:** configuration table and `docker run` example both document
+  `PUID`/`PGID` and explain the file-ownership rationale.
+
 ## [1.4.1] — 2026-04-27
 
 ### Fixed

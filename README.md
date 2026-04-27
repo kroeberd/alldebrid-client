@@ -74,10 +74,15 @@ docker run -d \
   --name alldebrid-client \
   --restart unless-stopped \
   -p 8080:8080 \
+  -e PUID=1000 \
+  -e PGID=1000 \
+  -e TZ=Europe/Berlin \
   -v /path/to/config:/app/config \
   -v /path/to/downloads:/download \
   kroeberd/alldebrid-client:latest
 ```
+
+> **File permissions:** set `PUID`/`PGID` to the UID/GID of the user that runs your other media containers (Sonarr, Radarr, Plex, etc.). Downloaded files will be owned by that user so they can be moved and imported without permission errors. Run `id` on the host to find the right values.
 
 ### Unraid
 
@@ -91,6 +96,7 @@ All settings are in the **Settings** page of the web UI. The most important ones
 
 | Setting | Where | Notes |
 |---------|-------|-------|
+| `PUID` / `PGID` env vars | `docker-compose.yml` | UID/GID for downloaded files — must match the user running Sonarr/Radarr/Plex. Run `id` on the host to find yours. |
 | AllDebrid API key | Settings → General | Required |
 | Download folder | Settings → General | Must be writable by the container |
 | aria2 RPC URL | Settings → Download | e.g. `http://localhost:6800/jsonrpc` |
