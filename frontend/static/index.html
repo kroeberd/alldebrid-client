@@ -1197,7 +1197,7 @@ async function checkConnections() {
   const cfg = settingsData || {};
 
   // aria2 check — retry once if first attempt fails
-  if (cfg.aria2_url) {
+  if (cfg.aria2_url || cfg.aria2_mode === 'builtin') {
     let aria2Ok = false;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
@@ -1888,6 +1888,7 @@ async function loadSettings() {
 
 function renderSettings() {
   const s = settingsData;
+  const aria2BuiltIn = (s.aria2_mode || 'external') === 'builtin';
   flexgetTaskSchedules = parseFlexgetTaskSchedules(s.flexget_task_schedules_json);
 
   // Define tabs
@@ -1978,15 +1979,48 @@ function renderSettings() {
           </details>
         </div>
         <div class="form-group">
+          <label class="form-label">aria2 Mode</label>
+          <select class="input" id="s-aria2_mode" onchange="settingsData.aria2_mode=this.value; renderSettings(); loadAria2Runtime().catch(()=>{});">
+            <option value="external" ${(s.aria2_mode||'external')==='external'?'selected':''}>External aria2</option>
+            <option value="builtin" ${(s.aria2_mode||'external')==='builtin'?'selected':''}>Built-in aria2</option>
+          </select>
+          <span class="form-hint">Built-in aria2 is managed by this container and only receives AllDebrid HTTP(S) links.</span>
+        </div>
+        <div class="scard" style="margin-bottom:0">
+          <div class="scard-header">aria2 Runtime</div>
+          <div class="scard-body">
+            <div id="aria2-runtime-status" class="form-hint" style="line-height:1.6">Runtime status not loaded yet.</div>
+            <div class="input-row">
+              <button class="btn btn-blue btn-sm" onclick="loadAria2Runtime()">Refresh</button>
+              <button class="btn btn-ghost btn-sm" onclick="aria2RuntimeAction('start')" ${aria2BuiltIn?'':'disabled'}>Start</button>
+              <button class="btn btn-ghost btn-sm" onclick="aria2RuntimeAction('restart')" ${aria2BuiltIn?'':'disabled'}>Restart</button>
+              <button class="btn btn-danger btn-sm" onclick="aria2RuntimeAction('stop')" ${aria2BuiltIn?'':'disabled'}>Stop</button>
+              <button class="btn btn-ghost btn-sm" onclick="aria2RuntimeAction('apply')" ${aria2BuiltIn?'':'disabled'}>Apply</button>
+            </div>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Auto-start Built-in aria2</div>
+            <div class="td">Starts the internal aria2 daemon when the app starts in built-in mode.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-aria2_builtin_auto_start" ${s.aria2_builtin_auto_start!==false?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Built-in aria2 Port</label>
+          <input class="input" type="number" id="s-aria2_builtin_port" value="${s.aria2_builtin_port??6800}" min="1" max="65535"/>
+          <span class="form-hint">The internal RPC secret is managed by the app and cannot be changed from the UI.</span>
+        </div>
+        <div class="form-group">
           <label class="form-label">aria2 RPC URL</label>
           <div class="test-row">
-            <input class="input" id="s-aria2_url" value="${s.aria2_url||'http://127.0.0.1:6800/jsonrpc'}" placeholder="http://127.0.0.1:6800/jsonrpc"/>
+            <input class="input" id="s-aria2_url" value="${aria2BuiltIn ? `http://127.0.0.1:${s.aria2_builtin_port??6800}/jsonrpc` : (s.aria2_url||'http://127.0.0.1:6800/jsonrpc')}" placeholder="http://127.0.0.1:6800/jsonrpc" ${aria2BuiltIn?'readonly':''}/>
             <button class="btn btn-blue btn-sm" onclick="testAria2()">Test</button>
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Secret</label>
-          <input class="input" type="password" id="s-aria2_secret" value="${s.aria2_secret||''}" placeholder="Optional RPC secret"/>
+          <input class="input" type="password" id="s-aria2_secret" value="${aria2BuiltIn ? 'managed-internally' : (s.aria2_secret||'')}" placeholder="Optional RPC secret" ${aria2BuiltIn?'readonly':''}/>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Download Root</label>
@@ -2030,6 +2064,39 @@ function renderSettings() {
           <label class="form-label">aria2 max-download-result</label>
           <input class="input" type="number" id="s-aria2_max_download_result" value="${s.aria2_max_download_result??50}" min="10" max="5000"/>
           <span class="form-hint">Lower values reduce how many stopped results aria2 keeps in memory.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Split Connections</label>
+          <input class="input" type="number" id="s-aria2_split" value="${s.aria2_split??8}" min="1" max="64"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Min Split Size</label>
+          <input class="input" id="s-aria2_min_split_size" value="${s.aria2_min_split_size||'10M'}" placeholder="10M"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Max Connections per Server</label>
+          <input class="input" type="number" id="s-aria2_max_connection_per_server" value="${s.aria2_max_connection_per_server??8}" min="1" max="32"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Disk Cache</label>
+          <input class="input" id="s-aria2_disk_cache" value="${s.aria2_disk_cache||'64M'}" placeholder="64M"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 File Allocation</label>
+          <select class="input" id="s-aria2_file_allocation">
+            ${['none','prealloc','trunc','falloc'].map(v=>`<option value="${v}" ${(s.aria2_file_allocation||'falloc')===v?'selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Lowest Speed Limit</label>
+          <input class="input" id="s-aria2_lowest_speed_limit" value="${s.aria2_lowest_speed_limit||'0'}" placeholder="0"/>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Continue Partial Downloads</div>
+            <div class="td">Allows aria2 to resume partial HTTP downloads when possible.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-aria2_continue_downloads" ${s.aria2_continue_downloads!==false?'checked':''}><div class="ttrack"></div></label>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Waiting Query Window</label>
@@ -2648,9 +2715,12 @@ function getFormSettings() {
     download_folder: t('download_folder'), max_concurrent_downloads: n('max_concurrent_downloads', 3),
     max_speed_mbps: 0,
     download_client: 'aria2',
-    aria2_url: t('aria2_url'),
-    aria2_secret: t('aria2_secret'),
+    aria2_mode: t('aria2_mode') || 'external',
+    aria2_url: (t('aria2_mode') || 'external') === 'builtin' ? (settingsData.aria2_url || 'http://127.0.0.1:6800/jsonrpc') : t('aria2_url'),
+    aria2_secret: (t('aria2_mode') || 'external') === 'builtin' ? (settingsData.aria2_secret || '') : t('aria2_secret'),
     aria2_download_path: t('aria2_download_path'),
+    aria2_builtin_auto_start: c('aria2_builtin_auto_start'),
+    aria2_builtin_port: n('aria2_builtin_port', 6800),
     aria2_operation_timeout_seconds: n('aria2_operation_timeout_seconds', 15),
     aria2_max_active_downloads: n('aria2_max_active_downloads', n('max_concurrent_downloads', 3)),
     aria2_start_paused: c('aria2_start_paused'),
@@ -2660,6 +2730,13 @@ function getFormSettings() {
     aria2_waiting_window: n('aria2_waiting_window', 100),
     aria2_stopped_window: n('aria2_stopped_window', 100),
     aria2_keep_unfinished_download_result: c('aria2_keep_unfinished_download_result'),
+    aria2_split: n('aria2_split', 8),
+    aria2_min_split_size: t('aria2_min_split_size') || '10M',
+    aria2_max_connection_per_server: n('aria2_max_connection_per_server', 8),
+    aria2_disk_cache: t('aria2_disk_cache') || '64M',
+    aria2_file_allocation: t('aria2_file_allocation') || 'falloc',
+    aria2_continue_downloads: c('aria2_continue_downloads'),
+    aria2_lowest_speed_limit: t('aria2_lowest_speed_limit') || '0',
     db_type: t('db_type'),
     postgres_host: t('postgres_host'), postgres_port: n('postgres_port'),
     postgres_db: t('postgres_db'), postgres_user: t('postgres_user'),
@@ -2797,6 +2874,9 @@ function switchSettingsTab(id) {
     flexgetListTasks();
     loadFlexgetHistory();
   }
+  if (id === 'tab-download') {
+    loadAria2Runtime().catch(()=>{});
+  }
 }
 
 async function testAria2() {
@@ -2831,6 +2911,54 @@ function renderAria2Diagnostics(diag) {
     `Active: ${diag.active_count ?? 0} · Waiting: ${diag.waiting_count ?? 0} · Stopped: ${diag.stopped_count ?? 0}<br>` +
     `max-download-result: ${opts['max-download-result'] || 'n/a'} · keep-unfinished-download-result: ${opts['keep-unfinished-download-result'] || 'n/a'}<br>` +
     `query window — waiting: ${limits.waiting ?? 'n/a'} · stopped: ${limits.stopped ?? 'n/a'}`;
+}
+
+function renderAria2Runtime(data) {
+  const el = document.getElementById('aria2-runtime-status');
+  if (!el) return;
+  if (!data) {
+    el.textContent = 'Runtime status not loaded yet.';
+    return;
+  }
+  const mode = data.mode || 'external';
+  const state = data.running ? 'Running' : (mode === 'builtin' ? 'Stopped' : 'External');
+  const rpc = data.rpc_ok ? 'RPC online' : (mode === 'builtin' ? 'RPC offline' : 'External RPC');
+  const version = data.version ? ` · v${data.version}` : '';
+  const uptime = data.uptime_seconds ? ` · uptime ${Math.floor(data.uptime_seconds / 60)}m` : '';
+  const secret = data.secret_managed ? ' · internal secret managed' : '';
+  const diag = data.diagnostics || {};
+  const counts = diag && !diag.error
+    ? `<br>Active: ${diag.active_count ?? 0} · Waiting: ${diag.waiting_count ?? 0} · Stopped: ${diag.stopped_count ?? 0}`
+    : '';
+  const err = data.last_error ? `<br><span style="color:var(--red)">${esc(data.last_error)}</span>` : '';
+  el.innerHTML = `<b>${esc(state)}</b> · ${esc(mode)} · ${esc(rpc)}${esc(version)}${esc(uptime)}${secret}<br>${esc(data.rpc_url || '')}${counts}${err}`;
+  renderAria2Diagnostics(diag && !diag.error ? diag : null);
+}
+
+async function loadAria2Runtime() {
+  try {
+    const data = await api('GET', '/aria2/runtime');
+    renderAria2Runtime(data);
+    return data;
+  } catch(e) {
+    const el = document.getElementById('aria2-runtime-status');
+    if (el) el.innerHTML = `<span style="color:var(--red)">Runtime error: ${esc(e.message)}</span>`;
+    throw e;
+  }
+}
+
+async function aria2RuntimeAction(action) {
+  try {
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = await api('GET','/settings');
+    const data = await api('POST', `/aria2/runtime/${action}`);
+    renderAria2Runtime(data);
+    toast(`aria2 ${action} complete`, 'success');
+  } catch(e) {
+    toast(`aria2 ${action}: ${e.message}`, 'error');
+    loadAria2Runtime().catch(()=>{});
+  }
 }
 
 async function runAria2Housekeeping() {

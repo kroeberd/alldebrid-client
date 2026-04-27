@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.3.20] — 2026-04-27
+
+### Added
+- **Optional built-in aria2 runtime** — the container now includes `aria2c` and
+  can run aria2 as a managed internal daemon while still supporting the existing
+  external aria2 RPC mode.
+- **aria2 runtime controls in the UI and API** — users can inspect built-in
+  aria2 status, refresh diagnostics, start, stop, restart, apply tuning, and run
+  cleanup from the Download settings tab or via `/api/aria2/runtime/*`.
+- **Download performance tuning options** — split count, minimum split size,
+  max connections per server, disk cache, file allocation, resume behavior, and
+  lowest speed limit are now configurable and applied through aria2 RPC.
+
+### Security
+- **Built-in aria2 uses a fixed internal RPC secret and disables direct torrent
+  behavior** — the managed daemon listens only on loopback, hides the internal
+  secret from the UI, and enforces `follow-torrent=false`, DHT off, peer exchange
+  off, and local peer discovery off so downloads remain AllDebrid-delivered
+  HTTP(S) transfers.
+
 ## [1.3.19] — 2026-04-27
 
 ### Fixed

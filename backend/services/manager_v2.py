@@ -14,6 +14,7 @@ from core.config import AppSettings, get_settings
 from db.database import DB_PATH, get_db
 from services.alldebrid import AllDebridService, flatten_files
 from services.aria2 import Aria2Service
+from services.aria2_runtime import aria2_global_options, effective_rpc_config, is_builtin_mode
 from services.notifications import NotificationService
 
 logger = logging.getLogger("alldebrid.manager")
@@ -233,7 +234,8 @@ class TorrentManager:
     def aria2(self) -> Aria2Service:
         if self._aria2 is None:
             cfg = get_settings()
-            self._aria2 = Aria2Service(cfg.aria2_url, cfg.aria2_secret, cfg.aria2_operation_timeout_seconds)
+            url, secret = effective_rpc_config(cfg)
+            self._aria2 = Aria2Service(url, secret, cfg.aria2_operation_timeout_seconds)
         return self._aria2
 
     def sem(self) -> asyncio.Semaphore:
@@ -2448,12 +2450,10 @@ class TorrentManager:
 
     async def apply_aria2_memory_tuning(self) -> dict:
         cfg = get_settings()
-        if not getattr(cfg, "aria2_url", "").strip():
+        url, _secret = effective_rpc_config(cfg)
+        if not url:
             return {"ok": False, "skipped": True, "reason": "aria2 URL not configured"}
-        options = {
-            "max-download-result": str(int(getattr(cfg, "aria2_max_download_result", 200) or 200)),
-            "keep-unfinished-download-result": "true" if bool(getattr(cfg, "aria2_keep_unfinished_download_result", False)) else "false",
-        }
+        options = aria2_global_options(cfg, include_safety=is_builtin_mode(cfg))
         await self.aria2().change_global_options(options)
         return {"ok": True, "applied": options}
 

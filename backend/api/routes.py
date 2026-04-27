@@ -31,6 +31,7 @@ from core.config_validator import validate_and_sanitise
 from core.version import read_version
 from db.database import DB_PATH, _is_postgres, get_db
 from services.manager_v2 import manager
+from services.aria2_runtime import runtime as aria2_runtime
 
 logger = logging.getLogger("alldebrid.routes")
 router = APIRouter()
@@ -108,7 +109,17 @@ async def update_settings(new: AppSettings):
     save_settings(clean)
     apply_settings(clean)
     manager.reset_services()
-    if getattr(clean, "aria2_url", "").strip():
+    if getattr(clean, "aria2_mode", "external") == "builtin":
+        if (
+            getattr(previous, "aria2_mode", "external") == "builtin"
+            and getattr(previous, "aria2_builtin_port", 6800) != getattr(clean, "aria2_builtin_port", 6800)
+        ):
+            await aria2_runtime.restart()
+        else:
+            await aria2_runtime.ensure_started()
+    elif getattr(previous, "aria2_mode", "external") == "builtin":
+        await aria2_runtime.stop()
+    if getattr(clean, "aria2_mode", "external") == "builtin" or getattr(clean, "aria2_url", "").strip():
         try:
             await manager.apply_aria2_memory_tuning()
         except Exception as exc:
@@ -226,6 +237,49 @@ async def test_aria2():
 async def run_aria2_housekeeping_ep():
     try:
         return await manager.run_aria2_housekeeping()
+    except Exception as e:
+        raise HTTPException(502, str(e))
+
+
+@router.get("/aria2/runtime")
+async def aria2_runtime_status():
+    status = await aria2_runtime.status()
+    diagnostics = {}
+    try:
+        if status.get("running"):
+            diagnostics = await manager._aria2_get_memory_diagnostics()
+    except Exception as exc:
+        diagnostics = {"error": str(exc)}
+    return {**status, "diagnostics": diagnostics}
+
+
+@router.post("/aria2/runtime/start")
+async def aria2_runtime_start():
+    status = await aria2_runtime.start()
+    manager.reset_services()
+    return status
+
+
+@router.post("/aria2/runtime/stop")
+async def aria2_runtime_stop():
+    status = await aria2_runtime.stop()
+    manager.reset_services()
+    return status
+
+
+@router.post("/aria2/runtime/restart")
+async def aria2_runtime_restart():
+    status = await aria2_runtime.restart()
+    manager.reset_services()
+    return status
+
+
+@router.post("/aria2/runtime/apply")
+async def aria2_runtime_apply():
+    try:
+        await aria2_runtime.apply_options()
+        result = await manager.run_aria2_housekeeping()
+        return {"ok": True, **result}
     except Exception as e:
         raise HTTPException(502, str(e))
 

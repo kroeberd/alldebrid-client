@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/logo.svg" width="96" alt="AllDebrid-Client Logo"/>
   <h1>AllDebrid-Client</h1>
-  <p><strong>Self-hosted torrent automation via AllDebrid</strong><br/>Web UI · aria2 delivery · Discord notifications · PostgreSQL support · FlexGet integration · Jackett search</p>
+  <p><strong>Self-hosted torrent automation via AllDebrid</strong><br/>Web UI · optional built-in aria2 delivery · Discord notifications · PostgreSQL support · FlexGet integration · Jackett search</p>
 
   [![Website](https://img.shields.io/badge/ad-client.mediastarr.de-ff6b2b?logo=googlechrome&logoColor=white)](https://ad-client.mediastarr.de/)
   [![Release](https://img.shields.io/github/v/release/kroeberd/alldebrid-client?style=flat-square&color=f97316)](https://github.com/kroeberd/alldebrid-client/releases)
@@ -72,6 +72,7 @@ Image: `kroeberd/alldebrid-client:latest` · Port: `8080`
 - 🔄 **Automatic lifecycle** — upload → poll → unlock → aria2 → done → Discord
 - 📁 **Watch folder** — automatically process `.torrent` and `.magnet` files
 - 🎯 **Slot-based aria2 queue** — configurable concurrent download limit
+- 🧩 **Optional built-in aria2** — managed internal aria2 daemon with start / stop / restart controls
 - 🔁 **Full-Sync** — regular reconciliation of all torrents against AllDebrid (every 5 min)
 - 🚫 **File filters** — block by extension, keyword, or minimum size
 - 🔍 **Jackett search** — search configured indexers directly from the UI and add results in one click
@@ -89,7 +90,7 @@ Image: `kroeberd/alldebrid-client:latest` · Port: `8080`
 - 🛡️ **Automatic fallback** — continues with SQLite if PostgreSQL is unreachable
 - 💾 **Automatic backups** — configurable interval and retention
 - 🧹 **Database maintenance** — separate database backup and guarded wipe actions from the UI
-- 🧠 **aria2 housekeeping** — cleanup and memory-tuning helpers for long-running installs
+- 🧠 **aria2 housekeeping** — cleanup, memory tuning, and performance options for long-running installs
 
 ### Integrations
 - 📺 **Sonarr / Radarr** — import trigger after download completes
@@ -106,7 +107,7 @@ All settings via the web UI under **Settings**:
 | Tab | Settings |
 |-----|----------|
 | ⚡ **General** | AllDebrid API key, agent name, folder paths |
-| ⬇️ **Download** | aria2 RPC URL, secret, download root, max concurrent |
+| ⬇️ **Download** | external or built-in aria2 mode, runtime controls, download root, queue limits, performance tuning |
 | 🔔 **Discord** | Bot name, avatar, webhook URLs, notification toggles |
 | 🔗 **Integrations** | Sonarr, Radarr |
 | 🗄️ **Database** | SQLite / PostgreSQL, migration |
@@ -181,6 +182,11 @@ Enter the token in Settings → 🤖 FlexGet. Tasks are executed via `POST /api/
 | `POST` | `/api/jackett/search` | Search Jackett |
 | `POST` | `/api/jackett/add` | Add a Jackett result |
 | `GET` | `/api/jackett/indexers` | List configured Jackett indexers |
+| `GET` | `/api/aria2/runtime` | Built-in aria2 runtime status and diagnostics |
+| `POST` | `/api/aria2/runtime/start` | Start the built-in aria2 daemon |
+| `POST` | `/api/aria2/runtime/stop` | Stop the built-in aria2 daemon |
+| `POST` | `/api/aria2/runtime/restart` | Restart the built-in aria2 daemon |
+| `POST` | `/api/aria2/runtime/apply` | Apply aria2 tuning and cleanup settings |
 | `POST` | `/api/admin/full-sync` | Full AllDebrid reconciliation |
 | `POST` | `/api/admin/deep-sync` | aria2 filesystem reconciliation |
 | `POST` | `/api/admin/migrate` | SQLite ↔ PostgreSQL migration |

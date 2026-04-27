@@ -1432,21 +1432,70 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         )):
             self.assertEqual(mgr._aria2_slot_limit(), 5)
 
+    def test_builtin_aria2_uses_fixed_internal_rpc_secret(self):
+        from services.aria2_runtime import BUILTIN_ARIA2_SECRET, effective_rpc_config
+
+        cfg = types.SimpleNamespace(
+            aria2_mode="builtin",
+            aria2_builtin_port=6800,
+            aria2_url="http://external.invalid/jsonrpc",
+            aria2_secret="user-editable-secret",
+        )
+        url, secret = effective_rpc_config(cfg)
+        self.assertEqual(url, "http://127.0.0.1:6800/jsonrpc")
+        self.assertEqual(secret, BUILTIN_ARIA2_SECRET)
+
     async def test_apply_aria2_memory_tuning_uses_settings_values(self):
         mgr = TorrentManager()
         fake_aria2 = types.SimpleNamespace(change_global_options=AsyncMock())
         mgr.aria2 = lambda: fake_aria2
         with patch("services.manager_v2.get_settings", return_value=types.SimpleNamespace(
+            aria2_mode="external",
             aria2_url="http://localhost:6800/jsonrpc",
             aria2_max_download_result=150,
             aria2_keep_unfinished_download_result=False,
+            aria2_max_active_downloads=4,
+            aria2_split=12,
+            aria2_min_split_size="8M",
+            aria2_max_connection_per_server=6,
+            aria2_disk_cache="32M",
+            aria2_file_allocation="trunc",
+            aria2_continue_downloads=True,
+            aria2_lowest_speed_limit="0",
         )):
             result = await mgr.apply_aria2_memory_tuning()
         self.assertTrue(result["ok"])
-        fake_aria2.change_global_options.assert_awaited_once_with({
-            "max-download-result": "150",
-            "keep-unfinished-download-result": "false",
-        })
+        applied = fake_aria2.change_global_options.await_args.args[0]
+        self.assertEqual(applied["max-download-result"], "150")
+        self.assertEqual(applied["keep-unfinished-download-result"], "false")
+        self.assertEqual(applied["split"], "12")
+        self.assertEqual(applied["max-connection-per-server"], "6")
+        self.assertNotIn("enable-dht", applied)
+
+    async def test_apply_aria2_tuning_enforces_safety_in_builtin_mode(self):
+        mgr = TorrentManager()
+        fake_aria2 = types.SimpleNamespace(change_global_options=AsyncMock())
+        mgr.aria2 = lambda: fake_aria2
+        with patch("services.manager_v2.get_settings", return_value=types.SimpleNamespace(
+            aria2_mode="builtin",
+            aria2_builtin_port=6800,
+            aria2_max_download_result=50,
+            aria2_keep_unfinished_download_result=False,
+            aria2_max_active_downloads=3,
+            aria2_split=8,
+            aria2_min_split_size="10M",
+            aria2_max_connection_per_server=8,
+            aria2_disk_cache="64M",
+            aria2_file_allocation="falloc",
+            aria2_continue_downloads=True,
+            aria2_lowest_speed_limit="0",
+        )):
+            result = await mgr.apply_aria2_memory_tuning()
+        self.assertTrue(result["ok"])
+        applied = fake_aria2.change_global_options.await_args.args[0]
+        self.assertEqual(applied["follow-torrent"], "false")
+        self.assertEqual(applied["enable-dht"], "false")
+        self.assertEqual(applied["enable-peer-exchange"], "false")
 
     async def test_test_aria2_uses_configured_query_windows(self):
         mgr = TorrentManager()

@@ -32,9 +32,14 @@ class AppSettings(BaseModel):
 
     # Download delivery
     download_client: str = "aria2"
+    aria2_mode: str = "external"
     aria2_url: str = "http://127.0.0.1:6800/jsonrpc"
     aria2_secret: str = ""
     aria2_download_path: str = ""
+    aria2_builtin_auto_start: bool = True
+    aria2_builtin_port: int = 6800
+    aria2_builtin_log_file: str = "/app/data/aria2/aria2.log"
+    aria2_builtin_session_file: str = "/app/data/aria2/aria2.session"
     aria2_operation_timeout_seconds: int = 15
     aria2_start_paused: bool = False
     aria2_poll_interval_seconds: int = 5
@@ -44,6 +49,13 @@ class AppSettings(BaseModel):
     aria2_keep_unfinished_download_result: bool = False
     aria2_waiting_window: int = 100
     aria2_stopped_window: int = 100
+    aria2_split: int = 8
+    aria2_min_split_size: str = "10M"
+    aria2_max_connection_per_server: int = 8
+    aria2_disk_cache: str = "64M"
+    aria2_file_allocation: str = "falloc"
+    aria2_continue_downloads: bool = True
+    aria2_lowest_speed_limit: str = "0"
 
     # Sonarr integration
     sonarr_enabled: bool = False

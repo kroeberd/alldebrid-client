@@ -80,10 +80,13 @@ def _validate(cfg) -> List[Tuple[str, str, Any, Any]]:
         "aria2_max_active_downloads":     (1, 20),
         "aria2_poll_interval_seconds":    (1, 300),
         "aria2_operation_timeout_seconds":(5, 300),
+        "aria2_builtin_port":             (1, 65535),
         "aria2_purge_interval_minutes":   (0, 1440),
         "aria2_max_download_result":      (10, 5000),
         "aria2_waiting_window":           (10, 1000),
         "aria2_stopped_window":           (10, 1000),
+        "aria2_split":                    (1, 64),
+        "aria2_max_connection_per_server":(1, 32),
         "aria2_error_retry_count":        (0, 20),
         "aria2_error_retry_delay_seconds":(1, 3600),
         "aria2_deep_sync_interval_minutes":(0, 1440),
@@ -129,6 +132,10 @@ def _validate(cfg) -> List[Tuple[str, str, Any, Any]]:
     if cfg.download_client not in ("aria2",):
         warn("download_client", f"unknown value '{cfg.download_client}' — reset to aria2",
              cfg.download_client, "aria2")
+
+    if getattr(cfg, "aria2_mode", "external") not in ("external", "builtin"):
+        warn("aria2_mode", f"unknown value '{cfg.aria2_mode}' - reset to external",
+             cfg.aria2_mode, "external")
 
     # ── List fields ───────────────────────────────────────────────────────────
     for field in ("blocked_extensions", "blocked_keywords", "torrent_labels"):

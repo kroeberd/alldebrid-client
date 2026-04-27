@@ -11,6 +11,7 @@ from api.routes import router
 from core.scheduler import start_scheduler, stop_scheduler
 from core.version import read_version
 from db.database import init_db, _is_postgres, DB_PATH
+from services.aria2_runtime import runtime as aria2_runtime
 from services.manager_v2 import manager
 
 logging.basicConfig(
@@ -385,6 +386,11 @@ async def lifespan(app: FastAPI):
 
     # 6. Reconcile aria2 state on startup
     try:
+        await aria2_runtime.ensure_started()
+    except Exception as e:
+        logger.warning("Built-in aria2 startup skipped: %s", e)
+
+    try:
         await manager.reconcile_aria2_on_startup()
     except Exception as e:
         logger.warning("Startup aria2 reconciliation failed: %s", e)
@@ -400,6 +406,10 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Shutting down AllDebrid-Client...")
     await stop_scheduler()
+    try:
+        await aria2_runtime.stop()
+    except Exception as e:
+        logger.warning("Built-in aria2 shutdown failed: %s", e)
 
 
 app = FastAPI(
