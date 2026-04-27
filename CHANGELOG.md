@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.4.3] — 2026-04-27
+
+### Fixed
+- **AllDebrid HTTP 503 on large torrents** — the parallel `unlock_link`
+  optimisation introduced in v1.4.0/v1.4.1 fired all unlock calls
+  simultaneously with no concurrency limit.  For torrents with 100+ files
+  this produced a burst of hundreds of concurrent API requests, triggering
+  AllDebrid rate-limiting (HTTP 503 Service Unavailable) and marking every
+  file as failed.
+
+  Fix: both `_download()` and `_dispatch_pending_aria2_queue()` now wrap
+  their `unlock_link` coroutines with `asyncio.Semaphore(5)`, capping
+  concurrent AllDebrid API calls at 5.  This keeps throughput high for
+  small torrents (5 files unlock in parallel) while preventing burst
+  overload on large ones (100 files unlock in groups of 5).
+
+- **Default container user changed to `nobody:users`** (UID 65534 / GID 100)
+  matching the Unraid default for media containers.  Override with
+  `PUID` / `PGID` as needed.
+
 ## [1.4.2] — 2026-04-27
 
 ### Fixed

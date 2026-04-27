@@ -1219,20 +1219,23 @@ class TorrentManager:
                 "local_path": local_path,
             })
 
-        # ── Unlock links in parallel ──────────────────────────────────────────
-        # Sequential unlock_link calls are the main latency source: each call
-        # takes 200–600 ms against the AllDebrid API.  Firing them concurrently
-        # reduces a 10-file torrent from ~4 s to ~0.6 s.
+        # ── Unlock links in parallel (rate-limited) ──────────────────────────
+        # Parallel calls are much faster than sequential, but firing hundreds
+        # of concurrent requests triggers AllDebrid HTTP 503 rate-limiting.
+        # A semaphore caps concurrent unlock calls to avoid overloading the API.
+        _unlock_sem = asyncio.Semaphore(5)
+
         async def _unlock_one(item: Dict) -> Dict:
-            try:
-                unlocked = await _retry_async(self.ad().unlock_link, item["source_link"])
-                download_url = unlocked.get("link", "")
-                if not download_url:
-                    raise Exception("Empty download URL from unlock")
-                size = item["file_size"] if item["file_size"] > 0 else int(unlocked.get("filesize", 0) or 0)
-                return {**item, "download_url": download_url, "file_size": size, "error": None}
-            except Exception as exc:
-                return {**item, "download_url": "", "error": str(exc)}
+            async with _unlock_sem:
+                try:
+                    unlocked = await _retry_async(self.ad().unlock_link, item["source_link"])
+                    download_url = unlocked.get("link", "")
+                    if not download_url:
+                        raise Exception("Empty download URL from unlock")
+                    size = item["file_size"] if item["file_size"] > 0 else int(unlocked.get("filesize", 0) or 0)
+                    return {**item, "download_url": download_url, "file_size": size, "error": None}
+                except Exception as exc:
+                    return {**item, "download_url": "", "error": str(exc)}
 
         unlock_results = await asyncio.gather(*[_unlock_one(w) for w in work_items])
 
@@ -1510,19 +1513,22 @@ class TorrentManager:
             # may drop or answer inconsistently.
             dispatch_snapshot = await self._aria2_get_all()
 
-            # ── Unlock all pending links in parallel then dispatch ─────────────
-            # Sequential unlock_link calls (200–600 ms each) are the bottleneck
-            # when dispatching a batch.  Fire them concurrently first.
+            # ── Unlock all pending links in parallel (rate-limited) ──────────
+            # Semaphore caps concurrent AllDebrid API calls to avoid 503 errors
+            # when dispatching large batches (100+ files).
+            _dispatch_sem = asyncio.Semaphore(5)
+
             async def _unlock_for_dispatch(row_: dict) -> dict:
-                sl = str(row_["download_url"] or "").strip()
-                try:
-                    result = await _retry_async(self.ad().unlock_link, sl)
-                    dl_url = result.get("link", "")
-                    if not dl_url:
-                        raise Exception("Empty download URL from unlock")
-                    return {**row_, "_dl_url": dl_url, "_err": None}
-                except Exception as exc:
-                    return {**row_, "_dl_url": "", "_err": exc}
+                async with _dispatch_sem:
+                    sl = str(row_["download_url"] or "").strip()
+                    try:
+                        result = await _retry_async(self.ad().unlock_link, sl)
+                        dl_url = result.get("link", "")
+                        if not dl_url:
+                            raise Exception("Empty download URL from unlock")
+                        return {**row_, "_dl_url": dl_url, "_err": None}
+                    except Exception as exc:
+                        return {**row_, "_dl_url": "", "_err": exc}
 
             unlocked_rows = await asyncio.gather(
                 *[_unlock_for_dispatch(r) for r in pending_rows]
