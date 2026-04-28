@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.4.5] — 2026-04-27
+
+### Fixed / Changed
+- **Built-in aria2 excessive RAM usage** — several compounding causes addressed:
+
+  | Setting | Old | New | Effect |
+  |---------|-----|-----|--------|
+  | `disk-cache` | 64 M | **16 M** | aria2's write-buffer uses 4× less RAM; no measurable throughput difference for HTTP downloads (no BitTorrent piece assembly) |
+  | `max-download-result` | 50 | **20** | fewer completed download records kept in aria2's in-memory result list |
+  | `aria2_purge_interval_minutes` | 15 min | **5 min** | result list flushed more frequently via `aria2.purgeDownloadResult` |
+  | `--piece-length` | (aria2 default ~1 MB) | **1M** (explicit) | prevents aria2 from choosing a larger piece size and allocating more piece-metadata RAM for large files |
+  | `--max-download-result` | set only via RPC after start | now also **set at process start** | result list cap is enforced from the very first download |
+
+  Additionally, `_finalize_aria2_torrent()` now calls `purge_download_results()`
+  immediately after marking a torrent complete, instead of waiting for the next
+  housekeeping interval.  For long-running sessions with many completed torrents
+  this prevents the result list from growing between purge cycles.
+
+  **Note on GitHub issue #902:** that issue describes a different pathological
+  case (1.95 million files loaded at once). Our RAM growth comes from accumulated
+  completed-download metadata and the write-buffer cache, not from input-file
+  parsing.
+
 ## [1.4.4] — 2026-04-27
 
 ### Changed

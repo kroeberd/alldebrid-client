@@ -44,15 +44,15 @@ class AppSettings(BaseModel):
     aria2_start_paused: bool = False
     aria2_poll_interval_seconds: int = 1  # fast polling for responsive dispatch
     aria2_max_active_downloads: int = 3
-    aria2_purge_interval_minutes: int = 15
-    aria2_max_download_result: int = 50
+    aria2_purge_interval_minutes: int = 5  # purge completed results more often to free RAM
+    aria2_max_download_result: int = 20  # lower = less RAM for completed download metadata
     aria2_keep_unfinished_download_result: bool = False
     aria2_waiting_window: int = 100
     aria2_stopped_window: int = 100
     aria2_split: int = 8
     aria2_min_split_size: str = "10M"
     aria2_max_connection_per_server: int = 8
-    aria2_disk_cache: str = "64M"
+    aria2_disk_cache: str = "16M"  # 16M is sufficient for HTTP; 64M caused excessive RAM usage
     aria2_file_allocation: str = "falloc"
     aria2_continue_downloads: bool = True
     aria2_lowest_speed_limit: str = "0"

@@ -2156,6 +2156,14 @@ class TorrentManager:
                 download_client="aria2",
             )
 
+        # Purge completed download metadata from aria2's in-memory result list
+        # immediately after finalisation instead of waiting for the housekeeping
+        # interval — keeps aria2's RAM footprint low over long sessions.
+        try:
+            await self.aria2().purge_download_results()
+        except Exception:
+            pass  # non-critical — housekeeping loop will catch up
+
     async def pause_torrent(self, torrent_id: int):
         if self.download_client_name() != "aria2":
             raise ValueError("Pause is only supported for the aria2 download client")

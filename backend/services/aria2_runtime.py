@@ -113,6 +113,10 @@ class BuiltinAria2Runtime:
             "--log-level=notice",
             "--summary-interval=0",
             "--disable-ipv6=true",
+            # Memory optimisation: smaller piece metadata footprint
+            "--piece-length=1M",
+            # Limit RPC result history to reduce in-memory result cache
+            f"--max-download-result={int(getattr(cfg, 'aria2_max_download_result', 50) or 50)}",
         ]
         if session_file.exists() and session_file.stat().st_size > 0:
             cmd.append(f"--input-file={session_file}")
