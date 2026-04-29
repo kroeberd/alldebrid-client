@@ -407,6 +407,8 @@ td { padding: 11px 16px; vertical-align: middle; }
 .stab:hover { color:var(--text); }
 .stab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
 .stab-panel { display:none; flex-direction:column; gap:14px; }
+  .help-panel { display:none; }
+  .help-panel.active { display:block; }
 .stab-panel.active { display:flex; }
 /* Event search */
 .ev-search-row { display:flex; gap:8px; margin-bottom:10px; }
@@ -652,6 +654,9 @@ textarea.input { resize: vertical; }
     </div>
     <div class="nav-item" data-view="coffee" onclick="nav(this)">
       <span class="icon">&#9749;</span><span class="nav-label">Coffee</span>
+    </div>
+    <div class="nav-item" data-view="help" onclick="nav(this)">
+      <span class="icon">&#10067;</span><span class="nav-label">Help</span>
     </div>
     <div class="nav-group">System</div>
     <div class="nav-item" data-view="settings" onclick="nav(this)">
@@ -1082,6 +1087,442 @@ textarea.input { resize: vertical; }
       </div>
     </div>
 
+    <!-- Help -->
+    <div class="view" id="view-help">
+      <div class="view-header">
+        <h2 class="view-title">&#10067; Help &amp; Documentation</h2>
+      </div>
+
+      <!-- Tab bar -->
+      <div class="stabs" id="help-tabs" style="margin-bottom:0">
+        <div class="stab active" data-htab="quickstart"  onclick="switchHelpTab(this)">&#128640; Quick Start</div>
+        <div class="stab"        data-htab="howitworks"  onclick="switchHelpTab(this)">&#128214; How It Works</div>
+        <div class="stab"        data-htab="aria2"       onclick="switchHelpTab(this)">&#11015;&#65039; aria2</div>
+        <div class="stab"        data-htab="ram"         onclick="switchHelpTab(this)">&#129504; RAM &amp; Memory</div>
+        <div class="stab"        data-htab="integrations"onclick="switchHelpTab(this)">&#128268; Integrations</div>
+        <div class="stab"        data-htab="settings"    onclick="switchHelpTab(this)">&#9881;&#65039; Settings Reference</div>
+        <div class="stab"        data-htab="trouble"     onclick="switchHelpTab(this)">&#128295; Troubleshooting</div>
+      </div>
+
+      <!-- ── Quick Start ─────────────────────────────────────────────────── -->
+      <div class="help-panel active" id="htab-quickstart">
+        <div class="card" style="margin-top:0;border-radius:0 0 var(--radius) var(--radius)">
+          <div class="card-body" style="max-width:740px;display:flex;flex-direction:column;gap:22px">
+
+            <div>
+              <h3 style="margin:0 0 6px;color:var(--accent);font-size:15px">Five steps to your first download</h3>
+              <p style="margin:0;color:var(--text2);font-size:13px">Complete the steps below once and you are ready to go.</p>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:14px">
+
+              <!-- Step 1 -->
+              <div style="display:flex;gap:14px;align-items:flex-start">
+                <div style="background:var(--accent);color:#000;border-radius:50%;min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">1</div>
+                <div>
+                  <div style="font-weight:600;color:var(--text);margin-bottom:4px">Get your AllDebrid API key</div>
+                  <div style="font-size:13px;color:var(--text2)">
+                    Open <a href="https://alldebrid.com/apikeys/" target="_blank" style="color:var(--accent)">alldebrid.com/apikeys</a>, create a key called <em>AllDebrid-Client</em> and copy it.
+                    An active AllDebrid subscription is required — the free tier does not support the download API.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 2 -->
+              <div style="display:flex;gap:14px;align-items:flex-start">
+                <div style="background:var(--accent);color:#000;border-radius:50%;min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">2</div>
+                <div>
+                  <div style="font-weight:600;color:var(--text);margin-bottom:4px">Enter the key in Settings → Integrations</div>
+                  <div style="font-size:13px;color:var(--text2)">
+                    Click <strong>Settings</strong> in the sidebar → <strong>🔗 Integrations</strong> tab → paste the key into <em>API Key</em> → <strong>Save Settings</strong>.
+                    The orange dot in the header should turn green within a few seconds.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 3 -->
+              <div style="display:flex;gap:14px;align-items:flex-start">
+                <div style="background:var(--accent);color:#000;border-radius:50%;min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">3</div>
+                <div>
+                  <div style="font-weight:600;color:var(--text);margin-bottom:4px">Set the download folder</div>
+                  <div style="font-size:13px;color:var(--text2)">
+                    Settings → <strong>⚡ General</strong> → <em>Download Folder</em>.
+                    This must be the path <strong>inside</strong> the container (e.g. <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">/download</code>).
+                    On Docker / Unraid map your host folder to this path via a volume binding.
+                    Example Unraid: host path <code>/mnt/user/Downloads</code> → container path <code>/download</code>.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 4 -->
+              <div style="display:flex;gap:14px;align-items:flex-start">
+                <div style="background:var(--accent);color:#000;border-radius:50%;min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">4</div>
+                <div>
+                  <div style="font-weight:600;color:var(--text);margin-bottom:4px">Choose your aria2 setup</div>
+                  <div style="font-size:13px;color:var(--text2)">
+                    Settings → <strong>⬇️ Download</strong> → <em>aria2 Mode</em>.<br>
+                    <strong>Built-in</strong> (recommended): aria2 is managed automatically — nothing else to do.<br>
+                    <strong>External</strong>: point the RPC URL to your own aria2 instance and enter its secret.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 5 -->
+              <div style="display:flex;gap:14px;align-items:flex-start">
+                <div style="background:var(--accent);color:#000;border-radius:50%;min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">5</div>
+                <div>
+                  <div style="font-weight:600;color:var(--text);margin-bottom:4px">Add your first torrent</div>
+                  <div style="font-size:13px;color:var(--text2)">
+                    Click <strong>+ Add Torrent</strong> in the top bar and paste a magnet link or upload a .torrent file.
+                    The torrent is sent to AllDebrid, cached on their servers, then delivered to your disk via aria2 — usually within seconds for popular content.
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Docker quick-reference -->
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px">
+              <div style="font-weight:600;color:var(--text);margin-bottom:8px;font-size:13px">&#128051; Docker Compose quick-reference</div>
+              <pre style="margin:0;font-size:11px;color:var(--text2);line-height:1.6;white-space:pre-wrap">services:
+  alldebrid-client:
+    image: kroeberd/alldebrid-client:latest
+    container_name: alldebrid-client
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data          # settings &amp; database
+      - /your/host/downloads:/download  # download target
+    environment:
+      - PUID=1000   # match your host user
+      - PGID=1000</pre>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── How It Works ─────────────────────────────────────────────────── -->
+      <div class="help-panel" id="htab-howitworks">
+        <div class="card" style="margin-top:0;border-radius:0 0 var(--radius) var(--radius)">
+          <div class="card-body" style="max-width:740px;display:flex;flex-direction:column;gap:20px">
+
+            <div>
+              <h3 style="margin:0 0 6px;color:var(--accent);font-size:15px">The download pipeline</h3>
+              <p style="margin:0;color:var(--text2);font-size:13px">
+                AllDebrid-Client is a bridge between torrent sources and your storage.
+                Every download goes through five stages:
+              </p>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:0">
+              <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+                <span style="color:var(--accent);font-weight:700;font-size:18px;min-width:28px">1</span>
+                <div><strong style="color:var(--text)">Upload</strong><br><span style="font-size:13px;color:var(--text2)">The magnet or .torrent is sent to AllDebrid's servers. They download the actual torrent — often from a shared cache, which means the files may already be available in seconds.</span></div>
+              </div>
+              <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+                <span style="color:var(--accent);font-weight:700;font-size:18px;min-width:28px">2</span>
+                <div><strong style="color:var(--text)">Poll</strong><br><span style="font-size:13px;color:var(--text2)">AllDebrid-Client checks AllDebrid every 30 s (configurable) for the torrent status. When AllDebrid reports it as ready, the app moves to the next step.</span></div>
+              </div>
+              <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+                <span style="color:var(--accent);font-weight:700;font-size:18px;min-width:28px">3</span>
+                <div><strong style="color:var(--text)">Unlock</strong><br><span style="font-size:13px;color:var(--text2)">Each file link is "unlocked" — AllDebrid generates a time-limited direct HTTPS download URL. Up to 5 unlock calls run in parallel (rate-limited to avoid 503 errors).</span></div>
+              </div>
+              <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+                <span style="color:var(--accent);font-weight:700;font-size:18px;min-width:28px">4</span>
+                <div><strong style="color:var(--text)">Download</strong><br><span style="font-size:13px;color:var(--text2)">The URL is queued in aria2. aria2 downloads the file to your disk using multiple parallel connections (configurable). The Downloads view shows live progress.</span></div>
+              </div>
+              <div style="display:flex;gap:12px;padding:12px 0">
+                <span style="color:var(--accent);font-weight:700;font-size:18px;min-width:28px">5</span>
+                <div><strong style="color:var(--text)">Notify &amp; Import</strong><br><span style="font-size:13px;color:var(--text2)">A Discord notification is sent (if configured). If Sonarr or Radarr integration is enabled, the import API is called automatically.</span></div>
+              </div>
+            </div>
+
+            <div>
+              <h4 style="margin:0 0 10px;color:var(--text);font-size:13px">Torrent status explained</h4>
+              <table style="border-collapse:collapse;width:100%;font-size:13px">
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 12px 7px 0;color:var(--yellow);font-weight:600;white-space:nowrap">Queued</td><td style="padding:7px 0;color:var(--text2)">Uploaded to AllDebrid, waiting for them to process it. Normal for new or rare torrents.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 12px 7px 0;color:var(--blue);font-weight:600">Downloading</td><td style="padding:7px 0;color:var(--text2)">AllDebrid is downloading the torrent to their servers. Popular content is usually instant.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 12px 7px 0;color:var(--accent);font-weight:600">Dispatched</td><td style="padding:7px 0;color:var(--text2)">Files have been unlocked and handed to aria2 for download to your disk.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 12px 7px 0;color:var(--green);font-weight:600">Completed</td><td style="padding:7px 0;color:var(--text2)">All files saved to your download folder. Sonarr/Radarr import triggered if configured.</td></tr>
+                <tr><td style="padding:7px 12px 7px 0;color:var(--red);font-weight:600">Error</td><td style="padding:7px 0;color:var(--text2)">Something failed. Check the Event Log for details. The torrent can be retried manually.</td></tr>
+              </table>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── aria2 ─────────────────────────────────────────────────────────── -->
+      <div class="help-panel" id="htab-aria2">
+        <div class="card" style="margin-top:0;border-radius:0 0 var(--radius) var(--radius)">
+          <div class="card-body" style="max-width:740px;display:flex;flex-direction:column;gap:20px">
+
+            <h3 style="margin:0;color:var(--accent);font-size:15px">aria2 — the download engine</h3>
+
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">Built-in vs External</h4>
+              <table style="border-collapse:collapse;width:100%;font-size:13px">
+                <tr style="border-bottom:1px solid var(--border)">
+                  <td style="padding:8px 12px 8px 0;color:var(--green);font-weight:600;white-space:nowrap;vertical-align:top">Built-in ✓</td>
+                  <td style="padding:8px 0;color:var(--text2);vertical-align:top">Default and recommended. aria2 is started, stopped, and configured automatically by the app. No extra containers, no manual config, no port forwarding needed.</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 12px 8px 0;color:var(--text);font-weight:600;white-space:nowrap;vertical-align:top">External</td>
+                  <td style="padding:8px 0;color:var(--text2);vertical-align:top">Use if you already run aria2 separately (e.g. in another container or on a different machine). Set the RPC URL and secret. If aria2 is in a different container, use the container name as hostname and ensure both share the same Docker network. Set <em>Download Path Override</em> if the path inside the aria2 container differs from the one in this container.</td>
+                </tr>
+              </table>
+            </div>
+
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">Key settings</h4>
+              <table style="border-collapse:collapse;width:100%;font-size:13px">
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 12px 7px 0;font-weight:600;color:var(--text);white-space:nowrap;vertical-align:top">Simultaneous Downloads</td><td style="padding:7px 0;color:var(--text2);vertical-align:top">How many files aria2 downloads at once. Default: 3. Increasing this uses more RAM; 5 is a practical ceiling for most setups.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 12px 7px 0;font-weight:600;color:var(--text);white-space:nowrap;vertical-align:top">Split / Connections</td><td style="padding:7px 0;color:var(--text2);vertical-align:top">Number of parallel segments per file. Default: 4. More segments = faster on fast servers but more RAM. Keep Max Connections per Server ≤ Split.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 12px 7px 0;font-weight:600;color:var(--text);white-space:nowrap;vertical-align:top">Disk Cache</td><td style="padding:7px 0;color:var(--text2);vertical-align:top"><strong>0</strong> = disabled (best for local SSD, ~4 MB RAM). <strong>16M</strong> = recommended for network mounts (NFS, SMB, mergerfs) — batches writes, reduces FUSE round-trips, can actually lower peak RAM.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 12px 7px 0;font-weight:600;color:var(--text);white-space:nowrap;vertical-align:top">File Allocation</td><td style="padding:7px 0;color:var(--text2);vertical-align:top"><strong>none</strong> (recommended): no pre-allocation, downloads start immediately. <strong>falloc</strong>: fast on modern filesystems (ext4, XFS, BTRFS) but <em>blocks aria2 completely</em> until allocation finishes — avoid for large files on network shares. <strong>prealloc</strong>: slower, works everywhere.</td></tr>
+                <tr><td style="padding:7px 12px 7px 0;font-weight:600;color:var(--text);white-space:nowrap;vertical-align:top">Speed Limit</td><td style="padding:7px 0;color:var(--text2);vertical-align:top">Minimum speed before a connection is dropped. Use K/M suffix (e.g. <code>100K</code>). 0 = no limit.</td></tr>
+              </table>
+            </div>
+
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-size:12px;color:var(--text2)">
+              <strong style="color:var(--text)">Memory optimisations applied automatically by the built-in mode</strong><br>
+              <code>MALLOC_ARENA_MAX=1</code> · <code>MALLOC_TRIM_THRESHOLD_=65536</code> · <code>--async-dns=false</code> · <code>--no-netrc=true</code> · <code>--file-allocation=none</code> · session file cleared on restart so the DB is the single source of truth.
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── RAM & Memory ─────────────────────────────────────────────────── -->
+      <div class="help-panel" id="htab-ram">
+        <div class="card" style="margin-top:0;border-radius:0 0 var(--radius) var(--radius)">
+          <div class="card-body" style="max-width:740px;display:flex;flex-direction:column;gap:20px">
+
+            <h3 style="margin:0;color:var(--accent);font-size:15px">Understanding RAM usage</h3>
+
+            <div style="background:var(--surface2);border-left:3px solid var(--accent);padding:11px 14px;border-radius:0 var(--radius-sm) var(--radius-sm) 0;font-size:13px;color:var(--text2)">
+              <strong style="color:var(--text)">20 GB "used RAM" during downloads is almost always the kernel page cache — not a memory leak.</strong>
+              The kernel caches every written byte in RAM and releases it only when another process needs it.
+              On a dedicated server this may never happen, so it grows with every download session.
+            </div>
+
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">Three separate RAM sources</h4>
+              <table style="border-collapse:collapse;width:100%;font-size:13px">
+                <tr style="border-bottom:1px solid var(--border)">
+                  <td style="padding:8px 12px 8px 0;font-weight:600;color:var(--text);white-space:nowrap;vertical-align:top">aria2 process heap</td>
+                  <td style="padding:8px 0;color:var(--text2);vertical-align:top">With <code>disk-cache=0</code>: ~4–50 MB. This is real process RAM. The built-in mode applies <code>MALLOC_ARENA_MAX=1</code> to slow arena growth.</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <td style="padding:8px 12px 8px 0;font-weight:600;color:var(--accent);white-space:nowrap;vertical-align:top">Kernel page cache ★</td>
+                  <td style="padding:8px 0;color:var(--text2);vertical-align:top">Every downloaded byte is cached in RAM by the Linux kernel. Can reach 10–30 GB. Shows as "used" in Unraid, htop, and Docker stats but is <strong>reclaimed automatically</strong> when another process needs memory. Not a leak.</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 12px 8px 0;font-weight:600;color:var(--text);white-space:nowrap;vertical-align:top">glibc malloc arenas</td>
+                  <td style="padding:8px 0;color:var(--text2);vertical-align:top">After many download cycles glibc retains freed pages in internal arenas. Grows slowly. Mitigated by <code>MALLOC_ARENA_MAX=1</code>. Fully reset by restarting the aria2 process.</td>
+                </tr>
+              </table>
+            </div>
+
+            <div>
+              <h4 style="margin:0 0 6px;color:var(--text);font-size:13px">How to check</h4>
+              <p style="margin:0 0 8px;font-size:13px;color:var(--text2)">
+                In Settings → ⬇️ Download there are three buttons:
+              </p>
+              <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text2);display:flex;flex-direction:column;gap:5px">
+                <li><strong style="color:var(--text)">Memory Info</strong> — reads <code>/proc/meminfo</code> and shows <em>really_used</em> (process RAM) vs <em>page_cache</em> (kernel file cache) vs <em>available</em>. If available is large, you have no problem.</li>
+                <li><strong style="color:var(--text)">Drop Page Cache</strong> — calls <code>posix_fadvise(DONTNEED)</code> on all completed files, telling the kernel to release their cached pages immediately. Safe on any Linux filesystem; a no-op on Windows/macOS.</li>
+                <li><strong style="color:var(--text)">Run Cleanup</strong> — removes stopped download results from aria2's internal result list.</li>
+              </ul>
+            </div>
+
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-size:12px;color:var(--text2)">
+              <strong style="color:var(--text)">Network mounts (NFS, SMB, mergerfs on Unraid)</strong><br>
+              Set <em>Disk Cache</em> to <strong>16M</strong> in the Download settings. Without a cache, aria2 sends every small HTTP chunk directly to the FUSE filesystem, causing many round-trips and higher peak RAM. A 16 M buffer coalesces writes and can actually reduce RSS compared to 0.
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Integrations ─────────────────────────────────────────────────── -->
+      <div class="help-panel" id="htab-integrations">
+        <div class="card" style="margin-top:0;border-radius:0 0 var(--radius) var(--radius)">
+          <div class="card-body" style="max-width:740px;display:flex;flex-direction:column;gap:20px">
+
+            <h3 style="margin:0;color:var(--accent);font-size:15px">Integrations</h3>
+
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">&#128250; Sonarr / &#127916; Radarr</h4>
+              <p style="margin:0;font-size:13px;color:var(--text2)">
+                After a torrent finishes downloading, AllDebrid-Client calls the Sonarr or Radarr import API so your library is updated automatically.
+              </p>
+              <ol style="margin:8px 0 0 18px;font-size:13px;color:var(--text2);display:flex;flex-direction:column;gap:4px">
+                <li>Enable the integration in Settings → 🔗 Integrations.</li>
+                <li>Enter the base URL (e.g. <code>http://sonarr:8989</code>) and the API key from Sonarr/Radarr → Settings → General.</li>
+                <li>Ensure PUID/PGID on this container matches the user that Sonarr/Radarr runs as, so both can read the downloaded files.</li>
+                <li>Use the <strong>Test</strong> button to verify the connection before saving.</li>
+              </ol>
+            </div>
+
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">&#128276; Discord Webhooks</h4>
+              <p style="margin:0;font-size:13px;color:var(--text2)">Create a webhook in your Discord server (Server Settings → Integrations → Webhooks), copy the URL, and paste it in Settings → 🔔 Discord. You can use a separate webhook URL for "torrent added" events to route notifications to a different channel.</p>
+            </div>
+
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">&#128269; Jackett</h4>
+              <p style="margin:0;font-size:13px;color:var(--text2)">
+                Jackett lets you search hundreds of torrent trackers from the built-in Search view.
+                Enable it in Settings → 🔍 Jackett, enter the base URL and API key (found in the Jackett dashboard top-right).
+                The Search sidebar entry appears once Jackett is enabled and connected.
+                The API key is proxied through the backend — it is never sent to the browser.
+              </p>
+            </div>
+
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">&#128193; Watch Folder</h4>
+              <p style="margin:0;font-size:13px;color:var(--text2)">
+                Drop <code>.torrent</code> or <code>.magnet</code> files into the configured watch folder.
+                AllDebrid-Client scans it every 10 seconds and imports them automatically.
+                After import the file is deleted, or moved to the <em>Processed Folder</em> if one is configured.
+                Point Sonarr, Radarr, RSS tools, or scripts at the watch folder for fully automated workflows.
+              </p>
+            </div>
+
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">&#129302; FlexGet</h4>
+              <p style="margin:0;font-size:13px;color:var(--text2)">
+                AllDebrid-Client can trigger and monitor FlexGet tasks from the UI.
+                Enable in Settings → 🤖 FlexGet, enter the URL and run <code>flexget web gentoken</code> to get the API key.
+                Tasks appear in the FlexGet sidebar view where you can run them on demand or view recent execution history.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Settings Reference ───────────────────────────────────────────── -->
+      <div class="help-panel" id="htab-settings">
+        <div class="card" style="margin-top:0;border-radius:0 0 var(--radius) var(--radius)">
+          <div class="card-body" style="max-width:740px;display:flex;flex-direction:column;gap:20px">
+
+            <h3 style="margin:0;color:var(--accent);font-size:15px">Settings reference</h3>
+
+            <!-- General -->
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">⚡ General</h4>
+              <table style="border-collapse:collapse;width:100%;font-size:12px">
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Download Folder</td><td style="padding:5px 0;color:var(--text3)">Path inside the container where aria2 saves files. Must match your Docker volume mapping.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Watch Folder</td><td style="padding:5px 0;color:var(--text3)">Optional. Drop .torrent/.magnet files here for automatic import.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Processed Folder</td><td style="padding:5px 0;color:var(--text3)">Optional. Watch-folder files are moved here after import instead of deleted.</td></tr>
+                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Max Concurrent Downloads</td><td style="padding:5px 0;color:var(--text3)">How many AllDebrid magnets are processed in parallel. Independent of aria2 connections.</td></tr>
+              </table>
+            </div>
+
+            <!-- Download -->
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">⬇️ Download</h4>
+              <table style="border-collapse:collapse;width:100%;font-size:12px">
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">aria2 Mode</td><td style="padding:5px 0;color:var(--text3)">Built-in (recommended) or External.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Simultaneous Downloads</td><td style="padding:5px 0;color:var(--text3)">Files aria2 downloads at once. Default 3. Recommended max 5.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Split / Min Split Size</td><td style="padding:5px 0;color:var(--text3)">Parallel segments per file / minimum file size to split. Defaults: 4 / 20M.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Disk Cache</td><td style="padding:5px 0;color:var(--text3)">0 for SSD, 16M for network mounts. See RAM &amp; Memory tab.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">File Allocation</td><td style="padding:5px 0;color:var(--text3)">none (recommended). falloc is fast but blocks aria2 completely during pre-allocation.</td></tr>
+                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Retry Count / Delay</td><td style="padding:5px 0;color:var(--text3)">How many times a failed download is retried automatically, and how long to wait.</td></tr>
+              </table>
+            </div>
+
+            <!-- Integrations -->
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">🔗 Integrations</h4>
+              <table style="border-collapse:collapse;width:100%;font-size:12px">
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">AllDebrid API Key</td><td style="padding:5px 0;color:var(--text3)">Required. Get from alldebrid.com/apikeys.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Sonarr / Radarr</td><td style="padding:5px 0;color:var(--text3)">Base URL + API key. Triggers import scan after download completes.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Stuck Timeout</td><td style="padding:5px 0;color:var(--text3)">Hours before a stuck torrent is auto-retried. 0 = disabled.</td></tr>
+                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Rate Limit</td><td style="padding:5px 0;color:var(--text3)">AllDebrid API calls per minute. Default 60. 0 = unlimited.</td></tr>
+              </table>
+            </div>
+
+            <!-- Filters -->
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">🚫 Filters</h4>
+              <table style="border-collapse:collapse;width:100%;font-size:12px">
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Blocked Extensions</td><td style="padding:5px 0;color:var(--text3)">Files with these extensions are skipped. One per line. Images and .nfo blocked by default.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Blocked Keywords</td><td style="padding:5px 0;color:var(--text3)">Files whose name contains any of these strings are skipped.</td></tr>
+                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Min File Size</td><td style="padding:5px 0;color:var(--text3)">Files smaller than this (MB) are skipped. Useful to skip cover art or subtitles.</td></tr>
+              </table>
+            </div>
+
+            <!-- Polling -->
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">⏱ Polling</h4>
+              <table style="border-collapse:collapse;width:100%;font-size:12px">
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">AllDebrid Poll Interval</td><td style="padding:5px 0;color:var(--text3)">How often (seconds) AllDebrid is checked for torrent status. Default 30 s.</td></tr>
+                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Watch Folder Scan</td><td style="padding:5px 0;color:var(--text3)">How often (seconds) the watch folder is scanned. Default 10 s.</td></tr>
+              </table>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Troubleshooting ───────────────────────────────────────────────── -->
+      <div class="help-panel" id="htab-trouble">
+        <div class="card" style="margin-top:0;border-radius:0 0 var(--radius) var(--radius)">
+          <div class="card-body" style="max-width:740px;display:flex;flex-direction:column;gap:12px">
+
+            <h3 style="margin:0;color:var(--accent);font-size:15px">Troubleshooting</h3>
+
+            <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">Torrent stuck in Queued for a long time</summary>
+              <p style="margin:8px 0 0;font-size:13px;color:var(--text2)">AllDebrid is downloading the torrent to their servers. This is normal for unpopular or brand-new content. Popular content is usually cached instantly. If stuck &gt;30 min, remove and re-add the magnet. The <em>Stuck Timeout</em> setting (Settings → Integrations) will auto-retry after the configured hours.</p>
+            </details>
+
+            <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">AllDebrid returns HTTP 503</summary>
+              <p style="margin:8px 0 0;font-size:13px;color:var(--text2)">Rate limit hit during the unlock step. AllDebrid-Client caps parallel unlock calls at 5 and adds retry logic, but very large torrents with hundreds of files can still trigger this. Reduce <em>Simultaneous Downloads</em> in Settings → Download, or lower the <em>Rate Limit</em> setting.</p>
+            </details>
+
+            <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">Files download but Sonarr / Radarr doesn't import them</summary>
+              <p style="margin:8px 0 0;font-size:13px;color:var(--text2)">Check: (1) The download folder path matches what Sonarr/Radarr expects — both containers must see the files at the same host path. (2) PUID/PGID is set correctly so both containers share file ownership. (3) The API key is correct — use the Test button in Settings. (4) The Sonarr/Radarr root folder is configured and the episode/movie is monitored.</p>
+            </details>
+
+            <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">High RAM usage (20 GB+)</summary>
+              <p style="margin:8px 0 0;font-size:13px;color:var(--text2)">Almost certainly the Linux kernel page cache, not a leak. See the <strong>RAM &amp; Memory</strong> tab for a full explanation. Use <em>Memory Info</em> in Settings → Download to confirm — if <em>available</em> is large, you have no problem. Click <em>Drop Page Cache</em> to release it immediately. If your download folder is on a network mount, set Disk Cache to 16M.</p>
+            </details>
+
+            <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">External aria2 not connecting</summary>
+              <p style="margin:8px 0 0;font-size:13px;color:var(--text2)">Check: (1) aria2 is started with <code>--enable-rpc=true --rpc-listen-all=true</code>. (2) The RPC URL in settings uses the correct hostname and port (default 6800). (3) The secret matches (or is empty if no secret is set). (4) If aria2 is in a separate Docker container, both must be on the same Docker network and you should use the container name as hostname.</p>
+            </details>
+
+            <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">Downloaded files have wrong ownership / permissions</summary>
+              <p style="margin:8px 0 0;font-size:13px;color:var(--text2)">Set <code>PUID</code> and <code>PGID</code> environment variables to match your host user (find them with <code>id</code> on the host). The container's entrypoint will run aria2 as that user so all created files have the correct ownership.</p>
+            </details>
+
+            <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">Remux / large files not downloading</summary>
+              <p style="margin:8px 0 0;font-size:13px;color:var(--text2)">Usually a Sonarr/Radarr quality profile issue, not AllDebrid-Client. Check: (1) The quality profile allows the file size (Sonarr/Radarr have per-quality size limits). (2) The indexer settings allow the file. AllDebrid-Client passes through whatever AllDebrid provides — it does not filter by size except via the Filters settings.</p>
+            </details>
+
+            <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">Database locked / SQLite errors</summary>
+              <p style="margin:8px 0 0;font-size:13px;color:var(--text2)">Restart the container. If the error persists, check that no other process has the database file open. The database file is at <code>/app/data/alldebrid.db</code> inside the container. If corruption is suspected, use Settings → 🗄️ Database → Create Backup before attempting any repairs.</p>
+            </details>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+
     <!-- Settings -->
     <div class="view" id="view-settings">
       <div class="stabs" id="settings-tabs"></div>
@@ -1151,7 +1592,8 @@ function nav(el) {
     changelog:'Changelog',
     github:'GitHub',
     coffee:'Coffee',
-    settings:'Settings'
+    settings:'Settings',
+    help:'Help'
   };
   document.getElementById('page-title').textContent = titles[v] || v;
   if (v === 'dashboard') { loadStats(); loadRecent(); }
@@ -1162,6 +1604,7 @@ function nav(el) {
   if (v === 'settings')  loadSettings();
   if (v === 'search')    initSearchView();
   if (v === 'aria2queue') loadAria2QueueView();
+  if (v === 'help') switchHelpTab(document.querySelector('#help-tabs .stab'));
   closeSidebar();
 }
 
@@ -4062,6 +4505,17 @@ function updateAria2Badge(activeCount) {
   if (!badge) return;
   badge.textContent = activeCount;
   badge.style.display = activeCount > 0 ? '' : 'none';
+}
+
+
+function switchHelpTab(el) {
+  if (!el) return;
+  const tabId = el.dataset.htab;
+  document.querySelectorAll('#help-tabs .stab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.help-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  const panel = document.getElementById('htab-' + tabId);
+  if (panel) panel.classList.add('active');
 }
 
 

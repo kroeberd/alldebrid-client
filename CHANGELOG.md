@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.5.0] — 2026-04-29
+
+### Added — Help & Documentation sidebar view
+
+New **❓ Help** entry in the sidebar with seven comprehensive tabs:
+
+| Tab | Contents |
+|-----|----------|
+| 🚀 Quick Start | 5-step setup guide, Docker Compose reference |
+| 📖 How It Works | Full pipeline explanation (Upload → Poll → Unlock → Download → Notify), status table |
+| ⬇️ aria2 | Built-in vs External comparison, key settings explained, memory optimisations applied automatically |
+| 🧠 RAM & Memory | Three RAM sources explained (process heap / kernel page cache / glibc arenas), how to use Memory Info and Drop Page Cache |
+| 🔌 Integrations | Sonarr/Radarr, Discord, Jackett, Watch Folder, FlexGet — setup instructions for each |
+| ⚙️ Settings Reference | Every settings tab documented with field-level explanations |
+| 🔧 Troubleshooting | Eight expandable FAQ items covering stuck torrents, 503 errors, Sonarr import failures, high RAM, permission issues, Remux, SQLite errors, and external aria2 |
+
 ## [1.5.1] — 2026-04-29
 
 ### Fixed
