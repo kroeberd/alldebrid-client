@@ -1,168 +1,197 @@
-<svg width="1200" height="750" viewBox="0 0 1200 750" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', system-ui, sans-serif">
+<svg width="1200" height="780" viewBox="0 0 1200 780" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', system-ui, sans-serif">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0d1220"/>
-      <stop offset="100%" stop-color="#080c14"/>
+      <stop offset="0%" stop-color="#07101c"/>
+      <stop offset="100%" stop-color="#040a12"/>
     </linearGradient>
-    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#111827"/>
-      <stop offset="100%" stop-color="#0f172a"/>
+    <linearGradient id="surface" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a2940"/>
+      <stop offset="100%" stop-color="#132033"/>
     </linearGradient>
-    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#f97316"/>
-      <stop offset="100%" stop-color="#ea580c"/>
+    <linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff8c42"/>
+      <stop offset="100%" stop-color="#f97316"/>
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
 
   <!-- Background -->
-  <rect width="1200" height="750" fill="url(#bg)"/>
+  <rect width="1200" height="780" fill="url(#bg)"/>
 
   <!-- Sidebar -->
-  <rect x="0" y="0" width="220" height="750" fill="#0a0f1c" rx="0"/>
-  <rect x="220" y="0" width="1" height="750" fill="#1e2d45"/>
+  <rect x="0" y="0" width="222" height="780" fill="#0d1626"/>
+  <rect x="222" y="0" width="1" height="780" fill="#24344d"/>
 
-  <!-- Logo -->
-  <circle cx="36" cy="38" r="14" fill="none" stroke="#f97316" stroke-width="2" filter="url(#glow)"/>
-  <circle cx="36" cy="38" r="6" fill="#f97316" opacity="0.9"/>
-  <text x="57" y="44" fill="#f0f4f8" font-size="15" font-weight="700" letter-spacing="0.5">AllDebrid-Client</text>
+  <!-- Logo area -->
+  <circle cx="34" cy="36" r="13" fill="none" stroke="#ff8c42" stroke-width="1.5" filter="url(#glow)"/>
+  <circle cx="34" cy="36" r="5" fill="#ff8c42"/>
+  <text x="55" y="41" fill="#f2f6fb" font-size="13" font-weight="700" letter-spacing="0.3">AllDebrid-Client</text>
+  <text x="55" y="54" fill="#ff8c42" font-size="9" font-weight="600" letter-spacing="0.5">v1.5.2</text>
 
-  <!-- Nav items -->
-  <rect x="8" y="68" width="204" height="36" rx="8" fill="#f97316" opacity="0.15"/>
-  <text x="36" y="90" fill="#f97316" font-size="13" font-weight="600">◉ Dashboard</text>
-  <text x="36" y="130" fill="#6b7f99" font-size="13">⊟ Torrents</text>
-  <text x="36" y="166" fill="#6b7f99" font-size="13">⊟ Events</text>
-  <text x="36" y="202" fill="#6b7f99" font-size="13">⚙ Settings</text>
+  <!-- Nav group: Queue -->
+  <text x="16" y="84" fill="#7f91ab" font-size="9" font-weight="700" letter-spacing="1.2">QUEUE</text>
+  <!-- Dashboard active -->
+  <rect x="6" y="90" width="210" height="34" rx="7" fill="#ff8c42" opacity="0.14"/>
+  <rect x="6" y="90" width="3" height="34" rx="1.5" fill="#ff8c42"/>
+  <text x="26" y="112" fill="#ff8c42" font-size="12.5" font-weight="600">⚡ Dashboard</text>
+  <!-- Torrents -->
+  <text x="26" y="144" fill="#7f91ab" font-size="12.5">🧲 Torrents</text>
+  <!-- Search -->
+  <text x="26" y="174" fill="#7f91ab" font-size="12.5">🔍 Search</text>
+  <!-- Downloads -->
+  <text x="26" y="204" fill="#7f91ab" font-size="12.5">⬇️ Downloads</text>
 
-  <!-- Sidebar status -->
-  <rect x="8" y="650" width="204" height="90" rx="8" fill="#111827" opacity="0.6"/>
-  <circle cx="24" cy="672" r="5" fill="#22c55e" filter="url(#glow)"/>
-  <text x="36" y="676" fill="#9ca3af" font-size="11">AllDebrid · john_doe</text>
-  <text x="36" y="693" fill="#6b7f99" font-size="10">Premium bis 15.12.2026 (241 Tage)</text>
-  <circle cx="24" cy="708" r="5" fill="#22c55e"/>
-  <text x="36" y="712" fill="#9ca3af" font-size="11">aria2 · 1.37.0</text>
-  <circle cx="24" cy="726" r="5" fill="#3b82f6"/>
-  <text x="36" y="730" fill="#9ca3af" font-size="11">PostgreSQL</text>
+  <!-- Nav group: Monitor -->
+  <text x="16" y="232" fill="#7f91ab" font-size="9" font-weight="700" letter-spacing="1.2">MONITOR</text>
+  <text x="26" y="252" fill="#7f91ab" font-size="12.5">📋 Event Log</text>
+  <text x="26" y="280" fill="#7f91ab" font-size="12.5">📊 Statistics</text>
 
-  <!-- Main header -->
-  <text x="248" y="44" fill="#f0f4f8" font-size="20" font-weight="700">Dashboard</text>
-  <rect x="1080" y="22" width="100" height="34" rx="8" fill="#1e2d45" stroke="#2d3f5e" stroke-width="1"/>
-  <text x="1130" y="43" fill="#9ca3af" font-size="12" text-anchor="middle">⏸ Pause</text>
+  <!-- Nav group: Config -->
+  <text x="16" y="308" fill="#7f91ab" font-size="9" font-weight="700" letter-spacing="1.2">CONFIG</text>
+  <text x="26" y="328" fill="#7f91ab" font-size="12.5">⚙️ Settings</text>
+  <text x="26" y="356" fill="#7f91ab" font-size="12.5">❓ Help</text>
 
-  <!-- Stat cards row 1 -->
-  <!-- Queue Health -->
-  <rect x="240" y="70" width="225" height="110" rx="10" fill="url(#card)" stroke="#1e2d45" stroke-width="1"/>
-  <rect x="240" y="70" width="225" height="3" rx="2" fill="#f97316"/>
-  <text x="256" y="96" fill="#6b7f99" font-size="10" letter-spacing="1" font-weight="600">QUEUE HEALTH</text>
-  <text x="256" y="135" fill="#f0f4f8" font-size="38" font-weight="800">87%</text>
-  <text x="256" y="162" fill="#6b7f99" font-size="11">3 active / 1 queued</text>
+  <!-- Sidebar status dots -->
+  <rect x="8" y="690" width="206" height="84" rx="8" fill="#132033" opacity="0.7"/>
+  <circle cx="22" cy="710" r="4" fill="#38d27d" filter="url(#glow)"/>
+  <text x="34" y="714" fill="#b8c4d6" font-size="10.5">AllDebrid · Premium</text>
+  <text x="34" y="728" fill="#7f91ab" font-size="9.5">241 days remaining</text>
+  <circle cx="22" cy="742" r="4" fill="#38d27d"/>
+  <text x="34" y="746" fill="#b8c4d6" font-size="10.5">aria2 · built-in · 1.37.0</text>
+  <text x="34" y="760" fill="#63a4ff" font-size="9.5">↓ 24.6 MB/s</text>
 
-  <!-- Last 24h -->
-  <rect x="480" y="70" width="225" height="110" rx="10" fill="url(#card)" stroke="#1e2d45" stroke-width="1"/>
-  <rect x="480" y="70" width="225" height="3" rx="2" fill="#22c55e"/>
-  <text x="496" y="96" fill="#6b7f99" font-size="10" letter-spacing="1" font-weight="600">LAST 24H</text>
-  <text x="496" y="135" fill="#22c55e" font-size="38" font-weight="800">12</text>
-  <text x="496" y="162" fill="#6b7f99" font-size="11">Completed torrents</text>
+  <!-- Top bar -->
+  <rect x="222" y="0" width="978" height="58" fill="#0d1626" opacity="0.95"/>
+  <rect x="222" y="57" width="978" height="1" fill="#24344d"/>
+  <text x="244" y="36" fill="#f2f6fb" font-size="18" font-weight="700">Dashboard</text>
+  <!-- Speed badge -->
+  <rect x="380" y="19" width="100" height="24" rx="12" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <text x="385" y="35" fill="#38d27d" font-size="10">⬇</text>
+  <text x="397" y="35" fill="#b8c4d6" font-size="10">24.6 MB/s</text>
+  <!-- Pause btn -->
+  <rect x="1060" y="16" width="120" height="28" rx="7" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <text x="1120" y="34" fill="#b8c4d6" font-size="11" text-anchor="middle">⏸ Pause All</text>
 
-  <!-- Last 7 days -->
-  <rect x="720" y="70" width="225" height="110" rx="10" fill="url(#card)" stroke="#1e2d45" stroke-width="1"/>
-  <rect x="720" y="70" width="225" height="3" rx="2" fill="#3b82f6"/>
-  <text x="736" y="96" fill="#6b7f99" font-size="10" letter-spacing="1" font-weight="600">LAST 7 DAYS</text>
-  <text x="736" y="135" fill="#3b82f6" font-size="38" font-weight="800">67</text>
-  <text x="736" y="162" fill="#6b7f99" font-size="11">Completed torrents</text>
+  <!-- ── Stat Cards Row 1 ── -->
+  <rect x="240" y="76" width="218" height="108" rx="10" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <rect x="240" y="76" width="218" height="3" rx="1.5" fill="#ff8c42"/>
+  <text x="256" y="100" fill="#7f91ab" font-size="9.5" font-weight="700" letter-spacing="1">QUEUE HEALTH</text>
+  <text x="256" y="146" fill="#f2f6fb" font-size="40" font-weight="800">94%</text>
+  <text x="256" y="167" fill="#7f91ab" font-size="10.5">3 active · 0 errors</text>
 
-  <!-- Success Rate -->
-  <rect x="960" y="70" width="220" height="110" rx="10" fill="url(#card)" stroke="#1e2d45" stroke-width="1"/>
-  <rect x="960" y="70" width="220" height="3" rx="2" fill="#a855f7"/>
-  <text x="976" y="96" fill="#6b7f99" font-size="10" letter-spacing="1" font-weight="600">SUCCESS RATE</text>
-  <text x="976" y="135" fill="#a855f7" font-size="38" font-weight="800">94.2%</text>
-  <text x="976" y="162" fill="#6b7f99" font-size="11">Of all finished</text>
+  <rect x="472" y="76" width="218" height="108" rx="10" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <rect x="472" y="76" width="218" height="3" rx="1.5" fill="#38d27d"/>
+  <text x="488" y="100" fill="#7f91ab" font-size="9.5" font-weight="700" letter-spacing="1">LAST 24H</text>
+  <text x="488" y="146" fill="#38d27d" font-size="40" font-weight="800">17</text>
+  <text x="488" y="167" fill="#7f91ab" font-size="10.5">Completed torrents</text>
 
-  <!-- Stat cards row 2 -->
-  <rect x="240" y="200" width="225" height="110" rx="10" fill="url(#card)" stroke="#1e2d45" stroke-width="1"/>
-  <rect x="240" y="200" width="225" height="3" rx="2" fill="#f59e0b"/>
-  <text x="256" y="226" fill="#6b7f99" font-size="10" letter-spacing="1" font-weight="600">AVG DURATION</text>
-  <text x="256" y="265" fill="#f59e0b" font-size="34" font-weight="800">14m 32s</text>
-  <text x="256" y="292" fill="#6b7f99" font-size="11">Per torrent</text>
+  <rect x="704" y="76" width="218" height="108" rx="10" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <rect x="704" y="76" width="218" height="3" rx="1.5" fill="#63a4ff"/>
+  <text x="720" y="100" fill="#7f91ab" font-size="9.5" font-weight="700" letter-spacing="1">LAST 7 DAYS</text>
+  <text x="720" y="146" fill="#63a4ff" font-size="40" font-weight="800">89</text>
+  <text x="720" y="167" fill="#7f91ab" font-size="10.5">Completed torrents</text>
 
-  <rect x="480" y="200" width="225" height="110" rx="10" fill="url(#card)" stroke="#1e2d45" stroke-width="1"/>
-  <rect x="480" y="200" width="225" height="3" rx="2" fill="#06b6d4"/>
-  <text x="496" y="226" fill="#6b7f99" font-size="10" letter-spacing="1" font-weight="600">AVG SIZE</text>
-  <text x="496" y="265" fill="#06b6d4" font-size="34" font-weight="800">4.2 GB</text>
-  <text x="496" y="292" fill="#6b7f99" font-size="11">Per completed torrent</text>
+  <rect x="936" y="76" width="218" height="108" rx="10" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <rect x="936" y="76" width="218" height="3" rx="1.5" fill="#b587ff"/>
+  <text x="952" y="100" fill="#7f91ab" font-size="9.5" font-weight="700" letter-spacing="1">SUCCESS RATE</text>
+  <text x="952" y="146" fill="#b587ff" font-size="40" font-weight="800">97.1%</text>
+  <text x="952" y="167" fill="#7f91ab" font-size="10.5">All completed vs errors</text>
 
-  <rect x="720" y="200" width="225" height="110" rx="10" fill="url(#card)" stroke="#1e2d45" stroke-width="1"/>
-  <rect x="720" y="200" width="225" height="3" rx="2" fill="#22c55e"/>
-  <text x="736" y="226" fill="#6b7f99" font-size="10" letter-spacing="1" font-weight="600">DATABASE</text>
-  <text x="736" y="265" fill="#22c55e" font-size="22" font-weight="700">PostgreSQL</text>
-  <text x="736" y="292" fill="#6b7f99" font-size="11">Active backend</text>
+  <!-- ── Stat Cards Row 2 ── -->
+  <rect x="240" y="200" width="218" height="100" rx="10" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <text x="256" y="224" fill="#7f91ab" font-size="9.5" font-weight="700" letter-spacing="1">AVG DURATION</text>
+  <text x="256" y="268" fill="#f5c451" font-size="34" font-weight="800">11m 8s</text>
+  <text x="256" y="287" fill="#7f91ab" font-size="10">Per torrent</text>
 
-  <rect x="960" y="200" width="220" height="110" rx="10" fill="url(#card)" stroke="#1e2d45" stroke-width="1"/>
-  <rect x="960" y="200" width="220" height="3" rx="2" fill="#ef4444"/>
-  <text x="976" y="226" fill="#6b7f99" font-size="10" letter-spacing="1" font-weight="600">TOTAL DL</text>
-  <text x="976" y="265" fill="#f0f4f8" font-size="30" font-weight="800">1.84 TB</text>
-  <text x="976" y="292" fill="#6b7f99" font-size="11">All time</text>
+  <rect x="472" y="200" width="218" height="100" rx="10" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <text x="488" y="224" fill="#7f91ab" font-size="9.5" font-weight="700" letter-spacing="1">AVG SIZE</text>
+  <text x="488" y="268" fill="#06b6d4" font-size="34" font-weight="800">6.8 GB</text>
+  <text x="488" y="287" fill="#7f91ab" font-size="10">Per completed torrent</text>
 
-  <!-- Status counters -->
-  <rect x="240" y="330" width="140" height="90" rx="10" fill="url(#card)" stroke="#f97316" stroke-width="1" opacity="0.8"/>
-  <text x="256" y="356" fill="#6b7f99" font-size="10">TOTAL</text>
-  <text x="256" y="398" fill="#f97316" font-size="36" font-weight="800">342</text>
+  <rect x="704" y="200" width="218" height="100" rx="10" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <text x="720" y="224" fill="#7f91ab" font-size="9.5" font-weight="700" letter-spacing="1">TOTAL DOWNLOADED</text>
+  <text x="720" y="268" fill="#f2f6fb" font-size="28" font-weight="800">2.41 TB</text>
+  <text x="720" y="287" fill="#7f91ab" font-size="10">All time</text>
 
-  <rect x="392" y="330" width="140" height="90" rx="10" fill="url(#card)" stroke="#22c55e" stroke-width="1" opacity="0.8"/>
-  <text x="408" y="356" fill="#6b7f99" font-size="10">COMPLETED</text>
-  <text x="408" y="398" fill="#22c55e" font-size="36" font-weight="800">318</text>
+  <rect x="936" y="200" width="218" height="100" rx="10" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <text x="952" y="224" fill="#7f91ab" font-size="9.5" font-weight="700" letter-spacing="1">DATABASE</text>
+  <text x="952" y="262" fill="#38d27d" font-size="20" font-weight="700">SQLite</text>
+  <text x="952" y="283" fill="#7f91ab" font-size="10">Zero-config default</text>
 
-  <rect x="544" y="330" width="140" height="90" rx="10" fill="url(#card)" stroke="#3b82f6" stroke-width="1" opacity="0.8"/>
-  <text x="560" y="356" fill="#6b7f99" font-size="10">ACTIVE</text>
-  <text x="560" y="398" fill="#3b82f6" font-size="36" font-weight="800">3</text>
+  <!-- ── Status counters ── -->
+  <rect x="240" y="316" width="130" height="80" rx="9" fill="url(#surface)" stroke="#ff8c42" stroke-width="1" opacity="0.85"/>
+  <text x="254" y="338" fill="#7f91ab" font-size="9">TOTAL</text>
+  <text x="254" y="377" fill="#ff8c42" font-size="36" font-weight="800">412</text>
 
-  <rect x="696" y="330" width="140" height="90" rx="10" fill="url(#card)" stroke="#f59e0b" stroke-width="1" opacity="0.8"/>
-  <text x="712" y="356" fill="#6b7f99" font-size="10">PROCESSING</text>
-  <text x="712" y="398" fill="#f59e0b" font-size="36" font-weight="800">1</text>
+  <rect x="382" y="316" width="130" height="80" rx="9" fill="url(#surface)" stroke="#38d27d" stroke-width="1" opacity="0.85"/>
+  <text x="396" y="338" fill="#7f91ab" font-size="9">COMPLETED</text>
+  <text x="396" y="377" fill="#38d27d" font-size="36" font-weight="800">392</text>
 
-  <rect x="848" y="330" width="140" height="90" rx="10" fill="url(#card)" stroke="#ef4444" stroke-width="1" opacity="0.8"/>
-  <text x="864" y="356" fill="#6b7f99" font-size="10">ERRORS</text>
-  <text x="864" y="398" fill="#ef4444" font-size="36" font-weight="800">2</text>
+  <rect x="524" y="316" width="130" height="80" rx="9" fill="url(#surface)" stroke="#63a4ff" stroke-width="1" opacity="0.85"/>
+  <text x="538" y="338" fill="#7f91ab" font-size="9">ACTIVE</text>
+  <text x="538" y="377" fill="#63a4ff" font-size="36" font-weight="800">3</text>
 
-  <rect x="1000" y="330" width="180" height="90" rx="10" fill="url(#card)" stroke="#a855f7" stroke-width="1" opacity="0.8"/>
-  <text x="1016" y="356" fill="#6b7f99" font-size="10">DOWNLOADED</text>
-  <text x="1016" y="390" fill="#a855f7" font-size="22" font-weight="700">1.84 TB</text>
-  <text x="1016" y="410" fill="#6b7f99" font-size="10">0 blocked files</text>
+  <rect x="666" y="316" width="130" height="80" rx="9" fill="url(#surface)" stroke="#f5c451" stroke-width="1" opacity="0.85"/>
+  <text x="680" y="338" fill="#7f91ab" font-size="9">PROCESSING</text>
+  <text x="680" y="377" fill="#f5c451" font-size="36" font-weight="800">2</text>
 
-  <!-- Add magnet -->
-  <rect x="240" y="440" width="940" height="52" rx="10" fill="#111827" stroke="#1e2d45" stroke-width="1"/>
-  <text x="264" y="470" fill="#4b5563" font-size="13">🔗 Add magnet link or paste URL…</text>
-  <rect x="1110" y="451" width="56" height="30" rx="6" fill="url(#orange)"/>
-  <text x="1138" y="470" fill="white" font-size="12" font-weight="600" text-anchor="middle">Add</text>
+  <rect x="808" y="316" width="130" height="80" rx="9" fill="url(#surface)" stroke="#ff6b6b" stroke-width="1" opacity="0.85"/>
+  <text x="822" y="338" fill="#7f91ab" font-size="9">ERRORS</text>
+  <text x="822" y="377" fill="#ff6b6b" font-size="36" font-weight="800">1</text>
 
-  <!-- Recent torrents -->
-  <text x="240" y="520" fill="#9ca3af" font-size="13" font-weight="600">Recent Activity</text>
+  <rect x="950" y="316" width="204" height="80" rx="9" fill="url(#surface)" stroke="#b587ff" stroke-width="1" opacity="0.85"/>
+  <text x="964" y="338" fill="#7f91ab" font-size="9">DOWNLOADED</text>
+  <text x="964" y="370" fill="#b587ff" font-size="22" font-weight="700">2.41 TB</text>
+  <text x="964" y="387" fill="#7f91ab" font-size="9">0 blocked files</text>
 
-  <!-- Torrent rows -->
-  <rect x="240" y="530" width="940" height="48" rx="8" fill="#111827" stroke="#1e2d45" stroke-width="1"/>
-  <circle cx="262" cy="554" r="6" fill="#22c55e"/>
-  <text x="280" y="558" fill="#f0f4f8" font-size="13">[4K] Dune Part Two (2024) Remux</text>
-  <text x="900" y="552" fill="#22c55e" font-size="11" text-anchor="end">completed</text>
-  <text x="1172" y="552" fill="#6b7f99" font-size="11" text-anchor="end">23.8 GB</text>
+  <!-- ── Add magnet ── -->
+  <rect x="240" y="414" width="914" height="44" rx="8" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <text x="260" y="440" fill="#314565" font-size="12.5">🔗 Add magnet link or paste .torrent URL…</text>
+  <rect x="1080" y="421" width="60" height="30" rx="6" fill="url(#accent-grad)"/>
+  <text x="1110" y="440" fill="white" font-size="11" font-weight="700" text-anchor="middle">Add</text>
 
-  <rect x="240" y="582" width="940" height="48" rx="8" fill="#111827" stroke="#1e2d45" stroke-width="1"/>
-  <circle cx="262" cy="606" r="6" fill="#3b82f6"/>
-  <text x="280" y="610" fill="#f0f4f8" font-size="13">The Brutalist (2024) 1080p BluRay</text>
-  <text x="900" y="604" fill="#3b82f6" font-size="11" text-anchor="end">downloading</text>
-  <text x="1172" y="604" fill="#6b7f99" font-size="11" text-anchor="end">8.1 GB</text>
+  <!-- ── Recent activity ── -->
+  <text x="240" y="484" fill="#b8c4d6" font-size="12.5" font-weight="600">Recent Activity</text>
 
-  <rect x="240" y="634" width="940" height="48" rx="8" fill="#111827" stroke="#1e2d45" stroke-width="1"/>
-  <circle cx="262" cy="658" r="6" fill="#f59e0b"/>
-  <text x="280" y="662" fill="#f0f4f8" font-size="13">Nosferatu (2024) HDR10</text>
-  <text x="900" y="656" fill="#f59e0b" font-size="11" text-anchor="end">processing</text>
-  <text x="1172" y="656" fill="#6b7f99" font-size="11" text-anchor="end">—</text>
+  <!-- Row 1 -->
+  <rect x="240" y="492" width="914" height="44" rx="7" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <circle cx="260" cy="514" r="5.5" fill="#38d27d" filter="url(#glow)"/>
+  <text x="278" y="518" fill="#f2f6fb" font-size="12.5">[4K] Dune Part Two (2024) Remux.2160p.HDR10</text>
+  <text x="884" y="512" fill="#38d27d" font-size="10.5" text-anchor="end">completed</text>
+  <text x="1148" y="512" fill="#7f91ab" font-size="10.5" text-anchor="end">47.3 GB</text>
 
-  <rect x="240" y="686" width="940" height="48" rx="8" fill="#111827" stroke="#1e2d45" stroke-width="1"/>
-  <circle cx="262" cy="710" r="6" fill="#22c55e"/>
-  <text x="280" y="714" fill="#f0f4f8" font-size="13">Severance S02 Complete 2160p</text>
-  <text x="900" y="708" fill="#22c55e" font-size="11" text-anchor="end">completed</text>
-  <text x="1172" y="708" fill="#6b7f99" font-size="11" text-anchor="end">67.2 GB</text>
+  <!-- Row 2 -->
+  <rect x="240" y="540" width="914" height="44" rx="7" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <circle cx="260" cy="562" r="5.5" fill="#63a4ff"/>
+  <text x="278" y="566" fill="#f2f6fb" font-size="12.5">Severance S02E08 2160p WEB-DL DDP5.1 H.265</text>
+  <text x="884" y="560" fill="#63a4ff" font-size="10.5" text-anchor="end">downloading</text>
+  <text x="1148" y="560" fill="#7f91ab" font-size="10.5" text-anchor="end">12.1 GB</text>
+
+  <!-- Row 3 -->
+  <rect x="240" y="588" width="914" height="44" rx="7" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <circle cx="260" cy="610" r="5.5" fill="#f5c451"/>
+  <text x="278" y="614" fill="#f2f6fb" font-size="12.5">Nosferatu (2024) 1080p BluRay DTS-HD H.264</text>
+  <text x="884" y="608" fill="#f5c451" font-size="10.5" text-anchor="end">processing</text>
+  <text x="1148" y="608" fill="#7f91ab" font-size="10.5" text-anchor="end">—</text>
+
+  <!-- Row 4 -->
+  <rect x="240" y="636" width="914" height="44" rx="7" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <circle cx="260" cy="658" r="5.5" fill="#38d27d"/>
+  <text x="278" y="662" fill="#f2f6fb" font-size="12.5">The Brutalist (2024) Remux.2160p.HDR10.TrueHD</text>
+  <text x="884" y="656" fill="#38d27d" font-size="10.5" text-anchor="end">completed</text>
+  <text x="1148" y="656" fill="#7f91ab" font-size="10.5" text-anchor="end">89.4 GB</text>
+
+  <!-- Row 5 -->
+  <rect x="240" y="684" width="914" height="44" rx="7" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <circle cx="260" cy="706" r="5.5" fill="#38d27d"/>
+  <text x="278" y="710" fill="#f2f6fb" font-size="12.5">Conclave (2024) 4K UHD BluRay HEVC Atmos</text>
+  <text x="884" y="704" fill="#38d27d" font-size="10.5" text-anchor="end">completed</text>
+  <text x="1148" y="704" fill="#7f91ab" font-size="10.5" text-anchor="end">28.7 GB</text>
+
+  <!-- Row 6 -->
+  <rect x="240" y="732" width="914" height="44" rx="7" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <circle cx="260" cy="754" r="5.5" fill="#ff6b6b"/>
+  <text x="278" y="758" fill="#f2f6fb" font-size="12.5">Alien Romulus (2024) 2160p AMZN WEB-DL</text>
+  <text x="884" y="752" fill="#ff6b6b" font-size="10.5" text-anchor="end">error</text>
+  <text x="1148" y="752" fill="#7f91ab" font-size="10.5" text-anchor="end">—</text>
 </svg>

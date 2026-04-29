@@ -1445,15 +1445,18 @@ textarea.input { resize: vertical; }
           <div class="card-body" style="max-width:740px;display:flex;flex-direction:column;gap:20px">
 
             <h3 style="margin:0;color:var(--accent);font-size:15px">Settings reference</h3>
+            <p style="margin:0;color:var(--text2);font-size:13px">Settings are organised into five tabs. All changes take effect after clicking <strong>Save Settings</strong>.</p>
 
             <!-- General -->
             <div>
               <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">⚡ General</h4>
               <table style="border-collapse:collapse;width:100%;font-size:12px">
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">AllDebrid API Key</td><td style="padding:5px 0;color:var(--text3)">Required. Get from alldebrid.com/apikeys.</td></tr>
                 <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Download Folder</td><td style="padding:5px 0;color:var(--text3)">Path inside the container where aria2 saves files. Must match your Docker volume mapping.</td></tr>
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Watch Folder</td><td style="padding:5px 0;color:var(--text3)">Optional. Drop .torrent/.magnet files here for automatic import.</td></tr>
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Processed Folder</td><td style="padding:5px 0;color:var(--text3)">Optional. Watch-folder files are moved here after import instead of deleted.</td></tr>
-                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Max Concurrent Downloads</td><td style="padding:5px 0;color:var(--text3)">How many AllDebrid magnets are processed in parallel. Independent of aria2 connections.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Watch / Processed Folder</td><td style="padding:5px 0;color:var(--text3)">Optional. Drop .torrent/.magnet files in Watch for automatic import.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Max Concurrent Downloads</td><td style="padding:5px 0;color:var(--text3)">How many AllDebrid magnets are processed at once. Default: 3.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Stuck Timeout (h)</td><td style="padding:5px 0;color:var(--text3)">Hours before a stuck torrent is auto-retried. 0 = disabled.</td></tr>
+                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Rate Limit / Sync</td><td style="padding:5px 0;color:var(--text3)">AllDebrid API calls per minute (default 60) and background reconciliation interval.</td></tr>
               </table>
             </div>
 
@@ -1461,42 +1464,43 @@ textarea.input { resize: vertical; }
             <div>
               <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">⬇️ Download</h4>
               <table style="border-collapse:collapse;width:100%;font-size:12px">
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">aria2 Mode</td><td style="padding:5px 0;color:var(--text3)">Built-in (recommended) or External.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">aria2 Mode</td><td style="padding:5px 0;color:var(--text3)">Built-in (default, no setup) or External (point to your own aria2 RPC endpoint).</td></tr>
                 <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Simultaneous Downloads</td><td style="padding:5px 0;color:var(--text3)">Files aria2 downloads at once. Default 3. Recommended max 5.</td></tr>
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Split / Min Split Size</td><td style="padding:5px 0;color:var(--text3)">Parallel segments per file / minimum file size to split. Defaults: 4 / 20M.</td></tr>
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Disk Cache</td><td style="padding:5px 0;color:var(--text3)">0 for SSD, 16M for network mounts. See RAM &amp; Memory tab.</td></tr>
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">File Allocation</td><td style="padding:5px 0;color:var(--text3)">none (recommended). falloc is fast but blocks aria2 completely during pre-allocation.</td></tr>
-                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Retry Count / Delay</td><td style="padding:5px 0;color:var(--text3)">How many times a failed download is retried automatically, and how long to wait.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Disk Cache</td><td style="padding:5px 0;color:var(--text3)">0 for local SSD; 16M for network mounts (NFS/SMB/mergerfs). See RAM &amp; Memory tab.</td></tr>
+                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">File Allocation</td><td style="padding:5px 0;color:var(--text3)">none (recommended). falloc blocks aria2 during pre-allocation — avoid for large files on network shares.</td></tr>
               </table>
             </div>
 
-            <!-- Integrations -->
+            <!-- Notifications -->
             <div>
-              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">🔗 Integrations</h4>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">🔔 Notifications</h4>
               <table style="border-collapse:collapse;width:100%;font-size:12px">
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">AllDebrid API Key</td><td style="padding:5px 0;color:var(--text3)">Required. Get from alldebrid.com/apikeys.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Webhook URL</td><td style="padding:5px 0;color:var(--text3)">Main Discord webhook for all events.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Added Webhook</td><td style="padding:5px 0;color:var(--text3)">Optional separate webhook for "torrent added" events (different channel).</td></tr>
+                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Event toggles</td><td style="padding:5px 0;color:var(--text3)">Enable/disable notifications per event type: Added, Completed, Error.</td></tr>
+              </table>
+            </div>
+
+            <!-- Services -->
+            <div>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">🔌 Services</h4>
+              <table style="border-collapse:collapse;width:100%;font-size:12px">
                 <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Sonarr / Radarr</td><td style="padding:5px 0;color:var(--text3)">Base URL + API key. Triggers import scan after download completes.</td></tr>
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Stuck Timeout</td><td style="padding:5px 0;color:var(--text3)">Hours before a stuck torrent is auto-retried. 0 = disabled.</td></tr>
-                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Rate Limit</td><td style="padding:5px 0;color:var(--text3)">AllDebrid API calls per minute. Default 60. 0 = unlimited.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Jackett</td><td style="padding:5px 0;color:var(--text3)">URL + API key. Enables the Search view with multi-indexer chip picker.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">FlexGet</td><td style="padding:5px 0;color:var(--text3)">URL + token (run <code>flexget web gentoken</code>). Tasks shown in sidebar.</td></tr>
+                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Labels</td><td style="padding:5px 0;color:var(--text3)">One label per line — shown in the Add Torrent dialog and filter chips.</td></tr>
               </table>
             </div>
 
-            <!-- Filters -->
+            <!-- Advanced -->
             <div>
-              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">🚫 Filters</h4>
+              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">🛠️ Advanced</h4>
               <table style="border-collapse:collapse;width:100%;font-size:12px">
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Blocked Extensions</td><td style="padding:5px 0;color:var(--text3)">Files with these extensions are skipped. One per line. Images and .nfo blocked by default.</td></tr>
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Blocked Keywords</td><td style="padding:5px 0;color:var(--text3)">Files whose name contains any of these strings are skipped.</td></tr>
-                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Min File Size</td><td style="padding:5px 0;color:var(--text3)">Files smaller than this (MB) are skipped. Useful to skip cover art or subtitles.</td></tr>
-              </table>
-            </div>
-
-            <!-- Polling -->
-            <div>
-              <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">⏱ Polling</h4>
-              <table style="border-collapse:collapse;width:100%;font-size:12px">
-                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">AllDebrid Poll Interval</td><td style="padding:5px 0;color:var(--text3)">How often (seconds) AllDebrid is checked for torrent status. Default 30 s.</td></tr>
-                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Watch Folder Scan</td><td style="padding:5px 0;color:var(--text3)">How often (seconds) the watch folder is scanned. Default 10 s.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">File Filters</td><td style="padding:5px 0;color:var(--text3)">Block by extension, keyword, or minimum size (MB). Filtered files are skipped before download.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Polling</td><td style="padding:5px 0;color:var(--text3)">AllDebrid check interval (default 30 s) and watch folder scan interval (default 10 s).</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Backups</td><td style="padding:5px 0;color:var(--text3)">Automatic SQLite backups on a configurable schedule with retention days.</td></tr>
+                <tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Reporting</td><td style="padding:5px 0;color:var(--text3)">Periodic statistics summary sent to a Discord webhook. Configure interval and window.</td></tr>
+                <tr><td style="padding:5px 12px 5px 0;font-weight:600;color:var(--text2);white-space:nowrap;vertical-align:top">Database</td><td style="padding:5px 0;color:var(--text3)">SQLite (default) or PostgreSQL. Migration tool included. Wipe button is guarded by a toggle.</td></tr>
               </table>
             </div>
 
@@ -1504,7 +1508,6 @@ textarea.input { resize: vertical; }
         </div>
       </div>
 
-      <!-- ── Troubleshooting ───────────────────────────────────────────────── -->
       <div class="help-panel" id="htab-trouble">
         <div class="card" style="margin-top:0;border-radius:0 0 var(--radius) var(--radius)">
           <div class="card-body" style="max-width:740px;display:flex;flex-direction:column;gap:12px">

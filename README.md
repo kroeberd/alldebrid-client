@@ -40,18 +40,20 @@ AllDebrid-Client automates the full torrent lifecycle via your AllDebrid account
 
 | Category | Details |
 |----------|---------|
-| **Input sources** | Web UI paste, Jackett search, watch folder (`.torrent`/`.magnet`), Sonarr/Radarr download client, REST API |
-| **Download client** | **Built-in aria2 daemon** (default, no setup) or external aria2 instance |
-| **Jackett search** | Search any Jackett-indexed tracker from the UI — category + indexer filters, direct Add button |
-| **Downloads view** | Live aria2 queue with 1-second auto-refresh, per-file progress bars, Pause/Resume/Remove, quick speed-limit preset |
-| **Discord webhooks** | Rich embeds for: Torrent Added, Download Complete, Error, Partial (filtered), FlexGet events, Stats reports |
+| **Input sources** | Web UI paste, Jackett search (multi-indexer), watch folder (`.torrent`/`.magnet`), Sonarr/Radarr, REST API |
+| **Download client** | **Built-in aria2** (default, zero setup) or external aria2 instance |
+| **Live speed badge** | Real-time aria2 download speed shown in the header (built-in mode only) |
+| **Jackett search** | Multi-indexer selection with chip UI, category filters, direct Add from results |
+| **Torrent list** | Pagination (15 / 25 / 50 / 100 per page), status filter, full-text search, bulk actions |
+| **Downloads view** | Live aria2 queue with 1-second auto-refresh, per-file progress bars, Pause/Resume/Remove |
+| **Discord webhooks** | Rich embeds for: Torrent Added, Download Complete, Error, Partial, FlexGet events, Stats reports |
 | **FlexGet v3** | Schedule and trigger tasks from the UI; per-event Discord notifications |
 | **Sonarr / Radarr** | Acts as a download client; triggers import on completion |
 | **File filters** | Block by extension, keyword, or minimum size before any download starts |
 | **Database** | SQLite (zero-config default) or external PostgreSQL |
-| **Statistics** | Rolling snapshots, configurable retention, periodic summary webhooks |
+| **Statistics** | Period selector (1h / 24h / 7d / 30d / 1y / all), rolling snapshots, Discord summary reports |
+| **Help sidebar** | Built-in docs: Quick Start, How It Works, aria2, RAM & Memory, Integrations, Settings Reference, Troubleshooting |
 | **Backups** | Scheduled SQLite backups with configurable retention |
-| **Config validation** | Invalid URLs, oversized values, stale JSON corrected automatically at startup |
 
 ---
 
@@ -97,34 +99,39 @@ All settings are in the **Settings** page of the web UI. The most important ones
 | Setting | Where | Notes |
 |---------|-------|-------|
 | `PUID` / `PGID` env vars | `docker-compose.yml` | UID/GID for downloaded files — must match the user running Sonarr/Radarr/Plex. Run `id` on the host to find yours. |
-| AllDebrid API key | Settings → General | Required |
-| Download folder | Settings → General | Must be writable by the container |
-| aria2 RPC URL | Settings → Download | e.g. `http://localhost:6800/jsonrpc` |
-| aria2 RPC secret | Settings → Download | Leave empty if no secret is set |
+| AllDebrid API key | Settings → ⚡ General | Required |
+| Download folder | Settings → ⚡ General | Must be writable by the container |
+| aria2 mode | Settings → ⬇️ Download | Built-in (default) or External |
+| aria2 RPC URL | Settings → ⬇️ Download | Only for External mode: e.g. `http://localhost:6800/jsonrpc` |
+| Discord webhook | Settings → 🔔 Notifications | Optional |
+| Sonarr / Radarr | Settings → 🔌 Services | URL + API key |
+| File filters | Settings → 🛠️ Advanced | Block extensions, keywords, min size |
 
 Everything else has sensible defaults and can be tuned later.
 
-### Built-in aria2
+### Built-in aria2 (default)
 
-The built-in aria2 is enabled by default. No setup required. The container starts an embedded aria2 process — no separate container required. The Downloads view (sidebar) shows the live queue and lets you set a speed limit.
+Built-in aria2 is enabled by default — no extra setup required. The container manages an embedded aria2 process automatically. The Downloads view shows the live queue with speed controls, and the header displays the current download speed in real time.
 
-### External aria2 (recommended for Unraid)
+### External aria2
 
-Point to your existing aria2 via the RPC URL. The Downloads view works the same way.
+If you already run aria2 separately, switch to External in Settings → ⬇️ Download and enter the RPC URL. The Downloads view works identically.
 
 ---
 
 ## Jackett Search
 
 1. Install and run [Jackett](https://github.com/Jackett/Jackett)
-2. In AllDebrid-Client Settings → 🔍 Jackett: enter the Jackett URL and API key, enable Jackett, Save
-3. The **Search** sidebar entry appears — search by title, filter by category or indexer, click **Add** to queue a result
+2. In AllDebrid-Client **Settings → 🔌 Services → Jackett**: enter the URL and API key, enable Jackett, Save
+3. The **Search** sidebar entry appears — search by title, filter by category
+4. Select one or multiple indexers using the chip picker (tap-friendly on mobile)
+5. Click **Add** next to any result to queue it immediately
 
 ---
 
 ## Discord Webhooks
 
-Set `discord_webhook_url` in Settings → 🔔 Discord. Optionally set a separate URL for "torrent added" events (`discord_webhook_added`) and for Jackett additions (`jackett_webhook_url`).
+Set `discord_webhook_url` in Settings → 🔔 Notifications. Optionally set a separate URL for "torrent added" events (`discord_webhook_added`) and for Jackett additions (`jackett_webhook_url`).
 
 **Events:**
 
@@ -156,7 +163,7 @@ Or add AllDebrid-Client as a custom script client pointing to the REST API.
 flexget web gentoken   # generate API token
 ```
 
-Enter the token in Settings → 🤖 FlexGet. Tasks are executed via `POST /api/tasks/execute/`.
+Enter the token in **Settings → 🔌 Services → FlexGet**. Tasks are executed via `POST /api/tasks/execute/`.
 
 ---
 

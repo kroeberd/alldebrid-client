@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.5.2] — 2026-04-29
+
+### Fixed — Settings icons showing as raw HTML entities
+- **Root cause:** Tab label strings stored as HTML entities (`'&#9889; General'`) were passed
+  through `esc()` which escaped `&` → `&amp;`, producing literal `&#9889;` in the DOM.
+- **Fix:** All tab labels now use direct Unicode characters (⚡ ⬇️ 🔔 🔌 🛠️). `esc()` removed
+  from tab label rendering — labels are hardcoded, not user input.
+
+### Fixed — Statistics period filter had no effect
+- **Root cause (backend):** `torrent_total` and `torrent_size_total` always queried all-time
+  regardless of the selected period. `daily_completions` used a hardcoded 14-day window.
+- **Root cause (frontend):** Chart always fetched `period=all` as a second API call, ignoring
+  the user's selection.
+- **Fix (backend):** All totals now respect `period`. `daily_completions` uses period-aware
+  grouping: 1h → minutes, 24h → hours, 7d/30d → days, 1y → months, all → last 90 days.
+- **Fix (frontend):** Chart uses data from the same period-filtered API call.
+  Chart title updates dynamically: *"Completions — last hour"*, *"…last 7 days"*, etc.
+
+### Replaced — Indexer multi-select with custom chip picker
+- **Problem:** Native `<select multiple>` with Ctrl+click is non-functional on mobile.
+- **Fix:** Custom dropdown with checkbox list and chip UI:
+  - Tap any indexer to select it; chips appear in the trigger button with ✕ to remove
+  - **All Indexers** toggle at the top (default)
+  - Closes on outside click
+  - Fully dark/light mode via CSS variables
+  - Hidden `<select>` kept for backend compatibility
+
 ## [1.5.1] — 2026-04-29
 
 ### Settings — restructured from 11 tabs to 5
@@ -139,6 +166,22 @@ The disk-cache field now explicitly explains:
 #### page-cache drop note updated
 The Memory Info / Drop Page Cache buttons and their description now note that
 `posix_fadvise(DONTNEED)` works on any Linux system; it is a no-op on Windows/macOS.
+
+## [1.5.0] — 2026-04-29
+
+### Added — Help sidebar view
+
+New **❓ Help** entry in the sidebar with seven documentation tabs:
+
+| Tab | Contents |
+|-----|----------|
+| 🚀 Quick Start | 5-step setup guide, Docker Compose reference |
+| 📖 How It Works | Full pipeline (Upload → Poll → Unlock → Download → Notify) + status table |
+| ⬇️ aria2 | Built-in vs External, key settings, automatic memory optimisations |
+| 🧠 RAM & Memory | Page cache vs process RAM, Memory Info / Drop Page Cache explained |
+| 🔌 Integrations | Sonarr/Radarr, Discord, Jackett, Watch Folder, FlexGet setup |
+| ⚙️ Settings Reference | Every settings field documented |
+| 🔧 Troubleshooting | 8 expandable FAQ entries (stuck torrents, 503, Sonarr import, RAM, permissions…) |
 
 ## [1.4.9] — 2026-04-29
 

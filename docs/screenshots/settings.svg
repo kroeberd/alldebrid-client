@@ -1,72 +1,133 @@
-<svg width="1200" height="750" viewBox="0 0 1200 750" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', system-ui, sans-serif">
+<svg width="1200" height="780" viewBox="0 0 1200 780" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', system-ui, sans-serif">
   <defs>
-    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0d1220"/><stop offset="100%" stop-color="#080c14"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#07101c"/><stop offset="100%" stop-color="#040a12"/>
     </linearGradient>
+    <linearGradient id="surface" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a2940"/><stop offset="100%" stop-color="#132033"/>
+    </linearGradient>
+    <linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff8c42"/><stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-  <rect width="1200" height="750" fill="url(#bg2)"/>
+
+  <rect width="1200" height="780" fill="url(#bg)"/>
+
   <!-- Sidebar -->
-  <rect x="0" y="0" width="220" height="750" fill="#0a0f1c"/>
-  <rect x="220" y="0" width="1" height="750" fill="#1e2d45"/>
-  <circle cx="36" cy="38" r="14" fill="none" stroke="#f97316" stroke-width="2"/>
-  <circle cx="36" cy="38" r="6" fill="#f97316"/>
-  <text x="57" y="44" fill="#f0f4f8" font-size="15" font-weight="700">AllDebrid-Client</text>
-  <text x="36" y="90" fill="#6b7f99" font-size="13">◉ Dashboard</text>
-  <text x="36" y="130" fill="#6b7f99" font-size="13">⊟ Torrents</text>
-  <text x="36" y="166" fill="#6b7f99" font-size="13">⊟ Events</text>
-  <rect x="8" y="188" width="204" height="36" rx="8" fill="#f97316" opacity="0.15"/>
-  <text x="36" y="210" fill="#f97316" font-size="13" font-weight="600">⚙ Settings</text>
+  <rect x="0" y="0" width="222" height="780" fill="#0d1626"/>
+  <rect x="222" y="0" width="1" height="780" fill="#24344d"/>
+  <circle cx="34" cy="36" r="13" fill="none" stroke="#ff8c42" stroke-width="1.5" filter="url(#glow)"/>
+  <circle cx="34" cy="36" r="5" fill="#ff8c42"/>
+  <text x="55" y="41" fill="#f2f6fb" font-size="13" font-weight="700">AllDebrid-Client</text>
+  <text x="55" y="54" fill="#ff8c42" font-size="9" font-weight="600" letter-spacing="0.5">v1.5.2</text>
+  <text x="16" y="84" fill="#7f91ab" font-size="9" font-weight="700" letter-spacing="1.2">QUEUE</text>
+  <text x="26" y="112" fill="#7f91ab" font-size="12.5">⚡ Dashboard</text>
+  <text x="26" y="142" fill="#7f91ab" font-size="12.5">🧲 Torrents</text>
+  <text x="26" y="172" fill="#7f91ab" font-size="12.5">🔍 Search</text>
+  <text x="26" y="202" fill="#7f91ab" font-size="12.5">⬇️ Downloads</text>
+  <text x="16" y="230" fill="#7f91ab" font-size="9" font-weight="700" letter-spacing="1.2">MONITOR</text>
+  <text x="26" y="250" fill="#7f91ab" font-size="12.5">📋 Event Log</text>
+  <text x="26" y="278" fill="#7f91ab" font-size="12.5">📊 Statistics</text>
+  <text x="16" y="306" fill="#7f91ab" font-size="9" font-weight="700" letter-spacing="1.2">CONFIG</text>
+  <rect x="6" y="312" width="210" height="34" rx="7" fill="#ff8c42" opacity="0.14"/>
+  <rect x="6" y="312" width="3" height="34" rx="1.5" fill="#ff8c42"/>
+  <text x="26" y="334" fill="#ff8c42" font-size="12.5" font-weight="600">⚙️ Settings</text>
+  <text x="26" y="362" fill="#7f91ab" font-size="12.5">❓ Help</text>
+  <rect x="8" y="700" width="206" height="74" rx="8" fill="#132033" opacity="0.7"/>
+  <circle cx="22" cy="720" r="4" fill="#38d27d" filter="url(#glow)"/>
+  <text x="34" y="724" fill="#b8c4d6" font-size="10.5">AllDebrid · Premium</text>
+  <circle cx="22" cy="742" r="4" fill="#38d27d"/>
+  <text x="34" y="746" fill="#b8c4d6" font-size="10.5">aria2 · built-in · 1.37.0</text>
+  <text x="34" y="762" fill="#63a4ff" font-size="9.5">↓ 0 B/s</text>
 
-  <!-- Header -->
-  <text x="248" y="44" fill="#f0f4f8" font-size="20" font-weight="700">Settings</text>
+  <!-- Top bar -->
+  <rect x="222" y="0" width="978" height="58" fill="#0d1626" opacity="0.95"/>
+  <rect x="222" y="57" width="978" height="1" fill="#24344d"/>
+  <text x="244" y="36" fill="#f2f6fb" font-size="18" font-weight="700">Settings</text>
 
-  <!-- Tabs -->
-  <rect x="240" y="60" width="940" height="44" rx="8" fill="#0f172a"/>
-  <!-- Tab buttons -->
-  <rect x="246" y="66" width="90" height="32" rx="6" fill="#f97316" opacity="0.2"/>
-  <text x="291" y="86" fill="#f97316" font-size="12" font-weight="600" text-anchor="middle">⚡ General</text>
-  <text x="376" y="86" fill="#6b7f99" font-size="12" text-anchor="middle">⬇️ Download</text>
-  <text x="466" y="86" fill="#6b7f99" font-size="12" text-anchor="middle">🔔 Discord</text>
-  <text x="556" y="86" fill="#6b7f99" font-size="12" text-anchor="middle">🔗 Integrations</text>
-  <text x="651" y="86" fill="#6b7f99" font-size="12" text-anchor="middle">🗄️ Database</text>
-  <text x="736" y="86" fill="#6b7f99" font-size="12" text-anchor="middle">🚫 Filters</text>
-  <text x="816" y="86" fill="#6b7f99" font-size="12" text-anchor="middle">⏱ Polling</text>
-  <text x="891" y="86" fill="#6b7f99" font-size="12" text-anchor="middle">💾 Backup</text>
-  <text x="966" y="86" fill="#6b7f99" font-size="12" text-anchor="middle">🤖 FlexGet</text>
-  <text x="1046" y="86" fill="#6b7f99" font-size="12" text-anchor="middle">📊 Reporting</text>
+  <!-- Settings Tab bar: 5 tabs -->
+  <rect x="240" y="68" width="914" height="38" rx="0" fill="#0d1626"/>
+  <rect x="240" y="105" width="914" height="1" fill="#24344d"/>
 
-  <!-- AllDebrid card -->
-  <rect x="240" y="116" width="940" height="140" rx="10" fill="#111827" stroke="#1e2d45" stroke-width="1"/>
-  <text x="264" y="143" fill="#9ca3af" font-size="11" font-weight="700" letter-spacing="1">🔑 ALLDEBRID</text>
-  <rect x="240" y="116" width="940" height="3" rx="2" fill="#f97316" opacity="0.6"/>
-  <text x="264" y="174" fill="#6b7f99" font-size="12">API Key</text>
-  <rect x="264" y="182" width="700" height="36" rx="8" fill="#0f172a" stroke="#2d3f5e" stroke-width="1"/>
-  <text x="284" y="204" fill="#4b5563" font-size="13">••••••••••••••••••••••••••</text>
-  <rect x="976" y="182" width="80" height="36" rx="8" fill="#1e40af"/>
-  <text x="1016" y="204" fill="white" font-size="13" font-weight="600" text-anchor="middle">Test</text>
-  <text x="264" y="240" fill="#6b7f99" font-size="12">Agent Name</text>
+  <!-- Tab: General (active) -->
+  <rect x="240" y="68" width="150" height="38" rx="0" fill="transparent"/>
+  <rect x="240" y="103" width="150" height="3" rx="1.5" fill="#ff8c42"/>
+  <text x="315" y="92" fill="#ff8c42" font-size="12.5" text-anchor="middle" font-weight="600">⚡ General</text>
 
-  <!-- Folders card -->
-  <rect x="240" y="270" width="940" height="230" rx="10" fill="#111827" stroke="#1e2d45" stroke-width="1"/>
-  <text x="264" y="297" fill="#9ca3af" font-size="11" font-weight="700" letter-spacing="1">📁 FOLDERS</text>
-  <rect x="240" y="270" width="940" height="3" rx="2" fill="#f59e0b" opacity="0.6"/>
-  <text x="264" y="328" fill="#6b7f99" font-size="12">Watch Folder</text>
-  <rect x="264" y="336" width="800" height="36" rx="8" fill="#0f172a" stroke="#2d3f5e" stroke-width="1"/>
-  <text x="284" y="358" fill="#9ca3af" font-size="13">/app/data/watch</text>
-  <text x="264" y="400" fill="#6b7f99" font-size="12">Processed Folder</text>
-  <rect x="264" y="408" width="800" height="36" rx="8" fill="#0f172a" stroke="#2d3f5e" stroke-width="1"/>
-  <text x="284" y="430" fill="#9ca3af" font-size="13">/app/data/processed</text>
-  <text x="264" y="462" fill="#6b7f99" font-size="12">Download Folder</text>
-  <rect x="264" y="470" width="800" height="36" rx="8" fill="#0f172a" stroke="#2d3f5e" stroke-width="1"/>
-  <text x="284" y="492" fill="#9ca3af" font-size="13">/download</text>
+  <!-- Tab: Download -->
+  <text x="465" y="92" fill="#7f91ab" font-size="12.5" text-anchor="middle">⬇️ Download</text>
+
+  <!-- Tab: Notifications -->
+  <text x="640" y="92" fill="#7f91ab" font-size="12.5" text-anchor="middle">🔔 Notifications</text>
+
+  <!-- Tab: Services -->
+  <text x="810" y="92" fill="#7f91ab" font-size="12.5" text-anchor="middle">🔌 Services</text>
+
+  <!-- Tab: Advanced -->
+  <text x="970" y="92" fill="#7f91ab" font-size="12.5" text-anchor="middle">🛠️ Advanced</text>
+
+  <!-- ── General Tab Content ── -->
+
+  <!-- scard: AllDebrid -->
+  <rect x="240" y="116" width="914" height="108" rx="9" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <text x="260" y="138" fill="#b8c4d6" font-size="11.5" font-weight="600">🔑 AllDebrid</text>
+  <rect x="240" y="148" width="914" height="1" fill="#24344d"/>
+  <text x="262" y="172" fill="#7f91ab" font-size="10.5">API Key</text>
+  <rect x="370" y="160" width="460" height="28" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="384" y="178" fill="#314565" font-size="12">••••••••••••••••••••••••••••••••••</text>
+  <rect x="840" y="160" width="108" height="28" rx="6" fill="#132033" stroke="#314565" stroke-width="1"/>
+  <text x="894" y="178" fill="#b8c4d6" font-size="11" text-anchor="middle">🔑 Test Key</text>
+  <text x="262" y="207" fill="#7f91ab" font-size="10">Required — get your key at alldebrid.com/apikeys</text>
+
+  <!-- scard: Folders -->
+  <rect x="240" y="234" width="914" height="180" rx="9" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <text x="260" y="256" fill="#b8c4d6" font-size="11.5" font-weight="600">📁 Folders &amp; Behaviour</text>
+  <rect x="240" y="266" width="914" height="1" fill="#24344d"/>
+  <text x="262" y="290" fill="#7f91ab" font-size="10.5">Download Folder</text>
+  <rect x="370" y="278" width="764" height="28" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="384" y="296" fill="#b8c4d6" font-size="12">/download</text>
+  <text x="262" y="332" fill="#7f91ab" font-size="10.5">Watch Folder</text>
+  <rect x="370" y="320" width="764" height="28" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="384" y="338" fill="#314565" font-size="12">/watch  (optional)</text>
+  <text x="262" y="374" fill="#7f91ab" font-size="10.5">Max Concurrent Downloads</text>
+  <rect x="370" y="362" width="80" height="28" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="410" y="380" fill="#b8c4d6" font-size="12" text-anchor="middle">3</text>
+  <text x="262" y="404" fill="#7f91ab" font-size="10">Folders are paths inside the container — map host directories via Docker volumes</text>
+
+  <!-- scard: Stuck + Rate -->
+  <rect x="240" y="424" width="440" height="130" rx="9" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <text x="260" y="446" fill="#b8c4d6" font-size="11.5" font-weight="600">⚠️ Stuck Timeout</text>
+  <rect x="240" y="456" width="440" height="1" fill="#24344d"/>
+  <text x="262" y="480" fill="#7f91ab" font-size="10.5">Stuck Timeout (hours)</text>
+  <rect x="370" y="468" width="80" height="28" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="410" y="486" fill="#b8c4d6" font-size="12" text-anchor="middle">6</text>
+  <text x="262" y="516" fill="#7f91ab" font-size="10">Auto-retry torrents stuck longer than this. 0 = disabled.</text>
+  <text x="262" y="534" fill="#7f91ab" font-size="10.5">Full Sync Interval (min)</text>
+  <rect x="370" y="524" width="80" height="28" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="410" y="542" fill="#b8c4d6" font-size="12" text-anchor="middle">30</text>
+
+  <rect x="694" y="424" width="460" height="130" rx="9" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <text x="714" y="446" fill="#b8c4d6" font-size="11.5" font-weight="600">🚦 Rate Limit &amp; Retry</text>
+  <rect x="694" y="456" width="460" height="1" fill="#24344d"/>
+  <text x="716" y="480" fill="#7f91ab" font-size="10.5">Rate Limit (req/min)</text>
+  <rect x="840" y="468" width="80" height="28" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="880" y="486" fill="#b8c4d6" font-size="12" text-anchor="middle">60</text>
+  <text x="716" y="516" fill="#7f91ab" font-size="10.5">Retry Count</text>
+  <rect x="840" y="506" width="80" height="28" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="880" y="524" fill="#b8c4d6" font-size="12" text-anchor="middle">3</text>
+  <text x="716" y="546" fill="#7f91ab" font-size="10.5">Retry Delay (s)</text>
+  <rect x="840" y="536" width="80" height="28" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="880" y="554" fill="#b8c4d6" font-size="12" text-anchor="middle">60</text>
 
   <!-- Save bar -->
-  <rect x="240" y="640" width="940" height="60" rx="10" fill="#111827" stroke="#1e2d45" stroke-width="1"/>
-  <text x="264" y="674" fill="#6b7f99" font-size="12">Settings are applied immediately after saving.</text>
-  <rect x="800" y="652" width="110" height="36" rx="8" fill="#1e2d45"/>
-  <text x="855" y="674" fill="#9ca3af" font-size="12" text-anchor="middle">🔔 Test Discord</text>
-  <rect x="920" y="652" width="110" height="36" rx="8" fill="#1e2d45"/>
-  <text x="975" y="674" fill="#9ca3af" font-size="12" text-anchor="middle">🔑 Test AllDebrid</text>
-  <rect x="1040" y="652" width="128" height="36" rx="8" fill="#f97316"/>
-  <text x="1104" y="674" fill="white" font-size="13" font-weight="700" text-anchor="middle">💾 Save Settings</text>
+  <rect x="240" y="710" width="914" height="60" rx="0" fill="#0d1626" opacity="0.9"/>
+  <rect x="240" y="710" width="914" height="1" fill="#24344d"/>
+  <text x="262" y="745" fill="#7f91ab" font-size="11">Settings are applied immediately after saving.</text>
+  <rect x="790" y="722" width="120" height="32" rx="7" fill="#132033" stroke="#314565" stroke-width="1"/>
+  <text x="850" y="742" fill="#b8c4d6" font-size="11" text-anchor="middle">🔔 Test Discord</text>
+  <rect x="920" y="722" width="116" height="32" rx="7" fill="#132033" stroke="#314565" stroke-width="1"/>
+  <text x="978" y="742" fill="#b8c4d6" font-size="11" text-anchor="middle">🔑 Test AllDebrid</text>
+  <rect x="1046" y="722" width="100" height="32" rx="7" fill="url(#accent-grad)"/>
+  <text x="1096" y="742" fill="white" font-size="11.5" text-anchor="middle" font-weight="700">💾 Save</text>
 </svg>

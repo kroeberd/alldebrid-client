@@ -1,120 +1,180 @@
-<svg width="1200" height="750" viewBox="0 0 1200 750" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', system-ui, sans-serif">
+<svg width="1200" height="780" viewBox="0 0 1200 780" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', system-ui, sans-serif">
   <defs>
-    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0d1220"/><stop offset="100%" stop-color="#080c14"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#07101c"/><stop offset="100%" stop-color="#040a12"/>
     </linearGradient>
+    <linearGradient id="surface" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a2940"/><stop offset="100%" stop-color="#132033"/>
+    </linearGradient>
+    <linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff8c42"/><stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-  <rect width="1200" height="750" fill="url(#bg3)"/>
-  <rect x="0" y="0" width="220" height="750" fill="#0a0f1c"/>
-  <rect x="220" y="0" width="1" height="750" fill="#1e2d45"/>
-  <circle cx="36" cy="38" r="14" fill="none" stroke="#f97316" stroke-width="2"/>
-  <circle cx="36" cy="38" r="6" fill="#f97316"/>
-  <text x="57" y="44" fill="#f0f4f8" font-size="15" font-weight="700">AllDebrid-Client</text>
-  <text x="36" y="90" fill="#6b7f99" font-size="13">◉ Dashboard</text>
-  <rect x="8" y="108" width="204" height="36" rx="8" fill="#f97316" opacity="0.15"/>
-  <text x="36" y="130" fill="#f97316" font-size="13" font-weight="600">⊟ Torrents</text>
-  <text x="36" y="166" fill="#6b7f99" font-size="13">⊟ Events</text>
-  <text x="36" y="202" fill="#6b7f99" font-size="13">⚙ Settings</text>
 
-  <text x="248" y="44" fill="#f0f4f8" font-size="20" font-weight="700">Torrents</text>
+  <rect width="1200" height="780" fill="url(#bg)"/>
 
-  <!-- Filter bar -->
-  <rect x="240" y="60" width="940" height="44" rx="8" fill="#0f172a" stroke="#1e2d45" stroke-width="1"/>
-  <text x="264" y="87" fill="#4b5563" font-size="13">🔍 Search torrents…</text>
-  <rect x="1060" y="68" width="110" height="28" rx="6" fill="#1e2d45"/>
-  <text x="1115" y="86" fill="#9ca3af" font-size="12" text-anchor="middle">All statuses</text>
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="222" height="780" fill="#0d1626"/>
+  <rect x="222" y="0" width="1" height="780" fill="#24344d"/>
+  <circle cx="34" cy="36" r="13" fill="none" stroke="#ff8c42" stroke-width="1.5" filter="url(#glow)"/>
+  <circle cx="34" cy="36" r="5" fill="#ff8c42"/>
+  <text x="55" y="41" fill="#f2f6fb" font-size="13" font-weight="700">AllDebrid-Client</text>
+  <text x="55" y="54" fill="#ff8c42" font-size="9" font-weight="600" letter-spacing="0.5">v1.5.2</text>
+  <text x="16" y="84" fill="#7f91ab" font-size="9" font-weight="700" letter-spacing="1.2">QUEUE</text>
+  <text x="26" y="112" fill="#7f91ab" font-size="12.5">⚡ Dashboard</text>
+  <rect x="6" y="120" width="210" height="34" rx="7" fill="#ff8c42" opacity="0.14"/>
+  <rect x="6" y="120" width="3" height="34" rx="1.5" fill="#ff8c42"/>
+  <text x="26" y="142" fill="#ff8c42" font-size="12.5" font-weight="600">🧲 Torrents</text>
+  <text x="26" y="174" fill="#7f91ab" font-size="12.5">🔍 Search</text>
+  <text x="26" y="204" fill="#7f91ab" font-size="12.5">⬇️ Downloads</text>
+  <text x="16" y="232" fill="#7f91ab" font-size="9" font-weight="700" letter-spacing="1.2">MONITOR</text>
+  <text x="26" y="252" fill="#7f91ab" font-size="12.5">📋 Event Log</text>
+  <text x="26" y="280" fill="#7f91ab" font-size="12.5">📊 Statistics</text>
+  <text x="16" y="308" fill="#7f91ab" font-size="9" font-weight="700" letter-spacing="1.2">CONFIG</text>
+  <text x="26" y="328" fill="#7f91ab" font-size="12.5">⚙️ Settings</text>
+  <text x="26" y="356" fill="#7f91ab" font-size="12.5">❓ Help</text>
+  <rect x="8" y="700" width="206" height="74" rx="8" fill="#132033" opacity="0.7"/>
+  <circle cx="22" cy="720" r="4" fill="#38d27d" filter="url(#glow)"/>
+  <text x="34" y="724" fill="#b8c4d6" font-size="10.5">AllDebrid · Premium</text>
+  <circle cx="22" cy="742" r="4" fill="#38d27d"/>
+  <text x="34" y="746" fill="#b8c4d6" font-size="10.5">aria2 · built-in · 1.37.0</text>
+  <text x="34" y="762" fill="#63a4ff" font-size="9.5">↓ 18.4 MB/s</text>
+
+  <!-- Top bar -->
+  <rect x="222" y="0" width="978" height="58" fill="#0d1626" opacity="0.95"/>
+  <rect x="222" y="57" width="978" height="1" fill="#24344d"/>
+  <text x="244" y="36" fill="#f2f6fb" font-size="18" font-weight="700">Torrents</text>
+  <rect x="380" y="19" width="100" height="24" rx="12" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <text x="385" y="35" fill="#38d27d" font-size="10">⬇</text>
+  <text x="397" y="35" fill="#b8c4d6" font-size="10">18.4 MB/s</text>
+
+  <!-- Add torrent + Import -->
+  <rect x="240" y="70" width="914" height="50" rx="9" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <rect x="256" y="83" width="580" height="26" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="270" y="100" fill="#314565" font-size="12">magnet:?xt=urn:btih:…</text>
+  <rect x="848" y="83" width="120" height="26" rx="6" fill="url(#accent-grad)"/>
+  <text x="908" y="100" fill="white" font-size="11" font-weight="700" text-anchor="middle">Add Torrent</text>
+  <rect x="978" y="83" width="160" height="26" rx="6" fill="#132033" stroke="#314565" stroke-width="1"/>
+  <text x="1058" y="100" fill="#b8c4d6" font-size="11" text-anchor="middle">⬇ Import from AllDebrid</text>
+
+  <!-- Filter tabs + Search -->
+  <rect x="240" y="132" width="914" height="88" rx="9" fill="url(#surface)" stroke="#24344d" stroke-width="1"/>
+  <!-- filter tabs -->
+  <rect x="256" y="146" width="45" height="26" rx="6" fill="#ff8c42" opacity="0.18"/>
+  <text x="278" y="163" fill="#ff8c42" font-size="11.5" text-anchor="middle" font-weight="600">All</text>
+  <text x="318" y="163" fill="#7f91ab" font-size="11.5">Active</text>
+  <text x="372" y="163" fill="#7f91ab" font-size="11.5">Ready</text>
+  <text x="424" y="163" fill="#7f91ab" font-size="11.5">Done</text>
+  <text x="470" y="163" fill="#7f91ab" font-size="11.5">Error</text>
+  <text x="1136" y="163" fill="#7f91ab" font-size="16" text-anchor="middle">↻</text>
+  <!-- search bar -->
+  <rect x="256" y="182" width="878" height="28" rx="6" fill="#0d1626" stroke="#24344d" stroke-width="1"/>
+  <text x="270" y="200" fill="#314565" font-size="12">Search by torrent name, hash, source, or label…</text>
 
   <!-- Table header -->
-  <rect x="240" y="116" width="940" height="36" rx="6" fill="#0f172a"/>
-  <text x="268" y="138" fill="#6b7f99" font-size="11" font-weight="600">NAME</text>
-  <text x="720" y="138" fill="#6b7f99" font-size="11" font-weight="600">STATUS</text>
-  <text x="850" y="138" fill="#6b7f99" font-size="11" font-weight="600">SIZE</text>
-  <text x="960" y="138" fill="#6b7f99" font-size="11" font-weight="600">ADDED</text>
-  <text x="1100" y="138" fill="#6b7f99" font-size="11" font-weight="600">ACTIONS</text>
+  <rect x="240" y="228" width="914" height="32" rx="0" fill="#0f1d2e"/>
+  <text x="262" y="248" fill="#7f91ab" font-size="10.5" font-weight="700">NAME</text>
+  <text x="600" y="248" fill="#7f91ab" font-size="10.5" font-weight="700">SOURCE / LABEL</text>
+  <text x="732" y="248" fill="#7f91ab" font-size="10.5" font-weight="700">STATUS</text>
+  <text x="832" y="248" fill="#7f91ab" font-size="10.5" font-weight="700">PROGRESS</text>
+  <text x="970" y="248" fill="#7f91ab" font-size="10.5" font-weight="700">SIZE</text>
+  <text x="1048" y="248" fill="#7f91ab" font-size="10.5" font-weight="700">ADDED</text>
 
   <!-- Torrent rows -->
-  <!-- Row 1: completed -->
-  <rect x="240" y="156" width="940" height="52" rx="0" fill="#111827"/>
-  <rect x="240" y="207" width="940" height="1" fill="#1e2d45"/>
-  <circle cx="260" cy="182" r="6" fill="#22c55e"/>
-  <text x="280" y="178" fill="#f0f4f8" font-size="13" font-weight="500">[4K] Dune Part Two (2024) Remux HDR10+</text>
-  <text x="280" y="196" fill="#4b5563" font-size="11">aria2 · /download/Dune.Part.Two.2024</text>
-  <rect x="706" y="170" width="82" height="24" rx="12" fill="#22c55e" opacity="0.15"/>
-  <text x="747" y="186" fill="#22c55e" font-size="11" font-weight="600" text-anchor="middle">completed</text>
-  <text x="850" y="186" fill="#9ca3af" font-size="12">23.8 GB</text>
-  <text x="960" y="186" fill="#6b7f99" font-size="11">2h ago</text>
+  <!-- Row 1 completed -->
+  <rect x="240" y="260" width="914" height="46" rx="0" fill="#132033" opacity="0.4"/>
+  <rect x="240" y="305" width="914" height="1" fill="#1e2d45"/>
+  <circle cx="262" cy="283" r="5" fill="#38d27d" filter="url(#glow)"/>
+  <text x="280" y="280" fill="#f2f6fb" font-size="12.5">[4K] Dune Part Two (2024) Remux.2160p.HDR10</text>
+  <text x="280" y="296" fill="#7f91ab" font-size="10">abc123… · <tspan fill="#ff8c42">movies</tspan></text>
+  <rect x="720" y="272" width="68" height="20" rx="5" fill="#38d27d" opacity="0.18"/>
+  <text x="754" y="285" fill="#38d27d" font-size="10.5" text-anchor="middle" font-weight="600">completed</text>
+  <rect x="808" y="277" width="120" height="8" rx="4" fill="#1e2d45"/>
+  <rect x="808" y="277" width="120" height="8" rx="4" fill="#38d27d"/>
+  <text x="968" y="286" fill="#b8c4d6" font-size="10.5" text-anchor="end">47.3 GB</text>
+  <text x="1140" y="286" fill="#7f91ab" font-size="10.5" text-anchor="end">2h ago</text>
 
-  <!-- Row 2: downloading -->
-  <rect x="240" y="208" width="940" height="52" fill="#111827"/>
-  <rect x="240" y="259" width="940" height="1" fill="#1e2d45"/>
-  <circle cx="260" cy="234" r="6" fill="#3b82f6"/>
-  <text x="280" y="230" fill="#f0f4f8" font-size="13">The Brutalist (2024) 1080p BluRay DTS-HD</text>
-  <text x="280" y="248" fill="#4b5563" font-size="11">aria2 · /download/The.Brutalist.2024</text>
-  <rect x="706" y="222" width="92" height="24" rx="12" fill="#3b82f6" opacity="0.15"/>
-  <text x="752" y="238" fill="#3b82f6" font-size="11" font-weight="600" text-anchor="middle">downloading</text>
-  <text x="850" y="238" fill="#9ca3af" font-size="12">8.1 GB</text>
-  <text x="960" y="238" fill="#6b7f99" font-size="11">14m ago</text>
-  <!-- Progress bar -->
-  <rect x="280" y="251" width="400" height="3" rx="2" fill="#1e2d45"/>
-  <rect x="280" y="251" width="260" height="3" rx="2" fill="#3b82f6"/>
+  <!-- Row 2 downloading -->
+  <rect x="240" y="306" width="914" height="46" rx="0" fill="#132033" opacity="0.6"/>
+  <rect x="240" y="351" width="914" height="1" fill="#1e2d45"/>
+  <circle cx="262" cy="329" r="5" fill="#63a4ff"/>
+  <text x="280" y="326" fill="#f2f6fb" font-size="12.5">Severance S02 2160p WEB-DL DDP5.1 H.265</text>
+  <text x="280" y="342" fill="#7f91ab" font-size="10">def456… · <tspan fill="#ff8c42">series</tspan></text>
+  <rect x="720" y="318" width="80" height="20" rx="5" fill="#63a4ff" opacity="0.18"/>
+  <text x="760" y="331" fill="#63a4ff" font-size="10.5" text-anchor="middle" font-weight="600">downloading</text>
+  <rect x="808" y="323" width="120" height="8" rx="4" fill="#1e2d45"/>
+  <rect x="808" y="323" width="78" height="8" rx="4" fill="#63a4ff"/>
+  <text x="968" y="332" fill="#b8c4d6" font-size="10.5" text-anchor="end">12.1 GB</text>
+  <text x="1140" y="332" fill="#7f91ab" font-size="10.5" text-anchor="end">14m ago</text>
 
-  <!-- Row 3: processing -->
-  <rect x="240" y="260" width="940" height="52" fill="#111827"/>
-  <rect x="240" y="311" width="940" height="1" fill="#1e2d45"/>
-  <circle cx="260" cy="286" r="6" fill="#f59e0b"/>
-  <text x="280" y="282" fill="#f0f4f8" font-size="13">Nosferatu (2024) 4K UHD HDR Dolby Vision</text>
-  <text x="280" y="300" fill="#4b5563" font-size="11">AllDebrid ID: 509451882</text>
-  <rect x="706" y="274" width="84" height="24" rx="12" fill="#f59e0b" opacity="0.15"/>
-  <text x="748" y="290" fill="#f59e0b" font-size="11" font-weight="600" text-anchor="middle">processing</text>
-  <text x="850" y="290" fill="#6b7f99" font-size="12">—</text>
-  <text x="960" y="290" fill="#6b7f99" font-size="11">28m ago</text>
+  <!-- Row 3 processing -->
+  <rect x="240" y="352" width="914" height="46" rx="0" fill="#132033" opacity="0.4"/>
+  <rect x="240" y="397" width="914" height="1" fill="#1e2d45"/>
+  <circle cx="262" cy="375" r="5" fill="#f5c451"/>
+  <text x="280" y="372" fill="#f2f6fb" font-size="12.5">Nosferatu (2024) 1080p BluRay DTS-HD H.264</text>
+  <text x="280" y="388" fill="#7f91ab" font-size="10">ghi789…</text>
+  <rect x="720" y="364" width="72" height="20" rx="5" fill="#f5c451" opacity="0.18"/>
+  <text x="756" y="377" fill="#f5c451" font-size="10.5" text-anchor="middle" font-weight="600">processing</text>
+  <rect x="808" y="369" width="120" height="8" rx="4" fill="#1e2d45"/>
+  <rect x="808" y="369" width="55" height="8" rx="4" fill="#f5c451"/>
+  <text x="968" y="378" fill="#b8c4d6" font-size="10.5" text-anchor="end">8.9 GB</text>
+  <text x="1140" y="378" fill="#7f91ab" font-size="10.5" text-anchor="end">22m ago</text>
 
-  <!-- Row 4: queued -->
-  <rect x="240" y="312" width="940" height="52" fill="#111827"/>
-  <rect x="240" y="363" width="940" height="1" fill="#1e2d45"/>
-  <circle cx="260" cy="338" r="6" fill="#6b7f99"/>
-  <text x="280" y="334" fill="#f0f4f8" font-size="13">Severance S02 Complete 2160p WEB-DL</text>
-  <text x="280" y="352" fill="#4b5563" font-size="11">aria2 · /download/Severance.S02</text>
-  <rect x="706" y="326" width="72" height="24" rx="12" fill="#6b7f99" opacity="0.15"/>
-  <text x="742" y="342" fill="#9ca3af" font-size="11" font-weight="600" text-anchor="middle">queued</text>
-  <text x="850" y="342" fill="#9ca3af" font-size="12">67.2 GB</text>
-  <text x="960" y="342" fill="#6b7f99" font-size="11">1h ago</text>
+  <!-- Row 4 completed -->
+  <rect x="240" y="398" width="914" height="46" rx="0" fill="#132033" opacity="0.4"/>
+  <rect x="240" y="443" width="914" height="1" fill="#1e2d45"/>
+  <circle cx="262" cy="421" r="5" fill="#38d27d"/>
+  <text x="280" y="418" fill="#f2f6fb" font-size="12.5">The Brutalist (2024) Remux.2160p.HDR10.TrueHD</text>
+  <text x="280" y="434" fill="#7f91ab" font-size="10">jkl012… · <tspan fill="#ff8c42">movies</tspan></text>
+  <rect x="720" y="410" width="68" height="20" rx="5" fill="#38d27d" opacity="0.18"/>
+  <text x="754" y="423" fill="#38d27d" font-size="10.5" text-anchor="middle" font-weight="600">completed</text>
+  <rect x="808" y="415" width="120" height="8" rx="4" fill="#38d27d"/>
+  <text x="968" y="424" fill="#b8c4d6" font-size="10.5" text-anchor="end">89.4 GB</text>
+  <text x="1140" y="424" fill="#7f91ab" font-size="10.5" text-anchor="end">5h ago</text>
 
-  <!-- Row 5: error -->
-  <rect x="240" y="364" width="940" height="52" fill="#111827"/>
-  <rect x="240" y="415" width="940" height="1" fill="#1e2d45"/>
-  <circle cx="260" cy="390" r="6" fill="#ef4444"/>
-  <text x="280" y="386" fill="#f0f4f8" font-size="13">Some.Obscure.Documentary.2024.1080p</text>
-  <text x="280" y="404" fill="#ef4444" font-size="11">No peer after 30 minutes — removed</text>
-  <rect x="706" y="378" width="60" height="24" rx="12" fill="#ef4444" opacity="0.15"/>
-  <text x="736" y="394" fill="#ef4444" font-size="11" font-weight="600" text-anchor="middle">error</text>
-  <text x="850" y="394" fill="#6b7f99" font-size="12">—</text>
-  <text x="960" y="394" fill="#6b7f99" font-size="11">3h ago</text>
+  <!-- Row 5 queued -->
+  <rect x="240" y="444" width="914" height="46" rx="0" fill="#132033" opacity="0.4"/>
+  <rect x="240" y="489" width="914" height="1" fill="#1e2d45"/>
+  <circle cx="262" cy="467" r="5" fill="#7f91ab"/>
+  <text x="280" y="464" fill="#f2f6fb" font-size="12.5">Conclave (2024) 4K UHD BluRay HEVC Atmos</text>
+  <text x="280" y="480" fill="#7f91ab" font-size="10">mno345…</text>
+  <rect x="720" y="456" width="56" height="20" rx="5" fill="#7f91ab" opacity="0.18"/>
+  <text x="748" y="469" fill="#7f91ab" font-size="10.5" text-anchor="middle" font-weight="600">queued</text>
+  <rect x="808" y="461" width="120" height="8" rx="4" fill="#1e2d45"/>
+  <text x="968" y="470" fill="#b8c4d6" font-size="10.5" text-anchor="end">28.7 GB</text>
+  <text x="1140" y="470" fill="#7f91ab" font-size="10.5" text-anchor="end">1h ago</text>
 
-  <!-- Row 6-8 faded -->
-  <rect x="240" y="416" width="940" height="52" fill="#111827"/>
-  <circle cx="260" cy="442" r="6" fill="#22c55e" opacity="0.5"/>
-  <text x="280" y="446" fill="#6b7f99" font-size="13">Conclave (2024) 1080p BluRay</text>
-  <text x="850" y="446" fill="#6b7f99" font-size="12">5.2 GB</text>
+  <!-- Row 6 error -->
+  <rect x="240" y="490" width="914" height="46" rx="0" fill="#ff6b6b" opacity="0.05"/>
+  <rect x="240" y="535" width="914" height="1" fill="#1e2d45"/>
+  <circle cx="262" cy="513" r="5" fill="#ff6b6b"/>
+  <text x="280" y="510" fill="#f2f6fb" font-size="12.5">Alien Romulus (2024) 2160p AMZN WEB-DL DDP5</text>
+  <text x="280" y="526" fill="#7f91ab" font-size="10">pqr678…</text>
+  <rect x="720" y="502" width="44" height="20" rx="5" fill="#ff6b6b" opacity="0.18"/>
+  <text x="742" y="515" fill="#ff6b6b" font-size="10.5" text-anchor="middle" font-weight="600">error</text>
+  <text x="968" y="516" fill="#b8c4d6" font-size="10.5" text-anchor="end">—</text>
+  <text x="1140" y="516" fill="#7f91ab" font-size="10.5" text-anchor="end">3h ago</text>
 
-  <rect x="240" y="468" width="940" height="52" fill="#0f172a"/>
-  <circle cx="260" cy="494" r="6" fill="#22c55e" opacity="0.4"/>
-  <text x="280" y="498" fill="#4b5563" font-size="13">Alien Romulus (2024) 4K HDR</text>
-  <text x="850" y="498" fill="#4b5563" font-size="12">18.4 GB</text>
-
-  <rect x="240" y="520" width="940" height="52" fill="#111827"/>
-  <circle cx="260" cy="546" r="6" fill="#22c55e" opacity="0.3"/>
-  <text x="280" y="550" fill="#374151" font-size="13">Furiosa: A Mad Max Saga (2024) 4K</text>
-  <text x="850" y="550" fill="#374151" font-size="12">24.1 GB</text>
-
-  <!-- Pagination -->
-  <text x="248" y="710" fill="#6b7f99" font-size="12">Showing 1–8 of 342 torrents</text>
-  <rect x="1040" y="694" width="36" height="28" rx="6" fill="#1e2d45"/>
-  <text x="1058" y="712" fill="#9ca3af" font-size="13" text-anchor="middle">‹</text>
-  <rect x="1082" y="694" width="36" height="28" rx="6" fill="#f97316"/>
-  <text x="1100" y="712" fill="white" font-size="13" text-anchor="middle">1</text>
-  <rect x="1124" y="694" width="36" height="28" rx="6" fill="#1e2d45"/>
-  <text x="1142" y="712" fill="#9ca3af" font-size="13" text-anchor="middle">2</text>
-  <rect x="1166" y="694" width="36" height="28" rx="6" fill="#1e2d45"/>
-  <text x="1184" y="712" fill="#9ca3af" font-size="13" text-anchor="middle">›</text>
+  <!-- Pagination bar -->
+  <rect x="240" y="536" width="914" height="44" rx="0" fill="#0f1d2e"/>
+  <rect x="240" y="536" width="914" height="1" fill="#24344d"/>
+  <text x="260" y="563" fill="#7f91ab" font-size="11">Per page:</text>
+  <rect x="316" y="550" width="52" height="22" rx="5" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <text x="342" y="565" fill="#b8c4d6" font-size="11" text-anchor="middle">25 ▾</text>
+  <!-- page buttons -->
+  <rect x="680" y="550" width="28" height="22" rx="5" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <text x="694" y="565" fill="#7f91ab" font-size="12" text-anchor="middle">‹</text>
+  <rect x="712" y="550" width="28" height="22" rx="5" fill="#ff8c42" opacity="0.85"/>
+  <text x="726" y="565" fill="white" font-size="11" text-anchor="middle" font-weight="700">1</text>
+  <rect x="744" y="550" width="28" height="22" rx="5" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <text x="758" y="565" fill="#b8c4d6" font-size="11" text-anchor="middle">2</text>
+  <rect x="776" y="550" width="28" height="22" rx="5" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <text x="790" y="565" fill="#b8c4d6" font-size="11" text-anchor="middle">3</text>
+  <text x="814" y="565" fill="#7f91ab" font-size="11">…</text>
+  <rect x="824" y="550" width="28" height="22" rx="5" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <text x="838" y="565" fill="#b8c4d6" font-size="11" text-anchor="middle">17</text>
+  <rect x="856" y="550" width="28" height="22" rx="5" fill="#132033" stroke="#24344d" stroke-width="1"/>
+  <text x="870" y="565" fill="#7f91ab" font-size="12" text-anchor="middle">›</text>
+  <text x="1140" y="565" fill="#7f91ab" font-size="11" text-anchor="end">1–25 of 412</text>
 </svg>
