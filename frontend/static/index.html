@@ -538,9 +538,10 @@ textarea.input { resize: vertical; }
   /* Hamburger */
   .mobile-menu-btn {
     display: flex !important; align-items: center; justify-content: center;
-    width: 36px; height: 36px; border: 1px solid var(--border);
-    border-radius: 8px; background: var(--surface);
-    cursor: pointer; font-size: 20px; flex-shrink: 0; margin-right: 10px;
+    width: 36px; height: 36px; border: 1px solid var(--border2);
+    border-radius: 8px; background: var(--surface2);
+    color: var(--text); cursor: pointer; font-size: 20px;
+    flex-shrink: 0; margin-right: 10px;
   }
 
   /* Topbar */
@@ -708,6 +709,7 @@ textarea.input { resize: vertical; }
   <div id="topbar">
     <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
     <h1 id="page-title">Dashboard</h1>
+    <div id="aria2-speed-badge" style="display:none;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text2)"><span style="color:var(--green)">&#11015;</span><span id="aria2-speed-dl">0 B/s</span></div>
     <div id="topbar-actions"></div>
   </div>
   <div id="content">
@@ -829,6 +831,19 @@ textarea.input { resize: vertical; }
           <tbody id="t-tbody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
         </table>
         </div>
+        <div id="torrent-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border);flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;color:var(--text3)">Per page:</span>
+            <select id="torrent-page-size" class="input" style="width:70px;padding:4px 6px;font-size:12px" onchange="onPageSizeChange(this.value)">
+              <option value="15">15</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div id="torrent-page-btns" style="display:flex;gap:4px;align-items:center"></div>
+          <div id="torrent-page-info" style="font-size:12px;color:var(--text3)"></div>
+        </div>
       </div>
     </div>
 
@@ -856,52 +871,28 @@ textarea.input { resize: vertical; }
 
     <!-- Statistics -->
     <div class="view" id="view-stats">
-      <div class="tab-grid" id="detail-stat-cards">
-        <div class="metric-card">
-          <div class="metric-label">Library</div>
-          <div class="metric-value">â€”</div>
-          <div class="metric-sub">Loading detailed statistics…</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--text3);font-weight:500">Period:</span>
+        <div class="filter-tabs" id="stats-period-tabs">
+          <div class="ftab" data-period="1h" onclick="setStatsPeriod(this)">1h</div>
+          <div class="ftab active" data-period="24h" onclick="setStatsPeriod(this)">24h</div>
+          <div class="ftab" data-period="7d" onclick="setStatsPeriod(this)">7d</div>
+          <div class="ftab" data-period="30d" onclick="setStatsPeriod(this)">30d</div>
+          <div class="ftab" data-period="1y" onclick="setStatsPeriod(this)">1y</div>
+          <div class="ftab" data-period="all" onclick="setStatsPeriod(this)">All time</div>
         </div>
       </div>
-
-      <div class="scard" style="margin-bottom:14px">
-        <div class="scard-header">📈 Daily Completions (14 days)</div>
-        <div class="scard-body" style="padding:12px">
-          <div class="chart-wrap"><canvas id="daily-chart"></canvas></div>
-        </div>
-      </div>
-
+      <div class="tab-grid" id="detail-stat-cards"><div class="metric-card"><div class="metric-label">Library</div><div class="metric-value">&#8212;</div><div class="metric-sub">Loading&#8230;</div></div></div>
+      <div class="scard" style="margin-bottom:14px"><div class="scard-header">&#128200; Daily Completions (14 days)</div><div class="scard-body" style="padding:12px"><div class="chart-wrap"><canvas id="daily-chart"></canvas></div></div></div>
       <div class="split-grid">
-        <div class="list-card">
-          <div class="card-header">
-            <span class="card-title">Torrent Status</span>
-          </div>
-          <div class="card-body" id="detail-torrent-status"><div class="empty">Loading…</div></div>
-        </div>
-        <div class="list-card">
-          <div class="card-header">
-            <span class="card-title">File Status</span>
-          </div>
-          <div class="card-body" id="detail-file-status"><div class="empty">Loading…</div></div>
-        </div>
+        <div class="list-card"><div class="card-header"><span class="card-title">Torrent Status</span></div><div class="card-body" id="detail-torrent-status"><div class="empty">Loading&#8230;</div></div></div>
+        <div class="list-card"><div class="card-header"><span class="card-title">File Status</span></div><div class="card-body" id="detail-file-status"><div class="empty">Loading&#8230;</div></div></div>
       </div>
-
       <div class="split-grid">
-        <div class="list-card">
-          <div class="card-header">
-            <span class="card-title">Monitor Levels</span>
-          </div>
-          <div class="card-body" id="detail-event-levels"><div class="empty">Loading…</div></div>
-        </div>
-        <div class="list-card">
-          <div class="card-header">
-            <span class="card-title">Latest Signals</span>
-          </div>
-          <div class="card-body" id="detail-latest-events"><div class="empty">Loading…</div></div>
-        </div>
+        <div class="list-card"><div class="card-header"><span class="card-title">Monitor Levels</span></div><div class="card-body" id="detail-event-levels"><div class="empty">Loading&#8230;</div></div></div>
+        <div class="list-card"><div class="card-header"><span class="card-title">Top Sources</span></div><div class="card-body" id="detail-sources"><div class="empty">Loading&#8230;</div></div></div>
       </div>
     </div>
-
     <!-- Changelog -->
     <div class="view" id="view-changelog">
       <div class="card">
@@ -942,9 +933,9 @@ textarea.input { resize: vertical; }
             </select>
           </div>
           <div style="min-width:180px">
-            <label class="form-label">Indexers</label>
-            <select class="input" id="jackett-tracker" style="width:100%">
-              <option value="">All Indexers</option>
+            <label class="form-label">Indexers <span style="font-size:10px;color:var(--text3)">(Ctrl+click = multi)</span></label>
+            <select class="input" id="jackett-tracker" multiple size="4" style="width:100%;min-height:80px">
+              <option value="" selected>All Indexers</option>
             </select>
           </div>
           <div style="min-width:150px">
@@ -1558,6 +1549,9 @@ textarea.input { resize: vertical; }
 const API = '/api';
 let currentFilter = '';
 let currentTorrentSearch = '';
+let torrentPage = 1;
+let torrentPageSize = 25;
+let torrentTotal = 0;
 let settingsData = {};
 let flexgetAvailableTasks = [];
 let flexgetTaskSchedules = [];
@@ -1872,6 +1866,81 @@ async function loadStats() {
 }
 
 
+function renderTorrentPagination(total, limit, offset) {
+  var totalPages = Math.max(1, Math.ceil(total / limit));
+  var cur = Math.floor(offset / limit) + 1;
+  torrentPage = cur;
+  var info = document.getElementById('torrent-page-info');
+  var btns = document.getElementById('torrent-page-btns');
+  if (!info || !btns) return;
+  var from = total === 0 ? 0 : offset + 1;
+  var to   = Math.min(offset + limit, total);
+  info.textContent = total > 0 ? from + '–' + to + ' of ' + total : 'No results';
+  var pages = [];
+  if (totalPages <= 7) { for (var i=1;i<=totalPages;i++) pages.push(i); }
+  else {
+    pages = [1];
+    var s = Math.max(2, cur-2), e = Math.min(totalPages-1, cur+2);
+    if (s > 2) pages.push('...');
+    for (var i=s;i<=e;i++) pages.push(i);
+    if (e < totalPages-1) pages.push('...');
+    pages.push(totalPages);
+  }
+  btns.innerHTML =
+    '<button class="btn btn-ghost btn-sm"'+(cur<=1?' disabled':'')+' onclick="goToTorrentPage('+(cur-1)+')">&#8249;</button>' +
+    pages.map(function(p){ return p==='...'
+      ? '<span style="padding:0 4px;color:var(--text3)">…</span>'
+      : '<button class="btn '+(p===cur?'btn-primary':'btn-ghost')+' btn-sm" onclick="goToTorrentPage('+p+')">'+p+'</button>';
+    }).join('') +
+    '<button class="btn btn-ghost btn-sm"'+(cur>=totalPages?' disabled':'')+' onclick="goToTorrentPage('+(cur+1)+')">&#8250;</button>';
+}
+function goToTorrentPage(p) { torrentPage = Math.max(1,p); loadTorrents(); }
+function onPageSizeChange(v) { torrentPageSize=Math.min(Math.max(parseInt(v)||25,15),100); torrentPage=1; loadTorrents(); }
+
+async function loadDetailedStats(period) {
+  period = period || (document.querySelector('#stats-period-tabs .ftab.active')||{}).dataset?.period || '24h';
+  try {
+    var stats = await api('GET', '/stats/detail?period=' + encodeURIComponent(period));
+    var t = stats.totals || {};
+    document.getElementById('detail-stat-cards').innerHTML =
+      '<div class="metric-card"><div class="metric-label">Tracked Torrents</div><div class="metric-value">'+(t.torrent_total||0)+'</div><div class="metric-sub">All-time total in database.</div></div>' +
+      '<div class="metric-card"><div class="metric-label">Completed Size</div><div class="metric-value">'+fmtSize(t.completed_size||0)+'</div><div class="metric-sub">Total bytes of completed torrents in period.</div></div>' +
+      '<div class="metric-card"><div class="metric-label">Completed</div><div class="metric-value">'+(t.completed_count||0)+'</div><div class="metric-sub">Torrents finished in selected period.</div></div>' +
+      '<div class="metric-card"><div class="metric-label">Partial / In Progress</div><div class="metric-value">'+(t.partial_total||0)+'</div><div class="metric-sub">Torrents currently downloading or processing.</div></div>' +
+      (t.success_rate_pct!=null ? '<div class="metric-card"><div class="metric-label">Success Rate</div><div class="metric-value">'+t.success_rate_pct+'%</div><div class="metric-sub">Completed vs. completed+error.</div></div>' : '');
+    document.getElementById('detail-torrent-status').innerHTML = renderKvMap(stats.torrent_status);
+    document.getElementById('detail-file-status').innerHTML   = renderKvMap(stats.file_status, function(v){return v.count??v;});
+    document.getElementById('detail-event-levels').innerHTML  = renderKvMap(stats.event_levels);
+    var srcEl = document.getElementById('detail-sources');
+    if (srcEl) {
+      var srcs = stats.sources||[];
+      srcEl.innerHTML = srcs.length ? srcs.map(function(s){return '<div class="kv-row"><span class="kv-key">'+esc(s.source||'(none)')+'</span><span class="kv-val">'+s.count+'</span></div>';}).join('') : '<div class="empty">No data.</div>';
+    }
+  } catch(e) { toast(e.message,'error'); }
+  try {
+    var d2 = await api('GET', '/stats/detail?period=all');
+    var daily = (d2.daily_completions||[]).slice(-14);
+    var ctx = document.getElementById('daily-chart');
+    if (ctx && typeof Chart !== 'undefined') {
+      if (ctx._ci) ctx._ci.destroy();
+      ctx._ci = new Chart(ctx, { type:'bar', data:{ labels:daily.map(function(d){return (d.date||'').substring(5);}), datasets:[{label:'Completions',data:daily.map(function(d){return d.count||0;}),backgroundColor:'rgba(249,115,22,.55)',borderColor:'#f97316',borderWidth:1,borderRadius:4}]}, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#64748b',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#64748b',font:{size:10}},beginAtZero:true,precision:0}}}});
+    }
+  } catch(_){}
+}
+function setStatsPeriod(el) {
+  document.querySelectorAll('#stats-period-tabs .ftab').forEach(function(t){t.classList.remove('active');});
+  el.classList.add('active');
+  loadDetailedStats(el.dataset.period);
+}
+function fmtSpeed(bps) {
+  if (!bps||bps<0) return '0 B/s';
+  if (bps<1024) return bps+' B/s';
+  if (bps<1048576) return (bps/1024).toFixed(1)+' KB/s';
+  if (bps<1073741824) return (bps/1048576).toFixed(1)+' MB/s';
+  return (bps/1073741824).toFixed(2)+' GB/s';
+}
+
+
 async function loadRecent() {
   try {
     const {items} = await api('GET', '/torrents?limit=10');
@@ -1905,25 +1974,30 @@ async function quickAdd() {
 function setFilter(el, status) {
   document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  currentFilter = status;
+  currentFilter = status; torrentPage = 1;
   loadTorrents();
 }
 
 function onTorrentSearchInput() {
   currentTorrentSearch = (document.getElementById('torrent-search')?.value || '').trim();
-  loadTorrents();
+  torrentPage = 1; loadTorrents();
 }
 
 async function loadTorrents() {
   try {
     const params = new URLSearchParams();
-    params.set('limit', '0');
+    const _limit = Math.min(Math.max(parseInt(torrentPageSize)||25,15),100);
+    const _offset = (torrentPage - 1) * _limit;
+    params.set('limit', String(_limit));
+    params.set('offset', String(_offset));
     if (currentFilter) params.set('status', currentFilter);
     if (currentTorrentSearch) params.set('search', currentTorrentSearch);
     const {items, total} = await api('GET', '/torrents?'+params.toString());
+    torrentTotal = total ?? items.length;
     const tb = document.getElementById('t-tbody');
     const title = document.getElementById('torrent-card-title');
-    if (title) title.textContent = `All Torrents (${total ?? items.length})`;
+    if (title) title.textContent = `All Torrents (${torrentTotal})`;
+    renderTorrentPagination(torrentTotal, _limit, _offset);
     if (!items.length) {
       tb.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">&#129522;</div>${currentTorrentSearch || currentFilter ? 'No torrents match the current filter or search.' : 'No torrents found.'}</div></td></tr>`;
       return;
@@ -2171,6 +2245,11 @@ function toggleTheme() {
   document.getElementById('theme-toggle').textContent = isLight ? '🌙' : '☀️';
 }
 document.addEventListener('DOMContentLoaded', () => {
+  setInterval(function() {
+    if (settingsData && (settingsData.aria2_mode||'builtin')==='builtin') {
+      loadAria2Runtime().catch(()=>{});
+    }
+  }, 5000);
   if (localStorage.getItem('theme') === 'light') {
     document.body.classList.add('light');
     const btn = document.getElementById('theme-toggle');
@@ -2419,31 +2498,42 @@ async function loadSettings() {
 
 function renderSettings() {
   const s = settingsData;
-  const aria2BuiltIn = (s.aria2_mode || 'external') === 'builtin';
+  const aria2BuiltIn = (s.aria2_mode || 'builtin') === 'builtin';
   flexgetTaskSchedules = parseFlexgetTaskSchedules(s.flexget_task_schedules_json);
 
   // Define tabs
   const tabs = [
-    { id:'tab-general',      label:'⚡ General' },
-    { id:'tab-download',     label:'⬇️ Download' },
-    { id:'tab-discord',      label:'🔔 Discord' },
-    { id:'tab-integrations', label:'🔗 Integrations' },
-    { id:'tab-database',     label:'🗄️ Database' },
-    { id:'tab-filters',      label:'🚫 Filters' },
-    { id:'tab-polling',      label:'⏱ Polling' },
-    { id:'tab-backup',       label:'💾 Backup' },
-    { id:'tab-flexget',      label:'🤖 FlexGet' },
-    { id:'tab-automations',  label:'📊 Reporting' },
-    { id:'tab-jackett',      label:'🔍 Jackett' },
+    { id:'tab-general',       label:'&#9889; General' },
+    { id:'tab-download',      label:'&#11015;&#65039; Download' },
+    { id:'tab-notifications', label:'&#128276; Notifications' },
+    { id:'tab-services',      label:'&#128268; Services' },
+    { id:'tab-advanced',      label:'&#128295; Advanced' },
   ];
   document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
     `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${esc(t.label)}</div>`
   ).join('');
   document.getElementById('settings-form').innerHTML = `
+    <div class="stab-panel  active" id="tab-general">
+      <div class="scard">
+        <div class="scard-header">🔑 AllDebrid</div>
+      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Required. Your AllDebrid API key — get it at <a href="https://alldebrid.com/apikeys/" target="_blank" style="color:var(--accent)">alldebrid.com/apikeys</a>.</p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <div class="test-row">
+              <input class="input" type="password" id="s-alldebrid_api_key" value="${s.alldebrid_api_key||''}" placeholder="Your AllDebrid API key"/>
+              <button class="btn btn-blue btn-sm" onclick="testAD()">Test</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Agent Name</label>
+            <input class="input" id="s-alldebrid_agent" value="${s.alldebrid_agent||'AllDebrid-Client'}"/>
+          </div>
+        </div>
+      </div>
 
-    <div class="stab-panel active" id="tab-general">
-
-    <div class="scard">
+        
+      <div class="scard">
       <div class="scard-header">📁 Folders</div>
       <div class="scard-body">
         <div class="form-group">
@@ -2465,13 +2555,48 @@ function renderSettings() {
         </div>
       </div>
     </div>
-
-
+      <div class="scard">
+        <div class="scard-header">⚠️ Auto-Restart Stuck Downloads</div>
+      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Torrents stuck in a non-terminal state longer than this will be automatically retried. 0 = disabled.</p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Stuck timeout (hours)</label>
+            <input class="input" type="number" id="s-stuck_download_timeout_hours" value="${s.stuck_download_timeout_hours??6}" min="0" max="168"/>
+            <span class="form-hint">Torrents stuck in queued/downloading for longer than this are automatically reset. Set to 0 to disable.</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="scard">
+        <div class="scard-header">🚦 AllDebrid Rate Limit</div>
+      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Controls AllDebrid API call rate, background sync interval, and automatic retry settings.</p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">API calls per minute</label>
+            <input class="input" type="number" id="s-alldebrid_rate_limit_per_minute" value="${s.alldebrid_rate_limit_per_minute??60}" min="0" max="300"/>
+            <span class="form-hint">Default: 60 req/min. Set to 0 for unlimited.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Full AllDebrid Sync Interval (minutes)</label>
+            <input class="input" type="number" id="s-full_sync_interval_minutes" value="${s.full_sync_interval_minutes??5}" min="0" max="1440"/>
+            <span class="form-hint">Reconciles all known AllDebrid magnets. 0 = disabled.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">aria2 Retry Count</label>
+            <input class="input" type="number" id="s-aria2_error_retry_count" value="${s.aria2_error_retry_count??3}" min="0" max="20"/>
+            <span class="form-hint">How often a failed aria2 file is retried. 0 = disabled.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">aria2 Retry Delay (seconds)</label>
+            <input class="input" type="number" id="s-aria2_error_retry_delay_seconds" value="${s.aria2_error_retry_delay_seconds??60}" min="0" max="3600"/>
+            <span class="form-hint">Delay before retrying a failed aria2 file.</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="stab-panel" id="tab-download">
-
-    <div class="scard">
+      <div class="scard">
       <div class="scard-header">⬇️ Download Client</div>
       <div class="scard-body">
         <div class="form-group">
@@ -2679,14 +2804,12 @@ function renderSettings() {
         </div>
       </div>
     </div>
-
-
     </div>
 
-    <div class="stab-panel" id="tab-discord">
-
-    <div class="scard">
+    <div class="stab-panel" id="tab-notifications">
+      <div class="scard">
       <div class="scard-header">🔔 Discord Notifications</div>
+      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Receive Discord notifications when torrents are added, complete, or fail.</p>
       <div class="scard-body">
         <div class="form-group">
           <label class="form-label">Bot Name <span style="font-weight:400;color:var(--muted)">(shown as sender in Discord)</span></label>
@@ -2733,13 +2856,324 @@ function renderSettings() {
         </div>
       </div>
     </div>
-
-
     </div>
 
-    <div class="stab-panel" id="tab-database">
+    <div class="stab-panel" id="tab-services">
+      <div class="scard">
+        <div class="scard-header">📺 Sonarr</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Sonarr</div><div class="ts">Trigger RescanSeries after download completes</div></div>
+            <label class="toggle"><input type="checkbox" id="s-sonarr_enabled" ${s.sonarr_enabled?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sonarr URL</label>
+            <div class="test-row">
+              <input class="input" id="s-sonarr_url" value="${s.sonarr_url||''}" placeholder="http://sonarr:8989"/>
+              <button class="btn btn-blue btn-sm" onclick="testSonarr()">Test</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" type="password" id="s-sonarr_api_key" value="${s.sonarr_api_key||''}" placeholder="Sonarr API key"/>
+          </div>
+        </div>
+      </div>
+      
+      <div class="scard">
+        <div class="scard-header">🎬 Radarr</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Radarr</div><div class="ts">Trigger RescanMovie after download completes</div></div>
+            <label class="toggle"><input type="checkbox" id="s-radarr_enabled" ${s.radarr_enabled?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Radarr URL</label>
+            <div class="test-row">
+              <input class="input" id="s-radarr_url" value="${s.radarr_url||''}" placeholder="http://radarr:7878"/>
+              <button class="btn btn-blue btn-sm" onclick="testRadarr()">Test</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" type="password" id="s-radarr_api_key" value="${s.radarr_api_key||''}" placeholder="Radarr API key"/>
+          </div>
+        </div>
+      </div>
+      
+      <div class="scard" style="border-color:rgba(59,130,246,.3)">
+        <div class="scard-header">&#8505;&#65039; Jackett Setup</div>
+        <div class="scard-body">
+          <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+            <b>Jackett</b> is a torrent-indexer proxy that lets you search dozens of trackers from one place.<br><br>
+            Set the <b>Jackett URL</b> (e.g. <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">http://jackett:9117</code>)
+            and paste your <b>API Key</b> from the Jackett dashboard (<em>Dashboard &rarr; API Key</em> button).
+          </div>
+        </div>
+      </div>
+
+      <div class="scard">
+        <div class="scard-header">&#128269; Jackett Integration</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Jackett</div><div class="td">Show the Search tab and allow torrent searches</div></div>
+            <label class="toggle"><input type="checkbox" id="s-jackett_enabled" ${s.jackett_enabled?'checked':''}><span class="ttrack"></span></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jackett URL</label>
+            <input class="input" id="s-jackett_url" value="${s.jackett_url||'http://localhost:9117'}" placeholder="http://jackett:9117"/>
+            <span class="form-hint">Base URL of your Jackett instance (no trailing slash).</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" id="s-jackett_api_key" value="${s.jackett_api_key||''}" placeholder="Jackett API key" type="password"/>
+            <span class="form-hint">Found in the Jackett dashboard. Proxied through the backend &mdash; never exposed to the browser.</span>
+          </div>
+          <div style="margin-top:8px">
+            <button class="btn btn-ghost btn-sm" onclick="testJackett()">&#128268; Test Connection</button>
+            <span id="jackett-test-result" style="margin-left:10px;font-size:12px;color:var(--text2)"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scard">
+        <div class="scard-header">&#128276; Jackett Webhook</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Webhook URL <span style="font-weight:400;color:var(--text2)">(optional)</span></label>
+            <input class="input" id="s-jackett_webhook_url" value="${s.jackett_webhook_url||''}" placeholder="https://discord.com/api/webhooks/&hellip;"/>
+            <span class="form-hint">Dedicated webhook for torrents added via Jackett. Falls back to the main Discord webhook if empty.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scard" style="border-color:rgba(59,130,246,.3)">
+      <div class="scard-header">ℹ️ FlexGet Setup</div>
+      <div class="scard-body">
+        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+          FlexGet must be running with its <b>web server enabled</b>.
+          Add this to your <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">config.yml</code>:
+          <pre style="background:var(--surface2);border-radius:6px;padding:10px 12px;margin:8px 0;font-size:11px;overflow-x:auto">web_server:
+  bind: 0.0.0.0
+  port: 5050</pre>
+          <b>Creating an API Key:</b><br>
+          Run <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">flexget web passwd &lt;username&gt;</code> to set a password,
+          then use <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">flexget web gentoken</code> to generate a token.
+          Paste that token as API Key below.<br><br>
+          <b>Docker note:</b> Make sure the FlexGet port (5050) is reachable from this container.
+        </div>
+      </div>
+    </div>
 
     <div class="scard">
+      <div class="scard-header">🤖 FlexGet Integration</div>
+      <div class="scard-body">
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Enable FlexGet</div><div class="td">Connect to a running FlexGet instance</div></div>
+          <label class="toggle"><input type="checkbox" id="s-flexget_enabled" ${s.flexget_enabled?'checked':''}><span class="ttrack"></span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">FlexGet URL</label>
+          <input class="input" id="s-flexget_url" value="${s.flexget_url||'http://localhost:5050'}" placeholder="http://localhost:5050"/>
+          <span class="form-hint">Base URL of the FlexGet web server.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input class="input" type="password" id="s-flexget_api_key" value="${s.flexget_api_key||''}" placeholder="Optional API token"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tasks to run (comma-separated)</label>
+          <input class="input" id="s-flexget_tasks_raw" value="${s.flexget_tasks_raw||''}" placeholder="task1, task2 — leave empty for all"/>
+          <span class="form-hint">Used for manual runs. Leave empty to run all tasks on demand.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Scheduled Task Profiles</label>
+          <span class="form-hint">Each task can have its own interval and jitter. Disabled rows are ignored.</span>
+          <datalist id="flexget-task-options">
+            ${flexgetAvailableTasks.map(task => `<option value="${task}"></option>`).join('')}
+          </datalist>
+          <div id="flexget-schedule-editor" style="margin-top:8px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn btn-ghost btn-sm" onclick="addFlexgetTaskSchedule()">+ Add Task Schedule</button>
+            <button class="btn btn-ghost btn-sm" onclick="flexgetListTasks(true)">↻ Sync Tasks Into Editor</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Task timeout (seconds, 0 = 3600)</label>
+          <input class="input" type="number" id="s-flexget_task_timeout_seconds" value="${s.flexget_task_timeout_seconds??0}" min="0"/>
+          <span class="form-hint">Max time to wait for a single task to complete. Default: 3600s (1 hour). Increase for very long-running tasks.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Retry delay when unreachable (minutes)</label>
+          <input class="input" type="number" id="s-flexget_retry_delay_minutes" value="${s.flexget_retry_delay_minutes??5}" min="0" max="60"/>
+          <span class="form-hint">If FlexGet does not respond, wait this many minutes and try once more. 0 = no retry. A webhook is sent if still unreachable, and again when it recovers.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">FlexGet Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
+          <input class="input" id="s-flexget_webhook_url" value="${s.flexget_webhook_url||''}" placeholder="Leave empty to use Discord webhook from Settings → Discord"/>
+          <span class="form-hint">Optional. Receives all FlexGet events (run_started, task_started, task_ok, task_error, run_finished, server_unreachable, server_recovered) as Discord embeds or JSON. Falls back to Settings → Discord webhook when empty.</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn btn-blue btn-sm" onclick="flexgetListTasks()">🔍 List Tasks</button>
+          <button class="btn btn-primary btn-sm" onclick="flexgetRun()">▶ Run Now</button>
+        </div>
+        <div id="flexget-task-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        <div id="flexget-run-result" style="margin-top:8px;font-size:12px;display:none"></div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">📋 Recent FlexGet Runs</div>
+      <div class="scard-body">
+        <button class="btn btn-ghost btn-sm" onclick="loadFlexgetHistory()" style="margin-bottom:8px">↻ Refresh</button>
+        <div id="flexget-history" style="font-size:12px;color:var(--text2)">Click refresh to load history.</div>
+      </div>
+    </div>
+      <div class="scard">
+        <div class="scard-header">🏷 Labels</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Predefined Labels <span style="font-weight:400;color:var(--text2)">(comma-separated)</span></label>
+            <input class="input" id="s-torrent_labels_raw" value="${(s.torrent_labels||[]).join(', ')}" placeholder="Movies, Series, 4K, Anime"/>
+            <span class="form-hint">Leave empty — labels are optional per torrent.</span>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+
+    <div class="stab-panel" id="tab-advanced">
+      <div class="scard">
+      <div class="scard-header">🚫 File Filters</div>
+      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Skip unwanted files by extension, keyword, or minimum file size.</p>
+      <div class="scard-body">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Enable File Filters</div>
+            <div class="td">When off, all files are downloaded regardless of extension, keyword or size rules.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-filters_enabled" ${s.filters_enabled!==false?'checked':''} onchange="toggleFilterFields()"><div class="ttrack"></div></label>
+        </div>
+        <div id="filter-fields" style="${s.filters_enabled===false?'opacity:.4;pointer-events:none':''}">
+          <div class="form-group">
+            <label class="form-label">Blocked Extensions (one per line)</label>
+            <textarea class="input" id="s-blocked_extensions" rows="6">${(s.blocked_extensions||[]).join('\n')}</textarea>
+            <span class="form-hint">e.g. .jpg · .png · .nfo — images are blocked by default</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Blocked Keywords (one per line)</label>
+            <textarea class="input" id="s-blocked_keywords" rows="3">${(s.blocked_keywords||[]).join('\n')}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
+            <input class="input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb??0}" min="0"/>
+          </div>
+        </div>
+      </div>
+    </div>
+      <div class="scard">
+      <div class="scard-header">⏱ Polling Intervals</div>
+      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">How often AllDebrid and your watch folder are checked for new activity.</p>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">AllDebrid Poll Interval (seconds)</label>
+            <input class="input" type="number" id="s-poll_interval_seconds" value="${s.poll_interval_seconds??30}" min="10"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Watch Folder Scan (seconds)</label>
+            <input class="input" type="number" id="s-watch_interval_seconds" value="${s.watch_interval_seconds??10}" min="5"/>
+        </div>
+      </div>
+    </div>
+      <div class="scard">
+        <div class="scard-header">💾 Automatic Backups</div>
+      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Automatically create periodic database backups to prevent data loss.</p>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Backups</div><div class="ts">Automatically back up config and database</div></div>
+            <label class="toggle"><input type="checkbox" id="s-backup_enabled" ${s.backup_enabled!==false?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Backup Folder</label>
+            <input class="input" id="s-backup_folder" value="${s.backup_folder||'/app/data/backups'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Interval (hours)</label>
+            <input class="input" type="number" id="s-backup_interval_hours" value="${s.backup_interval_hours??24}" min="1" max="168"/>
+            <span class="form-hint">Default: 24h. Backup runs once per interval.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Keep backups for (days)</label>
+            <input class="input" type="number" id="s-backup_keep_days" value="${s.backup_keep_days??7}" min="1" max="90"/>
+            <span class="form-hint">Default: 7 days. Older backups are deleted automatically.</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-ghost" onclick="triggerBackup()">💾 Run Backup Now</button>
+            <button class="btn btn-ghost" onclick="loadBackupList()">📋 List Backups</button>
+          </div>
+          <div id="backup-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        </div>
+      </div>
+      <div class="scard" style="border-color:rgba(59,130,246,.3)">
+      <div class="scard-header">ℹ️ About Reporting</div>
+      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Periodic statistics snapshots and optional Discord-based statistics reports.</p>
+      <div class="scard-body">
+        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+          The reporting module captures <b>comprehensive metrics</b> across all client activity automatically.<br><br>
+          <b>Snapshots</b> are periodic point-in-time captures stored in the database for trend analysis.
+          Set an interval to enable automatic snapshots (recommended: 60 min).<br><br>
+          <b>Export</b> downloads a full JSON report for the selected time window — useful for external analysis or archiving.<br><br>
+          <b>Time windows</b>: select the period in the dropdown below, then click <i>Load Report</i>.
+        </div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">📊 Statistics Reporting</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Snapshot Interval (minutes, 0 = disabled)</label>
+          <input class="input" type="number" id="s-stats_snapshot_interval_minutes" value="${s.stats_snapshot_interval_minutes??60}" min="0"/>
+          <span class="form-hint">How often to capture a statistics snapshot. Default: 60.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Keep Snapshots (days)</label>
+          <input class="input" type="number" id="s-stats_snapshot_keep_days" value="${s.stats_snapshot_keep_days??30}" min="1"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reporting Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
+          <input class="input" id="s-stats_report_webhook_url" value="${s.stats_report_webhook_url||''}" placeholder="Leave empty to use main Discord webhook"/>
+          <span class="form-hint">Receives structured reporting payloads as Discord embeds. Falls back to Settings → Discord → Webhook URL when empty.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Automatic Report Interval (hours, 0 = disabled)</label>
+          <input class="input" type="number" id="s-stats_report_interval_hours" value="${s.stats_report_interval_hours??0}" min="0" max="168"/>
+          <span class="form-hint">How often the report is sent automatically. 0 = disabled.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Report Window (hours)</label>
+          <input class="input" type="number" id="s-stats_report_window_hours" value="${s.stats_report_window_hours??24}" min="1" max="8760"/>
+          <span class="form-hint">Time window covered by each automatic report (default: 24h).</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time Window</label>
+          <select class="input" id="stats-report-hours" onchange="loadComprehensiveStats()">
+            <option value="24"${Number(s.stats_report_window_hours ?? 24)===24?' selected':''}>Last 24 hours</option>
+            <option value="168"${Number(s.stats_report_window_hours ?? 24)===168?' selected':''}>Last 7 days</option>
+            <option value="720"${Number(s.stats_report_window_hours ?? 24)===720?' selected':''}>Last 30 days</option>
+            <option value="8760"${Number(s.stats_report_window_hours ?? 24)===8760?' selected':''}>All time (~1 year)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn btn-blue btn-sm" onclick="loadComprehensiveStats()">📊 Load Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportStats()">⬇ Export JSON</button>
+          <button class="btn btn-ghost btn-sm" onclick="triggerStatsSnapshot()">📸 Snapshot Now</button>
+          <button class="btn btn-ghost btn-sm" onclick="sendStatsReport()">📨 Send Webhook Now</button>
+        </div>
+        <div id="comprehensive-stats" style="margin-top:14px"></div>
+      </div>
+    </div>
+      <div class="scard">
       <div class="scard-header">🗄️ Database</div>
       <div class="scard-body">
         <div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--text2)">
@@ -2848,395 +3282,6 @@ function renderSettings() {
     </div>
     </div>
 
-    <div class="stab-panel" id="tab-filters">
-
-    <div class="scard">
-      <div class="scard-header">🚫 File Filters</div>
-      <div class="scard-body">
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="tl">Enable File Filters</div>
-            <div class="td">When off, all files are downloaded regardless of extension, keyword or size rules.</div>
-          </div>
-          <label class="toggle"><input type="checkbox" id="s-filters_enabled" ${s.filters_enabled!==false?'checked':''} onchange="toggleFilterFields()"><div class="ttrack"></div></label>
-        </div>
-        <div id="filter-fields" style="${s.filters_enabled===false?'opacity:.4;pointer-events:none':''}">
-          <div class="form-group">
-            <label class="form-label">Blocked Extensions (one per line)</label>
-            <textarea class="input" id="s-blocked_extensions" rows="6">${(s.blocked_extensions||[]).join('\n')}</textarea>
-            <span class="form-hint">e.g. .jpg · .png · .nfo — images are blocked by default</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Blocked Keywords (one per line)</label>
-            <textarea class="input" id="s-blocked_keywords" rows="3">${(s.blocked_keywords||[]).join('\n')}</textarea>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
-            <input class="input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb??0}" min="0"/>
-          </div>
-        </div>
-      </div>
-    </div>
-
-
-    </div>
-
-    <div class="stab-panel" id="tab-polling">
-
-    <div class="scard">
-      <div class="scard-header">⏱ Polling Intervals</div>
-      <div class="scard-body">
-        <div class="form-group">
-          <label class="form-label">AllDebrid Poll Interval (seconds)</label>
-            <input class="input" type="number" id="s-poll_interval_seconds" value="${s.poll_interval_seconds??30}" min="10"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Watch Folder Scan (seconds)</label>
-            <input class="input" type="number" id="s-watch_interval_seconds" value="${s.watch_interval_seconds??10}" min="5"/>
-        </div>
-      </div>
-    </div>
-
-
-    </div>
-
-    <div class="stab-panel" id="tab-integrations">
-      <div class="scard">
-        <div class="scard-header">🔑 AllDebrid</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <div class="test-row">
-              <input class="input" type="password" id="s-alldebrid_api_key" value="${s.alldebrid_api_key||''}" placeholder="Your AllDebrid API key"/>
-              <button class="btn btn-blue btn-sm" onclick="testAD()">Test</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Agent Name</label>
-            <input class="input" id="s-alldebrid_agent" value="${s.alldebrid_agent||'AllDebrid-Client'}"/>
-          </div>
-        </div>
-      </div>
-
-        <div class="scard">
-        <div class="scard-header">📺 Sonarr</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-info"><div class="tl">Enable Sonarr</div><div class="ts">Trigger RescanSeries after download completes</div></div>
-            <label class="toggle"><input type="checkbox" id="s-sonarr_enabled" ${s.sonarr_enabled?'checked':''}><div class="ttrack"></div></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Sonarr URL</label>
-            <div class="test-row">
-              <input class="input" id="s-sonarr_url" value="${s.sonarr_url||''}" placeholder="http://sonarr:8989"/>
-              <button class="btn btn-blue btn-sm" onclick="testSonarr()">Test</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <input class="input" type="password" id="s-sonarr_api_key" value="${s.sonarr_api_key||''}" placeholder="Sonarr API key"/>
-          </div>
-        </div>
-      </div>
-      <div class="scard">
-        <div class="scard-header">🎬 Radarr</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-info"><div class="tl">Enable Radarr</div><div class="ts">Trigger RescanMovie after download completes</div></div>
-            <label class="toggle"><input type="checkbox" id="s-radarr_enabled" ${s.radarr_enabled?'checked':''}><div class="ttrack"></div></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Radarr URL</label>
-            <div class="test-row">
-              <input class="input" id="s-radarr_url" value="${s.radarr_url||''}" placeholder="http://radarr:7878"/>
-              <button class="btn btn-blue btn-sm" onclick="testRadarr()">Test</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <input class="input" type="password" id="s-radarr_api_key" value="${s.radarr_api_key||''}" placeholder="Radarr API key"/>
-          </div>
-        </div>
-      </div>
-      <div class="scard">
-        <div class="scard-header">🏷 Labels</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Predefined Labels <span style="font-weight:400;color:var(--text2)">(comma-separated)</span></label>
-            <input class="input" id="s-torrent_labels_raw" value="${(s.torrent_labels||[]).join(', ')}" placeholder="Movies, Series, 4K, Anime"/>
-            <span class="form-hint">Leave empty — labels are optional per torrent.</span>
-          </div>
-        </div>
-      </div>
-      <div class="scard">
-        <div class="scard-header">⚠️ Auto-Restart Stuck Downloads</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Stuck timeout (hours)</label>
-            <input class="input" type="number" id="s-stuck_download_timeout_hours" value="${s.stuck_download_timeout_hours??6}" min="0" max="168"/>
-            <span class="form-hint">Torrents stuck in queued/downloading for longer than this are automatically reset. Set to 0 to disable.</span>
-          </div>
-        </div>
-      </div>
-      <div class="scard">
-        <div class="scard-header">🚦 AllDebrid Rate Limit</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">API calls per minute</label>
-            <input class="input" type="number" id="s-alldebrid_rate_limit_per_minute" value="${s.alldebrid_rate_limit_per_minute??60}" min="0" max="300"/>
-            <span class="form-hint">Default: 60 req/min. Set to 0 for unlimited.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Full AllDebrid Sync Interval (minutes)</label>
-            <input class="input" type="number" id="s-full_sync_interval_minutes" value="${s.full_sync_interval_minutes??5}" min="0" max="1440"/>
-            <span class="form-hint">Reconciles all known AllDebrid magnets. 0 = disabled.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">aria2 Retry Count</label>
-            <input class="input" type="number" id="s-aria2_error_retry_count" value="${s.aria2_error_retry_count??3}" min="0" max="20"/>
-            <span class="form-hint">How often a failed aria2 file is retried. 0 = disabled.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">aria2 Retry Delay (seconds)</label>
-            <input class="input" type="number" id="s-aria2_error_retry_delay_seconds" value="${s.aria2_error_retry_delay_seconds??60}" min="0" max="3600"/>
-            <span class="form-hint">Delay before retrying a failed aria2 file.</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="stab-panel" id="tab-backup">
-      <div class="scard">
-        <div class="scard-header">💾 Automatic Backups</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-info"><div class="tl">Enable Backups</div><div class="ts">Automatically back up config and database</div></div>
-            <label class="toggle"><input type="checkbox" id="s-backup_enabled" ${s.backup_enabled!==false?'checked':''}><div class="ttrack"></div></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Backup Folder</label>
-            <input class="input" id="s-backup_folder" value="${s.backup_folder||'/app/data/backups'}"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Interval (hours)</label>
-            <input class="input" type="number" id="s-backup_interval_hours" value="${s.backup_interval_hours??24}" min="1" max="168"/>
-            <span class="form-hint">Default: 24h. Backup runs once per interval.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Keep backups for (days)</label>
-            <input class="input" type="number" id="s-backup_keep_days" value="${s.backup_keep_days??7}" min="1" max="90"/>
-            <span class="form-hint">Default: 7 days. Older backups are deleted automatically.</span>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:4px">
-            <button class="btn btn-ghost" onclick="triggerBackup()">💾 Run Backup Now</button>
-            <button class="btn btn-ghost" onclick="loadBackupList()">📋 List Backups</button>
-          </div>
-          <div id="backup-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── FlexGet Tab ─────────────────────────────────────────────────────── -->
-    <div class="stab-panel" id="tab-flexget">
-
-    <div class="scard" style="border-color:rgba(59,130,246,.3)">
-      <div class="scard-header">ℹ️ FlexGet Setup</div>
-      <div class="scard-body">
-        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
-          FlexGet must be running with its <b>web server enabled</b>.
-          Add this to your <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">config.yml</code>:
-          <pre style="background:var(--surface2);border-radius:6px;padding:10px 12px;margin:8px 0;font-size:11px;overflow-x:auto">web_server:
-  bind: 0.0.0.0
-  port: 5050</pre>
-          <b>Creating an API Key:</b><br>
-          Run <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">flexget web passwd &lt;username&gt;</code> to set a password,
-          then use <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">flexget web gentoken</code> to generate a token.
-          Paste that token as API Key below.<br><br>
-          <b>Docker note:</b> Make sure the FlexGet port (5050) is reachable from this container.
-        </div>
-      </div>
-    </div>
-
-    <div class="scard">
-      <div class="scard-header">🤖 FlexGet Integration</div>
-      <div class="scard-body">
-        <div class="toggle-row">
-          <div class="toggle-info"><div class="tl">Enable FlexGet</div><div class="td">Connect to a running FlexGet instance</div></div>
-          <label class="toggle"><input type="checkbox" id="s-flexget_enabled" ${s.flexget_enabled?'checked':''}><span class="ttrack"></span></label>
-        </div>
-        <div class="form-group">
-          <label class="form-label">FlexGet URL</label>
-          <input class="input" id="s-flexget_url" value="${s.flexget_url||'http://localhost:5050'}" placeholder="http://localhost:5050"/>
-          <span class="form-hint">Base URL of the FlexGet web server.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">API Key</label>
-          <input class="input" type="password" id="s-flexget_api_key" value="${s.flexget_api_key||''}" placeholder="Optional API token"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Tasks to run (comma-separated)</label>
-          <input class="input" id="s-flexget_tasks_raw" value="${s.flexget_tasks_raw||''}" placeholder="task1, task2 — leave empty for all"/>
-          <span class="form-hint">Used for manual runs. Leave empty to run all tasks on demand.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Scheduled Task Profiles</label>
-          <span class="form-hint">Each task can have its own interval and jitter. Disabled rows are ignored.</span>
-          <datalist id="flexget-task-options">
-            ${flexgetAvailableTasks.map(task => `<option value="${task}"></option>`).join('')}
-          </datalist>
-          <div id="flexget-schedule-editor" style="margin-top:8px"></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-            <button class="btn btn-ghost btn-sm" onclick="addFlexgetTaskSchedule()">+ Add Task Schedule</button>
-            <button class="btn btn-ghost btn-sm" onclick="flexgetListTasks(true)">↻ Sync Tasks Into Editor</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Task timeout (seconds, 0 = 3600)</label>
-          <input class="input" type="number" id="s-flexget_task_timeout_seconds" value="${s.flexget_task_timeout_seconds??0}" min="0"/>
-          <span class="form-hint">Max time to wait for a single task to complete. Default: 3600s (1 hour). Increase for very long-running tasks.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Retry delay when unreachable (minutes)</label>
-          <input class="input" type="number" id="s-flexget_retry_delay_minutes" value="${s.flexget_retry_delay_minutes??5}" min="0" max="60"/>
-          <span class="form-hint">If FlexGet does not respond, wait this many minutes and try once more. 0 = no retry. A webhook is sent if still unreachable, and again when it recovers.</span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">FlexGet Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
-          <input class="input" id="s-flexget_webhook_url" value="${s.flexget_webhook_url||''}" placeholder="Leave empty to use Discord webhook from Settings → Discord"/>
-          <span class="form-hint">Optional. Receives all FlexGet events (run_started, task_started, task_ok, task_error, run_finished, server_unreachable, server_recovered) as Discord embeds or JSON. Falls back to Settings → Discord webhook when empty.</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-          <button class="btn btn-blue btn-sm" onclick="flexgetListTasks()">🔍 List Tasks</button>
-          <button class="btn btn-primary btn-sm" onclick="flexgetRun()">▶ Run Now</button>
-        </div>
-        <div id="flexget-task-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
-        <div id="flexget-run-result" style="margin-top:8px;font-size:12px;display:none"></div>
-      </div>
-    </div>
-
-    <div class="scard">
-      <div class="scard-header">📋 Recent FlexGet Runs</div>
-      <div class="scard-body">
-        <button class="btn btn-ghost btn-sm" onclick="loadFlexgetHistory()" style="margin-bottom:8px">↻ Refresh</button>
-        <div id="flexget-history" style="font-size:12px;color:var(--text2)">Click refresh to load history.</div>
-      </div>
-    </div>
-    </div>
-
-    <!-- ── Reporting Tab ─────────────────────────────────────────────────────── -->
-    <div class="stab-panel" id="tab-automations">
-
-    <div class="scard" style="border-color:rgba(59,130,246,.3)">
-      <div class="scard-header">ℹ️ About Reporting</div>
-      <div class="scard-body">
-        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
-          The reporting module captures <b>comprehensive metrics</b> across all client activity automatically.<br><br>
-          <b>Snapshots</b> are periodic point-in-time captures stored in the database for trend analysis.
-          Set an interval to enable automatic snapshots (recommended: 60 min).<br><br>
-          <b>Export</b> downloads a full JSON report for the selected time window — useful for external analysis or archiving.<br><br>
-          <b>Time windows</b>: select the period in the dropdown below, then click <i>Load Report</i>.
-        </div>
-      </div>
-    </div>
-
-    <div class="scard">
-      <div class="scard-header">📊 Statistics Reporting</div>
-      <div class="scard-body">
-        <div class="form-group">
-          <label class="form-label">Snapshot Interval (minutes, 0 = disabled)</label>
-          <input class="input" type="number" id="s-stats_snapshot_interval_minutes" value="${s.stats_snapshot_interval_minutes??60}" min="0"/>
-          <span class="form-hint">How often to capture a statistics snapshot. Default: 60.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Keep Snapshots (days)</label>
-          <input class="input" type="number" id="s-stats_snapshot_keep_days" value="${s.stats_snapshot_keep_days??30}" min="1"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Reporting Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
-          <input class="input" id="s-stats_report_webhook_url" value="${s.stats_report_webhook_url||''}" placeholder="Leave empty to use main Discord webhook"/>
-          <span class="form-hint">Receives structured reporting payloads as Discord embeds. Falls back to Settings → Discord → Webhook URL when empty.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Automatic Report Interval (hours, 0 = disabled)</label>
-          <input class="input" type="number" id="s-stats_report_interval_hours" value="${s.stats_report_interval_hours??0}" min="0" max="168"/>
-          <span class="form-hint">How often the report is sent automatically. 0 = disabled.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Report Window (hours)</label>
-          <input class="input" type="number" id="s-stats_report_window_hours" value="${s.stats_report_window_hours??24}" min="1" max="8760"/>
-          <span class="form-hint">Time window covered by each automatic report (default: 24h).</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Time Window</label>
-          <select class="input" id="stats-report-hours" onchange="loadComprehensiveStats()">
-            <option value="24"${Number(s.stats_report_window_hours ?? 24)===24?' selected':''}>Last 24 hours</option>
-            <option value="168"${Number(s.stats_report_window_hours ?? 24)===168?' selected':''}>Last 7 days</option>
-            <option value="720"${Number(s.stats_report_window_hours ?? 24)===720?' selected':''}>Last 30 days</option>
-            <option value="8760"${Number(s.stats_report_window_hours ?? 24)===8760?' selected':''}>All time (~1 year)</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-          <button class="btn btn-blue btn-sm" onclick="loadComprehensiveStats()">📊 Load Report</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportStats()">⬇ Export JSON</button>
-          <button class="btn btn-ghost btn-sm" onclick="triggerStatsSnapshot()">📸 Snapshot Now</button>
-          <button class="btn btn-ghost btn-sm" onclick="sendStatsReport()">📨 Send Webhook Now</button>
-        </div>
-        <div id="comprehensive-stats" style="margin-top:14px"></div>
-      </div>
-    </div>
-    </div>
-
-    <div class="stab-panel" id="tab-jackett">
-
-      <div class="scard" style="border-color:rgba(59,130,246,.3)">
-        <div class="scard-header">&#8505;&#65039; Jackett Setup</div>
-        <div class="scard-body">
-          <div style="font-size:12px;line-height:1.6;color:var(--text2)">
-            <b>Jackett</b> is a torrent-indexer proxy that lets you search dozens of trackers from one place.<br><br>
-            Set the <b>Jackett URL</b> (e.g. <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">http://jackett:9117</code>)
-            and paste your <b>API Key</b> from the Jackett dashboard (<em>Dashboard &rarr; API Key</em> button).
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">&#128269; Jackett Integration</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-info"><div class="tl">Enable Jackett</div><div class="td">Show the Search tab and allow torrent searches</div></div>
-            <label class="toggle"><input type="checkbox" id="s-jackett_enabled" ${s.jackett_enabled?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Jackett URL</label>
-            <input class="input" id="s-jackett_url" value="${s.jackett_url||'http://localhost:9117'}" placeholder="http://jackett:9117"/>
-            <span class="form-hint">Base URL of your Jackett instance (no trailing slash).</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <input class="input" id="s-jackett_api_key" value="${s.jackett_api_key||''}" placeholder="Jackett API key" type="password"/>
-            <span class="form-hint">Found in the Jackett dashboard. Proxied through the backend &mdash; never exposed to the browser.</span>
-          </div>
-          <div style="margin-top:8px">
-            <button class="btn btn-ghost btn-sm" onclick="testJackett()">&#128268; Test Connection</button>
-            <span id="jackett-test-result" style="margin-left:10px;font-size:12px;color:var(--text2)"></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">&#128276; Jackett Webhook</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Webhook URL <span style="font-weight:400;color:var(--text2)">(optional)</span></label>
-            <input class="input" id="s-jackett_webhook_url" value="${s.jackett_webhook_url||''}" placeholder="https://discord.com/api/webhooks/&hellip;"/>
-            <span class="form-hint">Dedicated webhook for torrents added via Jackett. Falls back to the main Discord webhook if empty.</span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
   `;
   renderFlexgetTaskSchedules();
 }
@@ -3266,7 +3311,7 @@ function getFormSettings() {
     download_folder: t('download_folder'), max_concurrent_downloads: n('max_concurrent_downloads', 3),
     max_speed_mbps: 0,
     download_client: 'aria2',
-    aria2_mode: t('aria2_mode') || 'external',
+    aria2_mode: t('aria2_mode') || 'builtin',
     aria2_url: (t('aria2_mode') || 'external') === 'builtin' ? (settingsData.aria2_url || 'http://127.0.0.1:6800/jsonrpc') : t('aria2_url'),
     aria2_secret: (t('aria2_mode') || 'external') === 'builtin' ? (settingsData.aria2_secret || '') : t('aria2_secret'),
     aria2_download_path: t('aria2_download_path'),
@@ -3422,10 +3467,10 @@ function switchSettingsTab(id) {
     clearInterval(aria2DownloadsTimer);
     aria2DownloadsTimer = null;
   }
-  if (id === 'tab-database') {
+  if (id === 'tab-advanced') {
     loadDatabaseBackupList();
   }
-  if (id === 'tab-flexget') {
+  if (id === 'tab-services') {
     flexgetListTasks();
     loadFlexgetHistory();
   }
@@ -3591,6 +3636,13 @@ async function loadAria2Runtime() {
     const data = await api('GET', '/aria2/runtime');
     renderAria2Runtime(data);
     loadAria2Downloads().catch(()=>{});
+    const badge = document.getElementById('aria2-speed-badge');
+    const dlEl  = document.getElementById('aria2-speed-dl');
+    if (badge) {
+      const isBuiltin = (data.mode||'')==='builtin' && data.running;
+      badge.style.display = isBuiltin ? 'flex' : 'none';
+      if (isBuiltin && dlEl) dlEl.textContent = fmtSpeed(data.download_speed||0);
+    }
     return data;
   } catch(e) {
     const el = document.getElementById('aria2-runtime-status');
@@ -4042,8 +4094,8 @@ window._jackettAddInFlight = {};
 function jackettSelectedTrackers() {
   var sel = document.getElementById('jackett-tracker');
   if (!sel) return [];
-  var value = String(sel.value || '').trim();
-  return value ? [value] : [];
+  var selected = Array.from(sel.selectedOptions).map(o=>o.value.trim()).filter(Boolean);
+  return (selected.length === 0 || selected.includes('')) ? [] : selected;
 }
 
 function jackettSortResults(items) {
@@ -4286,12 +4338,12 @@ async function loadJackettIndexers() {
     var items=await api('GET', '/jackett/indexers');
     var sel=document.getElementById('jackett-tracker');
     if (!sel) return;
-    var selected = ((sel && sel.value) || '').trim();
+    var prevSel = Array.from(sel.selectedOptions).map(o=>o.value);
     sel.innerHTML = '<option value="">All Indexers</option>';
     (items||[]).forEach(function(item) {
       var opt=document.createElement('option');
       opt.value=item.id; opt.textContent=item.name||item.id;
-      if (selected === item.id) opt.selected = true;
+      if (prevSel.includes(item.id)) opt.selected = true;
       sel.appendChild(opt);
     });
   } catch(e) { /* indexers optional */ }

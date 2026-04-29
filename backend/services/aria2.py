@@ -124,6 +124,19 @@ class Aria2Service:
             "enabled_features": version.get("enabledFeatures", []),
         }
 
+    async def get_global_stat(self) -> Dict[str, int]:
+        """Return current download/upload speed and active/waiting count."""
+        try:
+            result = await self._call("aria2.getGlobalStat")
+            return {
+                "download_speed": int(result.get("downloadSpeed") or 0),
+                "upload_speed":   int(result.get("uploadSpeed") or 0),
+                "active":         int(result.get("numActive") or 0),
+                "waiting":        int(result.get("numWaiting") or 0),
+            }
+        except Exception:
+            return {"download_speed": 0, "upload_speed": 0, "active": 0, "waiting": 0}
+
     async def get_global_options(self) -> Dict[str, Any]:
         return await self._call("aria2.getGlobalOption")
 

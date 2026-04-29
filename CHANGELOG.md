@@ -1,5 +1,71 @@
 # Changelog
 
+## [1.5.1] — 2026-04-29
+
+### Settings — restructured from 11 tabs to 5
+
+| Old (11 tabs) | New (5 tabs) |
+|---|---|
+| General, Download, Discord, Database, Filters, Polling, Integrations, Backup, FlexGet, Reporting, Jackett | **⚡ General**, **⬇️ Download**, **🔔 Notifications**, **🔌 Services**, **🛠️ Advanced** |
+
+- **⚡ General** — AllDebrid API key, Folders, Stuck-download timeout, Rate limit & sync
+- **⬇️ Download** — aria2 client setup, all aria2 performance options (unchanged)
+- **🔔 Notifications** — Discord webhooks (moved from Discord tab)
+- **🔌 Services** — Sonarr, Radarr, Jackett, FlexGet, Labels (consolidated)
+- **🛠️ Advanced** — Filters, Polling, Backup, Reporting, Database (deprioritised but fully accessible)
+
+All 88 settings fields retained. No breaking changes. Brief description added to each settings group.
+
+### aria2 built-in set as default
+
+`aria2_mode` default changed from `external` to `builtin` in `config.py` and both
+`getFormSettings()` and `renderSettings()`. New installations default to the built-in
+aria2 — no extra setup required.
+
+### Header — live aria2 download speed
+
+A small speed badge appears in the top bar (next to the page title) showing the current
+aria2 download speed in real time. Only visible when aria2 is in built-in mode and running.
+Updates every 5 s via `GET /aria2/runtime` (which now includes `download_speed` from
+`aria2.getGlobalStat`). New `fmtSpeed()` helper formats bytes/s → KB/s / MB/s / GB/s.
+
+### Dark Mode — hamburger icon contrast
+
+`border` → `border2`, `background: surface` → `surface2`, explicit `color: var(--text)` added
+to `.mobile-menu-btn` so the ☰ symbol is clearly visible on dark backgrounds.
+
+### Statistics
+
+- **Completed Size** and **Partial Torrents** cards now populate correctly.
+  Root cause: `GET /stats/detail` was missing `completed_size` and `partial_total` in its
+  response — both SQL queries added.
+- **"Latest Signals" removed** and replaced with "Top Sources".
+- **Period selector added**: 1h / 24h / 7d / 30d / 1y / All time. Selecting a period
+  re-fetches `/stats/detail?period=<value>` and re-renders all cards.
+- `loadDetailedStats()` and `setStatsPeriod()` are new; the old monolithic function is replaced.
+
+### Search — multi-indexer selection
+
+The Jackett indexer `<select>` is now `multiple` (size=4). Users can Ctrl+click to select
+several indexers simultaneously. `jackettSelectedTrackers()` reads `selectedOptions` instead
+of `.value`. Backend already supported `trackers: []` — no backend change needed.
+
+### Torrents — pagination
+
+- Default page size: 25 torrents per page (options: 15 / 25 / 50 / 100).
+- Page navigation rendered by `renderTorrentPagination()`.
+- `loadTorrents()` sends `limit` + `offset` query params. Backend `GET /torrents` already
+  supported both — no backend change needed.
+- `setFilter()` and `onTorrentSearchInput()` reset `torrentPage` to 1 on change.
+
+### Backend changes
+
+- `GET /stats/detail` — added `period` query param (1h/24h/7d/30d/1y/all), `completed_size`,
+  `partial_total`, `completed_count` to the `totals` object; removed `latest_events`.
+- `GET /aria2/runtime` — added `download_speed`, `upload_speed`, `active` from
+  `aria2.getGlobalStat()`.
+- `Aria2Service.get_global_stat()` — new method wrapping `aria2.getGlobalStat` RPC call.
+
 ## [1.5.0] — 2026-04-29
 
 ### Added — Help & Documentation sidebar view

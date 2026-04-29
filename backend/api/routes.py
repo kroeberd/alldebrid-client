@@ -246,13 +246,14 @@ async def run_aria2_housekeeping_ep():
 async def aria2_runtime_status():
     status = await aria2_runtime.status()
     diagnostics = {}
+    speed_stat = {"download_speed": 0, "upload_speed": 0, "active": 0}
     try:
         if status.get("running"):
             diagnostics = await manager._aria2_get_memory_diagnostics()
+            speed_stat  = await manager.aria2().get_global_stat()
     except Exception as exc:
         diagnostics = {"error": str(exc)}
-    return {**status, "diagnostics": diagnostics}
-
+    return {**status, "diagnostics": diagnostics, **speed_stat}
 
 @router.post("/aria2/runtime/start")
 async def aria2_runtime_start():
@@ -647,41 +648,68 @@ async def get_stats():
 
 
 @router.get("/stats/detail")
-async def get_stats_detail():
+async def get_stats_detail(period: str = "all"):
+    """
+    period: "1h" | "24h" | "7d" | "30d" | "1y" | "all"
+    """
+    period_map = {
+        "1h":  "datetime('now','-1 hour')",
+        "24h": "datetime('now','-1 day')",
+        "7d":  "datetime('now','-7 days')",
+        "30d": "datetime('now','-30 days')",
+        "1y":  "datetime('now','-1 year')",
+        "all": None,
+    }
+    cutoff = period_map.get(period)
+    where_completed = f"WHERE status='completed' AND completed_at >= {cutoff}" if cutoff else "WHERE status='completed'"
+    where_all = f"WHERE completed_at >= {cutoff}" if cutoff else ""
+    where_clause = f"WHERE created_at >= {cutoff}" if cutoff else ""
+
     async with get_db() as db:
-        totals = await db.fetchone(
+        # Base totals (always all-time for library size)
+        totals = dict(await db.fetchone(
             "SELECT COUNT(*) as torrent_total, COALESCE(SUM(size_bytes),0) as torrent_size_total FROM torrents"
-        ) or {}
+        ) or {})
 
-        completed_count = (await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status='completed'") or {}).get("c", 0)
-        error_count     = (await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status='error'") or {}).get("c", 0)
+        completed_count = (await db.fetchone(f"SELECT COUNT(*) as c FROM torrents {where_completed}") or {}).get("c", 0)
+        error_count     = (await db.fetchone(
+            f"SELECT COUNT(*) as c FROM torrents WHERE status='error'" +
+            (f" AND created_at >= {cutoff}" if cutoff else "")) or {}).get("c", 0)
         terminal = completed_count + error_count
-        totals["success_rate_pct"] = (
-            round(completed_count / terminal * 100, 1) if terminal > 0 else None
-        )
+        totals["success_rate_pct"] = round(completed_count / terminal * 100, 1) if terminal > 0 else None
 
-        torrent_status    = await db.fetchall("SELECT status, COUNT(*) as count FROM torrents GROUP BY status ORDER BY count DESC")
+        # Completed size: sum of size_bytes for completed torrents in period
+        completed_size_row = await db.fetchone(
+            f"SELECT COALESCE(SUM(size_bytes),0) as v FROM torrents {where_completed}")
+        totals["completed_size"] = (completed_size_row["v"] if completed_size_row else 0)
+        totals["completed_count"] = completed_count
+
+        # Partial torrents: torrents with status not in terminal states and not fully queued
+        partial_row = await db.fetchone(
+            "SELECT COUNT(*) as c FROM torrents WHERE status IN ('processing','downloading','dispatched','partial')"
+            + (f" AND created_at >= {cutoff}" if cutoff else ""))
+        totals["partial_total"] = (partial_row["c"] if partial_row else 0)
+
+        torrent_status    = await db.fetchall(
+            f"SELECT status, COUNT(*) as count FROM torrents {where_clause} GROUP BY status ORDER BY count DESC")
         file_status       = await db.fetchall(
-            """SELECT status, COUNT(*) as count, COALESCE(SUM(size_bytes),0) as size_bytes
-               FROM download_files GROUP BY status ORDER BY count DESC""")
-        event_levels      = await db.fetchall("SELECT level, COUNT(*) as count FROM events GROUP BY level")
-        latest_events     = await db.fetchall(
-            """SELECT e.*, t.name AS torrent_name FROM events e
-               LEFT JOIN torrents t ON t.id = e.torrent_id
-               ORDER BY e.created_at DESC LIMIT 10""")
+            f"""SELECT status, COUNT(*) as count, COALESCE(SUM(size_bytes),0) as size_bytes
+               FROM download_files {where_clause} GROUP BY status ORDER BY count DESC""")
+        event_levels      = await db.fetchall(
+            f"SELECT level, COUNT(*) as count FROM events {where_clause} GROUP BY level")
         daily_completions = await db.fetchall(
             """SELECT DATE(completed_at) as date, COUNT(*) as count
                FROM torrents WHERE completed_at >= datetime('now','-14 days')
                GROUP BY DATE(completed_at) ORDER BY date ASC""")
         sources = await db.fetchall(
-            "SELECT source, COUNT(*) as count FROM torrents GROUP BY source ORDER BY count DESC")
+            f"SELECT source, COUNT(*) as count FROM torrents {where_clause} GROUP BY source ORDER BY count DESC LIMIT 10")
 
         return {
+            "period":             period,
             "totals":             totals,
             "torrent_status":     torrent_status,
             "file_status":        file_status,
             "event_levels":       event_levels,
-            "latest_events":      latest_events,
             "daily_completions":  daily_completions,
             "sources":            sources,
         }
