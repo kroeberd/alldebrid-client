@@ -1194,6 +1194,7 @@ textarea.input { resize: vertical; }
       <div id="settings-form"></div>
       <div class="save-bar">
         <span class="save-hint">Settings are applied immediately after saving.</span>
+        <button class="btn btn-ghost btn-sm" onclick="debugRenderSettings()" title="Test: render settings with fake data (no API call)" style="opacity:0.7;font-size:11px">&#128295; Debug</button>
         <button class="btn btn-ghost" onclick="testDiscord()">🔔 Test Discord</button>
         <button class="btn btn-ghost" onclick="testAD()">🔑 Test AllDebrid</button>
         <button class="btn btn-ghost" onclick="testAria2()">⬇️ Test aria2</button>
@@ -1220,6 +1221,32 @@ textarea.input { resize: vertical; }
 <div id="toasts"></div>
 
 <script>
+// Global error handler — makes ALL JS errors visible in the UI
+window.onerror = function(msg, src, line, col, err) {
+  console.error('[GLOBAL ERROR]', msg, 'at', src, line+':'+col, err);
+  var banner = document.getElementById('_err_banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = '_err_banner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:8px 12px;font-size:12px;z-index:99999;font-family:monospace;white-space:pre-wrap;max-height:120px;overflow:auto';
+    document.body.appendChild(banner);
+  }
+  banner.textContent += '\nERROR: ' + msg + ' (' + src + ':' + line + ')';
+  return false;
+};
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('[UNHANDLED REJECTION]', e.reason);
+  var banner = document.getElementById('_err_banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = '_err_banner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:8px 12px;font-size:12px;z-index:99999;font-family:monospace;white-space:pre-wrap;max-height:120px;overflow:auto';
+    document.body.appendChild(banner);
+  }
+  banner.textContent += '\nREJECTION: ' + (e.reason && e.reason.message || e.reason);
+});
+
+
 const API = '/api';
 let currentFilter = '';
 let currentTorrentSearch = '';
@@ -2468,11 +2495,16 @@ function renderSettings() {
     '<div class="stab' + (i===0?' active':'') + '" data-tab="' + t.id + '" onclick="switchSettingsTab(\'' + t.id + '\')">' + t.label + '</div>'
   ).join('');
 
-  try { formEl.innerHTML = _buildTabGeneral(s); } catch(e) { console.error('General tab error:',e); formEl.innerHTML = '<div style="padding:20px;color:var(--red)">Error in General tab: '+e.message+'</div>'; return; }
-  try { formEl.innerHTML += _buildTabDownload(s); } catch(e) { console.error('Download tab error:',e); formEl.innerHTML += '<div style="padding:20px;color:var(--red)">Error in Download tab: '+e.message+'</div>'; }
-  try { formEl.innerHTML += _buildTabNotifications(s); } catch(e) { console.error('Notifications tab error:',e); }
-  try { formEl.innerHTML += _buildTabServices(s); } catch(e) { console.error('Services tab error:',e); }
-  try { formEl.innerHTML += _buildTabAdvanced(s); } catch(e) { console.error('Advanced tab error:',e); }
+  // Build all tabs and set innerHTML once — avoids re-parsing on every +=
+  var _html = '';
+  try { _html += _buildTabGeneral(s); } catch(e) { console.error('General tab:',e); _html += '<div style="padding:20px;color:red">General tab error: '+e.message+'</div>'; }
+  try { _html += _buildTabDownload(s); } catch(e) { console.error('Download tab:',e); _html += '<div style="padding:20px;color:red">Download tab error: '+e.message+'</div>'; }
+  try { _html += _buildTabNotifications(s); } catch(e) { console.error('Notifications tab:',e); }
+  try { _html += _buildTabServices(s); } catch(e) { console.error('Services tab:',e); }
+  try { _html += _buildTabAdvanced(s); } catch(e) { console.error('Advanced tab:',e); }
+  console.log('[renderSettings] html length:', _html.length);
+  formEl.innerHTML = _html;
+  console.log('[renderSettings] innerHTML set, formEl children:', formEl.children.length);
 
   if (typeof renderFlexgetTaskSchedules === "function") renderFlexgetTaskSchedules();
   console.log('[renderSettings] done');
@@ -3772,6 +3804,44 @@ function onDbTypeChange(val) {
 }
 
 function onDownloadClientChange(val) { /* future use */ }
+
+
+function debugRenderSettings() {
+  // Test render with minimal fake data — no API call needed
+  settingsData = {
+    alldebrid_api_key:'DEBUG_KEY', download_folder:'/download', watch_folder:'', processed_folder:'',
+    max_concurrent_downloads:3, stuck_download_timeout_hours:6, full_sync_interval_minutes:30,
+    download_client:'aria2', aria2_mode:'builtin', aria2_url:'http://127.0.0.1:6800/jsonrpc',
+    aria2_secret:'', aria2_download_path:'', aria2_builtin_auto_start:true, aria2_builtin_port:6800,
+    aria2_max_active_downloads:3, aria2_split:4, aria2_max_connection_per_server:4,
+    aria2_min_split_size:'20M', aria2_lowest_speed_limit:'0', aria2_disk_cache:'0',
+    aria2_file_allocation:'none', aria2_continue_downloads:true, aria2_start_paused:false,
+    aria2_error_retry_count:3, aria2_error_retry_delay_seconds:60,
+    discord_webhook_url:'', discord_username:'', discord_avatar_url:'', discord_webhook_added:'',
+    discord_notify_added:true, discord_notify_finished:true, discord_notify_error:true,
+    db_type:'sqlite', _db_type_locked:false, db_wipe_enabled:false, db_backup_before_wipe:true,
+    db_backup_folder:'', db_backup_keep_days:7, backup_enabled:false, backup_folder:'',
+    backup_interval_hours:24, backup_keep_days:7, filters_enabled:true, blocked_extensions:'',
+    blocked_keywords:'', min_file_size_mb:0, stats_report_webhook_url:'', stats_report_interval_hours:0,
+    stats_report_window_hours:24, poll_interval_seconds:30, watch_interval_seconds:10,
+    alldebrid_rate_limit_per_minute:60, sonarr_enabled:false, sonarr_url:'', sonarr_api_key:'',
+    radarr_enabled:false, radarr_url:'', radarr_api_key:'', torrent_labels_raw:'',
+    jackett_enabled:false, jackett_url:'http://localhost:9117', jackett_api_key:'', jackett_webhook_url:'',
+    flexget_enabled:false, flexget_url:'', flexget_api_key:'', flexget_tasks_raw:'', flexget_webhook_url:'',
+    postgres_host:'localhost', postgres_port:5432, postgres_db:'alldebrid',
+    postgres_user:'alldebrid', postgres_password:'', postgres_schema:'public', postgres_ssl:false,
+  };
+  console.log('[debugRenderSettings] calling renderSettings with fake data...');
+  try {
+    renderSettings();
+    switchSettingsTab('tab-general');
+    console.log('[debugRenderSettings] done');
+    toast('Debug render OK', 'success');
+  } catch(e) {
+    console.error('[debugRenderSettings] FAILED:', e);
+    toast('Debug render FAILED: ' + e.message, 'error');
+  }
+}
 
 
 async function createDatabaseBackup() {
