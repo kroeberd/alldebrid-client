@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.4.9] — 2026-04-29
+
+### Root cause confirmed: Linux kernel page cache on Unraid/mergerfs
+
+20 GB RAM usage does not come from aria2 itself (which uses ~10–50 MB with
+`disk-cache=0`). The actual source is the **Linux kernel page cache**.
+
+When aria2 writes a downloaded file to disk, the kernel caches every byte in
+RAM. The cache is only released when another process needs memory — on a
+dedicated server with plenty of RAM this never happens, so the cache keeps
+growing with every download. Unraid's dashboard reports this cache as "used"
+RAM, making it look like a memory leak.
+
+On Unraid the path is: aria2 → write() → kernel page cache → mergerfs (FUSE)
+→ array disk. Mergerfs does not flush the page cache any faster than a native
+filesystem.
+
+### Added
+
+**`GET /api/admin/memory-info`** — returns a breakdown of system RAM:
+- `really_used`: actual process RAM (RSS of all processes)
+- `page_cache`: kernel file cache (shown as "used" in Unraid dashboard but
+  reclaimed automatically when needed)
+- `available`: RAM immediately usable by new processes
+
+**`POST /api/admin/drop-page-cache`** — calls
+`posix_fadvise(POSIX_FADV_DONTNEED)` on every completed download file,
+telling the kernel to release the cached pages immediately. Safe to call
+at any time; the file on disk is not affected.
+
+**`services/page_cache.py`** — `drop_page_cache_for_file()` called
+automatically from `_finalize_aria2_torrent()` after every completed torrent.
+This keeps the page cache from accumulating during long download sessions.
+
+**UI buttons** in Settings → Download → aria2:
+- **Memory Info** — shows real RAM vs page cache breakdown
+- **Drop Page Cache** — releases cached pages and refreshes the display
+
+### Why previous fixes had no visible effect
+All previous changes (disk-cache, split, MALLOC_ARENA_MAX, file-allocation,
+session clearing) correctly reduced aria2's *process heap*. But the process
+heap was never the dominant factor — the page cache was. 20 GB of page cache
+is expected when downloading 20 GB of files on a system that never frees it.
+
 ## [1.4.8] — 2026-04-29
 
 ### Analysis: why RAM keeps growing

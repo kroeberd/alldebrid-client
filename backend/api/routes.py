@@ -793,6 +793,88 @@ async def list_database_backups():
     return {"backups": _list()}
 
 
+@router.post("/admin/drop-page-cache")
+async def drop_page_cache_ep():
+    """
+    Release the Linux kernel page cache for all completed download files.
+    This frees RAM that Linux holds as file cache after downloads finish.
+    Safe to call at any time — files on disk are not affected.
+    """
+    from services.page_cache import drop_page_cache_for_file
+    from pathlib import Path
+
+    try:
+        async with get_db() as db:
+            rows = await (await db.execute(
+                "SELECT local_path FROM download_files "
+                "WHERE status='completed' AND local_path IS NOT NULL"
+            )).fetchall()
+        paths = [r["local_path"] for r in rows if r["local_path"]]
+        dropped = sum(1 for p in paths if drop_page_cache_for_file(p))
+        return {
+            "ok": True,
+            "files_processed": len(paths),
+            "cache_released": dropped,
+            "message": f"Page cache released for {dropped}/{len(paths)} files",
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@router.get("/admin/memory-info")
+async def memory_info_ep():
+    """
+    Read /proc/meminfo to show the difference between total RAM usage
+    and actual used RAM vs kernel page cache.
+    This helps diagnose whether high RAM usage is a real leak or
+    normal kernel page-cache behaviour.
+    """
+    import re as _re
+    from pathlib import Path as _Path
+
+    info = {}
+    try:
+        text = _Path("/proc/meminfo").read_text()
+        for line in text.splitlines():
+            m = _re.match(r"^(\w+):\s+(\d+)\s+kB$", line)
+            if m:
+                info[m.group(1)] = int(m.group(2)) * 1024
+
+        def fmt(b: int) -> str:
+            if b >= 1 << 30:
+                return f"{b / (1 << 30):.1f} GB"
+            if b >= 1 << 20:
+                return f"{b / (1 << 20):.1f} MB"
+            return f"{b / (1 << 10):.0f} KB"
+
+        total       = info.get("MemTotal", 0)
+        free        = info.get("MemFree", 0)
+        available   = info.get("MemAvailable", 0)
+        cached      = info.get("Cached", 0) + info.get("SwapCached", 0)
+        buffers     = info.get("Buffers", 0)
+        used        = total - free - cached - buffers
+        page_cache  = cached + buffers
+
+        return {
+            "total":           fmt(total),
+            "really_used":     fmt(used),
+            "page_cache":      fmt(page_cache),
+            "available":       fmt(available),
+            "free":            fmt(free),
+            "note": (
+                "really_used is actual process RAM. "
+                "page_cache is kernel file cache (shown as 'used' in Unraid dashboard "
+                "but reclaimed automatically when needed). "
+                "If page_cache is large, run POST /admin/drop-page-cache to release it."
+            ),
+            "raw_kb": {k: v // 1024 for k, v in info.items()
+                       if k in ("MemTotal","MemFree","MemAvailable","Cached","Buffers","SwapTotal","SwapFree")},
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+
 @router.post("/admin/database/wipe")
 async def wipe_database_admin(body: dict | None = None):
     cfg = get_settings()

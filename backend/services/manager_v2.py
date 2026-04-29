@@ -2180,6 +2180,31 @@ class TorrentManager:
         except Exception:
             pass  # non-critical — housekeeping loop will catch up
 
+        # Release kernel page-cache for all downloaded files.
+        # When aria2 writes to disk, Linux caches every byte in RAM (page cache).
+        # On Unraid / mergerfs this can grow to 10-20+ GB and is not released
+        # until another process needs memory. posix_fadvise(DONTNEED) tells the
+        # kernel to reclaim those pages immediately — the file on disk is intact.
+        try:
+            from services.page_cache import drop_page_cache_for_file
+            async with get_db() as db:
+                rows = await (await db.execute(
+                    "SELECT local_path FROM download_files "
+                    "WHERE torrent_id=? AND status='completed' AND local_path IS NOT NULL",
+                    (torrent_id,),
+                )).fetchall()
+            dropped = 0
+            for row in rows:
+                lp = row["local_path"]
+                if lp and drop_page_cache_for_file(lp):
+                    dropped += 1
+            if dropped:
+                logger.debug(
+                    "Page cache released for %d file(s) of torrent %s", dropped, torrent_id
+                )
+        except Exception as exc:
+            logger.debug("page cache drop skipped: %s", exc)
+
     async def pause_torrent(self, torrent_id: int):
         if self.download_client_name() != "aria2":
             raise ValueError("Pause is only supported for the aria2 download client")

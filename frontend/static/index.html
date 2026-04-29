@@ -2219,9 +2219,14 @@ function renderSettings() {
           <label class="toggle"><input type="checkbox" id="s-aria2_keep_unfinished_download_result" ${s.aria2_keep_unfinished_download_result?'checked':''}><div class="ttrack"></div></label>
         </div>
         <div class="form-group">
-          <button class="btn btn-ghost" onclick="runAria2Housekeeping()">Run aria2 Cleanup Now</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-ghost" onclick="runAria2Housekeeping()">Run aria2 Cleanup Now</button>
+            <button class="btn btn-ghost" onclick="showMemoryInfo()" title="Shows real RAM vs kernel page cache">&#128202; Memory Info</button>
+            <button class="btn btn-ghost" onclick="dropPageCache()" title="Release kernel page cache for all downloaded files">&#129522; Drop Page Cache</button>
+          </div>
         </div>
         <div id="aria2-memory-diagnostics" class="form-hint" style="line-height:1.6"></div>
+        <div id="aria2-memory-info" class="form-hint" style="line-height:1.6;margin-top:6px;display:none"></div>
         <div class="toggle-row">
           <div class="toggle-info">
             <div class="tl">Start aria2 Jobs Paused</div>
@@ -4057,6 +4062,47 @@ function updateAria2Badge(activeCount) {
   if (!badge) return;
   badge.textContent = activeCount;
   badge.style.display = activeCount > 0 ? '' : 'none';
+}
+
+
+async function showMemoryInfo() {
+  var el = document.getElementById('aria2-memory-info');
+  if (!el) return;
+  el.style.display = '';
+  el.innerHTML = '<span style="color:var(--text2)">Loading&#8230;</span>';
+  try {
+    var d = await api('GET', '/admin/memory-info');
+    el.innerHTML =
+      '<b>&#128202; System Memory</b><br>' +
+      'Total: <b>' + d.total + '</b> &nbsp; ' +
+      'Really used: <b>' + d.really_used + '</b> &nbsp; ' +
+      'Page cache: <b style="color:var(--accent)">' + d.page_cache + '</b> &nbsp; ' +
+      'Available: <b style="color:var(--green)">' + d.available + '</b><br>' +
+      '<span style="font-size:11px;color:var(--text2)">' +
+      'Page cache = kernel file cache shown as \"used\" in Unraid dashboard, ' +
+      'but reclaimed automatically when needed. ' +
+      'If large, click \"Drop Page Cache\" to release it immediately.' +
+      '</span>';
+  } catch(e) {
+    el.innerHTML = '<span style="color:var(--red)">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+async function dropPageCache() {
+  var el = document.getElementById('aria2-memory-info');
+  if (el) { el.style.display = ''; el.innerHTML = '<span style="color:var(--text2)">Releasing page cache&#8230;</span>'; }
+  try {
+    var d = await api('POST', '/admin/drop-page-cache');
+    toast('Page cache released for ' + d.cache_released + '/' + d.files_processed + ' files', 'success');
+    if (el) el.innerHTML =
+      '<b style="color:var(--green)">&#10003; ' + d.message + '</b><br>' +
+      '<span style="font-size:11px;color:var(--text2)">Run Memory Info again to see updated RAM usage.</span>';
+    // refresh memory info after 1s
+    setTimeout(showMemoryInfo, 1200);
+  } catch(e) {
+    toast('Drop page cache failed: ' + e.message, 'error');
+    if (el) el.innerHTML = '<span style="color:var(--red)">Error: ' + esc(e.message) + '</span>';
+  }
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
