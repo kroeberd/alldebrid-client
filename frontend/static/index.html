@@ -1811,12 +1811,12 @@ function updateFlexgetTaskSchedule(index, field, value) {
 
 function addFlexgetTaskSchedule(task = '') {
   flexgetTaskSchedules.push({ task, interval_minutes: 60, jitter_seconds: 0, enabled: true });
-  renderFlexgetTaskSchedules();
+  if (typeof renderFlexgetTaskSchedules === "function") renderFlexgetTaskSchedules();
 }
 
 function removeFlexgetTaskSchedule(index) {
   flexgetTaskSchedules.splice(index, 1);
-  renderFlexgetTaskSchedules();
+  if (typeof renderFlexgetTaskSchedules === "function") renderFlexgetTaskSchedules();
 }
 
 // ── Theme toggle ─────────────────────────────────────────────────────────────
@@ -2072,13 +2072,9 @@ async function loadSettings() {
   if (avatarUrl && !avatarUrl.includes('github') && !avatarUrl.includes('_DEFAULT')) {
     showAvatarPreview(avatarUrl, 'Custom avatar', 0);
   }
-  // Initialer Zustand: Test-PostgreSQL Button und pg-settings Sichtbarkeit
+    // DB fields visibility on load
   const dbTypeEl = document.getElementById('s-db_type');
-  if (dbTypeEl) {
-    const isPg = dbTypeEl.value === 'postgres';
-    const pgBtn = document.getElementById('btn-test-postgres');
-    if (pgBtn) pgBtn.style.display = isPg ? '' : 'none';
-  }
+  if (dbTypeEl) onDbTypeChange(dbTypeEl.value);
 }
 
 function renderSettings() {
@@ -2716,7 +2712,7 @@ function renderSettings() {
     </div>
 
   `;
-  renderFlexgetTaskSchedules();
+  if (typeof renderFlexgetTaskSchedules === "function") renderFlexgetTaskSchedules();
 }
 
 function getFormSettings() {
@@ -3997,6 +3993,21 @@ function switchHelpTab(btn, tabId) {
     }
   }
 }
+
+
+function onAria2ModeChange(mode) {
+  var ext = document.getElementById('aria2-external-fields');
+  var blt = document.getElementById('aria2-builtin-fields');
+  if (ext) ext.style.display = mode === 'external' ? '' : 'none';
+  if (blt) blt.style.display = mode === 'builtin'  ? '' : 'none';
+}
+
+function onDbTypeChange(val) {
+  var pg = document.getElementById('postgres-fields');
+  if (pg) pg.style.display = (val === 'postgres' || val === 'postgres_internal') ? '' : 'none';
+}
+
+function onDownloadClientChange(val) { /* future use */ }
 
 
 async function showMemoryInfo() {
