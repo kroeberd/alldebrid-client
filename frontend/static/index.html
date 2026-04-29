@@ -2061,11 +2061,18 @@ function renderMarkdown(md) {
 }
 
 async function loadSettings() {
+  console.log('[loadSettings] start, settingsData=', settingsData);
   try {
     settingsData = await api('GET','/settings');
-  } catch(e) { toast('Failed to load settings: ' + e.message,'error'); return; }
+    console.log('[loadSettings] api OK, keys=', Object.keys(settingsData||{}).length);
+  } catch(e) {
+    console.error('[loadSettings] api FAILED:', e);
+    toast('Failed to load settings: ' + e.message,'error'); return;
+  }
+  console.log('[loadSettings] calling renderSettings()...');
   try {
     renderSettings();
+    console.log('[loadSettings] renderSettings() done');
   } catch(err) {
     console.error('[renderSettings] crash:', err);
     const form = document.getElementById('settings-form');
@@ -2089,8 +2096,16 @@ async function loadSettings() {
 }
 
 function renderSettings() {
-  if (!settingsData) return;
+  console.log('[renderSettings] called, settingsData=', !!settingsData, typeof settingsData);
+  if (!settingsData) { console.error('[renderSettings] settingsData is null/undefined!'); return; }
   var s = settingsData;
+  console.log('[renderSettings] s.aria2_mode=', s.aria2_mode, 's.db_type=', s.db_type);
+  // DIAGNOSTIC: Set a visible marker first
+  const formEl = document.getElementById('settings-form');
+  const tabsEl = document.getElementById('settings-tabs');
+  console.log('[renderSettings] formEl=', !!formEl, 'tabsEl=', !!tabsEl);
+  if (!formEl || !tabsEl) { console.error('[renderSettings] DOM elements missing!'); return; }
+  console.log('[renderSettings] building template...');
 
   const tabs = [
     { id:'tab-general',       label:'⚡ General' },
@@ -2104,6 +2119,9 @@ function renderSettings() {
     `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${esc(t.label)}</div>`
   ).join('');
 
+  // Set loading indicator first to confirm DOM access works
+  const _sf = document.getElementById('settings-form');
+  if (_sf) _sf.innerHTML = '<div style="padding:20px;color:var(--text2)">Loading settings...</div>';
   document.getElementById('settings-form').innerHTML = `
 
     <!-- ═══════════════════════════════ GENERAL ══════════════════════════════ -->
