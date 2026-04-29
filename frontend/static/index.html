@@ -2095,654 +2095,389 @@ async function loadSettings() {
   if (dbTypeEl) onDbTypeChange(dbTypeEl.value);
 }
 
+function _buildTabGeneral(s) {
+  return _stab('tab-general', true, `
+    <div class="scard"><div class="scard-header">&#128273; AllDebrid</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">API Key</label>
+        <input class="input" id="s-alldebrid_api_key" type="password" value="${esc(s.alldebrid_api_key||'')}" placeholder="Your AllDebrid API key" autocomplete="off"/>
+        <span class="form-hint">Get your key at <a href="https://alldebrid.com/apikeys/" target="_blank" style="color:var(--accent)">alldebrid.com/apikeys</a>.</span>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#128193; Folders</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">Download Folder</label>
+        <input class="input" id="s-download_folder" value="${esc(s.download_folder||'/download')}" placeholder="/download"/>
+        <span class="form-hint">Where aria2 saves files. Map your host folder to this path in Docker.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Watch Folder <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+        <input class="input" id="s-watch_folder" value="${esc(s.watch_folder||'')}" placeholder="/watch"/>
+        <span class="form-hint">Drop .torrent/.magnet files here — auto-imported and deleted.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Processed Folder <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+        <input class="input" id="s-processed_folder" value="${esc(s.processed_folder||'')}" placeholder="/processed"/>
+        <span class="form-hint">Watch-folder files moved here after import instead of deleted.</span>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#9881;&#65039; Behaviour</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">Max Concurrent Downloads</label>
+        <input class="input" id="s-max_concurrent_downloads" type="number" min="1" max="20" value="${s.max_concurrent_downloads||3}" style="width:100px"/>
+        <span class="form-hint">How many AllDebrid magnets processed in parallel (not aria2 connections).</span>
+      </div>
+      <div class="form-group"><label class="form-label">Stuck Timeout (hours)</label>
+        <input class="input" id="s-stuck_download_timeout_hours" type="number" min="0" step="0.5" value="${s.stuck_download_timeout_hours||6}" style="width:100px"/>
+        <span class="form-hint">Torrents stuck longer than this are auto-retried. 0 = disabled.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Full Sync Interval (minutes)</label>
+        <input class="input" id="s-full_sync_interval_minutes" type="number" min="0" value="${s.full_sync_interval_minutes||30}" style="width:100px"/>
+        <span class="form-hint">How often all AllDebrid magnets are reconciled with the DB. 0 = disabled.</span>
+      </div>
+    </div></div>`);
+}
+
+function _buildTabDownload(s) {
+  const isBuiltin = (s.aria2_mode||'builtin') === 'builtin';
+  const isExternal = !isBuiltin;
+  return _stab('tab-download', false, `
+    <div class="scard"><div class="scard-header">&#11015;&#65039; Download Client</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">aria2 Mode</label>
+        <select class="input" id="s-aria2_mode" onchange="onAria2ModeChange(this.value)">
+          <option value="builtin" ${isBuiltin?'selected':''}>Built-in (managed by this app)</option>
+          <option value="external" ${isExternal?'selected':''}>External (separate aria2 instance)</option>
+        </select>
+        <span class="form-hint">Built-in: aria2 starts automatically with the app — no extra setup needed.</span>
+      </div>
+      <div id="aria2-external-fields" style="${isBuiltin?'display:none':''}">
+        <div class="form-group"><label class="form-label">RPC URL</label>
+          <input class="input" id="s-aria2_url" value="${esc(s.aria2_url||'http://127.0.0.1:6800/jsonrpc')}" placeholder="http://127.0.0.1:6800/jsonrpc"/>
+          <span class="form-hint">JSON-RPC endpoint of your external aria2 instance.</span>
+        </div>
+        <div class="form-group"><label class="form-label">RPC Secret</label>
+          <input class="input" id="s-aria2_secret" type="password" value="${esc(s.aria2_secret||'')}" placeholder="leave empty if none" autocomplete="off"/>
+        </div>
+        <div class="form-group"><label class="form-label">Download Path Override</label>
+          <input class="input" id="s-aria2_download_path" value="${esc(s.aria2_download_path||'')}" placeholder="only if paths differ between containers"/>
+          <span class="form-hint">Only needed when aria2 runs in a separate container with a different path mapping.</span>
+        </div>
+      </div>
+      <div id="aria2-builtin-fields" style="${isExternal?'display:none':''}">
+        <div class="form-group"><label class="form-label">Built-in RPC Port</label>
+          <input class="input" id="s-aria2_builtin_port" type="number" min="1024" max="65535" value="${s.aria2_builtin_port||6800}" style="width:120px"/>
+          <span class="form-hint">Change only if port 6800 conflicts with another service.</span>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-label"><span>Auto-start built-in aria2</span></div>
+          <label class="tswitch"><input type="checkbox" id="s-aria2_builtin_auto_start" ${s.aria2_builtin_auto_start!==false?'checked':''}><span class="ttrack"></span></label>
+        </div>
+      </div>
+      <div class="input-row" style="margin-top:12px">
+        <button class="btn btn-ghost btn-sm" onclick="testAria2()">Test Connection</button>
+        <span id="aria2-test-result" style="font-size:12px;align-self:center"></span>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#127917; Performance</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">Simultaneous Downloads</label>
+        <input class="input" id="s-aria2_max_active_downloads" type="number" min="1" max="20" value="${s.aria2_max_active_downloads||3}" style="width:100px"/>
+        <span class="form-hint">Files aria2 downloads at once. Recommended: 3–5.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Connections per File</label>
+        <input class="input" id="s-aria2_split" type="number" min="1" max="16" value="${s.aria2_split||4}" style="width:100px"/>
+        <span class="form-hint">Parallel segments per file. Recommended: 4.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Max Connections per Server</label>
+        <input class="input" id="s-aria2_max_connection_per_server" type="number" min="1" max="16" value="${s.aria2_max_connection_per_server||4}" style="width:100px"/>
+        <span class="form-hint">Keep this ≤ Connections per File.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Min Segment Size</label>
+        <input class="input" id="s-aria2_min_split_size" value="${esc(s.aria2_min_split_size||'20M')}" style="width:100px"/>
+        <span class="form-hint">Only split files larger than 2× this value. Default: 20M.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Speed Limit</label>
+        <input class="input" id="s-aria2_lowest_speed_limit" value="${esc(s.aria2_lowest_speed_limit||'0')}" style="width:120px"/>
+        <span class="form-hint">Drop connections slower than this. 0 = no limit. E.g. 100K.</span>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#128190; Storage &amp; Memory</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">Disk Cache</label>
+        <input class="input" id="s-aria2_disk_cache" value="${esc(s.aria2_disk_cache||'0')}" style="width:120px"/>
+        <span class="form-hint"><strong>0</strong> = best for local SSD (~4 MB RAM). <strong>16M</strong> = better for network mounts (NFS/SMB/mergerfs) — batches writes, reduces round-trips.</span>
+      </div>
+      <div class="form-group"><label class="form-label">File Allocation</label>
+        <select class="input" id="s-aria2_file_allocation" style="width:160px">
+          <option value="none"     ${ (s.aria2_file_allocation||'none')==='none'    ?'selected':''}>none (recommended)</option>
+          <option value="prealloc" ${ (s.aria2_file_allocation||'none')==='prealloc'?'selected':''}>prealloc</option>
+          <option value="falloc"   ${ (s.aria2_file_allocation||'none')==='falloc'  ?'selected':''}>falloc (blocks aria2!)</option>
+          <option value="trunc"    ${ (s.aria2_file_allocation||'none')==='trunc'   ?'selected':''}>trunc</option>
+        </select>
+        <span class="form-hint"><strong>none</strong>: instant start. <strong>falloc</strong>: blocks aria2 until disk is pre-allocated — avoid for large files on slow/network disks.</span>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-label"><span>Resume incomplete downloads</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-aria2_continue_downloads" ${s.aria2_continue_downloads!==false?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-label"><span>Start downloads paused</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-aria2_start_paused" ${s.aria2_start_paused?'checked':''}><span class="ttrack"></span></label>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#128260; Errors &amp; Retries</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">Retry Count</label>
+        <input class="input" id="s-aria2_error_retry_count" type="number" min="0" max="10" value="${s.aria2_error_retry_count||3}" style="width:100px"/>
+        <span class="form-hint">How many times a failed download is retried. 0 = disabled.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Retry Delay (seconds)</label>
+        <input class="input" id="s-aria2_error_retry_delay_seconds" type="number" min="0" value="${s.aria2_error_retry_delay_seconds||60}" style="width:100px"/>
+      </div>
+    </div></div>
+    <div class="scard" style="border-color:rgba(180,180,180,.15)"><div class="scard-header" style="color:var(--text3)">&#129504; Memory &amp; Diagnostics</div><div class="scard-body">
+      <div class="input-row" style="flex-wrap:wrap;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="runAria2Housekeeping()">Run Cleanup</button>
+        <button class="btn btn-ghost btn-sm" onclick="showMemoryInfo()">&#128202; Memory Info</button>
+        <button class="btn btn-ghost btn-sm" onclick="dropPageCache()">&#128465;&#65039; Drop Page Cache</button>
+      </div>
+      <span class="form-hint" style="margin-top:6px">Memory Info reads /proc/meminfo to separate real RAM from kernel page cache. Page cache grows during downloads and appears as high RAM usage in system monitors — it is reclaimed automatically by Linux when needed. Drop Page Cache releases it immediately (Linux only, safe on all filesystems).</span>
+      <div id="aria2-memory-diagnostics" class="form-hint" style="line-height:1.6"></div>
+      <div id="aria2-memory-info" class="form-hint" style="line-height:1.6;margin-top:6px;display:none"></div>
+    </div></div>`);
+}
+
+function _buildTabNotifications(s) {
+  return _stab('tab-notifications', false, `
+    <div class="scard"><div class="scard-header">&#128276; Discord Webhooks</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">Webhook URL</label>
+        <input class="input" id="s-discord_webhook_url" value="${esc(s.discord_webhook_url||'')}" placeholder="https://discord.com/api/webhooks/…"/>
+        <span class="form-hint">Main webhook. Create in Discord: Server Settings → Integrations → Webhooks.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Bot Name <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+        <input class="input" id="s-discord_username" value="${esc(s.discord_username||'')}" placeholder="AllDebrid-Client"/>
+      </div>
+      <div class="form-group"><label class="form-label">Avatar URL <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+        <input class="input" id="s-discord_avatar_url" value="${esc(s.discord_avatar_url||'')}" placeholder="https://example.com/avatar.png"/>
+      </div>
+      <div class="form-group"><label class="form-label">Added-event Webhook <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+        <input class="input" id="s-discord_webhook_added" value="${esc(s.discord_webhook_added||'')}" placeholder="separate channel for 'added' events"/>
+      </div>
+      <div class="input-row" style="margin-top:4px">
+        <button class="btn btn-ghost btn-sm" onclick="testDiscord()">Test Webhook</button>
+        <span id="discord-test-result" style="font-size:12px;align-self:center"></span>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#128235; Events</div><div class="scard-body">
+      <div class="toggle-row"><div class="toggle-label"><span>Notify on torrent added</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added!==false?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="toggle-row"><div class="toggle-label"><span>Notify on download complete</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-discord_notify_finished" ${s.discord_notify_finished!==false?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="toggle-row"><div class="toggle-label"><span>Notify on error</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error!==false?'checked':''}><span class="ttrack"></span></label>
+      </div>
+    </div></div>`);
+}
+
+function _buildTabServices(s) {
+  return _stab('tab-services', false, `
+    <div class="scard"><div class="scard-header">&#128250; Sonarr</div><div class="scard-body">
+      <div class="toggle-row"><div class="toggle-label"><span>Enable Sonarr</span><span class="form-hint">Trigger import scan after episode downloads.</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-sonarr_enabled" ${s.sonarr_enabled?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="form-group"><label class="form-label">Sonarr URL</label>
+        <input class="input" id="s-sonarr_url" value="${esc(s.sonarr_url||'')}" placeholder="http://sonarr:8989"/>
+      </div>
+      <div class="form-group"><label class="form-label">API Key</label>
+        <input class="input" id="s-sonarr_api_key" type="password" value="${esc(s.sonarr_api_key||'')}" autocomplete="off" placeholder="Sonarr → Settings → General"/>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="testSonarr()">Test</button>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#127916; Radarr</div><div class="scard-body">
+      <div class="toggle-row"><div class="toggle-label"><span>Enable Radarr</span><span class="form-hint">Trigger import scan after movie downloads.</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-radarr_enabled" ${s.radarr_enabled?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="form-group"><label class="form-label">Radarr URL</label>
+        <input class="input" id="s-radarr_url" value="${esc(s.radarr_url||'')}" placeholder="http://radarr:7878"/>
+      </div>
+      <div class="form-group"><label class="form-label">API Key</label>
+        <input class="input" id="s-radarr_api_key" type="password" value="${esc(s.radarr_api_key||'')}" autocomplete="off" placeholder="Radarr → Settings → General"/>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="testRadarr()">Test</button>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#128269; Jackett</div><div class="scard-body">
+      <div class="toggle-row"><div class="toggle-label"><span>Enable Jackett</span><span class="form-hint">Search sidebar + add results directly to queue.</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-jackett_enabled" ${s.jackett_enabled?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="form-group"><label class="form-label">Jackett URL</label>
+        <input class="input" id="s-jackett_url" value="${esc(s.jackett_url||'http://localhost:9117')}" placeholder="http://jackett:9117"/>
+      </div>
+      <div class="form-group"><label class="form-label">API Key</label>
+        <input class="input" id="s-jackett_api_key" type="password" value="${esc(s.jackett_api_key||'')}" autocomplete="off" placeholder="Jackett dashboard top-right"/>
+      </div>
+      <div class="form-group"><label class="form-label">Jackett Webhook <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+        <input class="input" id="s-jackett_webhook_url" value="${esc(s.jackett_webhook_url||'')}" placeholder="separate Discord webhook for Jackett results"/>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="testJackett()">Test</button>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#129302; FlexGet</div><div class="scard-body">
+      <div class="toggle-row"><div class="toggle-label"><span>Enable FlexGet</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-flexget_enabled" ${s.flexget_enabled?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="form-group"><label class="form-label">FlexGet URL</label>
+        <input class="input" id="s-flexget_url" value="${esc(s.flexget_url||'')}" placeholder="http://flexget:5050"/>
+      </div>
+      <div class="form-group"><label class="form-label">API Key</label>
+        <input class="input" id="s-flexget_api_key" type="password" value="${esc(s.flexget_api_key||'')}" autocomplete="off"/>
+        <span class="form-hint">Run <code>flexget web gentoken</code> to get the API key.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Tasks (comma-separated)</label>
+        <input class="input" id="s-flexget_tasks_raw" value="${esc(s.flexget_tasks_raw||'')}" placeholder="task1, task2 (empty = all)"/>
+      </div>
+      <div class="form-group"><label class="form-label">FlexGet Webhook <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+        <input class="input" id="s-flexget_webhook_url" value="${esc(s.flexget_webhook_url||'')}" placeholder="separate Discord webhook"/>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#127991;&#65039; Labels</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">Torrent Labels</label>
+        <textarea class="input" id="s-torrent_labels_raw" rows="3" placeholder="label1&#10;label2" style="font-family:var(--mono);font-size:12px">${esc(s.torrent_labels_raw||'')}</textarea>
+        <span class="form-hint">One label per line. Optional — shown in Add Torrent dialog.</span>
+      </div>
+    </div></div>`);
+}
+
+function _buildTabAdvanced(s) {
+  const isPg = s.db_type==='postgres'||s.db_type==='postgres_internal';
+  return _stab('tab-advanced', false, `
+    <div class="scard"><div class="scard-header">&#128683; File Filters</div><div class="scard-body">
+      <div class="toggle-row"><div class="toggle-label"><span>Enable filters</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-filters_enabled" ${s.filters_enabled!==false?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="form-group"><label class="form-label">Blocked Extensions (one per line)</label>
+        <textarea class="input" id="s-blocked_extensions" rows="4" placeholder=".jpg&#10;.png&#10;.nfo" style="font-family:var(--mono);font-size:12px">${esc(s.blocked_extensions||'')}</textarea>
+      </div>
+      <div class="form-group"><label class="form-label">Blocked Keywords (one per line)</label>
+        <textarea class="input" id="s-blocked_keywords" rows="3" placeholder="sample&#10;trailer" style="font-family:var(--mono);font-size:12px">${esc(s.blocked_keywords||'')}</textarea>
+      </div>
+      <div class="form-group"><label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
+        <input class="input" id="s-min_file_size_mb" type="number" min="0" value="${s.min_file_size_mb||0}" style="width:120px"/>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#128202; Statistics &amp; Reporting</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">Reporting Webhook URL <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+        <input class="input" id="s-stats_report_webhook_url" value="${esc(s.stats_report_webhook_url||'')}" placeholder="Discord webhook for stats reports"/>
+      </div>
+      <div class="form-group"><label class="form-label">Auto-report Interval (hours, 0 = off)</label>
+        <input class="input" id="s-stats_report_interval_hours" type="number" min="0" value="${s.stats_report_interval_hours||0}" style="width:100px"/>
+      </div>
+      <div class="form-group"><label class="form-label">Report Window (hours)</label>
+        <input class="input" id="s-stats_report_window_hours" type="number" min="1" value="${s.stats_report_window_hours||24}" style="width:100px"/>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#128190; Backups</div><div class="scard-body">
+      <div class="toggle-row"><div class="toggle-label"><span>Enable automatic backups</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-backup_enabled" ${s.backup_enabled?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="form-group"><label class="form-label">Backup Folder</label>
+        <input class="input" id="s-backup_folder" value="${esc(s.backup_folder||'')}" placeholder="/app/data/backups"/>
+      </div>
+      <div class="form-group"><label class="form-label">Interval (hours)</label>
+        <input class="input" id="s-backup_interval_hours" type="number" min="1" value="${s.backup_interval_hours||24}" style="width:100px"/>
+      </div>
+      <div class="form-group"><label class="form-label">Keep backups for (days)</label>
+        <input class="input" id="s-backup_keep_days" type="number" min="1" value="${s.backup_keep_days||7}" style="width:100px"/>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#128436;&#65039; Database</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">Database Type</label>
+        <select class="input" id="s-db_type" onchange="onDbTypeChange(this.value)" style="width:200px" ${s._db_type_locked?'disabled':''}>
+          <option value="sqlite" ${!isPg?'selected':''}>SQLite (default, zero config)</option>
+          <option value="postgres" ${isPg?'selected':''}>PostgreSQL</option>
+        </select>
+        <span class="form-hint">${s._db_type_locked?'<strong>Locked by DB_TYPE env var.</strong>':'SQLite recommended unless you need PostgreSQL.'}</span>
+      </div>
+      <div id="postgres-fields" style="${isPg?'':'display:none'}">
+        <div class="form-group"><label class="form-label">Host</label><input class="input" id="s-postgres_host" value="${esc(s.postgres_host||'localhost')}"/></div>
+        <div class="form-group"><label class="form-label">Port</label><input class="input" id="s-postgres_port" type="number" value="${s.postgres_port||5432}" style="width:100px"/></div>
+        <div class="form-group"><label class="form-label">Database</label><input class="input" id="s-postgres_db" value="${esc(s.postgres_db||'alldebrid')}"/></div>
+        <div class="form-group"><label class="form-label">User</label><input class="input" id="s-postgres_user" value="${esc(s.postgres_user||'alldebrid')}"/></div>
+        <div class="form-group"><label class="form-label">Password</label><input class="input" id="s-postgres_password" type="password" value="${esc(s.postgres_password||'')}" autocomplete="off"/></div>
+        <div class="form-group"><label class="form-label">Schema</label><input class="input" id="s-postgres_schema" value="${esc(s.postgres_schema||'public')}"/></div>
+        <div class="toggle-row"><div class="toggle-label"><span>SSL</span></div>
+          <label class="tswitch"><input type="checkbox" id="s-postgres_ssl" ${s.postgres_ssl?'checked':''}><span class="ttrack"></span></label>
+        </div>
+      </div>
+    </div></div>
+    <div class="scard"><div class="scard-header">&#128260; Data Migration</div><div class="scard-body">
+      <span class="form-hint">Save database settings first, then migrate.</span>
+      <div class="input-row" style="margin-top:8px;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres')">SQLite &#8594; PostgreSQL</button>
+        <button class="btn btn-ghost btn-sm" onclick="runMigration('postgres_to_sqlite')">PostgreSQL &#8594; SQLite</button>
+      </div>
+    </div></div>
+    <div class="scard" style="border-color:rgba(255,100,100,.2)"><div class="scard-header" style="color:var(--red)">&#9888;&#65039; Danger Zone</div><div class="scard-body">
+      <div class="toggle-row"><div class="toggle-label"><span style="color:var(--red)">Enable database wipe</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-db_wipe_enabled" ${s.db_wipe_enabled?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="toggle-row"><div class="toggle-label"><span>Backup before wipe</span></div>
+        <label class="tswitch"><input type="checkbox" id="s-db_backup_before_wipe" ${s.db_backup_before_wipe!==false?'checked':''}><span class="ttrack"></span></label>
+      </div>
+      <div class="form-group"><label class="form-label">DB Backup Folder</label>
+        <input class="input" id="s-db_backup_folder" value="${esc(s.db_backup_folder||'')}" placeholder="/app/data/db-backups"/>
+      </div>
+      <div class="form-group"><label class="form-label">Keep DB backups (days)</label>
+        <input class="input" id="s-db_backup_keep_days" type="number" min="1" value="${s.db_backup_keep_days||7}" style="width:100px"/>
+      </div>
+      <div class="input-row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="loadDatabaseBackupList()">List Backups</button>
+        <button class="btn btn-ghost btn-sm" onclick="createDatabaseBackup()">Backup Now</button>
+        <button class="btn btn-sm" style="background:var(--red);color:#fff" onclick="wipeDatabase()" ${!s.db_wipe_enabled?'disabled':''}>Wipe Database</button>
+      </div>
+      <div id="db-backup-list" style="margin-top:8px"></div>
+    </div></div>
+    <div class="scard" style="border-color:rgba(180,180,180,.15)"><div class="scard-header" style="color:var(--text3)">&#9201;&#65039; Polling</div><div class="scard-body">
+      <div class="form-group"><label class="form-label">AllDebrid Poll Interval (seconds)</label>
+        <input class="input" id="s-poll_interval_seconds" type="number" min="5" value="${s.poll_interval_seconds||30}" style="width:100px"/>
+        <span class="form-hint">How often AllDebrid is checked for torrent status. Recommended: 30 s.</span>
+      </div>
+      <div class="form-group"><label class="form-label">Watch Folder Scan (seconds)</label>
+        <input class="input" id="s-watch_interval_seconds" type="number" min="5" value="${s.watch_interval_seconds||10}" style="width:100px"/>
+      </div>
+      <div class="form-group"><label class="form-label">AllDebrid Rate Limit (req/min)</label>
+        <input class="input" id="s-alldebrid_rate_limit_per_minute" type="number" min="0" value="${s.alldebrid_rate_limit_per_minute||60}" style="width:100px"/>
+        <span class="form-hint">0 = unlimited. Default: 60.</span>
+      </div>
+    </div></div>`);
+}
+
+function _stab(id, active, content) {
+  return '<div class="stab-panel' + (active?' active':'') + '" id="' + id + '">' + content + '</div>';
+}
+
 function renderSettings() {
-  console.log('[renderSettings] called, settingsData=', !!settingsData, typeof settingsData);
-  if (!settingsData) { console.error('[renderSettings] settingsData is null/undefined!'); return; }
+  console.log('[renderSettings] start');
+  if (!settingsData) { console.error('[renderSettings] no settingsData'); return; }
   var s = settingsData;
-  console.log('[renderSettings] s.aria2_mode=', s.aria2_mode, 's.db_type=', s.db_type);
-  // DIAGNOSTIC: Set a visible marker first
-  const formEl = document.getElementById('settings-form');
   const tabsEl = document.getElementById('settings-tabs');
-  console.log('[renderSettings] formEl=', !!formEl, 'tabsEl=', !!tabsEl);
-  if (!formEl || !tabsEl) { console.error('[renderSettings] DOM elements missing!'); return; }
-  console.log('[renderSettings] building template...');
+  const formEl = document.getElementById('settings-form');
+  if (!tabsEl || !formEl) { console.error('[renderSettings] DOM missing'); return; }
 
   const tabs = [
-    { id:'tab-general',       label:'⚡ General' },
-    { id:'tab-download',      label:'⬇️ Download' },
-    { id:'tab-notifications', label:'🔔 Notifications' },
-    { id:'tab-services',      label:'🔌 Services' },
-    { id:'tab-advanced',      label:'🛠️ Advanced' },
+    { id:'tab-general',       label:'&#9889; General' },
+    { id:'tab-download',      label:'&#11015;&#65039; Download' },
+    { id:'tab-notifications', label:'&#128276; Notifications' },
+    { id:'tab-services',      label:'&#128268; Services' },
+    { id:'tab-advanced',      label:'&#128295; Advanced' },
   ];
 
-  document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
-    `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${esc(t.label)}</div>`
+  tabsEl.innerHTML = tabs.map((t,i) =>
+    '<div class="stab' + (i===0?' active':'') + '" data-tab="' + t.id + '" onclick="switchSettingsTab(\'' + t.id + '\')">' + t.label + '</div>'
   ).join('');
 
-  // Set loading indicator first to confirm DOM access works
-  const _sf = document.getElementById('settings-form');
-  if (_sf) _sf.innerHTML = '<div style="padding:20px;color:var(--text2)">Loading settings...</div>';
-  document.getElementById('settings-form').innerHTML = `
+  try { formEl.innerHTML = _buildTabGeneral(s); } catch(e) { console.error('General tab error:',e); formEl.innerHTML = '<div style="padding:20px;color:var(--red)">Error in General tab: '+e.message+'</div>'; return; }
+  try { formEl.innerHTML += _buildTabDownload(s); } catch(e) { console.error('Download tab error:',e); formEl.innerHTML += '<div style="padding:20px;color:var(--red)">Error in Download tab: '+e.message+'</div>'; }
+  try { formEl.innerHTML += _buildTabNotifications(s); } catch(e) { console.error('Notifications tab error:',e); }
+  try { formEl.innerHTML += _buildTabServices(s); } catch(e) { console.error('Services tab error:',e); }
+  try { formEl.innerHTML += _buildTabAdvanced(s); } catch(e) { console.error('Advanced tab error:',e); }
 
-    <!-- ═══════════════════════════════ GENERAL ══════════════════════════════ -->
-    <div class="stab-panel active" id="tab-general">
-
-      <div class="scard">
-        <div class="scard-header">🔑 AllDebrid</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <input class="input" id="s-alldebrid_api_key" type="password" value="${esc(s.alldebrid_api_key||'')}" placeholder="Your AllDebrid API key" autocomplete="off"/>
-            <span class="form-hint">Get your API key at <a href="https://alldebrid.com/apikeys/" target="_blank" style="color:var(--accent)">alldebrid.com/apikeys</a>. Required to use this application.</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">📁 Folders</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Download Folder</label>
-            <input class="input" id="s-download_folder" value="${esc(s.download_folder||'/download')}" placeholder="/download"/>
-            <span class="form-hint">Where aria2 saves completed files. This path must be accessible inside the container. On Docker/Unraid map your host folder to this path.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Watch Folder <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-            <input class="input" id="s-watch_folder" value="${esc(s.watch_folder||'')}" placeholder="/watch"/>
-            <span class="form-hint">Drop .torrent or .magnet files here — they are picked up automatically and deleted after import.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Processed Folder <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-            <input class="input" id="s-processed_folder" value="${esc(s.processed_folder||'')}" placeholder="/processed"/>
-            <span class="form-hint">Watch-folder files are moved here after processing instead of deleted. Leave empty to delete them.</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">⚙️ Download Behaviour</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Max Concurrent Downloads</label>
-            <input class="input" id="s-max_concurrent_downloads" type="number" min="1" max="20" value="${s.max_concurrent_downloads||3}" style="width:100px"/>
-            <span class="form-hint">How many AllDebrid magnets are processed in parallel. Does not affect how many files aria2 downloads simultaneously — that is controlled by <em>aria2 Simultaneous Downloads</em> in the Download tab.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Stuck Download Timeout (hours)</label>
-            <input class="input" id="s-stuck_download_timeout_hours" type="number" min="0" step="0.5" value="${s.stuck_download_timeout_hours||12}" style="width:100px"/>
-            <span class="form-hint">If a torrent stays in downloading/queued for longer than this, it is retried automatically. Set to 0 to disable. Recommended: 12 h.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Full AllDebrid Sync Interval (minutes)</label>
-            <input class="input" id="s-full_sync_interval_minutes" type="number" min="0" value="${s.full_sync_interval_minutes||60}" style="width:100px"/>
-            <span class="form-hint">How often all AllDebrid magnets are reconciled with the local database. Catches anything missed by the normal polling loop. 0 = disabled.</span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ═══════════════════════════════ DOWNLOAD ═════════════════════════════ -->
-    <div class="stab-panel" id="tab-download">
-
-      <div class="scard">
-        <div class="scard-header">⬇️ Download Client</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Delivery Mode</label>
-            <select class="input" id="s-download_client" onchange="onDownloadClientChange(this.value)">
-              <option value="aria2" ${s.download_client==='aria2'?'selected':''}>aria2 (via RPC)</option>
-            </select>
-            <span class="form-hint">Downloads are handed to aria2 over its JSON-RPC interface. Both built-in and external aria2 instances are supported.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">aria2 Mode</label>
-            <select class="input" id="s-aria2_mode" onchange="onAria2ModeChange(this.value)">
-              <option value="builtin"  ${(s.aria2_mode||'builtin')==='builtin' ?'selected':''}>Built-in (managed by this app)</option>
-              <option value="external" ${(s.aria2_mode||'builtin')==='external'?'selected':''}>External (separate aria2 instance)</option>
-            </select>
-            <span class="form-hint">Built-in: the app starts and manages its own aria2 process — no extra setup. External: point to an aria2 you run yourself.</span>
-          </div>
-
-          <!-- External RPC (hidden when builtin) -->
-          <div id="aria2-external-fields" style="${(s.aria2_mode||'builtin')==='builtin'?'display:none':''}">
-            <div class="form-group" style="margin-top:10px">
-              <label class="form-label">RPC URL</label>
-              <input class="input" id="s-aria2_url" value="${esc(s.aria2_url||'http://127.0.0.1:6800/jsonrpc')}" placeholder="http://127.0.0.1:6800/jsonrpc"/>
-              <span class="form-hint">JSON-RPC endpoint of your external aria2 instance. Default port is 6800.</span>
-            </div>
-            <div class="form-group">
-              <label class="form-label">RPC Secret</label>
-              <input class="input" id="s-aria2_secret" type="password" value="${esc(s.aria2_secret||'')}" placeholder="leave empty if no secret" autocomplete="off"/>
-              <span class="form-hint">The --rpc-secret value set in your external aria2 config. Leave empty if no secret is configured.</span>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Download Path Override</label>
-              <input class="input" id="s-aria2_download_path" value="${esc(s.aria2_download_path||'')}" placeholder="leave empty if paths are identical"/>
-              <span class="form-hint">Only needed when aria2 runs in a separate container with a different path. Example: your host path is /mnt/user/downloads but aria2 sees it as /downloads — enter /downloads here.</span>
-            </div>
-          </div>
-
-          <!-- Built-in port (hidden when external) -->
-          <div id="aria2-builtin-fields" style="${(s.aria2_mode||'builtin')==='external'?'display:none':''}">
-            <div class="form-group" style="margin-top:10px">
-              <label class="form-label">Built-in RPC Port</label>
-              <input class="input" id="s-aria2_builtin_port" type="number" min="1024" max="65535" value="${s.aria2_builtin_port||6800}" style="width:120px"/>
-              <span class="form-hint">Port the built-in aria2 listens on. Change only if 6800 conflicts with another service.</span>
-            </div>
-            <div class="toggle-row">
-              <div class="toggle-label">
-                <span>Auto-start built-in aria2</span>
-                <span class="form-hint">Start aria2 automatically when the app starts. Disable only for manual control.</span>
-              </div>
-              <label class="tswitch"><input type="checkbox" id="s-aria2_builtin_auto_start" ${s.aria2_builtin_auto_start?'checked':''}><span class="ttrack"></span></label>
-            </div>
-          </div>
-
-          <div class="input-row" style="margin-top:12px">
-            <button class="btn btn-ghost btn-sm" onclick="testAria2()">Test Connection</button>
-            <span id="aria2-test-result" style="font-size:12px;align-self:center"></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">🎛️ Performance</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Simultaneous Downloads</label>
-            <input class="input" id="s-aria2_max_active_downloads" type="number" min="1" max="20" value="${s.aria2_max_active_downloads||3}" style="width:100px"/>
-            <span class="form-hint">Maximum number of files aria2 downloads in parallel. Recommended: 3–5. More than 5 rarely improves speed and increases RAM usage.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Connections per File</label>
-            <input class="input" id="s-aria2_split" type="number" min="1" max="16" value="${s.aria2_split||4}" style="width:100px"/>
-            <span class="form-hint">Number of parallel connections per file (split segments). More connections can increase speed on fast servers but also increase RAM usage. Recommended: 4.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Max Connections per Server</label>
-            <input class="input" id="s-aria2_max_connection_per_server" type="number" min="1" max="16" value="${s.aria2_max_connection_per_server||4}" style="width:100px"/>
-            <span class="form-hint">Caps connections to a single server. Keep this ≤ <em>Connections per File</em>. Recommended: 4.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Min Segment Size</label>
-            <input class="input" id="s-aria2_min_split_size" value="${esc(s.aria2_min_split_size||'20M')}" placeholder="20M" style="width:100px"/>
-            <span class="form-hint">aria2 only splits a file when it is at least 2× this size. Default: 20M (files &lt;40 MB use a single connection). Use K or M suffix.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Speed Limit</label>
-            <input class="input" id="s-aria2_lowest_speed_limit" value="${esc(s.aria2_lowest_speed_limit||'0')}" placeholder="0" style="width:120px"/>
-            <span class="form-hint">Minimum download speed before a connection is dropped. 0 = no limit. Use K or M suffix (e.g. 100K).</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">💾 Storage &amp; Memory</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Disk Cache</label>
-            <input class="input" id="s-aria2_disk_cache" value="${esc(s.aria2_disk_cache||'0')}" placeholder="0" style="width:120px"/>
-            <span class="form-hint">In-memory write buffer for aria2. <strong>0</strong> = disabled (recommended for fast SSD / direct-attached storage, uses ~4 MB RAM per aria2 docs). Set <strong>16M</strong> if downloading to a network share (NFS, SMB) or FUSE mount (e.g. mergerfs on Unraid) — this reduces round-trips and actually lowers peak RAM. Use K or M suffix.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">File Allocation</label>
-            <select class="input" id="s-aria2_file_allocation" style="width:160px">
-              <option value="none"    ${(s.aria2_file_allocation||'none')==='none'   ?'selected':''}>none (recommended)</option>
-              <option value="prealloc"${(s.aria2_file_allocation||'none')==='prealloc'?'selected':''}>prealloc</option>
-              <option value="falloc"  ${(s.aria2_file_allocation||'none')==='falloc' ?'selected':''}>falloc</option>
-              <option value="trunc"   ${(s.aria2_file_allocation||'none')==='trunc'  ?'selected':''}>trunc</option>
-            </select>
-            <span class="form-hint"><strong>none</strong>: no pre-allocation, downloads start immediately (recommended). <strong>falloc</strong>: fast pre-allocation on modern filesystems (ext4, XFS, BTRFS) but blocks aria2 completely until done — avoid for large files on slow disks. <strong>prealloc</strong>: slower, compatible with all filesystems. <strong>trunc</strong>: sets file size in metadata only, does not allocate disk space.</span>
-          </div>
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Resume incomplete downloads</span>
-              <span class="form-hint">Resume partial downloads after a restart instead of starting from scratch.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-aria2_continue_downloads" ${s.aria2_continue_downloads!==false?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Start downloads paused</span>
-              <span class="form-hint">Add files to aria2 in paused state. Use the Downloads view to resume manually.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-aria2_start_paused" ${s.aria2_start_paused?'checked':''}><span class="ttrack"></span></label>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">🔄 Errors &amp; Retries</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Retry Count</label>
-            <input class="input" id="s-aria2_error_retry_count" type="number" min="0" max="10" value="${s.aria2_error_retry_count||3}" style="width:100px"/>
-            <span class="form-hint">How many times a failed aria2 download is retried automatically. 0 = no retries.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Retry Delay (seconds)</label>
-            <input class="input" id="s-aria2_error_retry_delay_seconds" type="number" min="0" value="${s.aria2_error_retry_delay_seconds||60}" style="width:100px"/>
-            <span class="form-hint">How long to wait before retrying a failed download. Recommended: 60 s.</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard" style="border-color:rgba(180,180,180,.15)">
-        <div class="scard-header" style="color:var(--text3)">🧠 Memory &amp; Diagnostics</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <div class="input-row" style="flex-wrap:wrap;gap:8px">
-              <button class="btn btn-ghost btn-sm" onclick="runAria2Housekeeping()">Run Cleanup Now</button>
-              <button class="btn btn-ghost btn-sm" onclick="showMemoryInfo()" title="Shows real RAM vs kernel page cache">📊 Memory Info</button>
-              <button class="btn btn-ghost btn-sm" onclick="dropPageCache()" title="Release kernel page cache for all downloaded files">🗑️ Drop Page Cache</button>
-            </div>
-            <span class="form-hint">Cleanup removes stopped download results from aria2 memory. Memory Info distinguishes real process RAM from kernel file cache (which appears as high RAM usage on Unraid and other Linux systems during/after downloads). Drop Page Cache calls posix_fadvise(DONTNEED) on completed files — safe to use on any Linux system; ignored on Windows/macOS.</span>
-          </div>
-          <div id="aria2-memory-diagnostics" class="form-hint" style="line-height:1.6"></div>
-          <div id="aria2-memory-info" class="form-hint" style="line-height:1.6;margin-top:6px;display:none"></div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ══════════════════════════ NOTIFICATIONS ════════════════════════════ -->
-    <div class="stab-panel" id="tab-notifications">
-
-      <div class="scard">
-        <div class="scard-header">🔔 Discord Webhooks</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Webhook URL</label>
-            <input class="input" id="s-discord_webhook_url" value="${esc(s.discord_webhook_url||'')}" placeholder="https://discord.com/api/webhooks/…"/>
-            <span class="form-hint">Main webhook for all notifications. Create one in Discord: Server Settings → Integrations → Webhooks.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Bot Name <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-            <input class="input" id="s-discord_username" value="${esc(s.discord_username||'')}" placeholder="AllDebrid-Client"/>
-            <span class="form-hint">Overrides the webhook's default display name.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Avatar URL <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-            <input class="input" id="s-discord_avatar_url" value="${esc(s.discord_avatar_url||'')}" placeholder="https://example.com/avatar.png"/>
-            <span class="form-hint">Direct link to a PNG or JPG image. SVG is not supported by Discord.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Added-event Webhook <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-            <input class="input" id="s-discord_webhook_added" value="${esc(s.discord_webhook_added||'')}" placeholder="https://discord.com/api/webhooks/…"/>
-            <span class="form-hint">Separate channel for "torrent added" notifications. Falls back to the main webhook if empty.</span>
-          </div>
-          <div class="input-row" style="margin-top:4px">
-            <button class="btn btn-ghost btn-sm" onclick="testDiscordWebhook()">Test Webhook</button>
-            <span id="discord-test-result" style="font-size:12px;align-self:center"></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">📬 Events</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Notify on torrent added</span>
-              <span class="form-hint">Send a message when a new magnet/torrent is accepted by AllDebrid.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added!==false?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Notify on download complete</span>
-              <span class="form-hint">Send a message when all files of a torrent finish downloading.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-discord_notify_finished" ${s.discord_notify_finished!==false?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Notify on error</span>
-              <span class="form-hint">Send a message when a download fails or encounters an error.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error!==false?'checked':''}><span class="ttrack"></span></label>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ═══════════════════════════════ SERVICES ═════════════════════════════ -->
-    <div class="stab-panel" id="tab-services">
-
-      <div class="scard">
-        <div class="scard-header">📺 Sonarr</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Enable Sonarr integration</span>
-              <span class="form-hint">Trigger Sonarr's import scan after an episode finishes downloading.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-sonarr_enabled" ${s.sonarr_enabled?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Sonarr URL</label>
-            <input class="input" id="s-sonarr_url" value="${esc(s.sonarr_url||'')}" placeholder="http://sonarr:8989"/>
-            <span class="form-hint">Base URL of your Sonarr instance (no trailing slash).</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <input class="input" id="s-sonarr_api_key" type="password" value="${esc(s.sonarr_api_key||'')}" autocomplete="off" placeholder="Sonarr API key"/>
-            <span class="form-hint">Found in Sonarr → Settings → General → API Key.</span>
-          </div>
-          <div class="input-row">
-            <button class="btn btn-ghost btn-sm" onclick="testSonarr()">Test Connection</button>
-            <span id="sonarr-test-result" style="font-size:12px;align-self:center"></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">🎬 Radarr</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Enable Radarr integration</span>
-              <span class="form-hint">Trigger Radarr's import scan after a movie finishes downloading.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-radarr_enabled" ${s.radarr_enabled?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Radarr URL</label>
-            <input class="input" id="s-radarr_url" value="${esc(s.radarr_url||'')}" placeholder="http://radarr:7878"/>
-            <span class="form-hint">Base URL of your Radarr instance (no trailing slash).</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <input class="input" id="s-radarr_api_key" type="password" value="${esc(s.radarr_api_key||'')}" autocomplete="off" placeholder="Radarr API key"/>
-            <span class="form-hint">Found in Radarr → Settings → General → API Key.</span>
-          </div>
-          <div class="input-row">
-            <button class="btn btn-ghost btn-sm" onclick="testRadarr()">Test Connection</button>
-            <span id="radarr-test-result" style="font-size:12px;align-self:center"></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">🔍 Jackett Search</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Enable Jackett</span>
-              <span class="form-hint">Shows the Search sidebar entry and allows searching Jackett-indexed trackers from the UI.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-jackett_enabled" ${s.jackett_enabled?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Jackett URL</label>
-            <input class="input" id="s-jackett_url" value="${esc(s.jackett_url||'http://localhost:9117')}" placeholder="http://jackett:9117"/>
-            <span class="form-hint">Base URL of your Jackett instance (no trailing slash). API key is proxied through the backend — never exposed to the browser.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <input class="input" id="s-jackett_api_key" type="password" value="${esc(s.jackett_api_key||'')}" autocomplete="off" placeholder="Jackett API key"/>
-            <span class="form-hint">Found in the Jackett dashboard top-right.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Jackett Webhook URL <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-            <input class="input" id="s-jackett_webhook_url" value="${esc(s.jackett_webhook_url||'')}" placeholder="https://discord.com/api/webhooks/…"/>
-            <span class="form-hint">Separate Discord webhook for Jackett-added torrents. Falls back to the main Discord webhook if empty.</span>
-          </div>
-          <div class="input-row">
-            <button class="btn btn-ghost btn-sm" onclick="testJackett()">Test Connection</button>
-            <span id="jackett-test-result" style="font-size:12px;align-self:center"></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">🤖 FlexGet</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Enable FlexGet</span>
-              <span class="form-hint">Show the FlexGet sidebar panel and allow triggering tasks from the UI.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-flexget_enabled" ${s.flexget_enabled?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">FlexGet URL</label>
-            <input class="input" id="s-flexget_url" value="${esc(s.flexget_url||'')}" placeholder="http://flexget:5050"/>
-            <span class="form-hint">Base URL of the FlexGet web server. Run <code>flexget web gentoken</code> to get the API key.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <input class="input" id="s-flexget_api_key" type="password" value="${esc(s.flexget_api_key||'')}" autocomplete="off"/>
-            <span class="form-hint">Token from <code>flexget web gentoken</code>.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Tasks to run (comma-separated)</label>
-            <input class="input" id="s-flexget_tasks_raw" value="${esc(s.flexget_tasks_raw||'')}" placeholder="task1, task2"/>
-            <span class="form-hint">Used for manual runs from the UI. Leave empty to run all tasks.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">FlexGet Webhook URL <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-            <input class="input" id="s-flexget_webhook_url" value="${esc(s.flexget_webhook_url||'')}" placeholder="https://discord.com/api/webhooks/…"/>
-            <span class="form-hint">Discord webhook for FlexGet run events. Falls back to the main Discord webhook if empty.</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">🏷️ Labels</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Torrent Labels</label>
-            <textarea class="input" id="s-torrent_labels_raw" rows="3" placeholder="label1&#10;label2&#10;label3" style="font-family:var(--mono);font-size:12px">${esc(s.torrent_labels_raw||'')}</textarea>
-            <span class="form-hint">One label per line. Labels appear in the "Add Torrent" dialog for categorisation. Optional.</span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ═══════════════════════════════ ADVANCED ═════════════════════════════ -->
-    <div class="stab-panel" id="tab-advanced">
-
-      <div class="scard">
-        <div class="scard-header">🚫 File Filters</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Enable file filters</span>
-              <span class="form-hint">Skip files that match the extension, keyword, or size rules below.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-filters_enabled" ${s.filters_enabled!==false?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Blocked Extensions (one per line)</label>
-            <textarea class="input" id="s-blocked_extensions" rows="4" placeholder=".jpg&#10;.png&#10;.nfo" style="font-family:var(--mono);font-size:12px">${esc(s.blocked_extensions||'')}</textarea>
-            <span class="form-hint">Files with these extensions are skipped entirely. Images and NFO files are blocked by default.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Blocked Keywords (one per line)</label>
-            <textarea class="input" id="s-blocked_keywords" rows="3" placeholder="sample&#10;trailer" style="font-family:var(--mono);font-size:12px">${esc(s.blocked_keywords||'')}</textarea>
-            <span class="form-hint">Files whose name contains any of these strings are skipped.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
-            <input class="input" id="s-min_file_size_mb" type="number" min="0" value="${s.min_file_size_mb||0}" style="width:120px"/>
-            <span class="form-hint">Files smaller than this are skipped. Useful to avoid downloading cover art or subtitles from poorly structured torrents.</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">📊 Statistics &amp; Reporting</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Reporting Webhook URL <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-            <input class="input" id="s-stats_report_webhook_url" value="${esc(s.stats_report_webhook_url||'')}" placeholder="https://discord.com/api/webhooks/…"/>
-            <span class="form-hint">Discord webhook for automated statistics reports. Falls back to the main Discord webhook if empty.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Auto-report Interval (hours, 0 = disabled)</label>
-            <input class="input" id="s-stats_report_interval_hours" type="number" min="0" value="${s.stats_report_interval_hours||0}" style="width:120px"/>
-            <span class="form-hint">How often a statistics summary is sent automatically. 0 = disabled.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Report Window (hours)</label>
-            <input class="input" id="s-stats_report_window_hours" type="number" min="1" value="${s.stats_report_window_hours||24}" style="width:120px"/>
-            <span class="form-hint">The time window each report covers. Default: 24 h (last 24 hours).</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">💾 Backups</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Enable automatic backups</span>
-              <span class="form-hint">Periodically create a copy of the database to the backup folder.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-backup_enabled" ${s.backup_enabled?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Backup Folder</label>
-            <input class="input" id="s-backup_folder" value="${esc(s.backup_folder||'')}" placeholder="/app/data/backups"/>
-            <span class="form-hint">Where backup files are stored. Must be writable by the container.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Interval (hours)</label>
-            <input class="input" id="s-backup_interval_hours" type="number" min="1" value="${s.backup_interval_hours||24}" style="width:120px"/>
-            <span class="form-hint">How often a backup is created. Default: 24 h.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Keep backups for (days)</label>
-            <input class="input" id="s-backup_keep_days" type="number" min="1" value="${s.backup_keep_days||7}" style="width:120px"/>
-            <span class="form-hint">Older backup files are deleted automatically. Default: 7 days.</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">🗄️ Database</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Database Type</label>
-            <select class="input" id="s-db_type" ${s._db_type_locked?'disabled':''} onchange="onDbTypeChange(this.value)" style="width:200px">
-              <option value="sqlite"   ${(s.db_type||'sqlite')==='sqlite'            ?'selected':''}>SQLite (default, zero config)</option>
-              <option value="postgres" ${s.db_type==='postgres'||s.db_type==='postgres_internal'?'selected':''}>PostgreSQL</option>
-            </select>
-            <span class="form-hint">SQLite is recommended unless you need multi-process access or have an existing PostgreSQL server. ${s._db_type_locked?'<strong>Locked by DB_TYPE environment variable.</strong>':''}</span>
-          </div>
-          <div id="postgres-fields" style="${(s.db_type||'sqlite')==='sqlite'?'display:none':''}">
-            <div class="form-group">
-              <label class="form-label">Host</label>
-              <input class="input" id="s-postgres_host" value="${esc(s.postgres_host||'localhost')}" placeholder="localhost"/>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Port</label>
-              <input class="input" id="s-postgres_port" type="number" value="${s.postgres_port||5432}" style="width:100px"/>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Database</label>
-              <input class="input" id="s-postgres_db" value="${esc(s.postgres_db||'alldebrid')}" placeholder="alldebrid"/>
-            </div>
-            <div class="form-group">
-              <label class="form-label">User</label>
-              <input class="input" id="s-postgres_user" value="${esc(s.postgres_user||'alldebrid')}" placeholder="alldebrid"/>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Password</label>
-              <input class="input" id="s-postgres_password" type="password" value="${esc(s.postgres_password||'')}" autocomplete="off"/>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Schema</label>
-              <input class="input" id="s-postgres_schema" value="${esc(s.postgres_schema||'public')}" placeholder="public"/>
-            </div>
-            <div class="toggle-row">
-              <div class="toggle-label"><span>SSL</span></div>
-              <label class="tswitch"><input type="checkbox" id="s-postgres_ssl" ${s.postgres_ssl?'checked':''}><span class="ttrack"></span></label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
-        <div class="scard-header">🔄 Data Migration</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <span class="form-hint">Migrate all data between SQLite and PostgreSQL. Save your database settings first, then use the buttons below.</span>
-            <div class="input-row" style="margin-top:8px;flex-wrap:wrap;gap:8px">
-              <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres')">SQLite → PostgreSQL</button>
-              <button class="btn btn-ghost btn-sm" onclick="runMigration('postgres_to_sqlite')">PostgreSQL → SQLite</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard" style="border-color:rgba(255,100,100,.2)">
-        <div class="scard-header" style="color:var(--red)">⚠️ Danger Zone</div>
-        <div class="scard-body">
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span style="color:var(--red)">Enable database wipe</span>
-              <span class="form-hint">Allows the Wipe button below to function. Always creates a backup first unless disabled.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-db_wipe_enabled" ${s.db_wipe_enabled?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="toggle-row">
-            <div class="toggle-label">
-              <span>Backup before wipe</span>
-              <span class="form-hint">Strongly recommended. Creates an automatic backup before wiping.</span>
-            </div>
-            <label class="tswitch"><input type="checkbox" id="s-db_backup_before_wipe" ${s.db_backup_before_wipe!==false?'checked':''}><span class="ttrack"></span></label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Database Backup Folder</label>
-            <input class="input" id="s-db_backup_folder" value="${esc(s.db_backup_folder||'')}" placeholder="/app/data/db-backups"/>
-            <span class="form-hint">Where database wipe-backups are stored (separate from regular backups).</span>
-          </div>
-          <div class="toggle-row" style="align-items:center">
-            <div class="toggle-label">
-              <span>Keep DB backups for (days)</span>
-            </div>
-            <input class="input" id="s-db_backup_keep_days" type="number" min="1" value="${s.db_backup_keep_days||7}" style="width:80px"/>
-          </div>
-          <div class="input-row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="loadDatabaseBackupList()">List Backups</button>
-            <button class="btn btn-ghost btn-sm" onclick="createDatabaseBackup()">Create Backup Now</button>
-            <button class="btn btn-sm" style="background:var(--red);color:#fff" onclick="wipeDatabase()" ${!s.db_wipe_enabled?'disabled':''}>Wipe Database</button>
-          </div>
-          <div id="db-backup-list" style="margin-top:8px"></div>
-        </div>
-      </div>
-
-      <div class="scard" style="border-color:rgba(180,180,180,.15)">
-        <div class="scard-header" style="color:var(--text3)">⏱️ Polling Intervals</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">AllDebrid Poll Interval (seconds)</label>
-            <input class="input" id="s-poll_interval_seconds" type="number" min="5" value="${s.poll_interval_seconds||30}" style="width:100px"/>
-            <span class="form-hint">How often the app checks AllDebrid for torrent status updates. Recommended: 30 s. Lower values increase API calls.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Watch Folder Scan (seconds)</label>
-            <input class="input" id="s-watch_interval_seconds" type="number" min="5" value="${s.watch_interval_seconds||10}" style="width:100px"/>
-            <span class="form-hint">How often the watch folder is scanned for new .torrent / .magnet files. Recommended: 10 s.</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">AllDebrid Rate Limit (requests/minute)</label>
-            <input class="input" id="s-alldebrid_rate_limit_per_minute" type="number" min="0" value="${s.alldebrid_rate_limit_per_minute||60}" style="width:100px"/>
-            <span class="form-hint">Caps AllDebrid API calls per minute to avoid rate-limit errors. 0 = unlimited. Default: 60.</span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-  `;
   if (typeof renderFlexgetTaskSchedules === "function") renderFlexgetTaskSchedules();
+  console.log('[renderSettings] done');
 }
+
 
 function getFormSettings() {
   const g = id => document.getElementById('s-'+id);
@@ -4038,6 +3773,10 @@ function onDbTypeChange(val) {
 
 function onDownloadClientChange(val) { /* future use */ }
 
+
+async function createDatabaseBackup() {
+  try { const r = await api("POST","/admin/database/backup"); toast(r.message||"Backup created","success"); } catch(e) { toast(e.message,"error"); }
+}
 
 async function showMemoryInfo() {
   var el = document.getElementById('aria2-memory-info');
