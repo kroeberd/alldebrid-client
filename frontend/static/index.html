@@ -2097,9 +2097,15 @@ async function loadSettings() {
     toast('Failed to load settings: ' + e.message,'error'); return;
   }
   console.log('[loadSettings] calling renderSettings()...');
+  console.log('[loadSettings] blocked_extensions type:', typeof settingsData.blocked_extensions, Array.isArray(settingsData.blocked_extensions));
+  console.log('[loadSettings] sample fields:', JSON.stringify({aria2_mode:settingsData.aria2_mode, db_type:settingsData.db_type, blocked_extensions_len:settingsData.blocked_extensions?.length}));
   try {
     renderSettings();
     console.log('[loadSettings] renderSettings() done');
+    // Verify DOM was actually populated
+    const _form = document.getElementById('settings-form');
+    console.log('[loadSettings] settings-form children after render:', _form ? _form.children.length : 'ELEMENT_NOT_FOUND');
+    console.log('[loadSettings] settings-form innerHTML length:', _form ? _form.innerHTML.length : 0);
   } catch(err) {
     console.error('[renderSettings] crash:', err);
     const form = document.getElementById('settings-form');
@@ -2497,14 +2503,14 @@ function renderSettings() {
 
   // Build all tabs and set innerHTML once — avoids re-parsing on every +=
   var _html = '';
-  try { _html += _buildTabGeneral(s); } catch(e) { console.error('General tab:',e); _html += '<div style="padding:20px;color:red">General tab error: '+e.message+'</div>'; }
-  try { _html += _buildTabDownload(s); } catch(e) { console.error('Download tab:',e); _html += '<div style="padding:20px;color:red">Download tab error: '+e.message+'</div>'; }
-  try { _html += _buildTabNotifications(s); } catch(e) { console.error('Notifications tab:',e); }
-  try { _html += _buildTabServices(s); } catch(e) { console.error('Services tab:',e); }
-  try { _html += _buildTabAdvanced(s); } catch(e) { console.error('Advanced tab:',e); }
-  console.log('[renderSettings] html length:', _html.length);
+  try { var _g = _buildTabGeneral(s); _html += _g; console.log('[render] General OK:', _g.length); } catch(e) { console.error('General tab:',e); _html += '<div style="padding:20px;color:red">General: '+e.message+'</div>'; }
+  try { var _d = _buildTabDownload(s); _html += _d; console.log('[render] Download OK:', _d.length); } catch(e) { console.error('Download tab:',e); _html += '<div style="padding:20px;color:red">Download: '+e.message+'</div>'; }
+  try { var _n = _buildTabNotifications(s); _html += _n; console.log('[render] Notifications OK:', _n.length); } catch(e) { console.error('Notifications tab:',e); }
+  try { var _sv = _buildTabServices(s); _html += _sv; console.log('[render] Services OK:', _sv.length); } catch(e) { console.error('Services tab:',e); }
+  try { var _a = _buildTabAdvanced(s); _html += _a; console.log('[render] Advanced OK:', _a.length); } catch(e) { console.error('Advanced tab:',e); }
+  console.log('[renderSettings] total html length:', _html.length);
   formEl.innerHTML = _html;
-  console.log('[renderSettings] innerHTML set, formEl children:', formEl.children.length);
+  console.log('[renderSettings] done, formEl.children.length:', formEl.children.length, 'innerHTML.length:', formEl.innerHTML.length);
 
   if (typeof renderFlexgetTaskSchedules === "function") renderFlexgetTaskSchedules();
   console.log('[renderSettings] done');
