@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.5.0] — 2026-04-29
+
+### Changed — Settings overhaul
+
+The Settings UI has been fully redesigned: 11 tabs collapsed into 5 cleaner tabs
+with every field annotated with a help text.
+
+| Old (11 tabs) | New (5 tabs) |
+|---|---|
+| General, Download, Discord, Database, Filters, Polling, Integrations, Backup, FlexGet, Reporting, Jackett | **General**, **Download**, **Notifications**, **Services**, **Advanced** |
+
+**General** — AllDebrid API key, folders, concurrent downloads, stuck-download timeout, sync interval.
+
+**Download** — aria2 client selection (built-in vs external), RPC connection, performance
+(split, connections, segment size, speed limit), storage (disk cache + explanation of 0 vs 16M for
+network mounts, file allocation with per-option explanation), error retries, memory diagnostics.
+
+**Notifications** — Discord webhooks with separate fields for added/complete/error events and
+per-channel webhook URLs.
+
+**Services** — Sonarr, Radarr, Jackett, FlexGet, Labels — all external integrations in one place
+with Test Connection buttons and inline help text for each field.
+
+**Advanced** — File filters, statistics/reporting, backups, database (SQLite/PostgreSQL),
+migration, danger zone (wipe), and polling intervals — kept available but visually deprioritised.
+
+#### Help texts added to every field
+All 81 rendered settings fields now have a `form-hint` explaining what the setting does,
+what the recommended value is, and when to change it.
+
+#### Disk-cache help text updated for platform independence
+The disk-cache field now explicitly explains:
+- `0` = recommended for fast/local storage (~4 MB RAM per aria2 docs)
+- `16M` = recommended for network mounts (NFS, SMB) or FUSE-based filesystems
+  (mergerfs, overlayfs) on **any OS**, not just Unraid — fewer round-trips = lower peak RAM
+
+#### page-cache drop note updated
+The Memory Info / Drop Page Cache buttons and their description now note that
+`posix_fadvise(DONTNEED)` works on any Linux system; it is a no-op on Windows/macOS.
+
 ## [1.4.9] — 2026-04-29
 
 ### Root cause confirmed: Linux kernel page cache on Unraid/mergerfs
