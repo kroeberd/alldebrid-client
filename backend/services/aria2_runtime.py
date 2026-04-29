@@ -43,7 +43,11 @@ def aria2_global_options(cfg=None, *, include_safety: bool = False) -> Dict[str,
         "split": str(int(getattr(cfg, "aria2_split", 8) or 8)),
         "min-split-size": str(getattr(cfg, "aria2_min_split_size", "10M") or "10M"),
         "max-connection-per-server": str(int(getattr(cfg, "aria2_max_connection_per_server", 8) or 8)),
-        "disk-cache": str(getattr(cfg, "aria2_disk_cache", "64M") or "64M"),
+        # disk-cache=0 per aria2 docs means ~4 MiB for HTTP.
+        # On FUSE-based mounts (mergerfs, NFS) a small cache (e.g. 16M) reduces
+        # FUSE round-trips and can actually lower peak RSS compared to 0.
+        # Users can override this in Settings → Download → aria2 disk-cache.
+        "disk-cache": str(getattr(cfg, "aria2_disk_cache", "0") or "0"),
         "file-allocation": str(getattr(cfg, "aria2_file_allocation", "falloc") or "falloc"),
         "continue": "true" if bool(getattr(cfg, "aria2_continue_downloads", True)) else "false",
         "lowest-speed-limit": str(getattr(cfg, "aria2_lowest_speed_limit", "0") or "0"),

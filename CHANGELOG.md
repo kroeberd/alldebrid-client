@@ -1,5 +1,47 @@
 # Changelog
 
+## [1.4.8] — 2026-04-29
+
+### Analysis: why RAM keeps growing
+
+The sustained RAM growth has three separate sources that require different
+treatment:
+
+**1. aria2 process heap (glibc malloc arena retention)**
+Even with `MALLOC_ARENA_MAX=1` (set in v1.4.6), glibc never fully returns freed
+pages to the OS after a busy download period. The only complete fix is a process
+restart. `MALLOC_ARENA_MAX=1` slows the growth but does not stop it.
+
+**2. Kernel page cache**
+Every byte written to disk passes through the Linux kernel page cache first.
+During active downloads the cache fills with download data and is released
+by the kernel only when other processes need RAM. This appears as high "used"
+memory in `top`/`htop` but is **not** a real memory leak — it is reclaimed
+automatically and does not cause OOM situations.
+
+**3. Filesystem interaction (mergerfs / FUSE)**
+If `/download` is mounted via mergerfs (the default Unraid share layout),
+every write from aria2 goes through FUSE in userspace. With `disk-cache=0`
+aria2 writes each small HTTP chunk immediately to FUSE, causing many
+round-trips and keeping more buffers live simultaneously. Counter-intuitively,
+a small `disk-cache` (e.g. `16M`) **reduces** peak RSS on FUSE mounts because
+aria2 coalesces writes and releases its recv-buffers sooner.
+
+### Added
+
+- **Periodic aria2 restart** (`aria2_restart_interval_hours`, default `0` =
+  disabled) — when set, the built-in aria2 process is restarted after the
+  configured number of hours, but only when no downloads are active. After
+  restart, `_dispatch_pending_aria2_queue()` re-queues all pending files from
+  the DB within one poll cycle (≤ 1 s). This is the only guaranteed way to
+  fully reclaim glibc malloc arena memory. Recommended value: `4` to `8`.
+
+### Changed
+
+- **`disk-cache` comment updated** — clarifies that `0` is optimal for native
+  filesystems (ext4, XFS) but a value like `16M` is better for FUSE-based
+  mounts (mergerfs, NFS, SMB) where it reduces FUSE round-trips.
+
 ## [1.4.7] — 2026-04-29
 
 ### Fixed — built-in aria2 RAM usage (root causes, documentation-based)

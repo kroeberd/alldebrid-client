@@ -142,6 +142,63 @@ async def aria2_housekeeping_loop():
             logger.error(f"aria2 housekeeping error: {e}")
 
 
+
+async def aria2_restart_loop():
+    """
+    Periodically restarts the built-in aria2 process to reclaim memory.
+
+    aria2 uses glibc malloc. Even with MALLOC_ARENA_MAX=1 the process heap
+    grows over time as malloc retains pages after freeing them. A full process
+    restart is the only guaranteed way to return that memory to the OS.
+
+    The restart is deferred until aria2 has no active downloads to avoid
+    interrupting in-progress transfers. After restart, _dispatch re-queues
+    all pending files from the DB within one poll cycle (≤1 second).
+
+    Controlled by aria2_restart_interval_hours (0 = disabled).
+    """
+    from services.aria2_runtime import runtime, is_builtin_mode
+
+    while True:
+        await asyncio.sleep(300)  # check every 5 minutes
+        try:
+            cfg = get_settings()
+            if not is_builtin_mode(cfg):
+                continue
+            interval_h = float(getattr(cfg, "aria2_restart_interval_hours", 0) or 0)
+            if interval_h <= 0:
+                continue
+            uptime_s = runtime._started_at
+            if uptime_s <= 0:
+                continue
+            age_h = (asyncio.get_event_loop().time() - 0 + __import__("time").time() - uptime_s) / 3600
+            if age_h < interval_h:
+                continue
+
+            # Wait until no active downloads to avoid interruption
+            try:
+                from services.aria2 import Aria2Service
+                from services.aria2_runtime import effective_rpc_config
+                url, secret = effective_rpc_config(cfg)
+                svc = Aria2Service(url, secret, 10)
+                all_dl = await svc.get_all()
+                active = [d for d in all_dl if d.status == "active"]
+                if active:
+                    logger.debug(
+                        "aria2 restart deferred: %d active downloads", len(active)
+                    )
+                    continue
+            except Exception:
+                continue
+
+            logger.info(
+                "aria2 periodic restart after %.1f hours (memory reclaim)", age_h
+            )
+            await runtime.restart()
+            logger.info("aria2 restarted successfully")
+        except Exception as e:
+            logger.error("aria2_restart_loop error: %s", e)
+
 async def start_scheduler():
     _tasks.append(asyncio.create_task(watch_folder_loop()))
     _tasks.append(asyncio.create_task(sync_status_loop()))
@@ -153,6 +210,7 @@ async def start_scheduler():
     _tasks.append(asyncio.create_task(flexget_loop()))
     _tasks.append(asyncio.create_task(stats_snapshot_loop()))
     _tasks.append(asyncio.create_task(stats_report_loop()))
+    _tasks.append(asyncio.create_task(aria2_restart_loop()))
     logger.info("Scheduler started")
 
 

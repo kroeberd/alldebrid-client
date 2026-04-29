@@ -89,6 +89,14 @@ class AppSettings(BaseModel):
     # Interval in minutes (0 = disabled). Checks actual file presence on disk
     # independently of aria2 GID/status, resolving same-filename-different-folder issues.
     aria2_deep_sync_interval_minutes: int = 10
+    # Periodic built-in aria2 restart to reclaim glibc malloc arena memory.
+    # aria2 uses glibc malloc which retains freed pages in arenas even with
+    # MALLOC_ARENA_MAX=1. A periodic restart fully resets the process heap.
+    # Set to 0 to disable. Downloads are recovered from DB within 1 poll cycle.
+    aria2_restart_interval_hours: float = 0  # 0 = disabled; recommended: 4-8h
+    # disk-cache for built-in aria2. Set to 0 for native filesystems (ext4/XFS).
+    # Set to 16M or higher for FUSE-based mounts (mergerfs, NFS, SMB) to reduce
+    # FUSE round-trips and actually lower aria2 heap usage.
 
     # Polling
     poll_interval_seconds: int = 30
