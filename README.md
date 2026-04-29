@@ -41,7 +41,7 @@ AllDebrid-Client automates the full torrent lifecycle via your AllDebrid account
 | Category | Details |
 |----------|---------|
 | **Input sources** | Web UI paste, Jackett search, watch folder (`.torrent`/`.magnet`), Sonarr/Radarr download client, REST API |
-| **Download client** | External aria2 (any version) **or** optional built-in aria2 daemon (no extra setup) |
+| **Download client** | **Built-in aria2 daemon** (default, no setup) or external aria2 instance |
 | **Jackett search** | Search any Jackett-indexed tracker from the UI — category + indexer filters, direct Add button |
 | **Downloads view** | Live aria2 queue with 1-second auto-refresh, per-file progress bars, Pause/Resume/Remove, quick speed-limit preset |
 | **Discord webhooks** | Rich embeds for: Torrent Added, Download Complete, Error, Partial (filtered), FlexGet events, Stats reports |
@@ -106,7 +106,7 @@ Everything else has sensible defaults and can be tuned later.
 
 ### Built-in aria2
 
-Set **Download client** to `aria2-builtin` in Settings → Download. The container starts an embedded aria2 process — no separate container required. The Downloads view (sidebar) shows the live queue and lets you set a speed limit.
+The built-in aria2 is enabled by default. No setup required. The container starts an embedded aria2 process — no separate container required. The Downloads view (sidebar) shows the live queue and lets you set a speed limit.
 
 ### External aria2 (recommended for Unraid)
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.5.1] — 2026-04-29
+
+### Fixed
+- **Settings page blank (white/grey screen)** — v1.5.0 introduced a double
+  definition of `switchSettingsTab()` (old + new) causing a JavaScript syntax
+  error at runtime. The duplicate was removed and the function updated to use
+  the new tab IDs (`tab-advanced`, `tab-services`).
+- **`aria2_mode` default was `external`** in both `getFormSettings()` and
+  `config.py` — the built-in aria2 was never selected by default despite being
+  the recommended mode. Both now default to `builtin`.
+
+### Added
+- **Help sidebar view** (`❓ Help`) — accessible from the sidebar, contains
+  six sections: Quick Start, How it works, aria2, RAM & Memory, Integrations,
+  Troubleshoot. Answers the most common questions without leaving the app.
+- **Built-in aria2 is now the default** — `aria2_mode` default changed from
+  `external` to `builtin` in config and in the settings form.
+
 ## [1.5.0] — 2026-04-29
 
 ### Changed — Settings overhaul

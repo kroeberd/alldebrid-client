@@ -653,6 +653,9 @@ textarea.input { resize: vertical; }
     <div class="nav-item" data-view="coffee" onclick="nav(this)">
       <span class="icon">&#9749;</span><span class="nav-label">Coffee</span>
     </div>
+    <div class="nav-item" data-view="help" onclick="nav(this)">
+      <span class="icon">&#10067;</span><span class="nav-label">Help</span>
+    </div>
     <div class="nav-group">System</div>
     <div class="nav-item" data-view="settings" onclick="nav(this)">
       <span class="icon">&#9881;</span><span class="nav-label">Settings</span>
@@ -1046,6 +1049,109 @@ textarea.input { resize: vertical; }
       </div>
     </div>
 
+    <!-- Help View -->
+    <div class="view" id="view-help">
+      <div class="view-header">
+        <h2 class="view-title">&#10067; Help &amp; Documentation</h2>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto;flex-wrap:nowrap">
+          <button class="help-tab" data-htab="quickstart" onclick="switchHelpTab(this,'quickstart')" style="padding:12px 16px;font-size:12px;font-weight:600;color:var(--text);background:none;border:none;border-bottom:2px solid var(--accent);cursor:pointer;white-space:nowrap">&#128640; Quick Start</button>
+          <button class="help-tab" data-htab="concepts"   onclick="switchHelpTab(this,'concepts')"   style="padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap">&#128214; How it works</button>
+          <button class="help-tab" data-htab="aria2"      onclick="switchHelpTab(this,'aria2')"      style="padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap">&#11015;&#65039; aria2</button>
+          <button class="help-tab" data-htab="ram"        onclick="switchHelpTab(this,'ram')"        style="padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap">&#129504; RAM</button>
+          <button class="help-tab" data-htab="integrations" onclick="switchHelpTab(this,'integrations')" style="padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap">&#128268; Integrations</button>
+          <button class="help-tab" data-htab="troubleshoot" onclick="switchHelpTab(this,'troubleshoot')" style="padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap">&#128295; Troubleshoot</button>
+        </div>
+        <div style="padding:20px;max-width:780px;font-size:13px;color:var(--text2);line-height:1.7">
+
+          <div id="htab-quickstart">
+            <h3 style="margin:0 0 16px;color:var(--accent);font-size:16px">&#128640; Quick Start — 4 steps</h3>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div style="display:flex;gap:12px;align-items:flex-start"><div style="background:var(--accent);color:#000;border-radius:50%;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">1</div><div><strong style="color:var(--text)">AllDebrid API key</strong> — Settings &#8594; &#9889; General. Get it at <a href="https://alldebrid.com/apikeys/" target="_blank" style="color:var(--accent)">alldebrid.com/apikeys</a>.</div></div>
+              <div style="display:flex;gap:12px;align-items:flex-start"><div style="background:var(--accent);color:#000;border-radius:50%;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">2</div><div><strong style="color:var(--text)">Download folder</strong> — Settings &#8594; General &#8594; Folders. Set the path <em>inside the container</em> (e.g. <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">/download</code>). Map your host folder to this path in Docker.</div></div>
+              <div style="display:flex;gap:12px;align-items:flex-start"><div style="background:var(--accent);color:#000;border-radius:50%;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">3</div><div><strong style="color:var(--text)">aria2 (built-in, default)</strong> — Nothing to do. The built-in aria2 starts automatically. To use an external aria2, go to Settings &#8594; &#11015;&#65039; Download and switch the mode.</div></div>
+              <div style="display:flex;gap:12px;align-items:flex-start"><div style="background:var(--accent);color:#000;border-radius:50%;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">4</div><div><strong style="color:var(--text)">Add a torrent</strong> — Click <strong>+ Add Torrent</strong> in the top bar and paste a magnet link. Done.</div></div>
+            </div>
+          </div>
+
+          <div id="htab-concepts" style="display:none">
+            <h3 style="margin:0 0 12px;color:var(--accent);font-size:16px">&#128214; How it works</h3>
+            <p>AllDebrid-Client is a pipeline between torrent sources and your storage:</p>
+            <div style="display:flex;flex-direction:column;gap:6px;margin:12px 0">
+              <div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent);font-weight:700;white-space:nowrap">1. Upload</span><span>Magnet is sent to AllDebrid. They download the torrent (often instantly from cache).</span></div>
+              <div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent);font-weight:700;white-space:nowrap">2. Poll</span><span>AllDebrid-Client checks AllDebrid every 30 s until ready.</span></div>
+              <div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent);font-weight:700;white-space:nowrap">3. Unlock</span><span>Each file gets a temporary HTTPS download URL from AllDebrid (max 5 parallel).</span></div>
+              <div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent);font-weight:700;white-space:nowrap">4. Download</span><span>URL is handed to aria2 which downloads the file using multiple parallel connections.</span></div>
+              <div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent);font-weight:700;white-space:nowrap">5. Notify</span><span>Discord notification sent when complete (if configured).</span></div>
+            </div>
+            <table style="border-collapse:collapse;width:100%;margin-top:12px">
+              <tr><td style="padding:4px 12px 4px 0;color:var(--yellow);font-weight:600;white-space:nowrap">Queued</td><td style="font-size:12px">Uploaded to AllDebrid, waiting for them to process.</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:var(--blue);font-weight:600">Downloading</td><td style="font-size:12px">AllDebrid is downloading the torrent to their servers.</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:var(--accent);font-weight:600">Dispatched</td><td style="font-size:12px">Files are being downloaded by aria2 to your disk.</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:var(--green);font-weight:600">Completed</td><td style="font-size:12px">All files saved to your download folder.</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:var(--red);font-weight:600">Error</td><td style="font-size:12px">Something failed. Check the event log or retry.</td></tr>
+            </table>
+          </div>
+
+          <div id="htab-aria2" style="display:none">
+            <h3 style="margin:0 0 12px;color:var(--accent);font-size:16px">&#11015;&#65039; aria2 — Built-in vs External</h3>
+            <table style="border-collapse:collapse;width:100%;margin-bottom:16px">
+              <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 12px 8px 0;color:var(--green);font-weight:700;white-space:nowrap">Built-in &#10003;</td><td style="font-size:12px">Default. Starts with the app, uses the same download folder, no extra config. Recommended for most users.</td></tr>
+              <tr style="border-top:1px solid var(--border)"><td style="padding:8px 12px 8px 0;font-weight:700;white-space:nowrap">External</td><td style="font-size:12px">Use if you already run aria2 separately. Set the RPC URL and secret. If aria2 is in another Docker container, use the container name as hostname and set Download Path Override if paths differ.</td></tr>
+            </table>
+            <h4 style="margin:0 0 8px;color:var(--text)">Key settings</h4>
+            <table style="border-collapse:collapse;width:100%">
+              <tr style="border-top:1px solid var(--border)"><td style="padding:6px 12px 6px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">Simultaneous Downloads</td><td style="font-size:12px;vertical-align:top">Files downloaded at once. Default: 3. More = more RAM.</td></tr>
+              <tr style="border-top:1px solid var(--border)"><td style="padding:6px 12px 6px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">Connections per File</td><td style="font-size:12px;vertical-align:top">Parallel segments per file. Default: 4. Higher = faster but more RAM.</td></tr>
+              <tr style="border-top:1px solid var(--border)"><td style="padding:6px 12px 6px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">Disk Cache</td><td style="font-size:12px;vertical-align:top"><strong>0</strong> = best for local SSD. <strong>16M</strong> = better for NFS / SMB / mergerfs. Batches writes to reduce filesystem calls.</td></tr>
+              <tr style="border-top:1px solid var(--border)"><td style="padding:6px 12px 6px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">File Allocation</td><td style="font-size:12px;vertical-align:top"><strong>none</strong> = recommended (instant start). <strong>falloc</strong> = fast on modern FS but blocks aria2 while pre-allocating — avoid for large files on network shares.</td></tr>
+            </table>
+          </div>
+
+          <div id="htab-ram" style="display:none">
+            <h3 style="margin:0 0 12px;color:var(--accent);font-size:16px">&#129504; Understanding RAM usage</h3>
+            <div style="background:var(--surface2);border-left:3px solid var(--accent);padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:14px">
+              <strong style="color:var(--text)">20 GB RAM during downloads is usually the kernel page cache — not a memory leak.</strong>
+            </div>
+            <table style="border-collapse:collapse;width:100%;margin-bottom:14px">
+              <tr style="border-top:1px solid var(--border)"><td style="padding:7px 12px 7px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">aria2 heap</td><td style="font-size:12px;vertical-align:top">~10–50 MB with disk-cache=0. Real process RAM.</td></tr>
+              <tr style="border-top:1px solid var(--border)"><td style="padding:7px 12px 7px 0;font-weight:600;white-space:nowrap;color:var(--accent);vertical-align:top">Page cache &#9733;</td><td style="font-size:12px;vertical-align:top">Every downloaded byte is cached in RAM by the kernel. Can reach tens of GB. Shows as "used" in Unraid/htop/Docker stats — but is reclaimed automatically when needed. <strong>Not a problem.</strong></td></tr>
+              <tr style="border-top:1px solid var(--border)"><td style="padding:7px 12px 7px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">glibc arenas</td><td style="font-size:12px;vertical-align:top">After many download cycles, glibc retains freed pages. Grows slowly. Mitigated by MALLOC_ARENA_MAX=1 (set automatically). Cured by restarting aria2.</td></tr>
+            </table>
+            <p><strong style="color:var(--text)">How to check:</strong> Settings &#8594; Download &#8594; Memory &amp; Diagnostics &#8594; <strong>&#128202; Memory Info</strong>.<br>
+            If <em>available</em> RAM is large and <em>page_cache</em> explains the "used" number — everything is fine.<br>
+            Click <strong>&#128465;&#65039; Drop Page Cache</strong> to release cached pages for completed files immediately (Linux only, safe).</p>
+            <p><strong style="color:var(--text)">Network mounts (NFS / SMB / mergerfs):</strong> Set Disk Cache to <strong>16M</strong>. Batching writes reduces FUSE round-trips and can actually lower peak RAM compared to 0.</p>
+          </div>
+
+          <div id="htab-integrations" style="display:none">
+            <h3 style="margin:0 0 12px;color:var(--accent);font-size:16px">&#128268; Integrations</h3>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div><strong style="color:var(--text)">Sonarr / Radarr</strong> — Enable in Settings &#8594; Services. After a download completes, AllDebrid-Client calls the import API automatically. PUID/PGID must match so both containers can access the files.</div>
+              <div><strong style="color:var(--text)">Jackett</strong> — Enable in Settings &#8594; Services &#8594; Jackett. The Search sidebar entry appears. Search any configured tracker and add results directly to your queue.</div>
+              <div><strong style="color:var(--text)">Discord</strong> — Create a webhook (Server Settings &#8594; Integrations &#8594; Webhooks) and paste in Settings &#8594; Notifications. Separate webhooks can be set for "added" events and for Jackett/FlexGet.</div>
+              <div><strong style="color:var(--text)">Watch Folder</strong> — Drop <code>.torrent</code> or <code>.magnet</code> files in the configured folder. Picked up every 10 s and imported automatically. Files are deleted or moved to the Processed Folder after import.</div>
+              <div><strong style="color:var(--text)">FlexGet</strong> — Enable in Settings &#8594; Services. Schedule and trigger FlexGet tasks from the UI. Run <code>flexget web gentoken</code> to get the API key.</div>
+            </div>
+          </div>
+
+          <div id="htab-troubleshoot" style="display:none">
+            <h3 style="margin:0 0 12px;color:var(--accent);font-size:16px">&#128295; Troubleshooting</h3>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">Torrent stuck in Queued</summary><div style="margin-top:8px">AllDebrid is downloading the torrent. Normal for unpopular content. The stuck-download timeout (Settings &#8594; General) auto-retries after the configured time.</div></details>
+              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">HTTP 503 errors from AllDebrid</summary><div style="margin-top:8px">Rate limit hit. AllDebrid-Client caps unlock calls at 5 concurrent. If frequent, reduce Simultaneous Downloads in Settings &#8594; Download.</div></details>
+              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">Settings page is blank / white screen</summary><div style="margin-top:8px">JavaScript error in the settings renderer. Open browser console (F12 &#8594; Console) for the error message. Try a hard refresh (Ctrl+Shift+R). Check container logs if it persists.</div></details>
+              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">Sonarr / Radarr not importing</summary><div style="margin-top:8px">Check: (1) download folder path matches what Sonarr/Radarr expects, (2) PUID/PGID matches both containers, (3) API key is correct — use Test Connection button.</div></details>
+              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">High RAM (20 GB+)</summary><div style="margin-top:8px">Almost certainly the kernel page cache, not a leak. See the RAM tab for details. Click Memory Info in Settings &#8594; Download to confirm. Set Disk Cache to 16M if using a network share.</div></details>
+              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">External aria2 not connecting</summary><div style="margin-top:8px">Check: (1) aria2 runs with --enable-rpc, (2) RPC URL/port is correct (default 6800), (3) secret matches, (4) for Docker: use the container name as host and ensure both are on the same network.</div></details>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
     <!-- GitHub -->
     <div class="view" id="view-github">
       <div class="split-grid">
@@ -1162,6 +1268,7 @@ function nav(el) {
   if (v === 'settings')  loadSettings();
   if (v === 'search')    initSearchView();
   if (v === 'aria2queue') loadAria2QueueView();
+  if (v === 'help') switchHelpTab(null, 'quickstart');
   closeSidebar();
 }
 
@@ -2637,9 +2744,9 @@ function getFormSettings() {
     download_folder: t('download_folder'), max_concurrent_downloads: n('max_concurrent_downloads', 3),
     max_speed_mbps: 0,
     download_client: 'aria2',
-    aria2_mode: t('aria2_mode') || 'external',
-    aria2_url: (t('aria2_mode') || 'external') === 'builtin' ? (settingsData.aria2_url || 'http://127.0.0.1:6800/jsonrpc') : t('aria2_url'),
-    aria2_secret: (t('aria2_mode') || 'external') === 'builtin' ? (settingsData.aria2_secret || '') : t('aria2_secret'),
+    aria2_mode: t('aria2_mode') || 'builtin',
+    aria2_url: (t('aria2_mode') || 'builtin') === 'builtin' ? (settingsData.aria2_url || 'http://127.0.0.1:6800/jsonrpc') : t('aria2_url'),
+    aria2_secret: (t('aria2_mode') || 'builtin') === 'builtin' ? (settingsData.aria2_secret || '') : t('aria2_secret'),
     aria2_download_path: t('aria2_download_path'),
     aria2_builtin_auto_start: c('aria2_builtin_auto_start'),
     aria2_builtin_port: n('aria2_builtin_port', 6800),
@@ -3865,6 +3972,30 @@ function updateAria2Badge(activeCount) {
   if (!badge) return;
   badge.textContent = activeCount;
   badge.style.display = activeCount > 0 ? '' : 'none';
+}
+
+
+function switchHelpTab(btn, tabId) {
+  document.querySelectorAll('.help-tab').forEach(b => {
+    b.style.color = 'var(--text2)';
+    b.style.fontWeight = '500';
+    b.style.borderBottom = '2px solid transparent';
+  });
+  document.querySelectorAll('[id^="htab-"]').forEach(p => p.style.display = 'none');
+  var panel = document.getElementById('htab-' + tabId);
+  if (panel) panel.style.display = '';
+  if (btn) {
+    btn.style.color = 'var(--text)';
+    btn.style.fontWeight = '600';
+    btn.style.borderBottom = '2px solid var(--accent)';
+  } else {
+    var firstBtn = document.querySelector('[data-htab="' + tabId + '"]');
+    if (firstBtn) {
+      firstBtn.style.color = 'var(--text)';
+      firstBtn.style.fontWeight = '600';
+      firstBtn.style.borderBottom = '2px solid var(--accent)';
+    }
+  }
 }
 
 
