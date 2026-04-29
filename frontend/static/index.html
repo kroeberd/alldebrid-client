@@ -2063,8 +2063,19 @@ function renderMarkdown(md) {
 async function loadSettings() {
   try {
     settingsData = await api('GET','/settings');
+  } catch(e) { toast('Failed to load settings: ' + e.message,'error'); return; }
+  try {
     renderSettings();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(err) {
+    console.error('[renderSettings] crash:', err);
+    const form = document.getElementById('settings-form');
+    if (form) form.innerHTML =
+      '<div style="padding:24px"><div style="color:var(--red);font-weight:600;margin-bottom:8px">&#9888; Settings render error</div>' +
+      '<div style="font-size:12px;color:var(--text2)">Open browser console (F12) for details.</div>' +
+      '<pre style="font-size:11px;color:var(--text3);margin-top:8px;white-space:pre-wrap">' +
+      (err.message||'').replace(/&/g,"&amp;").replace(/</g,"&lt;") + '</pre></div>';
+    return;
+  }
   // Activate first tab by default
   switchSettingsTab('tab-general');
   // Avatar preview: show if a custom avatar URL is set
