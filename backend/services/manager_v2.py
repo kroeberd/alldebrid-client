@@ -1502,6 +1502,22 @@ class TorrentManager:
             if not pending_rows:
                 return
 
+            # Limit how many files enter aria2's waiting queue at once.
+            # Each waiting download allocates ~5–15 KB in aria2's C++ heap.
+            # Without a cap, a 200-file torrent adds 200 waiting entries →
+            # aria2 grows 1–3 MB per large torrent and glibc does not release it.
+            # Keep the queue at max_concurrent × 4 slots; the rest stay as
+            # "pending" in the DB and get dispatched on the next poll cycle.
+            cfg_disp = get_settings()
+            _max_concurrent = int(getattr(cfg_disp, "aria2_max_active_downloads", 3) or 3)
+            _dispatch_cap = _max_concurrent * 4
+            if len(pending_rows) > _dispatch_cap:
+                logger.debug(
+                    "aria2 dispatch: capping batch from %d → %d to limit aria2 RAM",
+                    len(pending_rows), _dispatch_cap,
+                )
+                pending_rows = pending_rows[:_dispatch_cap]
+
             logger.info(
                 "aria2 dispatch: %d slot(s) free, dispatching %d file(s)",
                 available_slots, len(pending_rows),
@@ -2516,9 +2532,34 @@ class TorrentManager:
     async def run_aria2_housekeeping(self) -> dict:
         cfg = get_settings()
         await self.apply_aria2_memory_tuning()
+        # Remove all completed/error/removed results from aria2's stopped list.
+        # purgeDownloadResult removes everything in the stopped list regardless
+        # of max-download-result, keeping aria2's heap clean.
         await self.aria2().purge_download_results()
+        # Additionally clean up any stopped GIDs that the DB no longer tracks
+        # (e.g. if remove() failed silently in a prior cycle).  These would
+        # otherwise grow aria2's stopped list until the next purge.
+        try:
+            all_dl = await self.aria2().get_all()
+            orphan_gids = [
+                dl.gid for dl in all_dl
+                if dl.status in ("complete", "removed", "error")
+            ]
+            if orphan_gids:
+                for gid in orphan_gids:
+                    await self._aria2_svc_remove(gid)
+                logger.debug("aria2 housekeeping: cleaned %d stopped/orphan GIDs", len(orphan_gids))
+        except Exception as exc:
+            logger.debug("aria2 housekeeping orphan cleanup skipped: %s", exc)
         diagnostics = await self._aria2_get_memory_diagnostics()
         return {"ok": True, "diagnostics": diagnostics}
+
+    async def _aria2_svc_remove(self, gid: str) -> None:
+        """Best-effort removal of a single GID from aria2's memory."""
+        try:
+            await self.aria2().remove(gid)
+        except Exception:
+            pass
 
 
 manager = TorrentManager()

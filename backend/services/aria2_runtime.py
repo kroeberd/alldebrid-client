@@ -143,10 +143,21 @@ class BuiltinAria2Runtime:
                 logger.warning("Built-in aria2 start skipped: %s", self._last_error)
                 return await self.status()
             try:
+                import os as _os
+                # MALLOC_ARENA_MAX=1 prevents glibc from creating multiple
+                # memory arenas for different threads, which causes RSS to grow
+                # even after allocations are freed (glibc never returns arenas
+                # to the OS). With =1 there is one arena, trim() works globally.
+                # MALLOC_TRIM_THRESHOLD_=65536 makes glibc trim the heap more
+                # aggressively (default is 128KB; we use 64KB).
+                env = dict(_os.environ)
+                env["MALLOC_ARENA_MAX"] = "1"
+                env["MALLOC_TRIM_THRESHOLD_"] = "65536"
                 self._process = await asyncio.create_subprocess_exec(
                     *self._command(),
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
+                    env=env,
                 )
                 self._stdout_task = asyncio.create_task(self._drain_stream(self._process.stdout, "stdout"))
                 self._stderr_task = asyncio.create_task(self._drain_stream(self._process.stderr, "stderr"))

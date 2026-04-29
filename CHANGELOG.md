@@ -1,5 +1,58 @@
 # Changelog
 
+## [1.4.6] — 2026-04-27
+
+### Fixed — aria2 RAM usage (deep analysis)
+
+After a thorough analysis of all RAM sources in the built-in aria2 process,
+several compounding issues were identified and fixed:
+
+#### Root cause 1: glibc malloc arena growth (most impactful)
+aria2 uses glibc `malloc`. By default glibc creates up to 8× CPU-count
+memory arenas for multi-threaded performance. Freed memory in one arena is
+not visible to other arenas and is rarely returned to the OS — RSS grows
+monotonically even when the heap is internally empty. After many download
+cycles the process RSS can reach several hundred MB while actual live
+allocations are minimal.
+
+**Fix:** aria2c is now started with:
+- `MALLOC_ARENA_MAX=1` — forces a single arena; `malloc_trim()` works
+  globally and glibc can return unused pages to the OS.
+- `MALLOC_TRIM_THRESHOLD_=65536` — triggers trim after 64 KB of free heap
+  instead of the default 128 KB, releasing memory back to the OS faster.
+
+#### Root cause 2: unbounded aria2 waiting queue
+`_dispatch_pending_aria2_queue()` was sending **all** pending files to
+aria2 at once. For a 200-file torrent this created 200 `RequestGroup`
+objects in aria2's C++ heap (~5–15 KB each = 1–3 MB per large torrent).
+With multiple large torrents in flight the waiting queue grew into tens of
+MBs, and glibc arena fragmentation prevented reclaim.
+
+**Fix:** dispatch is now capped at `max_concurrent_downloads × 4` files per
+cycle. Remaining files stay as `pending` in the DB and are dispatched as
+slots open. Default cap: 3 × 4 = 12 files maximum in aria2 at once.
+
+#### Root cause 3: socket recv-buffer × connections
+aria2 allocates a recv-buffer per active TCP connection. At high CDN speeds,
+Linux TCP autotuning grows each buffer up to ~1 MB. With the previous
+defaults (split=8, max-connection-per-server=8, 3 active downloads):
+8 × 8 × 3 = 192 potential sockets × 1 MB = up to 192 MB in socket buffers.
+
+**Fix:**
+- `aria2_split`: 8 → **4** — halves the number of in-flight connections
+- `aria2_max_connection_per_server`: 8 → **4**
+- `aria2_disk_cache`: 16M → **8M** — further reduced write-back buffer
+
+#### Root cause 4: orphaned stopped GIDs never removed
+If `remove()` failed silently after marking a file `completed` in the DB,
+the aria2 GID remained in the stopped list permanently (the next sync cycle
+skips `status=completed` files). Over long sessions thousands of orphaned
+entries could accumulate.
+
+**Fix:** `run_aria2_housekeeping()` now iterates all `complete/removed/error`
+GIDs from `get_all()` and explicitly calls `removeDownloadResult` on each,
+in addition to the existing `purgeDownloadResult()` call.
+
 ## [1.4.5] — 2026-04-27
 
 ### Fixed / Changed
