@@ -50,10 +50,10 @@ class AppSettings(BaseModel):
     aria2_waiting_window: int = 100
     aria2_stopped_window: int = 100
     aria2_split: int = 4  # fewer segments = fewer recv-buffers in aria2 heap
-    aria2_min_split_size: str = "10M"
+    aria2_min_split_size: str = "20M"  # aria2 default; splits only files >80MB with split=4
     aria2_max_connection_per_server: int = 4  # fewer connections = less buffer RAM
-    aria2_disk_cache: str = "8M"   # small disk cache; HTTP needs no large write-back buffer
-    aria2_file_allocation: str = "falloc"
+    aria2_disk_cache: str = "0"    # 0 = disabled; per aria2 docs: 4 MiB total for HTTP/FTP downloads
+    aria2_file_allocation: str = "none"   # no prealloc: instant start, no blocking; prealloc/falloc block aria2
     aria2_continue_downloads: bool = True
     aria2_lowest_speed_limit: str = "0"
 

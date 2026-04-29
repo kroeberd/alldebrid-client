@@ -1,5 +1,64 @@
 # Changelog
 
+## [1.4.7] — 2026-04-29
+
+### Fixed — built-in aria2 RAM usage (root causes, documentation-based)
+
+After reading the official aria2 documentation carefully, three genuine root
+causes were identified that explain the sustained high RAM usage:
+
+#### Root cause 1: `file-allocation=falloc` blocks aria2 and causes indirect RAM pressure
+
+The official aria2 documentation states:
+> *"Don't use falloc with legacy file systems such as ext3 and FAT32 because
+> it takes almost the same time as prealloc and it blocks aria2 entirely until
+> allocation finishes."*
+
+Even on modern file systems inside Docker (overlayfs, ext4) `falloc` calls
+`posix_fallocate()` which holds the aria2 process **completely frozen** until
+the kernel has allocated disk space. During this time:
+- No RPC responses → our polling loop sees timeouts → retry storms
+- New downloads queue up in memory waiting for aria2 to respond
+- The `_wait_until_healthy()` loop burns CPU retrying every 250ms
+
+**Fix:** `file-allocation=none` — no pre-allocation, downloads start instantly.
+For AllDebrid CDN downloads (direct HTTP, no resume needed) pre-allocation
+provides zero benefit.
+
+#### Root cause 2: Session file loaded on restart → RAM spike
+
+aria2 was started with `--input-file=session_file` on every restart. The
+session file accumulates **all** downloads from the previous run — including
+hundreds of completed/error entries that aria2 keeps until explicitly purged.
+On restart, aria2 loads every entry as a `RequestGroup` object in its C++ heap,
+causing an immediate RAM spike proportional to the session file size.
+
+**Fix:** The session file is now **cleared** before aria2 starts. The database
+is the single source of truth; `_dispatch_pending_aria2_queue()` re-queues all
+`pending` files within one poll cycle (≤1 second). Session saving is kept so
+aria2 can write state, but reading it back on startup is skipped.
+
+#### Root cause 3: `--piece-length=1M` has no effect on HTTP downloads
+
+`--piece-length` only affects BitTorrent downloads (the size of torrent pieces).
+For plain HTTP/FTP downloads aria2 uses `--split` and `--min-split-size` to
+control segmentation, not `--piece-length`. The flag was harmless but served
+no purpose and was removed.
+
+#### Additional hardening
+- `--async-dns=false`: disables the c-ares async DNS resolver thread pool.
+  Each resolver thread can trigger a new glibc malloc arena, compounding the
+  arena-fragmentation issue fixed in v1.4.6. All AllDebrid CDN URLs resolve
+  quickly via the system resolver; async DNS is unnecessary overhead.
+- `--no-netrc=true`: disables `.netrc` file lookup on every download. We never
+  use FTP credentials; the lookup is a small but avoidable startup cost.
+
+#### Settings already correct (no change)
+- `disk-cache=0`: per the aria2 homepage, this reduces RAM to **4 MiB** for
+  HTTP/FTP downloads. Already set in v1.4.5.
+- `MALLOC_ARENA_MAX=1` + `MALLOC_TRIM_THRESHOLD_=65536`: still applied to the
+  aria2c subprocess environment (from v1.4.6).
+
 ## [1.4.6] — 2026-04-27
 
 ### Fixed — aria2 RAM usage (deep analysis)

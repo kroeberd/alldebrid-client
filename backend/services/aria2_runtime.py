@@ -113,13 +113,25 @@ class BuiltinAria2Runtime:
             "--log-level=notice",
             "--summary-interval=0",
             "--disable-ipv6=true",
-            # Memory optimisation: smaller piece metadata footprint
-            "--piece-length=1M",
             # Limit RPC result history to reduce in-memory result cache
             f"--max-download-result={int(getattr(cfg, 'aria2_max_download_result', 50) or 50)}",
+            # Disable async DNS resolver threads — they create extra glibc malloc
+            # arenas which retain freed memory and cause RSS to grow over time.
+            "--async-dns=false",
+            # No netrc lookups — we never use FTP credentials
+            "--no-netrc=true",
         ]
+        # Do not load the session file on startup.
+        # The DB is the single source of truth for pending downloads.
+        # _dispatch_pending_aria2_queue re-queues them within seconds.
+        # Loading a stale session (potentially with hundreds of old entries)
+        # causes a RAM spike and re-adds GIDs that are already completed/removed.
         if session_file.exists() and session_file.stat().st_size > 0:
-            cmd.append(f"--input-file={session_file}")
+            try:
+                session_file.write_text("")  # clear so aria2 starts clean
+                logger.debug("Cleared aria2 session file on startup (DB is source of truth)")
+            except Exception:
+                pass
         cmd.extend(f"--{key}={value}" for key, value in options.items())
         return cmd
 
