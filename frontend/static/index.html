@@ -67,6 +67,39 @@ body.light {
   cursor:pointer; font-size:16px; box-shadow:0 2px 10px rgba(0,0,0,.3); transition:all .2s; }
 .theme-toggle:hover { transform:scale(1.1); }
 
+/* ── Custom Indexer Multi-Select Picker ──────────────────────────────────── */
+.idx-picker { position:relative; min-width:180px; }
+.idx-trigger {
+  display:flex; align-items:center; gap:4px; flex-wrap:wrap;
+  padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius-sm);
+  background:var(--surface2); cursor:pointer; min-height:36px;
+}
+.idx-trigger:hover { border-color:var(--border2); }
+.idx-chip {
+  display:inline-flex; align-items:center; gap:3px; background:var(--accent);
+  color:#000; border-radius:10px; padding:1px 8px; font-size:11px; font-weight:600;
+}
+.idx-chip-close { cursor:pointer; font-size:13px; line-height:1; opacity:.7; }
+.idx-chip-close:hover { opacity:1; }
+.idx-placeholder { color:var(--text3); font-size:13px; flex:1; }
+.idx-arrow { color:var(--text3); font-size:10px; flex-shrink:0; margin-left:auto; }
+.idx-dropdown {
+  display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:500;
+  background:var(--surface2); border:1px solid var(--border2);
+  border-radius:var(--radius-sm); box-shadow:var(--shadow-soft);
+  max-height:240px; overflow-y:auto;
+}
+.idx-dropdown.open { display:block; }
+.idx-option {
+  display:flex; align-items:center; gap:8px; padding:9px 12px; cursor:pointer;
+  font-size:13px; color:var(--text); border-bottom:1px solid var(--border);
+  transition:background .1s; user-select:none;
+}
+.idx-option:last-child { border-bottom:none; }
+.idx-option:hover { background:var(--nav-hover); }
+.idx-option input[type=checkbox] { accent-color:var(--accent); width:15px; height:15px; flex-shrink:0; }
+.idx-option.idx-all-opt { color:var(--accent); font-weight:600; border-bottom:1px solid var(--border2); }
+
 /* ── Mobile responsive (max 700px) ─────────────────────────────────────── */
 
 /* Label badge */
@@ -883,7 +916,7 @@ textarea.input { resize: vertical; }
         </div>
       </div>
       <div class="tab-grid" id="detail-stat-cards"><div class="metric-card"><div class="metric-label">Library</div><div class="metric-value">&#8212;</div><div class="metric-sub">Loading&#8230;</div></div></div>
-      <div class="scard" style="margin-bottom:14px"><div class="scard-header">&#128200; Daily Completions (14 days)</div><div class="scard-body" style="padding:12px"><div class="chart-wrap"><canvas id="daily-chart"></canvas></div></div></div>
+      <div class="scard" style="margin-bottom:14px"><div class="scard-header">&#128200; <span id="chart-title">Completions — last 24 hours</span></div><div class="scard-body" style="padding:12px"><div class="chart-wrap"><canvas id="daily-chart"></canvas></div></div></div>
       <div class="split-grid">
         <div class="list-card"><div class="card-header"><span class="card-title">Torrent Status</span></div><div class="card-body" id="detail-torrent-status"><div class="empty">Loading&#8230;</div></div></div>
         <div class="list-card"><div class="card-header"><span class="card-title">File Status</span></div><div class="card-body" id="detail-file-status"><div class="empty">Loading&#8230;</div></div></div>
@@ -933,10 +966,20 @@ textarea.input { resize: vertical; }
             </select>
           </div>
           <div style="min-width:180px">
-            <label class="form-label">Indexers <span style="font-size:10px;color:var(--text3)">(Ctrl+click = multi)</span></label>
-            <select class="input" id="jackett-tracker" multiple size="4" style="width:100%;min-height:80px">
-              <option value="" selected>All Indexers</option>
-            </select>
+            <label class="form-label">Indexers</label>
+            <div class="idx-picker" id="idx-picker">
+              <div class="idx-trigger" id="idx-trigger" onclick="idxToggle(event)">
+                <span class="idx-placeholder" id="idx-placeholder">All Indexers</span>
+                <span class="idx-arrow">&#9660;</span>
+              </div>
+              <div class="idx-dropdown" id="idx-dropdown">
+                <label class="idx-option idx-all-opt">
+                  <input type="checkbox" id="idx-all-cb" checked onchange="idxAllChanged(this)">
+                  <span>All Indexers</span>
+                </label>
+              </div>
+            </div>
+            <select id="jackett-tracker" multiple style="display:none"></select>
           </div>
           <div style="min-width:150px">
             <label class="form-label">Availability</label>
@@ -1899,34 +1942,78 @@ function onPageSizeChange(v) { torrentPageSize=Math.min(Math.max(parseInt(v)||25
 
 async function loadDetailedStats(period) {
   period = period || (document.querySelector('#stats-period-tabs .ftab.active')||{}).dataset?.period || '24h';
+
+  // Chart-Titel Mapping
+  var chartTitles = {
+    '1h':  'Completions — last hour',
+    '24h': 'Completions — last 24 hours',
+    '7d':  'Completions — last 7 days',
+    '30d': 'Completions — last 30 days',
+    '1y':  'Completions — last year',
+    'all': 'All-time completions'
+  };
+  var chartTitleEl = document.getElementById('chart-title');
+  if (chartTitleEl) chartTitleEl.textContent = chartTitles[period] || 'Completions';
+
+  // Period label for subtext
+  var periodLabels = {
+    '1h':'last hour','24h':'last 24h','7d':'last 7 days',
+    '30d':'last 30 days','1y':'last year','all':'all time'
+  };
+  var pLabel = periodLabels[period] || period;
+
   try {
     var stats = await api('GET', '/stats/detail?period=' + encodeURIComponent(period));
     var t = stats.totals || {};
     document.getElementById('detail-stat-cards').innerHTML =
-      '<div class="metric-card"><div class="metric-label">Tracked Torrents</div><div class="metric-value">'+(t.torrent_total||0)+'</div><div class="metric-sub">All-time total in database.</div></div>' +
-      '<div class="metric-card"><div class="metric-label">Completed Size</div><div class="metric-value">'+fmtSize(t.completed_size||0)+'</div><div class="metric-sub">Total bytes of completed torrents in period.</div></div>' +
-      '<div class="metric-card"><div class="metric-label">Completed</div><div class="metric-value">'+(t.completed_count||0)+'</div><div class="metric-sub">Torrents finished in selected period.</div></div>' +
-      '<div class="metric-card"><div class="metric-label">Partial / In Progress</div><div class="metric-value">'+(t.partial_total||0)+'</div><div class="metric-sub">Torrents currently downloading or processing.</div></div>' +
+      '<div class="metric-card"><div class="metric-label">Torrents</div><div class="metric-value">'+(t.torrent_total||0)+'</div><div class="metric-sub">Added in '+pLabel+'.</div></div>' +
+      '<div class="metric-card"><div class="metric-label">Completed Size</div><div class="metric-value">'+fmtSize(t.completed_size||0)+'</div><div class="metric-sub">Completed in '+pLabel+'.</div></div>' +
+      '<div class="metric-card"><div class="metric-label">Completed</div><div class="metric-value">'+(t.completed_count||0)+'</div><div class="metric-sub">Finished in '+pLabel+'.</div></div>' +
+      '<div class="metric-card"><div class="metric-label">In Progress</div><div class="metric-value">'+(t.partial_total||0)+'</div><div class="metric-sub">Currently downloading or processing.</div></div>' +
       (t.success_rate_pct!=null ? '<div class="metric-card"><div class="metric-label">Success Rate</div><div class="metric-value">'+t.success_rate_pct+'%</div><div class="metric-sub">Completed vs. completed+error.</div></div>' : '');
+
     document.getElementById('detail-torrent-status').innerHTML = renderKvMap(stats.torrent_status);
     document.getElementById('detail-file-status').innerHTML   = renderKvMap(stats.file_status, function(v){return v.count??v;});
     document.getElementById('detail-event-levels').innerHTML  = renderKvMap(stats.event_levels);
     var srcEl = document.getElementById('detail-sources');
     if (srcEl) {
       var srcs = stats.sources||[];
-      srcEl.innerHTML = srcs.length ? srcs.map(function(s){return '<div class="kv-row"><span class="kv-key">'+esc(s.source||'(none)')+'</span><span class="kv-val">'+s.count+'</span></div>';}).join('') : '<div class="empty">No data.</div>';
+      srcEl.innerHTML = srcs.length
+        ? srcs.map(function(s){ return '<div class="kv-row"><span class="kv-key">'+esc(s.source||'(none)')+'</span><span class="kv-val">'+s.count+'</span></div>'; }).join('')
+        : '<div class="empty">No data.</div>';
     }
-  } catch(e) { toast(e.message,'error'); }
-  try {
-    var d2 = await api('GET', '/stats/detail?period=all');
-    var daily = (d2.daily_completions||[]).slice(-14);
+
+    // Chart — data already period-filtered from backend
+    var daily = stats.daily_completions || [];
     var ctx = document.getElementById('daily-chart');
     if (ctx && typeof Chart !== 'undefined') {
       if (ctx._ci) ctx._ci.destroy();
-      ctx._ci = new Chart(ctx, { type:'bar', data:{ labels:daily.map(function(d){return (d.date||'').substring(5);}), datasets:[{label:'Completions',data:daily.map(function(d){return d.count||0;}),backgroundColor:'rgba(249,115,22,.55)',borderColor:'#f97316',borderWidth:1,borderRadius:4}]}, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#64748b',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#64748b',font:{size:10}},beginAtZero:true,precision:0}}}});
+      var isDark = !document.body.classList.contains('light');
+      var gridColor = isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.07)';
+      var tickColor = isDark ? '#64748b' : '#6b7280';
+      ctx._ci = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: daily.map(function(d){ return d.date||''; }),
+          datasets: [{
+            label: 'Completions', data: daily.map(function(d){ return d.count||0; }),
+            backgroundColor: 'rgba(249,115,22,.55)', borderColor: '#f97316',
+            borderWidth: 1, borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid:{color:gridColor}, ticks:{color:tickColor,font:{size:10},maxRotation:45} },
+            y: { grid:{color:gridColor}, ticks:{color:tickColor,font:{size:10}}, beginAtZero:true, precision:0 }
+          }
+        }
+      });
     }
-  } catch(_){}
+  } catch(e) { toast(e.message,'error'); }
 }
+
 function setStatsPeriod(el) {
   document.querySelectorAll('#stats-period-tabs .ftab').forEach(function(t){t.classList.remove('active');});
   el.classList.add('active');
@@ -2245,6 +2332,10 @@ function toggleTheme() {
   document.getElementById('theme-toggle').textContent = isLight ? '🌙' : '☀️';
 }
 document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('click', function(e) {
+    var p = document.getElementById('idx-picker');
+    if (p && !p.contains(e.target)) idxClose();
+  });
   setInterval(function() {
     if (settingsData && (settingsData.aria2_mode||'builtin')==='builtin') {
       loadAria2Runtime().catch(()=>{});
@@ -2503,14 +2594,14 @@ function renderSettings() {
 
   // Define tabs
   const tabs = [
-    { id:'tab-general',       label:'&#9889; General' },
-    { id:'tab-download',      label:'&#11015;&#65039; Download' },
-    { id:'tab-notifications', label:'&#128276; Notifications' },
-    { id:'tab-services',      label:'&#128268; Services' },
-    { id:'tab-advanced',      label:'&#128295; Advanced' },
+    { id:'tab-general',       label:'⚡ General' },
+    { id:'tab-download',      label:'⬇️ Download' },
+    { id:'tab-notifications', label:'🔔 Notifications' },
+    { id:'tab-services',      label:'🔌 Services' },
+    { id:'tab-advanced',      label:'🛠️ Advanced' },
   ];
   document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
-    `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${esc(t.label)}</div>`
+    `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${t.label}</div>`
   ).join('');
   document.getElementById('settings-form').innerHTML = `
     <div class="stab-panel  active" id="tab-general">
@@ -4094,8 +4185,79 @@ window._jackettAddInFlight = {};
 function jackettSelectedTrackers() {
   var sel = document.getElementById('jackett-tracker');
   if (!sel) return [];
-  var selected = Array.from(sel.selectedOptions).map(o=>o.value.trim()).filter(Boolean);
-  return (selected.length === 0 || selected.includes('')) ? [] : selected;
+  return Array.from(sel.selectedOptions).map(function(o){return o.value;}).filter(Boolean);
+}
+
+var _idxSelected = new Set();
+
+function idxToggle(e) {
+  e.stopPropagation();
+  var dd = document.getElementById('idx-dropdown');
+  if (dd) dd.classList.toggle('open');
+}
+function idxClose() {
+  var dd = document.getElementById('idx-dropdown');
+  if (dd) dd.classList.remove('open');
+}
+function idxAllChanged(cb) {
+  if (cb.checked) {
+    _idxSelected.clear();
+    document.querySelectorAll('.idx-item-cb').forEach(function(c){c.checked=false;});
+  }
+  cb.checked = true;
+  idxPickerCommit();
+}
+function idxItemChanged(cb, id) {
+  var allCb = document.getElementById('idx-all-cb');
+  if (cb.checked) {
+    _idxSelected.add(id);
+    if (allCb) allCb.checked = false;
+  } else {
+    _idxSelected.delete(id);
+    if (_idxSelected.size === 0 && allCb) allCb.checked = true;
+  }
+  idxPickerCommit();
+}
+function idxPickerCommit() {
+  var sel = document.getElementById('jackett-tracker');
+  var trigger = document.getElementById('idx-trigger');
+  var placeholder = document.getElementById('idx-placeholder');
+  if (!sel || !trigger) return;
+  while (sel.options.length) sel.remove(0);
+  trigger.querySelectorAll('.idx-chip').forEach(function(c){c.remove();});
+  var names = {};
+  document.querySelectorAll('.idx-item-cb').forEach(function(c){
+    names[c.dataset.id] = c.dataset.name || c.dataset.id;
+  });
+  if (_idxSelected.size === 0) {
+    if (placeholder) { placeholder.textContent = 'All Indexers'; placeholder.style.display = ''; }
+  } else {
+    if (placeholder) placeholder.style.display = 'none';
+    var arrowEl = trigger.querySelector('.idx-arrow');
+    _idxSelected.forEach(function(id) {
+      var opt = document.createElement('option');
+      opt.value = id; opt.selected = true;
+      sel.appendChild(opt);
+      var chip = document.createElement('span');
+      chip.className = 'idx-chip';
+      var nm = document.createElement('span');
+      nm.textContent = names[id] || id;
+      var cl = document.createElement('span');
+      cl.className = 'idx-chip-close';
+      cl.innerHTML = '&#215;';
+      cl.onclick = (function(xid){ return function(ev){ ev.stopPropagation(); idxRemoveChip(xid); }; })(id);
+      chip.appendChild(nm); chip.appendChild(cl);
+      trigger.insertBefore(chip, arrowEl || null);
+    });
+  }
+}
+function idxRemoveChip(id) {
+  _idxSelected.delete(id);
+  var cb = document.querySelector('.idx-item-cb[data-id="'+id+'"]');
+  if (cb) cb.checked = false;
+  var allCb = document.getElementById('idx-all-cb');
+  if (_idxSelected.size === 0 && allCb) allCb.checked = true;
+  idxPickerCommit();
 }
 
 function jackettSortResults(items) {
@@ -4335,17 +4497,26 @@ async function testJackett() {
 
 async function loadJackettIndexers() {
   try {
-    var items=await api('GET', '/jackett/indexers');
-    var sel=document.getElementById('jackett-tracker');
-    if (!sel) return;
-    var prevSel = Array.from(sel.selectedOptions).map(o=>o.value);
-    sel.innerHTML = '<option value="">All Indexers</option>';
+    var items = await api('GET', '/jackett/indexers');
+    var dd = document.getElementById('idx-dropdown');
+    if (!dd) return;
+    dd.querySelectorAll('.idx-item').forEach(function(el){el.remove();});
     (items||[]).forEach(function(item) {
-      var opt=document.createElement('option');
-      opt.value=item.id; opt.textContent=item.name||item.id;
-      if (prevSel.includes(item.id)) opt.selected = true;
-      sel.appendChild(opt);
+      var id = String(item.id||item.name||'');
+      var name = String(item.name||item.id||'');
+      var lbl = document.createElement('label');
+      lbl.className = 'idx-option idx-item';
+      var cb = document.createElement('input');
+      cb.type='checkbox'; cb.className='idx-item-cb';
+      cb.dataset.id=id; cb.dataset.name=name;
+      cb.checked = _idxSelected.has(id);
+      cb.onchange = (function(xcb,xid){return function(){idxItemChanged(xcb,xid);};})(cb,id);
+      var sp = document.createElement('span');
+      sp.textContent = name;
+      lbl.appendChild(cb); lbl.appendChild(sp);
+      dd.appendChild(lbl);
     });
+    idxPickerCommit();
   } catch(e) { /* indexers optional */ }
 }
 
