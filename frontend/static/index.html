@@ -653,9 +653,6 @@ textarea.input { resize: vertical; }
     <div class="nav-item" data-view="coffee" onclick="nav(this)">
       <span class="icon">&#9749;</span><span class="nav-label">Coffee</span>
     </div>
-    <div class="nav-item" data-view="help" onclick="nav(this)">
-      <span class="icon">&#10067;</span><span class="nav-label">Help</span>
-    </div>
     <div class="nav-group">System</div>
     <div class="nav-item" data-view="settings" onclick="nav(this)">
       <span class="icon">&#9881;</span><span class="nav-label">Settings</span>
@@ -1049,109 +1046,6 @@ textarea.input { resize: vertical; }
       </div>
     </div>
 
-    <!-- Help View -->
-    <div class="view" id="view-help">
-      <div class="view-header">
-        <h2 class="view-title">&#10067; Help &amp; Documentation</h2>
-      </div>
-      <div class="card" style="padding:0;overflow:hidden">
-        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto;flex-wrap:nowrap">
-          <button class="help-tab" data-htab="quickstart" onclick="switchHelpTab(this,'quickstart')" style="padding:12px 16px;font-size:12px;font-weight:600;color:var(--text);background:none;border:none;border-bottom:2px solid var(--accent);cursor:pointer;white-space:nowrap">&#128640; Quick Start</button>
-          <button class="help-tab" data-htab="concepts"   onclick="switchHelpTab(this,'concepts')"   style="padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap">&#128214; How it works</button>
-          <button class="help-tab" data-htab="aria2"      onclick="switchHelpTab(this,'aria2')"      style="padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap">&#11015;&#65039; aria2</button>
-          <button class="help-tab" data-htab="ram"        onclick="switchHelpTab(this,'ram')"        style="padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap">&#129504; RAM</button>
-          <button class="help-tab" data-htab="integrations" onclick="switchHelpTab(this,'integrations')" style="padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap">&#128268; Integrations</button>
-          <button class="help-tab" data-htab="troubleshoot" onclick="switchHelpTab(this,'troubleshoot')" style="padding:12px 16px;font-size:12px;font-weight:500;color:var(--text2);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap">&#128295; Troubleshoot</button>
-        </div>
-        <div style="padding:20px;max-width:780px;font-size:13px;color:var(--text2);line-height:1.7">
-
-          <div id="htab-quickstart">
-            <h3 style="margin:0 0 16px;color:var(--accent);font-size:16px">&#128640; Quick Start — 4 steps</h3>
-            <div style="display:flex;flex-direction:column;gap:14px">
-              <div style="display:flex;gap:12px;align-items:flex-start"><div style="background:var(--accent);color:#000;border-radius:50%;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">1</div><div><strong style="color:var(--text)">AllDebrid API key</strong> — Settings &#8594; &#9889; General. Get it at <a href="https://alldebrid.com/apikeys/" target="_blank" style="color:var(--accent)">alldebrid.com/apikeys</a>.</div></div>
-              <div style="display:flex;gap:12px;align-items:flex-start"><div style="background:var(--accent);color:#000;border-radius:50%;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">2</div><div><strong style="color:var(--text)">Download folder</strong> — Settings &#8594; General &#8594; Folders. Set the path <em>inside the container</em> (e.g. <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">/download</code>). Map your host folder to this path in Docker.</div></div>
-              <div style="display:flex;gap:12px;align-items:flex-start"><div style="background:var(--accent);color:#000;border-radius:50%;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">3</div><div><strong style="color:var(--text)">aria2 (built-in, default)</strong> — Nothing to do. The built-in aria2 starts automatically. To use an external aria2, go to Settings &#8594; &#11015;&#65039; Download and switch the mode.</div></div>
-              <div style="display:flex;gap:12px;align-items:flex-start"><div style="background:var(--accent);color:#000;border-radius:50%;min-width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">4</div><div><strong style="color:var(--text)">Add a torrent</strong> — Click <strong>+ Add Torrent</strong> in the top bar and paste a magnet link. Done.</div></div>
-            </div>
-          </div>
-
-          <div id="htab-concepts" style="display:none">
-            <h3 style="margin:0 0 12px;color:var(--accent);font-size:16px">&#128214; How it works</h3>
-            <p>AllDebrid-Client is a pipeline between torrent sources and your storage:</p>
-            <div style="display:flex;flex-direction:column;gap:6px;margin:12px 0">
-              <div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent);font-weight:700;white-space:nowrap">1. Upload</span><span>Magnet is sent to AllDebrid. They download the torrent (often instantly from cache).</span></div>
-              <div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent);font-weight:700;white-space:nowrap">2. Poll</span><span>AllDebrid-Client checks AllDebrid every 30 s until ready.</span></div>
-              <div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent);font-weight:700;white-space:nowrap">3. Unlock</span><span>Each file gets a temporary HTTPS download URL from AllDebrid (max 5 parallel).</span></div>
-              <div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent);font-weight:700;white-space:nowrap">4. Download</span><span>URL is handed to aria2 which downloads the file using multiple parallel connections.</span></div>
-              <div style="display:flex;gap:10px;align-items:center"><span style="color:var(--accent);font-weight:700;white-space:nowrap">5. Notify</span><span>Discord notification sent when complete (if configured).</span></div>
-            </div>
-            <table style="border-collapse:collapse;width:100%;margin-top:12px">
-              <tr><td style="padding:4px 12px 4px 0;color:var(--yellow);font-weight:600;white-space:nowrap">Queued</td><td style="font-size:12px">Uploaded to AllDebrid, waiting for them to process.</td></tr>
-              <tr><td style="padding:4px 12px 4px 0;color:var(--blue);font-weight:600">Downloading</td><td style="font-size:12px">AllDebrid is downloading the torrent to their servers.</td></tr>
-              <tr><td style="padding:4px 12px 4px 0;color:var(--accent);font-weight:600">Dispatched</td><td style="font-size:12px">Files are being downloaded by aria2 to your disk.</td></tr>
-              <tr><td style="padding:4px 12px 4px 0;color:var(--green);font-weight:600">Completed</td><td style="font-size:12px">All files saved to your download folder.</td></tr>
-              <tr><td style="padding:4px 12px 4px 0;color:var(--red);font-weight:600">Error</td><td style="font-size:12px">Something failed. Check the event log or retry.</td></tr>
-            </table>
-          </div>
-
-          <div id="htab-aria2" style="display:none">
-            <h3 style="margin:0 0 12px;color:var(--accent);font-size:16px">&#11015;&#65039; aria2 — Built-in vs External</h3>
-            <table style="border-collapse:collapse;width:100%;margin-bottom:16px">
-              <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 12px 8px 0;color:var(--green);font-weight:700;white-space:nowrap">Built-in &#10003;</td><td style="font-size:12px">Default. Starts with the app, uses the same download folder, no extra config. Recommended for most users.</td></tr>
-              <tr style="border-top:1px solid var(--border)"><td style="padding:8px 12px 8px 0;font-weight:700;white-space:nowrap">External</td><td style="font-size:12px">Use if you already run aria2 separately. Set the RPC URL and secret. If aria2 is in another Docker container, use the container name as hostname and set Download Path Override if paths differ.</td></tr>
-            </table>
-            <h4 style="margin:0 0 8px;color:var(--text)">Key settings</h4>
-            <table style="border-collapse:collapse;width:100%">
-              <tr style="border-top:1px solid var(--border)"><td style="padding:6px 12px 6px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">Simultaneous Downloads</td><td style="font-size:12px;vertical-align:top">Files downloaded at once. Default: 3. More = more RAM.</td></tr>
-              <tr style="border-top:1px solid var(--border)"><td style="padding:6px 12px 6px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">Connections per File</td><td style="font-size:12px;vertical-align:top">Parallel segments per file. Default: 4. Higher = faster but more RAM.</td></tr>
-              <tr style="border-top:1px solid var(--border)"><td style="padding:6px 12px 6px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">Disk Cache</td><td style="font-size:12px;vertical-align:top"><strong>0</strong> = best for local SSD. <strong>16M</strong> = better for NFS / SMB / mergerfs. Batches writes to reduce filesystem calls.</td></tr>
-              <tr style="border-top:1px solid var(--border)"><td style="padding:6px 12px 6px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">File Allocation</td><td style="font-size:12px;vertical-align:top"><strong>none</strong> = recommended (instant start). <strong>falloc</strong> = fast on modern FS but blocks aria2 while pre-allocating — avoid for large files on network shares.</td></tr>
-            </table>
-          </div>
-
-          <div id="htab-ram" style="display:none">
-            <h3 style="margin:0 0 12px;color:var(--accent);font-size:16px">&#129504; Understanding RAM usage</h3>
-            <div style="background:var(--surface2);border-left:3px solid var(--accent);padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:14px">
-              <strong style="color:var(--text)">20 GB RAM during downloads is usually the kernel page cache — not a memory leak.</strong>
-            </div>
-            <table style="border-collapse:collapse;width:100%;margin-bottom:14px">
-              <tr style="border-top:1px solid var(--border)"><td style="padding:7px 12px 7px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">aria2 heap</td><td style="font-size:12px;vertical-align:top">~10–50 MB with disk-cache=0. Real process RAM.</td></tr>
-              <tr style="border-top:1px solid var(--border)"><td style="padding:7px 12px 7px 0;font-weight:600;white-space:nowrap;color:var(--accent);vertical-align:top">Page cache &#9733;</td><td style="font-size:12px;vertical-align:top">Every downloaded byte is cached in RAM by the kernel. Can reach tens of GB. Shows as "used" in Unraid/htop/Docker stats — but is reclaimed automatically when needed. <strong>Not a problem.</strong></td></tr>
-              <tr style="border-top:1px solid var(--border)"><td style="padding:7px 12px 7px 0;font-weight:600;white-space:nowrap;color:var(--text);vertical-align:top">glibc arenas</td><td style="font-size:12px;vertical-align:top">After many download cycles, glibc retains freed pages. Grows slowly. Mitigated by MALLOC_ARENA_MAX=1 (set automatically). Cured by restarting aria2.</td></tr>
-            </table>
-            <p><strong style="color:var(--text)">How to check:</strong> Settings &#8594; Download &#8594; Memory &amp; Diagnostics &#8594; <strong>&#128202; Memory Info</strong>.<br>
-            If <em>available</em> RAM is large and <em>page_cache</em> explains the "used" number — everything is fine.<br>
-            Click <strong>&#128465;&#65039; Drop Page Cache</strong> to release cached pages for completed files immediately (Linux only, safe).</p>
-            <p><strong style="color:var(--text)">Network mounts (NFS / SMB / mergerfs):</strong> Set Disk Cache to <strong>16M</strong>. Batching writes reduces FUSE round-trips and can actually lower peak RAM compared to 0.</p>
-          </div>
-
-          <div id="htab-integrations" style="display:none">
-            <h3 style="margin:0 0 12px;color:var(--accent);font-size:16px">&#128268; Integrations</h3>
-            <div style="display:flex;flex-direction:column;gap:14px">
-              <div><strong style="color:var(--text)">Sonarr / Radarr</strong> — Enable in Settings &#8594; Services. After a download completes, AllDebrid-Client calls the import API automatically. PUID/PGID must match so both containers can access the files.</div>
-              <div><strong style="color:var(--text)">Jackett</strong> — Enable in Settings &#8594; Services &#8594; Jackett. The Search sidebar entry appears. Search any configured tracker and add results directly to your queue.</div>
-              <div><strong style="color:var(--text)">Discord</strong> — Create a webhook (Server Settings &#8594; Integrations &#8594; Webhooks) and paste in Settings &#8594; Notifications. Separate webhooks can be set for "added" events and for Jackett/FlexGet.</div>
-              <div><strong style="color:var(--text)">Watch Folder</strong> — Drop <code>.torrent</code> or <code>.magnet</code> files in the configured folder. Picked up every 10 s and imported automatically. Files are deleted or moved to the Processed Folder after import.</div>
-              <div><strong style="color:var(--text)">FlexGet</strong> — Enable in Settings &#8594; Services. Schedule and trigger FlexGet tasks from the UI. Run <code>flexget web gentoken</code> to get the API key.</div>
-            </div>
-          </div>
-
-          <div id="htab-troubleshoot" style="display:none">
-            <h3 style="margin:0 0 12px;color:var(--accent);font-size:16px">&#128295; Troubleshooting</h3>
-            <div style="display:flex;flex-direction:column;gap:10px">
-              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">Torrent stuck in Queued</summary><div style="margin-top:8px">AllDebrid is downloading the torrent. Normal for unpopular content. The stuck-download timeout (Settings &#8594; General) auto-retries after the configured time.</div></details>
-              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">HTTP 503 errors from AllDebrid</summary><div style="margin-top:8px">Rate limit hit. AllDebrid-Client caps unlock calls at 5 concurrent. If frequent, reduce Simultaneous Downloads in Settings &#8594; Download.</div></details>
-              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">Settings page is blank / white screen</summary><div style="margin-top:8px">JavaScript error in the settings renderer. Open browser console (F12 &#8594; Console) for the error message. Try a hard refresh (Ctrl+Shift+R). Check container logs if it persists.</div></details>
-              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">Sonarr / Radarr not importing</summary><div style="margin-top:8px">Check: (1) download folder path matches what Sonarr/Radarr expects, (2) PUID/PGID matches both containers, (3) API key is correct — use Test Connection button.</div></details>
-              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">High RAM (20 GB+)</summary><div style="margin-top:8px">Almost certainly the kernel page cache, not a leak. See the RAM tab for details. Click Memory Info in Settings &#8594; Download to confirm. Set Disk Cache to 16M if using a network share.</div></details>
-              <details style="background:var(--surface2);border-radius:6px;padding:10px 14px"><summary style="cursor:pointer;font-weight:600;color:var(--text)">External aria2 not connecting</summary><div style="margin-top:8px">Check: (1) aria2 runs with --enable-rpc, (2) RPC URL/port is correct (default 6800), (3) secret matches, (4) for Docker: use the container name as host and ensure both are on the same network.</div></details>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-
     <!-- GitHub -->
     <div class="view" id="view-github">
       <div class="split-grid">
@@ -1194,7 +1088,6 @@ textarea.input { resize: vertical; }
       <div id="settings-form"></div>
       <div class="save-bar">
         <span class="save-hint">Settings are applied immediately after saving.</span>
-        <button class="btn btn-ghost btn-sm" onclick="debugRenderSettings()" title="Test: render settings with fake data (no API call)" style="opacity:0.7;font-size:11px">&#128295; Debug</button>
         <button class="btn btn-ghost" onclick="testDiscord()">🔔 Test Discord</button>
         <button class="btn btn-ghost" onclick="testAD()">🔑 Test AllDebrid</button>
         <button class="btn btn-ghost" onclick="testAria2()">⬇️ Test aria2</button>
@@ -1221,32 +1114,6 @@ textarea.input { resize: vertical; }
 <div id="toasts"></div>
 
 <script>
-// Global error handler — makes ALL JS errors visible in the UI
-window.onerror = function(msg, src, line, col, err) {
-  console.error('[GLOBAL ERROR]', msg, 'at', src, line+':'+col, err);
-  var banner = document.getElementById('_err_banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = '_err_banner';
-    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:8px 12px;font-size:12px;z-index:99999;font-family:monospace;white-space:pre-wrap;max-height:120px;overflow:auto';
-    document.body.appendChild(banner);
-  }
-  banner.textContent += '\nERROR: ' + msg + ' (' + src + ':' + line + ')';
-  return false;
-};
-window.addEventListener('unhandledrejection', function(e) {
-  console.error('[UNHANDLED REJECTION]', e.reason);
-  var banner = document.getElementById('_err_banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = '_err_banner';
-    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:8px 12px;font-size:12px;z-index:99999;font-family:monospace;white-space:pre-wrap;max-height:120px;overflow:auto';
-    document.body.appendChild(banner);
-  }
-  banner.textContent += '\nREJECTION: ' + (e.reason && e.reason.message || e.reason);
-});
-
-
 const API = '/api';
 let currentFilter = '';
 let currentTorrentSearch = '';
@@ -1295,7 +1162,6 @@ function nav(el) {
   if (v === 'settings')  loadSettings();
   if (v === 'search')    initSearchView();
   if (v === 'aria2queue') loadAria2QueueView();
-  if (v === 'help') switchHelpTab(null, 'quickstart');
   closeSidebar();
 }
 
@@ -1838,12 +1704,12 @@ function updateFlexgetTaskSchedule(index, field, value) {
 
 function addFlexgetTaskSchedule(task = '') {
   flexgetTaskSchedules.push({ task, interval_minutes: 60, jitter_seconds: 0, enabled: true });
-  if (typeof renderFlexgetTaskSchedules === "function") renderFlexgetTaskSchedules();
+  renderFlexgetTaskSchedules();
 }
 
 function removeFlexgetTaskSchedule(index) {
   flexgetTaskSchedules.splice(index, 1);
-  if (typeof renderFlexgetTaskSchedules === "function") renderFlexgetTaskSchedules();
+  renderFlexgetTaskSchedules();
 }
 
 // ── Theme toggle ─────────────────────────────────────────────────────────────
@@ -2088,34 +1954,10 @@ function renderMarkdown(md) {
 }
 
 async function loadSettings() {
-  console.log('[loadSettings] start, settingsData=', settingsData);
   try {
     settingsData = await api('GET','/settings');
-    console.log('[loadSettings] api OK, keys=', Object.keys(settingsData||{}).length);
-  } catch(e) {
-    console.error('[loadSettings] api FAILED:', e);
-    toast('Failed to load settings: ' + e.message,'error'); return;
-  }
-  console.log('[loadSettings] calling renderSettings()...');
-  console.log('[loadSettings] blocked_extensions type:', typeof settingsData.blocked_extensions, Array.isArray(settingsData.blocked_extensions));
-  console.log('[loadSettings] sample fields:', JSON.stringify({aria2_mode:settingsData.aria2_mode, db_type:settingsData.db_type, blocked_extensions_len:settingsData.blocked_extensions?.length}));
-  try {
     renderSettings();
-    console.log('[loadSettings] renderSettings() done');
-    // Verify DOM was actually populated
-    const _form = document.getElementById('settings-form');
-    console.log('[loadSettings] settings-form children after render:', _form ? _form.children.length : 'ELEMENT_NOT_FOUND');
-    console.log('[loadSettings] settings-form innerHTML length:', _form ? _form.innerHTML.length : 0);
-  } catch(err) {
-    console.error('[renderSettings] crash:', err);
-    const form = document.getElementById('settings-form');
-    if (form) form.innerHTML =
-      '<div style="padding:24px"><div style="color:var(--red);font-weight:600;margin-bottom:8px">&#9888; Settings render error</div>' +
-      '<div style="font-size:12px;color:var(--text2)">Open browser console (F12) for details.</div>' +
-      '<pre style="font-size:11px;color:var(--text3);margin-top:8px;white-space:pre-wrap">' +
-      (err.message||'').replace(/&/g,"&amp;").replace(/</g,"&lt;") + '</pre></div>';
-    return;
-  }
+  } catch(e) { toast(e.message,'error'); }
   // Activate first tab by default
   switchSettingsTab('tab-general');
   // Avatar preview: show if a custom avatar URL is set
@@ -2123,388 +1965,2148 @@ async function loadSettings() {
   if (avatarUrl && !avatarUrl.includes('github') && !avatarUrl.includes('_DEFAULT')) {
     showAvatarPreview(avatarUrl, 'Custom avatar', 0);
   }
-    // DB fields visibility on load
+  // Initialer Zustand: Test-PostgreSQL Button und pg-settings Sichtbarkeit
   const dbTypeEl = document.getElementById('s-db_type');
-  if (dbTypeEl) onDbTypeChange(dbTypeEl.value);
-}
-
-function _buildTabGeneral(s) {
-  return _stab('tab-general', true, `
-    <div class="scard"><div class="scard-header">&#128273; AllDebrid</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">API Key</label>
-        <input class="input" id="s-alldebrid_api_key" type="password" value="${esc(s.alldebrid_api_key||'')}" placeholder="Your AllDebrid API key" autocomplete="off"/>
-        <span class="form-hint">Get your key at <a href="https://alldebrid.com/apikeys/" target="_blank" style="color:var(--accent)">alldebrid.com/apikeys</a>.</span>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#128193; Folders</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">Download Folder</label>
-        <input class="input" id="s-download_folder" value="${esc(s.download_folder||'/download')}" placeholder="/download"/>
-        <span class="form-hint">Where aria2 saves files. Map your host folder to this path in Docker.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Watch Folder <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-        <input class="input" id="s-watch_folder" value="${esc(s.watch_folder||'')}" placeholder="/watch"/>
-        <span class="form-hint">Drop .torrent/.magnet files here — auto-imported and deleted.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Processed Folder <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-        <input class="input" id="s-processed_folder" value="${esc(s.processed_folder||'')}" placeholder="/processed"/>
-        <span class="form-hint">Watch-folder files moved here after import instead of deleted.</span>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#9881;&#65039; Behaviour</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">Max Concurrent Downloads</label>
-        <input class="input" id="s-max_concurrent_downloads" type="number" min="1" max="20" value="${s.max_concurrent_downloads||3}" style="width:100px"/>
-        <span class="form-hint">How many AllDebrid magnets processed in parallel (not aria2 connections).</span>
-      </div>
-      <div class="form-group"><label class="form-label">Stuck Timeout (hours)</label>
-        <input class="input" id="s-stuck_download_timeout_hours" type="number" min="0" step="0.5" value="${s.stuck_download_timeout_hours||6}" style="width:100px"/>
-        <span class="form-hint">Torrents stuck longer than this are auto-retried. 0 = disabled.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Full Sync Interval (minutes)</label>
-        <input class="input" id="s-full_sync_interval_minutes" type="number" min="0" value="${s.full_sync_interval_minutes||30}" style="width:100px"/>
-        <span class="form-hint">How often all AllDebrid magnets are reconciled with the DB. 0 = disabled.</span>
-      </div>
-    </div></div>`);
-}
-
-function _buildTabDownload(s) {
-  const isBuiltin = (s.aria2_mode||'builtin') === 'builtin';
-  const isExternal = !isBuiltin;
-  return _stab('tab-download', false, `
-    <div class="scard"><div class="scard-header">&#11015;&#65039; Download Client</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">aria2 Mode</label>
-        <select class="input" id="s-aria2_mode" onchange="onAria2ModeChange(this.value)">
-          <option value="builtin" ${isBuiltin?'selected':''}>Built-in (managed by this app)</option>
-          <option value="external" ${isExternal?'selected':''}>External (separate aria2 instance)</option>
-        </select>
-        <span class="form-hint">Built-in: aria2 starts automatically with the app — no extra setup needed.</span>
-      </div>
-      <div id="aria2-external-fields" style="${isBuiltin?'display:none':''}">
-        <div class="form-group"><label class="form-label">RPC URL</label>
-          <input class="input" id="s-aria2_url" value="${esc(s.aria2_url||'http://127.0.0.1:6800/jsonrpc')}" placeholder="http://127.0.0.1:6800/jsonrpc"/>
-          <span class="form-hint">JSON-RPC endpoint of your external aria2 instance.</span>
-        </div>
-        <div class="form-group"><label class="form-label">RPC Secret</label>
-          <input class="input" id="s-aria2_secret" type="password" value="${esc(s.aria2_secret||'')}" placeholder="leave empty if none" autocomplete="off"/>
-        </div>
-        <div class="form-group"><label class="form-label">Download Path Override</label>
-          <input class="input" id="s-aria2_download_path" value="${esc(s.aria2_download_path||'')}" placeholder="only if paths differ between containers"/>
-          <span class="form-hint">Only needed when aria2 runs in a separate container with a different path mapping.</span>
-        </div>
-      </div>
-      <div id="aria2-builtin-fields" style="${isExternal?'display:none':''}">
-        <div class="form-group"><label class="form-label">Built-in RPC Port</label>
-          <input class="input" id="s-aria2_builtin_port" type="number" min="1024" max="65535" value="${s.aria2_builtin_port||6800}" style="width:120px"/>
-          <span class="form-hint">Change only if port 6800 conflicts with another service.</span>
-        </div>
-        <div class="toggle-row">
-          <div class="toggle-label"><span>Auto-start built-in aria2</span></div>
-          <label class="tswitch"><input type="checkbox" id="s-aria2_builtin_auto_start" ${s.aria2_builtin_auto_start!==false?'checked':''}><span class="ttrack"></span></label>
-        </div>
-      </div>
-      <div class="input-row" style="margin-top:12px">
-        <button class="btn btn-ghost btn-sm" onclick="testAria2()">Test Connection</button>
-        <span id="aria2-test-result" style="font-size:12px;align-self:center"></span>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#127917; Performance</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">Simultaneous Downloads</label>
-        <input class="input" id="s-aria2_max_active_downloads" type="number" min="1" max="20" value="${s.aria2_max_active_downloads||3}" style="width:100px"/>
-        <span class="form-hint">Files aria2 downloads at once. Recommended: 3–5.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Connections per File</label>
-        <input class="input" id="s-aria2_split" type="number" min="1" max="16" value="${s.aria2_split||4}" style="width:100px"/>
-        <span class="form-hint">Parallel segments per file. Recommended: 4.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Max Connections per Server</label>
-        <input class="input" id="s-aria2_max_connection_per_server" type="number" min="1" max="16" value="${s.aria2_max_connection_per_server||4}" style="width:100px"/>
-        <span class="form-hint">Keep this ≤ Connections per File.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Min Segment Size</label>
-        <input class="input" id="s-aria2_min_split_size" value="${esc(s.aria2_min_split_size||'20M')}" style="width:100px"/>
-        <span class="form-hint">Only split files larger than 2× this value. Default: 20M.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Speed Limit</label>
-        <input class="input" id="s-aria2_lowest_speed_limit" value="${esc(s.aria2_lowest_speed_limit||'0')}" style="width:120px"/>
-        <span class="form-hint">Drop connections slower than this. 0 = no limit. E.g. 100K.</span>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#128190; Storage &amp; Memory</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">Disk Cache</label>
-        <input class="input" id="s-aria2_disk_cache" value="${esc(s.aria2_disk_cache||'0')}" style="width:120px"/>
-        <span class="form-hint"><strong>0</strong> = best for local SSD (~4 MB RAM). <strong>16M</strong> = better for network mounts (NFS/SMB/mergerfs) — batches writes, reduces round-trips.</span>
-      </div>
-      <div class="form-group"><label class="form-label">File Allocation</label>
-        <select class="input" id="s-aria2_file_allocation" style="width:160px">
-          <option value="none"     ${ (s.aria2_file_allocation||'none')==='none'    ?'selected':''}>none (recommended)</option>
-          <option value="prealloc" ${ (s.aria2_file_allocation||'none')==='prealloc'?'selected':''}>prealloc</option>
-          <option value="falloc"   ${ (s.aria2_file_allocation||'none')==='falloc'  ?'selected':''}>falloc (blocks aria2!)</option>
-          <option value="trunc"    ${ (s.aria2_file_allocation||'none')==='trunc'   ?'selected':''}>trunc</option>
-        </select>
-        <span class="form-hint"><strong>none</strong>: instant start. <strong>falloc</strong>: blocks aria2 until disk is pre-allocated — avoid for large files on slow/network disks.</span>
-      </div>
-      <div class="toggle-row">
-        <div class="toggle-label"><span>Resume incomplete downloads</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-aria2_continue_downloads" ${s.aria2_continue_downloads!==false?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="toggle-row">
-        <div class="toggle-label"><span>Start downloads paused</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-aria2_start_paused" ${s.aria2_start_paused?'checked':''}><span class="ttrack"></span></label>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#128260; Errors &amp; Retries</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">Retry Count</label>
-        <input class="input" id="s-aria2_error_retry_count" type="number" min="0" max="10" value="${s.aria2_error_retry_count||3}" style="width:100px"/>
-        <span class="form-hint">How many times a failed download is retried. 0 = disabled.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Retry Delay (seconds)</label>
-        <input class="input" id="s-aria2_error_retry_delay_seconds" type="number" min="0" value="${s.aria2_error_retry_delay_seconds||60}" style="width:100px"/>
-      </div>
-    </div></div>
-    <div class="scard" style="border-color:rgba(180,180,180,.15)"><div class="scard-header" style="color:var(--text3)">&#129504; Memory &amp; Diagnostics</div><div class="scard-body">
-      <div class="input-row" style="flex-wrap:wrap;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="runAria2Housekeeping()">Run Cleanup</button>
-        <button class="btn btn-ghost btn-sm" onclick="showMemoryInfo()">&#128202; Memory Info</button>
-        <button class="btn btn-ghost btn-sm" onclick="dropPageCache()">&#128465;&#65039; Drop Page Cache</button>
-      </div>
-      <span class="form-hint" style="margin-top:6px">Memory Info reads /proc/meminfo to separate real RAM from kernel page cache. Page cache grows during downloads and appears as high RAM usage in system monitors — it is reclaimed automatically by Linux when needed. Drop Page Cache releases it immediately (Linux only, safe on all filesystems).</span>
-      <div id="aria2-memory-diagnostics" class="form-hint" style="line-height:1.6"></div>
-      <div id="aria2-memory-info" class="form-hint" style="line-height:1.6;margin-top:6px;display:none"></div>
-    </div></div>`);
-}
-
-function _buildTabNotifications(s) {
-  return _stab('tab-notifications', false, `
-    <div class="scard"><div class="scard-header">&#128276; Discord Webhooks</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">Webhook URL</label>
-        <input class="input" id="s-discord_webhook_url" value="${esc(s.discord_webhook_url||'')}" placeholder="https://discord.com/api/webhooks/…"/>
-        <span class="form-hint">Main webhook. Create in Discord: Server Settings → Integrations → Webhooks.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Bot Name <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-        <input class="input" id="s-discord_username" value="${esc(s.discord_username||'')}" placeholder="AllDebrid-Client"/>
-      </div>
-      <div class="form-group"><label class="form-label">Avatar URL <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-        <input class="input" id="s-discord_avatar_url" value="${esc(s.discord_avatar_url||'')}" placeholder="https://example.com/avatar.png"/>
-      </div>
-      <div class="form-group"><label class="form-label">Added-event Webhook <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-        <input class="input" id="s-discord_webhook_added" value="${esc(s.discord_webhook_added||'')}" placeholder="separate channel for 'added' events"/>
-      </div>
-      <div class="input-row" style="margin-top:4px">
-        <button class="btn btn-ghost btn-sm" onclick="testDiscord()">Test Webhook</button>
-        <span id="discord-test-result" style="font-size:12px;align-self:center"></span>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#128235; Events</div><div class="scard-body">
-      <div class="toggle-row"><div class="toggle-label"><span>Notify on torrent added</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added!==false?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="toggle-row"><div class="toggle-label"><span>Notify on download complete</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-discord_notify_finished" ${s.discord_notify_finished!==false?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="toggle-row"><div class="toggle-label"><span>Notify on error</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error!==false?'checked':''}><span class="ttrack"></span></label>
-      </div>
-    </div></div>`);
-}
-
-function _buildTabServices(s) {
-  return _stab('tab-services', false, `
-    <div class="scard"><div class="scard-header">&#128250; Sonarr</div><div class="scard-body">
-      <div class="toggle-row"><div class="toggle-label"><span>Enable Sonarr</span><span class="form-hint">Trigger import scan after episode downloads.</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-sonarr_enabled" ${s.sonarr_enabled?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="form-group"><label class="form-label">Sonarr URL</label>
-        <input class="input" id="s-sonarr_url" value="${esc(s.sonarr_url||'')}" placeholder="http://sonarr:8989"/>
-      </div>
-      <div class="form-group"><label class="form-label">API Key</label>
-        <input class="input" id="s-sonarr_api_key" type="password" value="${esc(s.sonarr_api_key||'')}" autocomplete="off" placeholder="Sonarr → Settings → General"/>
-      </div>
-      <button class="btn btn-ghost btn-sm" onclick="testSonarr()">Test</button>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#127916; Radarr</div><div class="scard-body">
-      <div class="toggle-row"><div class="toggle-label"><span>Enable Radarr</span><span class="form-hint">Trigger import scan after movie downloads.</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-radarr_enabled" ${s.radarr_enabled?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="form-group"><label class="form-label">Radarr URL</label>
-        <input class="input" id="s-radarr_url" value="${esc(s.radarr_url||'')}" placeholder="http://radarr:7878"/>
-      </div>
-      <div class="form-group"><label class="form-label">API Key</label>
-        <input class="input" id="s-radarr_api_key" type="password" value="${esc(s.radarr_api_key||'')}" autocomplete="off" placeholder="Radarr → Settings → General"/>
-      </div>
-      <button class="btn btn-ghost btn-sm" onclick="testRadarr()">Test</button>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#128269; Jackett</div><div class="scard-body">
-      <div class="toggle-row"><div class="toggle-label"><span>Enable Jackett</span><span class="form-hint">Search sidebar + add results directly to queue.</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-jackett_enabled" ${s.jackett_enabled?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="form-group"><label class="form-label">Jackett URL</label>
-        <input class="input" id="s-jackett_url" value="${esc(s.jackett_url||'http://localhost:9117')}" placeholder="http://jackett:9117"/>
-      </div>
-      <div class="form-group"><label class="form-label">API Key</label>
-        <input class="input" id="s-jackett_api_key" type="password" value="${esc(s.jackett_api_key||'')}" autocomplete="off" placeholder="Jackett dashboard top-right"/>
-      </div>
-      <div class="form-group"><label class="form-label">Jackett Webhook <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-        <input class="input" id="s-jackett_webhook_url" value="${esc(s.jackett_webhook_url||'')}" placeholder="separate Discord webhook for Jackett results"/>
-      </div>
-      <button class="btn btn-ghost btn-sm" onclick="testJackett()">Test</button>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#129302; FlexGet</div><div class="scard-body">
-      <div class="toggle-row"><div class="toggle-label"><span>Enable FlexGet</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-flexget_enabled" ${s.flexget_enabled?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="form-group"><label class="form-label">FlexGet URL</label>
-        <input class="input" id="s-flexget_url" value="${esc(s.flexget_url||'')}" placeholder="http://flexget:5050"/>
-      </div>
-      <div class="form-group"><label class="form-label">API Key</label>
-        <input class="input" id="s-flexget_api_key" type="password" value="${esc(s.flexget_api_key||'')}" autocomplete="off"/>
-        <span class="form-hint">Run <code>flexget web gentoken</code> to get the API key.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Tasks (comma-separated)</label>
-        <input class="input" id="s-flexget_tasks_raw" value="${esc(s.flexget_tasks_raw||'')}" placeholder="task1, task2 (empty = all)"/>
-      </div>
-      <div class="form-group"><label class="form-label">FlexGet Webhook <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-        <input class="input" id="s-flexget_webhook_url" value="${esc(s.flexget_webhook_url||'')}" placeholder="separate Discord webhook"/>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#127991;&#65039; Labels</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">Torrent Labels</label>
-        <textarea class="input" id="s-torrent_labels_raw" rows="3" placeholder="label1&#10;label2" style="font-family:var(--mono);font-size:12px">${esc(s.torrent_labels_raw||'')}</textarea>
-        <span class="form-hint">One label per line. Optional — shown in Add Torrent dialog.</span>
-      </div>
-    </div></div>`);
-}
-
-function _buildTabAdvanced(s) {
-  const isPg = s.db_type==='postgres'||s.db_type==='postgres_internal';
-  return _stab('tab-advanced', false, `
-    <div class="scard"><div class="scard-header">&#128683; File Filters</div><div class="scard-body">
-      <div class="toggle-row"><div class="toggle-label"><span>Enable filters</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-filters_enabled" ${s.filters_enabled!==false?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="form-group"><label class="form-label">Blocked Extensions (one per line)</label>
-        <textarea class="input" id="s-blocked_extensions" rows="4" placeholder=".jpg&#10;.png&#10;.nfo" style="font-family:var(--mono);font-size:12px">${esc(s.blocked_extensions||'')}</textarea>
-      </div>
-      <div class="form-group"><label class="form-label">Blocked Keywords (one per line)</label>
-        <textarea class="input" id="s-blocked_keywords" rows="3" placeholder="sample&#10;trailer" style="font-family:var(--mono);font-size:12px">${esc(s.blocked_keywords||'')}</textarea>
-      </div>
-      <div class="form-group"><label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
-        <input class="input" id="s-min_file_size_mb" type="number" min="0" value="${s.min_file_size_mb||0}" style="width:120px"/>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#128202; Statistics &amp; Reporting</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">Reporting Webhook URL <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-        <input class="input" id="s-stats_report_webhook_url" value="${esc(s.stats_report_webhook_url||'')}" placeholder="Discord webhook for stats reports"/>
-      </div>
-      <div class="form-group"><label class="form-label">Auto-report Interval (hours, 0 = off)</label>
-        <input class="input" id="s-stats_report_interval_hours" type="number" min="0" value="${s.stats_report_interval_hours||0}" style="width:100px"/>
-      </div>
-      <div class="form-group"><label class="form-label">Report Window (hours)</label>
-        <input class="input" id="s-stats_report_window_hours" type="number" min="1" value="${s.stats_report_window_hours||24}" style="width:100px"/>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#128190; Backups</div><div class="scard-body">
-      <div class="toggle-row"><div class="toggle-label"><span>Enable automatic backups</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-backup_enabled" ${s.backup_enabled?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="form-group"><label class="form-label">Backup Folder</label>
-        <input class="input" id="s-backup_folder" value="${esc(s.backup_folder||'')}" placeholder="/app/data/backups"/>
-      </div>
-      <div class="form-group"><label class="form-label">Interval (hours)</label>
-        <input class="input" id="s-backup_interval_hours" type="number" min="1" value="${s.backup_interval_hours||24}" style="width:100px"/>
-      </div>
-      <div class="form-group"><label class="form-label">Keep backups for (days)</label>
-        <input class="input" id="s-backup_keep_days" type="number" min="1" value="${s.backup_keep_days||7}" style="width:100px"/>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#128436;&#65039; Database</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">Database Type</label>
-        <select class="input" id="s-db_type" onchange="onDbTypeChange(this.value)" style="width:200px" ${s._db_type_locked?'disabled':''}>
-          <option value="sqlite" ${!isPg?'selected':''}>SQLite (default, zero config)</option>
-          <option value="postgres" ${isPg?'selected':''}>PostgreSQL</option>
-        </select>
-        <span class="form-hint">${s._db_type_locked?'<strong>Locked by DB_TYPE env var.</strong>':'SQLite recommended unless you need PostgreSQL.'}</span>
-      </div>
-      <div id="postgres-fields" style="${isPg?'':'display:none'}">
-        <div class="form-group"><label class="form-label">Host</label><input class="input" id="s-postgres_host" value="${esc(s.postgres_host||'localhost')}"/></div>
-        <div class="form-group"><label class="form-label">Port</label><input class="input" id="s-postgres_port" type="number" value="${s.postgres_port||5432}" style="width:100px"/></div>
-        <div class="form-group"><label class="form-label">Database</label><input class="input" id="s-postgres_db" value="${esc(s.postgres_db||'alldebrid')}"/></div>
-        <div class="form-group"><label class="form-label">User</label><input class="input" id="s-postgres_user" value="${esc(s.postgres_user||'alldebrid')}"/></div>
-        <div class="form-group"><label class="form-label">Password</label><input class="input" id="s-postgres_password" type="password" value="${esc(s.postgres_password||'')}" autocomplete="off"/></div>
-        <div class="form-group"><label class="form-label">Schema</label><input class="input" id="s-postgres_schema" value="${esc(s.postgres_schema||'public')}"/></div>
-        <div class="toggle-row"><div class="toggle-label"><span>SSL</span></div>
-          <label class="tswitch"><input type="checkbox" id="s-postgres_ssl" ${s.postgres_ssl?'checked':''}><span class="ttrack"></span></label>
-        </div>
-      </div>
-    </div></div>
-    <div class="scard"><div class="scard-header">&#128260; Data Migration</div><div class="scard-body">
-      <span class="form-hint">Save database settings first, then migrate.</span>
-      <div class="input-row" style="margin-top:8px;flex-wrap:wrap;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres')">SQLite &#8594; PostgreSQL</button>
-        <button class="btn btn-ghost btn-sm" onclick="runMigration('postgres_to_sqlite')">PostgreSQL &#8594; SQLite</button>
-      </div>
-    </div></div>
-    <div class="scard" style="border-color:rgba(255,100,100,.2)"><div class="scard-header" style="color:var(--red)">&#9888;&#65039; Danger Zone</div><div class="scard-body">
-      <div class="toggle-row"><div class="toggle-label"><span style="color:var(--red)">Enable database wipe</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-db_wipe_enabled" ${s.db_wipe_enabled?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="toggle-row"><div class="toggle-label"><span>Backup before wipe</span></div>
-        <label class="tswitch"><input type="checkbox" id="s-db_backup_before_wipe" ${s.db_backup_before_wipe!==false?'checked':''}><span class="ttrack"></span></label>
-      </div>
-      <div class="form-group"><label class="form-label">DB Backup Folder</label>
-        <input class="input" id="s-db_backup_folder" value="${esc(s.db_backup_folder||'')}" placeholder="/app/data/db-backups"/>
-      </div>
-      <div class="form-group"><label class="form-label">Keep DB backups (days)</label>
-        <input class="input" id="s-db_backup_keep_days" type="number" min="1" value="${s.db_backup_keep_days||7}" style="width:100px"/>
-      </div>
-      <div class="input-row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="loadDatabaseBackupList()">List Backups</button>
-        <button class="btn btn-ghost btn-sm" onclick="createDatabaseBackup()">Backup Now</button>
-        <button class="btn btn-sm" style="background:var(--red);color:#fff" onclick="wipeDatabase()" ${!s.db_wipe_enabled?'disabled':''}>Wipe Database</button>
-      </div>
-      <div id="db-backup-list" style="margin-top:8px"></div>
-    </div></div>
-    <div class="scard" style="border-color:rgba(180,180,180,.15)"><div class="scard-header" style="color:var(--text3)">&#9201;&#65039; Polling</div><div class="scard-body">
-      <div class="form-group"><label class="form-label">AllDebrid Poll Interval (seconds)</label>
-        <input class="input" id="s-poll_interval_seconds" type="number" min="5" value="${s.poll_interval_seconds||30}" style="width:100px"/>
-        <span class="form-hint">How often AllDebrid is checked for torrent status. Recommended: 30 s.</span>
-      </div>
-      <div class="form-group"><label class="form-label">Watch Folder Scan (seconds)</label>
-        <input class="input" id="s-watch_interval_seconds" type="number" min="5" value="${s.watch_interval_seconds||10}" style="width:100px"/>
-      </div>
-      <div class="form-group"><label class="form-label">AllDebrid Rate Limit (req/min)</label>
-        <input class="input" id="s-alldebrid_rate_limit_per_minute" type="number" min="0" value="${s.alldebrid_rate_limit_per_minute||60}" style="width:100px"/>
-        <span class="form-hint">0 = unlimited. Default: 60.</span>
-      </div>
-    </div></div>`);
-}
-
-function _stab(id, active, content) {
-  return '<div class="stab-panel' + (active?' active':'') + '" id="' + id + '">' + content + '</div>';
+  if (dbTypeEl) {
+    const isPg = dbTypeEl.value === 'postgres';
+    const pgBtn = document.getElementById('btn-test-postgres');
+    if (pgBtn) pgBtn.style.display = isPg ? '' : 'none';
+  }
 }
 
 function renderSettings() {
-  if (!settingsData) return;
-  var s = settingsData;
-  const tabsEl = document.getElementById('settings-tabs');
-  const formEl = document.getElementById('settings-form');
-  if (!tabsEl || !formEl) return;
+  const s = settingsData;
+  const aria2BuiltIn = (s.aria2_mode || 'external') === 'builtin';
+  flexgetTaskSchedules = parseFlexgetTaskSchedules(s.flexget_task_schedules_json);
+
+  // Define tabs
   const tabs = [
-    { id:'tab-general',       label:'&#9889; General' },
-    { id:'tab-download',      label:'&#11015;&#65039; Download' },
-    { id:'tab-notifications', label:'&#128276; Notifications' },
-    { id:'tab-services',      label:'&#128268; Services' },
-    { id:'tab-advanced',      label:'&#128295; Advanced' },
+    { id:'tab-general',      label:'⚡ General' },
+    { id:'tab-download',     label:'⬇️ Download' },
+    { id:'tab-discord',      label:'🔔 Discord' },
+    { id:'tab-integrations', label:'🔗 Integrations' },
+    { id:'tab-database',     label:'🗄️ Database' },
+    { id:'tab-filters',      label:'🚫 Filters' },
+    { id:'tab-polling',      label:'⏱ Polling' },
+    { id:'tab-backup',       label:'💾 Backup' },
+    { id:'tab-flexget',      label:'🤖 FlexGet' },
+    { id:'tab-automations',  label:'📊 Reporting' },
+    { id:'tab-jackett',      label:'🔍 Jackett' },
   ];
-  tabsEl.innerHTML = tabs.map((t,i) =>
-    '<div class="stab'+(i===0?' active':'')+'" data-tab="'+t.id+'" onclick="switchSettingsTab(\'' + t.id + '\')">' + t.label + '</div>'
+  document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
+    `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${esc(t.label)}</div>`
   ).join('');
-  var _html = '';
-  try { _html += _buildTabGeneral(s); } catch(e) { _html += '<div style="padding:16px;color:var(--red)">General error: '+esc(e.message)+'</div>'; }
-  try { _html += _buildTabDownload(s); } catch(e) { _html += '<div style="padding:16px;color:var(--red)">Download error: '+esc(e.message)+'</div>'; }
-  try { _html += _buildTabNotifications(s); } catch(e) { _html += '<div style="padding:16px;color:var(--red)">Notifications error: '+esc(e.message)+'</div>'; }
-  try { _html += _buildTabServices(s); } catch(e) { _html += '<div style="padding:16px;color:var(--red)">Services error: '+esc(e.message)+'</div>'; }
-  try { _html += _buildTabAdvanced(s); } catch(e) { _html += '<div style="padding:16px;color:var(--red)">Advanced error: '+esc(e.message)+'</div>'; }
-  formEl.innerHTML = _html;
-  if (typeof renderFlexgetTaskSchedules === "function") renderFlexgetTaskSchedules();
+  document.getElementById('settings-form').innerHTML = `
+
+    <div class="stab-panel active" id="tab-general">
+
+    <div class="scard">
+      <div class="scard-header">📁 Folders</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Watch Folder</label>
+          <input class="input" id="s-watch_folder" value="${s.watch_folder||''}"/>
+          <span class="form-hint">Drop .torrent or .magnet files here</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Processed Folder</label>
+          <input class="input" id="s-processed_folder" value="${s.processed_folder||''}"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Download Folder</label>
+          <input class="input" id="s-download_folder" value="${s.download_folder||''}"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Concurrent Downloads</label>
+          <input class="input" type="number" id="s-max_concurrent_downloads" value="${s.max_concurrent_downloads??3}" min="1" max="20"/>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <div class="stab-panel" id="tab-download">
+
+    <div class="scard">
+      <div class="scard-header">⬇️ Download Client</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Delivery Mode</label>
+          <select class="input" id="s-download_client">
+            <option value="aria2" selected>aria2 (via JSON-RPC)</option>
+          </select>
+          <span class="form-hint">Downloads are handed off to aria2 via JSON-RPC. Configure the RPC URL below.</span>
+          <details class="info-details">
+            <summary>How do the delivery modes work?</summary>
+            <div class="info-details-body">
+              <div class="info-mode">
+                <div class="info-mode-title">⚡ aria2</div>
+                <div class="info-mode-desc">
+                  The app unlocks each AllDebrid link and hands the resulting URL to aria2 via JSON-RPC.
+                  aria2 then handles the actual download entirely on its own — it decides how many connections to open,
+                  where to write the file, whether to segment the transfer, and when it is complete.
+                  The app only monitors aria2's reported status (<code>active / waiting / complete / error</code>)
+                  and updates its internal state accordingly. When aria2 reports a download as complete,
+                  the app marks the file done, removes the entry from aria2, and — once all files of a torrent
+                  are finished — deletes the torrent from AllDebrid.
+                </div>
+                <div class="info-mode-pros">✔ Faster multi-connection downloads · resumable · aria2 manages bandwidth &amp; concurrency · works across Docker volumes</div>
+                <div class="info-mode-cons">✖ Requires a running aria2 instance with RPC enabled · needs correct RPC URL and optional secret configured below</div>
+              </div>
+              <div class="info-mode">
+                <div class="info-mode-title">📁 aria2 Download Root</div>
+                <div class="info-mode-desc">
+                  Only relevant in aria2 mode. When the app and aria2 run in separate Docker containers,
+                  their views of the filesystem differ. Set this to the path that aria2 uses as its download
+                  root (e.g. <code>/downloads</code>) so the app constructs the correct <code>dir</code> and
+                  <code>out</code> options when submitting jobs. Leave empty if both containers share the same mount path.
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Mode</label>
+          <select class="input" id="s-aria2_mode" onchange="settingsData.aria2_mode=this.value; renderSettings(); loadAria2Runtime().catch(()=>{});">
+            <option value="external" ${(s.aria2_mode||'external')==='external'?'selected':''}>External aria2</option>
+            <option value="builtin" ${(s.aria2_mode||'external')==='builtin'?'selected':''}>Built-in aria2</option>
+          </select>
+          <span class="form-hint">Built-in aria2 is managed by this container and only receives AllDebrid HTTP(S) links.</span>
+        </div>
+        <div class="scard" style="margin-bottom:0">
+          <div class="scard-header">aria2 Runtime</div>
+          <div class="scard-body">
+            <div id="aria2-runtime-status" class="form-hint" style="line-height:1.6">Runtime status not loaded yet.</div>
+            <div class="input-row">
+              <button class="btn btn-blue btn-sm" onclick="loadAria2Runtime()">Refresh</button>
+              <button class="btn btn-ghost btn-sm" onclick="aria2RuntimeAction('start')" ${aria2BuiltIn?'':'disabled'}>Start</button>
+              <button class="btn btn-ghost btn-sm" onclick="aria2RuntimeAction('restart')" ${aria2BuiltIn?'':'disabled'}>Restart</button>
+              <button class="btn btn-danger btn-sm" onclick="aria2RuntimeAction('stop')" ${aria2BuiltIn?'':'disabled'}>Stop</button>
+              <button class="btn btn-ghost btn-sm" onclick="aria2RuntimeAction('apply')" ${aria2BuiltIn?'':'disabled'}>Apply</button>
+            </div>
+          </div>
+        </div>
+        <div class="scard" style="margin-bottom:0">
+          <div class="scard-header">aria2 Live Downloads</div>
+          <div class="scard-body">
+            <div class="aria2-queue-head">
+              <div class="form-hint">Live aria2 queue with progress, speed, status, and basic controls.</div>
+              <div class="input-row">
+                <button class="btn btn-blue btn-sm" onclick="loadAria2Downloads()">Refresh Queue</button>
+                <button class="btn btn-ghost btn-sm" onclick="runAria2Housekeeping()">Purge Results</button>
+              </div>
+            </div>
+            <div id="aria2-downloads" class="aria2-queue">
+              <div class="empty">Queue not loaded yet.</div>
+            </div>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Auto-start Built-in aria2</div>
+            <div class="td">Starts the internal aria2 daemon when the app starts in built-in mode.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-aria2_builtin_auto_start" ${s.aria2_builtin_auto_start!==false?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Built-in aria2 Port</label>
+          <input class="input" type="number" id="s-aria2_builtin_port" value="${s.aria2_builtin_port??6800}" min="1" max="65535"/>
+          <span class="form-hint">The internal RPC secret is managed by the app and cannot be changed from the UI.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 RPC URL</label>
+          <div class="test-row">
+            <input class="input" id="s-aria2_url" value="${aria2BuiltIn ? `http://127.0.0.1:${s.aria2_builtin_port??6800}/jsonrpc` : (s.aria2_url||'http://127.0.0.1:6800/jsonrpc')}" placeholder="http://127.0.0.1:6800/jsonrpc" ${aria2BuiltIn?'readonly':''}/>
+            <button class="btn btn-blue btn-sm" onclick="testAria2()">Test</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Secret</label>
+          <input class="input" type="password" id="s-aria2_secret" value="${aria2BuiltIn ? 'managed-internally' : (s.aria2_secret||'')}" placeholder="Optional RPC secret" ${aria2BuiltIn?'readonly':''}/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Download Root</label>
+          <input class="input" id="s-aria2_download_path" value="${s.aria2_download_path||''}" placeholder="Optional remote root path"/>
+          <span class="form-hint">External aria2 only. Built-in aria2 always uses the Download Folder mount directly.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Timeout (seconds)</label>
+          <input class="input" type="number" id="s-aria2_operation_timeout_seconds" value="${s.aria2_operation_timeout_seconds??15}" min="5" max="120"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Simultaneous Downloads</label>
+          <input class="input" type="number" id="s-aria2_max_active_downloads" value="${s.aria2_max_active_downloads??s.max_concurrent_downloads??3}" min="1" max="50"/>
+          <span class="form-hint">Only this many files are handed to aria2 at once. Remaining files stay pending until a slot becomes free.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deep Filesystem Sync Interval (minutes)</label>
+          <input class="input" type="number" id="s-aria2_deep_sync_interval_minutes" value="${s.aria2_deep_sync_interval_minutes??10}" min="0" max="1440"/>
+          <span class="form-hint">
+            Periodically checks if downloaded files exist on disk — independent of aria2 GID or status.
+            Resolves stuck downloads where aria2 lost track of the entry or the same filename appears in different folders.
+            <b>0 = disabled.</b> Default: 10 minutes.
+          </span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Poll Interval (seconds)</label>
+          <input class="input" type="number" id="s-aria2_poll_interval_seconds" value="${s.aria2_poll_interval_seconds??5}" min="2" max="300"/>
+          <span class="form-hint">How often the client refreshes aria2 download state.</span>
+        </div>
+        <div class="form-group">
+          <button class="btn btn-ghost" onclick="triggerFullSync()">🔄 Full AllDebrid Sync Now</button>
+          <button class="btn btn-ghost" onclick="runDeepSync()">🔍 Run Deep Sync Now</button>
+          <span class="form-hint" style="margin-top:6px;display:block">Immediately checks all pending aria2 files on disk and marks completed ones.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Result Purge Interval (minutes)</label>
+          <input class="input" type="number" id="s-aria2_purge_interval_minutes" value="${s.aria2_purge_interval_minutes??15}" min="0" max="1440"/>
+          <span class="form-hint">Automatically purges stopped result entries from aria2. 0 = disabled.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 max-download-result</label>
+          <input class="input" type="number" id="s-aria2_max_download_result" value="${s.aria2_max_download_result??50}" min="10" max="5000"/>
+          <span class="form-hint">Lower values reduce how many stopped results aria2 keeps in memory.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Split Connections</label>
+          <input class="input" type="number" id="s-aria2_split" value="${s.aria2_split??8}" min="1" max="64"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Min Split Size</label>
+          <input class="input" id="s-aria2_min_split_size" value="${s.aria2_min_split_size||'10M'}" placeholder="10M"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Max Connections per Server</label>
+          <input class="input" type="number" id="s-aria2_max_connection_per_server" value="${s.aria2_max_connection_per_server??8}" min="1" max="32"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Disk Cache</label>
+          <input class="input" id="s-aria2_disk_cache" value="${s.aria2_disk_cache||'64M'}" placeholder="64M"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 File Allocation</label>
+          <select class="input" id="s-aria2_file_allocation">
+            ${['none','prealloc','trunc','falloc'].map(v=>`<option value="${v}" ${(s.aria2_file_allocation||'falloc')===v?'selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Lowest Speed Limit</label>
+          <input class="input" id="s-aria2_lowest_speed_limit" value="${s.aria2_lowest_speed_limit||'0'}" placeholder="0"/>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Continue Partial Downloads</div>
+            <div class="td">Allows aria2 to resume partial HTTP downloads when possible.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-aria2_continue_downloads" ${s.aria2_continue_downloads!==false?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Waiting Query Window</label>
+          <input class="input" type="number" id="s-aria2_waiting_window" value="${s.aria2_waiting_window??100}" min="10" max="1000"/>
+          <span class="form-hint">How many waiting jobs the client asks aria2 for per sync cycle. Lower values reduce RPC payload size and state pressure.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Stopped Query Window</label>
+          <input class="input" type="number" id="s-aria2_stopped_window" value="${s.aria2_stopped_window??100}" min="10" max="1000"/>
+          <span class="form-hint">How many stopped jobs the client inspects per sync cycle and diagnostics call.</span>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Keep Unfinished Download Results</div>
+            <div class="td">Usually best disabled to avoid large unfinished result history in aria2 memory.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-aria2_keep_unfinished_download_result" ${s.aria2_keep_unfinished_download_result?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="form-group">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-ghost" onclick="runAria2Housekeeping()">Run aria2 Cleanup Now</button>
+            <button class="btn btn-ghost" onclick="showMemoryInfo()" title="Shows real RAM vs kernel page cache">&#128202; Memory Info</button>
+            <button class="btn btn-ghost" onclick="dropPageCache()" title="Release kernel page cache for all downloaded files">&#129522; Drop Page Cache</button>
+          </div>
+        </div>
+        <div id="aria2-memory-diagnostics" class="form-hint" style="line-height:1.6"></div>
+        <div id="aria2-memory-info" class="form-hint" style="line-height:1.6;margin-top:6px;display:none"></div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Start aria2 Jobs Paused</div>
+            <div class="td">Queue the job in aria2 first and resume it manually from the API/UI workflow.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-aria2_start_paused" ${s.aria2_start_paused?'checked':''}><div class="ttrack"></div></label>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <div class="stab-panel" id="tab-discord">
+
+    <div class="scard">
+      <div class="scard-header">🔔 Discord Notifications</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Bot Name <span style="font-weight:400;color:var(--muted)">(shown as sender in Discord)</span></label>
+          <input class="input" id="s-discord_username" value="${s.discord_username||'AllDebrid-Client'}" placeholder="AllDebrid-Client"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bot Avatar <span style="font-weight:400;color:var(--muted)">(Discord requires PNG/JPG/WEBP — no SVG. Use Upload to host via this app)</span></label>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <input class="input" id="s-discord_avatar_url" value="${s.discord_avatar_url||''}" placeholder="https://…/avatar.png (PNG/JPG/WEBP, leave empty for no avatar)" style="flex:1"/>
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;white-space:nowrap">
+              📎 Upload
+              <input type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+                style="display:none" onchange="uploadDiscordAvatar(this)"/>
+            </label>
+          </div>
+          <div id="avatar-preview" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
+            <img id="avatar-preview-img" src="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--border)"/>
+            <span id="avatar-preview-label"></span>
+            <button class="btn btn-ghost btn-sm" onclick="clearDiscordAvatar()" style="font-size:11px">✕ Remove</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Webhook URL</label>
+          <div class="test-row">
+            <input class="input" id="s-discord_webhook_url" value="${s.discord_webhook_url||''}" placeholder="https://discord.com/api/webhooks/…"/>
+            <button class="btn btn-blue btn-sm" onclick="testDiscord()">Test</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Webhook URL — Torrent Added <span style="font-weight:400;color:var(--muted)">(optional, falls back to main webhook)</span></label>
+          <input class="input" id="s-discord_webhook_added" value="${s.discord_webhook_added||''}" placeholder="https://discord.com/api/webhooks/… (separate channel for added torrents)"/>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Notify on Added</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Notify on Finished</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_finished" ${s.discord_notify_finished?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Notify on Error</div></div>
+          <label class="toggle"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error?'checked':''}><div class="ttrack"></div></label>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <div class="stab-panel" id="tab-database">
+
+    <div class="scard">
+      <div class="scard-header">🗄️ Database</div>
+      <div class="scard-body">
+        <div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--text2)">
+          💾 <b>Save settings first</b>, then use <b>Test DB</b> to verify the connection.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Database Type</label>
+          <select class="input" id="s-db_type"
+            onchange="document.getElementById('pg-settings').style.display=(this.value==='postgres'||this.value==='postgres_internal')?'block':'none'"
+            ${s._db_type_locked?'disabled':''}>
+            <option value="sqlite" ${(s.db_type||'sqlite')==='sqlite'?'selected':''}>SQLite (default)</option>
+            <option value="postgres" ${s.db_type==='postgres'?'selected':''}>PostgreSQL (external)</option>
+          </select>
+          ${s._db_type_locked ? '<span class="form-hint" style="color:var(--accent)">⚙️ DB_TYPE is set via docker-compose and cannot be changed here.</span>' : '<span class="form-hint">Use PostgreSQL to connect to an external database server. See docs/postgresql.md.</span>'}
+        </div>
+        <div id="pg-settings" style="display:${s.db_type==='postgres'?'block':'none'}">
+          <div class="form-group">
+            <label class="form-label">Host</label>
+            <input class="input" id="s-postgres_host" value="${s.postgres_host||'localhost'}" ${s.db_type==='postgres_internal'?'readonly style="opacity:.5"':''}/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Port</label>
+            <input class="input" type="number" id="s-postgres_port" value="${s.postgres_port||5432}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Database</label>
+            <input class="input" id="s-postgres_db" value="${s.postgres_db||'alldebrid'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">User</label>
+            <input class="input" id="s-postgres_user" value="${s.postgres_user||'alldebrid'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="input" type="password" id="s-postgres_password" value="${s.postgres_password||''}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Schema</label>
+            <input class="input" id="s-postgres_schema" value="${s.postgres_schema||'public'}"/>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">SSL</div><div class="ts">Use SSL for PostgreSQL connection</div></div>
+            <label class="toggle"><input type="checkbox" id="s-postgres_ssl" ${s.postgres_ssl?'checked':''}><span class="slider"></span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scard" style="border-color:rgba(249,115,22,.3)">
+      <div class="scard-header">🔄 Data Migration</div>
+      <div class="scard-body">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
+          Migrate all data between SQLite and PostgreSQL. <b>Save settings first</b> before running migration.<br>
+          <span style="color:var(--accent)">⚠️ This will overwrite all data in the target database.</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', false)">
+            📤 SQLite → PostgreSQL
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="runMigration('postgres_to_sqlite', false)">
+            📥 PostgreSQL → SQLite
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="runMigration('sqlite_to_postgres', true)" style="opacity:.6">
+            🔍 Dry Run (SQLite→PG)
+          </button>
+        </div>
+        <div id="migration-result" style="margin-top:10px;font-size:12px;display:none"></div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">🛠️ Database Maintenance</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Database Backup Folder</label>
+          <input class="input" id="s-db_backup_folder" value="${s.db_backup_folder||'/app/data/db-backups'}"/>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Enable Database Backups</div><div class="ts">Create JSON snapshots of the database only</div></div>
+          <label class="toggle"><input type="checkbox" id="s-db_backup_enabled" ${s.db_backup_enabled!==false?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Keep database backups for (days)</label>
+          <input class="input" type="number" id="s-db_backup_keep_days" value="${s.db_backup_keep_days??7}" min="1" max="365"/>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="triggerDatabaseBackup()">💽 Run DB Backup Now</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadDatabaseBackupList()">📋 List DB Backups</button>
+        </div>
+        <div id="db-backup-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Allow Database Wipe</div><div class="ts">Required before the wipe action can run</div></div>
+            <label class="toggle"><input type="checkbox" id="s-db_wipe_enabled" ${s.db_wipe_enabled?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="toggle-row" style="margin-top:10px">
+            <div class="toggle-info"><div class="tl">Backup Before Wipe</div><div class="ts">Run a DB backup automatically before deleting rows</div></div>
+            <label class="toggle"><input type="checkbox" id="s-db_backup_before_wipe" ${s.db_backup_before_wipe!==false?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-hint" style="margin-top:10px">Pause processing first. Wipe clears torrents, files, events, FlexGet runs, and stats snapshots.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn btn-danger btn-sm" onclick="wipeDatabase()">🗑️ Wipe Database</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div class="stab-panel" id="tab-filters">
+
+    <div class="scard">
+      <div class="scard-header">🚫 File Filters</div>
+      <div class="scard-body">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="tl">Enable File Filters</div>
+            <div class="td">When off, all files are downloaded regardless of extension, keyword or size rules.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="s-filters_enabled" ${s.filters_enabled!==false?'checked':''} onchange="toggleFilterFields()"><div class="ttrack"></div></label>
+        </div>
+        <div id="filter-fields" style="${s.filters_enabled===false?'opacity:.4;pointer-events:none':''}">
+          <div class="form-group">
+            <label class="form-label">Blocked Extensions (one per line)</label>
+            <textarea class="input" id="s-blocked_extensions" rows="6">${(s.blocked_extensions||[]).join('\n')}</textarea>
+            <span class="form-hint">e.g. .jpg · .png · .nfo — images are blocked by default</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Blocked Keywords (one per line)</label>
+            <textarea class="input" id="s-blocked_keywords" rows="3">${(s.blocked_keywords||[]).join('\n')}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
+            <input class="input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb??0}" min="0"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <div class="stab-panel" id="tab-polling">
+
+    <div class="scard">
+      <div class="scard-header">⏱ Polling Intervals</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">AllDebrid Poll Interval (seconds)</label>
+            <input class="input" type="number" id="s-poll_interval_seconds" value="${s.poll_interval_seconds??30}" min="10"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Watch Folder Scan (seconds)</label>
+            <input class="input" type="number" id="s-watch_interval_seconds" value="${s.watch_interval_seconds??10}" min="5"/>
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+
+    <div class="stab-panel" id="tab-integrations">
+      <div class="scard">
+        <div class="scard-header">🔑 AllDebrid</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <div class="test-row">
+              <input class="input" type="password" id="s-alldebrid_api_key" value="${s.alldebrid_api_key||''}" placeholder="Your AllDebrid API key"/>
+              <button class="btn btn-blue btn-sm" onclick="testAD()">Test</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Agent Name</label>
+            <input class="input" id="s-alldebrid_agent" value="${s.alldebrid_agent||'AllDebrid-Client'}"/>
+          </div>
+        </div>
+      </div>
+
+        <div class="scard">
+        <div class="scard-header">📺 Sonarr</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Sonarr</div><div class="ts">Trigger RescanSeries after download completes</div></div>
+            <label class="toggle"><input type="checkbox" id="s-sonarr_enabled" ${s.sonarr_enabled?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sonarr URL</label>
+            <div class="test-row">
+              <input class="input" id="s-sonarr_url" value="${s.sonarr_url||''}" placeholder="http://sonarr:8989"/>
+              <button class="btn btn-blue btn-sm" onclick="testSonarr()">Test</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" type="password" id="s-sonarr_api_key" value="${s.sonarr_api_key||''}" placeholder="Sonarr API key"/>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">🎬 Radarr</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Radarr</div><div class="ts">Trigger RescanMovie after download completes</div></div>
+            <label class="toggle"><input type="checkbox" id="s-radarr_enabled" ${s.radarr_enabled?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Radarr URL</label>
+            <div class="test-row">
+              <input class="input" id="s-radarr_url" value="${s.radarr_url||''}" placeholder="http://radarr:7878"/>
+              <button class="btn btn-blue btn-sm" onclick="testRadarr()">Test</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" type="password" id="s-radarr_api_key" value="${s.radarr_api_key||''}" placeholder="Radarr API key"/>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">🏷 Labels</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Predefined Labels <span style="font-weight:400;color:var(--text2)">(comma-separated)</span></label>
+            <input class="input" id="s-torrent_labels_raw" value="${(s.torrent_labels||[]).join(', ')}" placeholder="Movies, Series, 4K, Anime"/>
+            <span class="form-hint">Leave empty — labels are optional per torrent.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">⚠️ Auto-Restart Stuck Downloads</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Stuck timeout (hours)</label>
+            <input class="input" type="number" id="s-stuck_download_timeout_hours" value="${s.stuck_download_timeout_hours??6}" min="0" max="168"/>
+            <span class="form-hint">Torrents stuck in queued/downloading for longer than this are automatically reset. Set to 0 to disable.</span>
+          </div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-header">🚦 AllDebrid Rate Limit</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">API calls per minute</label>
+            <input class="input" type="number" id="s-alldebrid_rate_limit_per_minute" value="${s.alldebrid_rate_limit_per_minute??60}" min="0" max="300"/>
+            <span class="form-hint">Default: 60 req/min. Set to 0 for unlimited.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Full AllDebrid Sync Interval (minutes)</label>
+            <input class="input" type="number" id="s-full_sync_interval_minutes" value="${s.full_sync_interval_minutes??5}" min="0" max="1440"/>
+            <span class="form-hint">Reconciles all known AllDebrid magnets. 0 = disabled.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">aria2 Retry Count</label>
+            <input class="input" type="number" id="s-aria2_error_retry_count" value="${s.aria2_error_retry_count??3}" min="0" max="20"/>
+            <span class="form-hint">How often a failed aria2 file is retried. 0 = disabled.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">aria2 Retry Delay (seconds)</label>
+            <input class="input" type="number" id="s-aria2_error_retry_delay_seconds" value="${s.aria2_error_retry_delay_seconds??60}" min="0" max="3600"/>
+            <span class="form-hint">Delay before retrying a failed aria2 file.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stab-panel" id="tab-backup">
+      <div class="scard">
+        <div class="scard-header">💾 Automatic Backups</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Backups</div><div class="ts">Automatically back up config and database</div></div>
+            <label class="toggle"><input type="checkbox" id="s-backup_enabled" ${s.backup_enabled!==false?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Backup Folder</label>
+            <input class="input" id="s-backup_folder" value="${s.backup_folder||'/app/data/backups'}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Interval (hours)</label>
+            <input class="input" type="number" id="s-backup_interval_hours" value="${s.backup_interval_hours??24}" min="1" max="168"/>
+            <span class="form-hint">Default: 24h. Backup runs once per interval.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Keep backups for (days)</label>
+            <input class="input" type="number" id="s-backup_keep_days" value="${s.backup_keep_days??7}" min="1" max="90"/>
+            <span class="form-hint">Default: 7 days. Older backups are deleted automatically.</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-ghost" onclick="triggerBackup()">💾 Run Backup Now</button>
+            <button class="btn btn-ghost" onclick="loadBackupList()">📋 List Backups</button>
+          </div>
+          <div id="backup-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FlexGet Tab ─────────────────────────────────────────────────────── -->
+    <div class="stab-panel" id="tab-flexget">
+
+    <div class="scard" style="border-color:rgba(59,130,246,.3)">
+      <div class="scard-header">ℹ️ FlexGet Setup</div>
+      <div class="scard-body">
+        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+          FlexGet must be running with its <b>web server enabled</b>.
+          Add this to your <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">config.yml</code>:
+          <pre style="background:var(--surface2);border-radius:6px;padding:10px 12px;margin:8px 0;font-size:11px;overflow-x:auto">web_server:
+  bind: 0.0.0.0
+  port: 5050</pre>
+          <b>Creating an API Key:</b><br>
+          Run <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">flexget web passwd &lt;username&gt;</code> to set a password,
+          then use <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">flexget web gentoken</code> to generate a token.
+          Paste that token as API Key below.<br><br>
+          <b>Docker note:</b> Make sure the FlexGet port (5050) is reachable from this container.
+        </div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">🤖 FlexGet Integration</div>
+      <div class="scard-body">
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Enable FlexGet</div><div class="td">Connect to a running FlexGet instance</div></div>
+          <label class="toggle"><input type="checkbox" id="s-flexget_enabled" ${s.flexget_enabled?'checked':''}><span class="ttrack"></span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">FlexGet URL</label>
+          <input class="input" id="s-flexget_url" value="${s.flexget_url||'http://localhost:5050'}" placeholder="http://localhost:5050"/>
+          <span class="form-hint">Base URL of the FlexGet web server.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input class="input" type="password" id="s-flexget_api_key" value="${s.flexget_api_key||''}" placeholder="Optional API token"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tasks to run (comma-separated)</label>
+          <input class="input" id="s-flexget_tasks_raw" value="${s.flexget_tasks_raw||''}" placeholder="task1, task2 — leave empty for all"/>
+          <span class="form-hint">Used for manual runs. Leave empty to run all tasks on demand.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Scheduled Task Profiles</label>
+          <span class="form-hint">Each task can have its own interval and jitter. Disabled rows are ignored.</span>
+          <datalist id="flexget-task-options">
+            ${flexgetAvailableTasks.map(task => `<option value="${task}"></option>`).join('')}
+          </datalist>
+          <div id="flexget-schedule-editor" style="margin-top:8px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn btn-ghost btn-sm" onclick="addFlexgetTaskSchedule()">+ Add Task Schedule</button>
+            <button class="btn btn-ghost btn-sm" onclick="flexgetListTasks(true)">↻ Sync Tasks Into Editor</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Task timeout (seconds, 0 = 3600)</label>
+          <input class="input" type="number" id="s-flexget_task_timeout_seconds" value="${s.flexget_task_timeout_seconds??0}" min="0"/>
+          <span class="form-hint">Max time to wait for a single task to complete. Default: 3600s (1 hour). Increase for very long-running tasks.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Retry delay when unreachable (minutes)</label>
+          <input class="input" type="number" id="s-flexget_retry_delay_minutes" value="${s.flexget_retry_delay_minutes??5}" min="0" max="60"/>
+          <span class="form-hint">If FlexGet does not respond, wait this many minutes and try once more. 0 = no retry. A webhook is sent if still unreachable, and again when it recovers.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">FlexGet Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
+          <input class="input" id="s-flexget_webhook_url" value="${s.flexget_webhook_url||''}" placeholder="Leave empty to use Discord webhook from Settings → Discord"/>
+          <span class="form-hint">Optional. Receives all FlexGet events (run_started, task_started, task_ok, task_error, run_finished, server_unreachable, server_recovered) as Discord embeds or JSON. Falls back to Settings → Discord webhook when empty.</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn btn-blue btn-sm" onclick="flexgetListTasks()">🔍 List Tasks</button>
+          <button class="btn btn-primary btn-sm" onclick="flexgetRun()">▶ Run Now</button>
+        </div>
+        <div id="flexget-task-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        <div id="flexget-run-result" style="margin-top:8px;font-size:12px;display:none"></div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">📋 Recent FlexGet Runs</div>
+      <div class="scard-body">
+        <button class="btn btn-ghost btn-sm" onclick="loadFlexgetHistory()" style="margin-bottom:8px">↻ Refresh</button>
+        <div id="flexget-history" style="font-size:12px;color:var(--text2)">Click refresh to load history.</div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ── Reporting Tab ─────────────────────────────────────────────────────── -->
+    <div class="stab-panel" id="tab-automations">
+
+    <div class="scard" style="border-color:rgba(59,130,246,.3)">
+      <div class="scard-header">ℹ️ About Reporting</div>
+      <div class="scard-body">
+        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+          The reporting module captures <b>comprehensive metrics</b> across all client activity automatically.<br><br>
+          <b>Snapshots</b> are periodic point-in-time captures stored in the database for trend analysis.
+          Set an interval to enable automatic snapshots (recommended: 60 min).<br><br>
+          <b>Export</b> downloads a full JSON report for the selected time window — useful for external analysis or archiving.<br><br>
+          <b>Time windows</b>: select the period in the dropdown below, then click <i>Load Report</i>.
+        </div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">📊 Statistics Reporting</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Snapshot Interval (minutes, 0 = disabled)</label>
+          <input class="input" type="number" id="s-stats_snapshot_interval_minutes" value="${s.stats_snapshot_interval_minutes??60}" min="0"/>
+          <span class="form-hint">How often to capture a statistics snapshot. Default: 60.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Keep Snapshots (days)</label>
+          <input class="input" type="number" id="s-stats_snapshot_keep_days" value="${s.stats_snapshot_keep_days??30}" min="1"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reporting Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
+          <input class="input" id="s-stats_report_webhook_url" value="${s.stats_report_webhook_url||''}" placeholder="Leave empty to use main Discord webhook"/>
+          <span class="form-hint">Receives structured reporting payloads as Discord embeds. Falls back to Settings → Discord → Webhook URL when empty.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Automatic Report Interval (hours, 0 = disabled)</label>
+          <input class="input" type="number" id="s-stats_report_interval_hours" value="${s.stats_report_interval_hours??0}" min="0" max="168"/>
+          <span class="form-hint">How often the report is sent automatically. 0 = disabled.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Report Window (hours)</label>
+          <input class="input" type="number" id="s-stats_report_window_hours" value="${s.stats_report_window_hours??24}" min="1" max="8760"/>
+          <span class="form-hint">Time window covered by each automatic report (default: 24h).</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time Window</label>
+          <select class="input" id="stats-report-hours" onchange="loadComprehensiveStats()">
+            <option value="24"${Number(s.stats_report_window_hours ?? 24)===24?' selected':''}>Last 24 hours</option>
+            <option value="168"${Number(s.stats_report_window_hours ?? 24)===168?' selected':''}>Last 7 days</option>
+            <option value="720"${Number(s.stats_report_window_hours ?? 24)===720?' selected':''}>Last 30 days</option>
+            <option value="8760"${Number(s.stats_report_window_hours ?? 24)===8760?' selected':''}>All time (~1 year)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn btn-blue btn-sm" onclick="loadComprehensiveStats()">📊 Load Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportStats()">⬇ Export JSON</button>
+          <button class="btn btn-ghost btn-sm" onclick="triggerStatsSnapshot()">📸 Snapshot Now</button>
+          <button class="btn btn-ghost btn-sm" onclick="sendStatsReport()">📨 Send Webhook Now</button>
+        </div>
+        <div id="comprehensive-stats" style="margin-top:14px"></div>
+      </div>
+    </div>
+    </div>
+
+    <div class="stab-panel" id="tab-jackett">
+
+      <div class="scard" style="border-color:rgba(59,130,246,.3)">
+        <div class="scard-header">&#8505;&#65039; Jackett Setup</div>
+        <div class="scard-body">
+          <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+            <b>Jackett</b> is a torrent-indexer proxy that lets you search dozens of trackers from one place.<br><br>
+            Set the <b>Jackett URL</b> (e.g. <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">http://jackett:9117</code>)
+            and paste your <b>API Key</b> from the Jackett dashboard (<em>Dashboard &rarr; API Key</em> button).
+          </div>
+        </div>
+      </div>
+
+      <div class="scard">
+        <div class="scard-header">&#128269; Jackett Integration</div>
+        <div class="scard-body">
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Enable Jackett</div><div class="td">Show the Search tab and allow torrent searches</div></div>
+            <label class="toggle"><input type="checkbox" id="s-jackett_enabled" ${s.jackett_enabled?'checked':''}><span class="ttrack"></span></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jackett URL</label>
+            <input class="input" id="s-jackett_url" value="${s.jackett_url||'http://localhost:9117'}" placeholder="http://jackett:9117"/>
+            <span class="form-hint">Base URL of your Jackett instance (no trailing slash).</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" id="s-jackett_api_key" value="${s.jackett_api_key||''}" placeholder="Jackett API key" type="password"/>
+            <span class="form-hint">Found in the Jackett dashboard. Proxied through the backend &mdash; never exposed to the browser.</span>
+          </div>
+          <div style="margin-top:8px">
+            <button class="btn btn-ghost btn-sm" onclick="testJackett()">&#128268; Test Connection</button>
+            <span id="jackett-test-result" style="margin-left:10px;font-size:12px;color:var(--text2)"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scard">
+        <div class="scard-header">&#128276; Jackett Webhook</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Webhook URL <span style="font-weight:400;color:var(--text2)">(optional)</span></label>
+            <input class="input" id="s-jackett_webhook_url" value="${s.jackett_webhook_url||''}" placeholder="https://discord.com/api/webhooks/&hellip;"/>
+            <span class="form-hint">Dedicated webhook for torrents added via Jackett. Falls back to the main Discord webhook if empty.</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  `;
+  renderFlexgetTaskSchedules();
+}
+
+function getFormSettings() {
+  const g = id => document.getElementById('s-'+id);
+  const t = id => g(id)?.value?.trim() || '';
+  const n = (id, fallback = 0) => {
+    const raw = g(id)?.value;
+    if (raw == null || raw === '') return fallback;
+    const parsed = parseInt(raw, 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  };
+  const c = id => g(id)?.checked||false;
+  const l = id => g(id)?.value?.split('\n').map(x=>x.trim()).filter(Boolean)||[];
+  const reportHoursRaw = document.getElementById('stats-report-hours')?.value;
+  const reportWindowHours = (() => {
+    if (reportHoursRaw == null || reportHoursRaw === '') return Number(settingsData.stats_report_window_hours ?? 24);
+    const parsed = parseInt(reportHoursRaw, 10);
+    return Number.isNaN(parsed) ? Number(settingsData.stats_report_window_hours ?? 24) : parsed;
+  })();
+  return {
+    ...settingsData,
+    alldebrid_api_key: t('alldebrid_api_key'),
+    alldebrid_agent:   t('alldebrid_agent')||'AllDebrid-Client',
+    watch_folder: t('watch_folder'), processed_folder: t('processed_folder'),
+    download_folder: t('download_folder'), max_concurrent_downloads: n('max_concurrent_downloads', 3),
+    max_speed_mbps: 0,
+    download_client: 'aria2',
+    aria2_mode: t('aria2_mode') || 'external',
+    aria2_url: (t('aria2_mode') || 'external') === 'builtin' ? (settingsData.aria2_url || 'http://127.0.0.1:6800/jsonrpc') : t('aria2_url'),
+    aria2_secret: (t('aria2_mode') || 'external') === 'builtin' ? (settingsData.aria2_secret || '') : t('aria2_secret'),
+    aria2_download_path: t('aria2_download_path'),
+    aria2_builtin_auto_start: c('aria2_builtin_auto_start'),
+    aria2_builtin_port: n('aria2_builtin_port', 6800),
+    aria2_operation_timeout_seconds: n('aria2_operation_timeout_seconds', 15),
+    aria2_max_active_downloads: n('aria2_max_active_downloads', n('max_concurrent_downloads', 3)),
+    aria2_start_paused: c('aria2_start_paused'),
+    aria2_poll_interval_seconds: n('aria2_poll_interval_seconds', 5),
+    aria2_purge_interval_minutes: n('aria2_purge_interval_minutes', 15),
+    aria2_max_download_result: n('aria2_max_download_result', 50),
+    aria2_waiting_window: n('aria2_waiting_window', 100),
+    aria2_stopped_window: n('aria2_stopped_window', 100),
+    aria2_keep_unfinished_download_result: c('aria2_keep_unfinished_download_result'),
+    aria2_split: n('aria2_split', 8),
+    aria2_min_split_size: t('aria2_min_split_size') || '10M',
+    aria2_max_connection_per_server: n('aria2_max_connection_per_server', 8),
+    aria2_disk_cache: t('aria2_disk_cache') || '64M',
+    aria2_file_allocation: t('aria2_file_allocation') || 'falloc',
+    aria2_continue_downloads: c('aria2_continue_downloads'),
+    aria2_lowest_speed_limit: t('aria2_lowest_speed_limit') || '0',
+    db_type: t('db_type'),
+    postgres_host: t('postgres_host'), postgres_port: n('postgres_port'),
+    postgres_db: t('postgres_db'), postgres_user: t('postgres_user'),
+    postgres_password: t('postgres_password'), postgres_schema: t('postgres_schema'),
+    postgres_ssl: c('postgres_ssl'),
+    postgres_application_name: t('postgres_application_name'),
+    discord_username: t('discord_username') || 'AllDebrid-Client',
+    discord_avatar_url: t('discord_avatar_url'),
+    discord_webhook_url: t('discord_webhook_url'),
+    discord_webhook_added: t('discord_webhook_added'),
+    discord_notify_added: c('discord_notify_added'), discord_notify_finished: c('discord_notify_finished'),
+    discord_notify_error: c('discord_notify_error'),
+    sonarr_enabled: c('sonarr_enabled'), sonarr_url: t('sonarr_url'), sonarr_api_key: t('sonarr_api_key'),
+    radarr_enabled: c('radarr_enabled'), radarr_url: t('radarr_url'), radarr_api_key: t('radarr_api_key'),
+    torrent_labels: (t('torrent_labels_raw')||'').split(',').map(s=>s.trim()).filter(Boolean),
+    stuck_download_timeout_hours: n('stuck_download_timeout_hours'),
+    alldebrid_rate_limit_per_minute: n('alldebrid_rate_limit_per_minute'),
+    full_sync_interval_minutes: n('full_sync_interval_minutes'),
+    backup_enabled: c('backup_enabled'), backup_folder: t('backup_folder'),
+    backup_interval_hours: n('backup_interval_hours'), backup_keep_days: n('backup_keep_days'),
+    db_backup_enabled: c('db_backup_enabled'), db_backup_folder: t('db_backup_folder'),
+    db_backup_keep_days: n('db_backup_keep_days'),
+    db_wipe_enabled: c('db_wipe_enabled'), db_backup_before_wipe: c('db_backup_before_wipe'),
+    blocked_extensions: l('blocked_extensions'), blocked_keywords: l('blocked_keywords'),
+    min_file_size_mb: n('min_file_size_mb'), poll_interval_seconds: n('poll_interval_seconds', 30),
+    watch_interval_seconds: n('watch_interval_seconds', 10),
+    filters_enabled: c('filters_enabled'),
+    aria2_deep_sync_interval_minutes: n('aria2_deep_sync_interval_minutes'),
+    aria2_error_retry_count: n('aria2_error_retry_count'),
+    aria2_error_retry_delay_seconds: n('aria2_error_retry_delay_seconds'),
+    flexget_enabled: c('flexget_enabled'),
+    flexget_url: t('flexget_url'),
+    flexget_api_key: t('flexget_api_key'),
+    flexget_tasks_raw: t('flexget_tasks_raw'),
+    flexget_webhook_url: t('flexget_webhook_url'),
+    flexget_task_schedules_json: serializeFlexgetTaskSchedules(),
+    flexget_task_timeout_seconds: n('flexget_task_timeout_seconds'),
+    flexget_retry_delay_minutes: n('flexget_retry_delay_minutes'),
+
+    stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
+    stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
+    stats_report_interval_hours: n('stats_report_interval_hours'),
+    stats_report_window_hours:    n('stats_report_window_hours'),
+    // Jackett
+    jackett_enabled:     c('jackett_enabled'),
+    jackett_url:         t('jackett_url'),
+    jackett_api_key:     t('jackett_api_key'),
+    jackett_webhook_url: t('jackett_webhook_url'),
+    stats_report_window_hours: reportWindowHours,
+    stats_report_webhook_url: t('stats_report_webhook_url'),
+  };
+}
+
+function toggleFilterFields() {
+  const enabled = document.getElementById('s-filters_enabled')?.checked;
+  const fields = document.getElementById('filter-fields');
+  if (fields) {
+    fields.style.opacity = enabled ? '' : '0.4';
+    fields.style.pointerEvents = enabled ? '' : 'none';
+  }
+}
+
+async function triggerFullSync() {
+  try {
+    const r = await api('POST', '/admin/full-sync');
+    toast('Full sync: ' + r.updated + ' torrent(s) updated', r.updated > 0 ? 'success' : 'info');
+    setTimeout(() => { loadStats(); loadRecent(); }, 1500);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function saveSettings() {
+  try {
+    const activeTab = getActiveSettingsTab();
+    const d = getFormSettings();
+    await api('PUT','/settings',d);
+    settingsData = await api('GET','/settings');
+    // Re-render so defaults set by backend are immediately visible
+    renderSettings();
+    switchSettingsTab(activeTab);
+    updateAria2ngLink();
+    updateJackettNav();
+    toast('Settings saved!','success');
+    checkConnections();
+    checkFlexgetRunning();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+async function testDiscord() {
+  try {
+    const activeTab = getActiveSettingsTab();
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = await api('GET','/settings');
+    renderSettings();
+    switchSettingsTab(activeTab);
+    await api('POST','/settings/test-discord');
+    toast('Discord notification sent ✓','success');
+  } catch(e) { toast('Discord: '+e.message,'error'); }
+}
+
+async function testAD() {
+  try {
+    const r = await api('POST','/settings/test-alldebrid');
+    toast(`AllDebrid: connected as ${r.username} ${r.isPremium?'(Premium)':'(Free)'}✓`,'success');
+    setDot('api','ok',`AllDebrid: ${r.username}`);
+    _updatePremiumLabel(r);
+  } catch(e) { toast('AllDebrid: '+e.message,'error'); setDot('api','error','AllDebrid: error'); }
+}
+
+function _updatePremiumLabel(r) {
+  const row = document.getElementById('premium-row');
+  const lbl = document.getElementById('lbl-premium');
+  if (!row || !lbl) return;
+  if (!r || !r.isPremium) { row.style.display = 'none'; return; }
+  // AllDebrid user object has premiumUntil as unix timestamp
+  const until = r.premiumUntil || r.premium_until || 0;
+  if (!until) { row.style.display = 'none'; return; }
+  const d = new Date(until * 1000);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  const days = Math.ceil((d - Date.now()) / 86400000);
+  const daysLabel = days > 0 ? `${days} days` : 'expired';
+  lbl.innerHTML = `Premium until ${dd}.${mm}.${yyyy} (${daysLabel})`;
+  row.style.display = '';
+}
+
+function switchSettingsTab(id) {
+  document.querySelectorAll('.stab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  document.querySelectorAll('.stab-panel').forEach(p => p.classList.toggle('active', p.id === id));
+  if (aria2DownloadsTimer) {
+    clearInterval(aria2DownloadsTimer);
+    aria2DownloadsTimer = null;
+  }
+  if (id === 'tab-database') {
+    loadDatabaseBackupList();
+  }
+  if (id === 'tab-flexget') {
+    flexgetListTasks();
+    loadFlexgetHistory();
+  }
+  if (id === 'tab-download') {
+    loadAria2Runtime().catch(()=>{});
+    aria2DownloadsTimer = setInterval(() => {
+      const panel = document.getElementById('tab-download');
+      if (panel && panel.classList.contains('active')) loadAria2Downloads().catch(()=>{});
+    }, 5000);
+  }
+}
+
+async function testAria2() {
+  try {
+    const activeTab = getActiveSettingsTab();
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = await api('GET','/settings');
+    renderSettings();
+    switchSettingsTab(activeTab);
+    const r = await api('POST','/settings/test-aria2');
+    renderAria2Diagnostics(r.diagnostics || null);
+    toast(`aria2: ${r.version||'online'} ✓`,'success');
+    setDot('aria2','ok',`aria2: ${r.version||'online'}`);
+  } catch(e) {
+    toast('aria2: '+e.message,'error');
+    setDot('aria2','error','aria2: error');
+  }
+}
+
+function renderAria2Diagnostics(diag) {
+  const el = document.getElementById('aria2-memory-diagnostics');
+  if (!el) return;
+  if (!diag) {
+    el.textContent = '';
+    return;
+  }
+  const opts = diag.global_options || {};
+  const limits = diag.query_limits || {};
+  el.innerHTML =
+    `<b>aria2 memory diagnostics</b><br>` +
+    `Active: ${diag.active_count ?? 0} · Waiting: ${diag.waiting_count ?? 0} · Stopped: ${diag.stopped_count ?? 0}<br>` +
+    `max-download-result: ${opts['max-download-result'] || 'n/a'} · keep-unfinished-download-result: ${opts['keep-unfinished-download-result'] || 'n/a'}<br>` +
+    `query window — waiting: ${limits.waiting ?? 'n/a'} · stopped: ${limits.stopped ?? 'n/a'}`;
+}
+
+function renderAria2Runtime(data) {
+  const el = document.getElementById('aria2-runtime-status');
+  if (!el) return;
+  if (!data) {
+    el.textContent = 'Runtime status not loaded yet.';
+    return;
+  }
+  const mode = data.mode || 'external';
+  const state = data.running ? 'Running' : (mode === 'builtin' ? 'Stopped' : 'External');
+  const rpc = data.rpc_ok ? 'RPC online' : (mode === 'builtin' ? 'RPC offline' : 'External RPC');
+  const version = data.version ? ` · v${data.version}` : '';
+  const uptime = data.uptime_seconds ? ` · uptime ${Math.floor(data.uptime_seconds / 60)}m` : '';
+  const secret = data.secret_managed ? ' · internal secret managed' : '';
+  const dir = data.download_dir ? `<br>Download folder: ${esc(data.download_dir)}` : '';
+  const diag = data.diagnostics || {};
+  const counts = diag && !diag.error
+    ? `<br>Active: ${diag.active_count ?? 0} · Waiting: ${diag.waiting_count ?? 0} · Stopped: ${diag.stopped_count ?? 0}`
+    : '';
+  const err = data.last_error ? `<br><span style="color:var(--red)">${esc(data.last_error)}</span>` : '';
+  el.innerHTML = `<b>${esc(state)}</b> · ${esc(mode)} · ${esc(rpc)}${esc(version)}${esc(uptime)}${secret}<br>${esc(data.rpc_url || '')}${counts}${err}`;
+  el.innerHTML += dir;
+  if (data.last_output) el.innerHTML += `<br><small>${esc(data.last_output)}</small>`;
+  renderAria2Diagnostics(diag && !diag.error ? diag : null);
+}
+
+function aria2StatusLabel(status) {
+  const map = {active:'Downloading', waiting:'Waiting', paused:'Paused', complete:'Complete', error:'Error', removed:'Removed'};
+  const cls = status === 'active' ? 'downloading' : status === 'complete' ? 'completed' : status === 'error' ? 'error' : status === 'paused' ? 'paused' : 'queued';
+  return `<span class="badge badge-${cls}">${map[status] || status || 'Unknown'}</span>`;
+}
+
+function renderAria2Downloads(data) {
+  const el = document.getElementById('aria2-downloads');
+  if (!el) return;
+  if (!data || !Array.isArray(data.items)) {
+    el.innerHTML = '<div class="empty">Queue not loaded yet.</div>';
+    return;
+  }
+  const summary = data.summary || {};
+  const items = data.items || [];
+  const ordered = items.slice().sort((a,b) => {
+    const weight = {active:0, waiting:1, paused:2, error:3, complete:4};
+    return (weight[a.status] ?? 9) - (weight[b.status] ?? 9);
+  });
+  const header = `
+    <div class="aria2-summary">
+      <span class="aria2-chip">Active: ${summary.active ?? 0}</span>
+      <span class="aria2-chip">Waiting: ${summary.waiting ?? 0}</span>
+      <span class="aria2-chip">Stopped: ${summary.stopped ?? 0}</span>
+      <span class="aria2-chip">Speed: ${fmtSpeed(summary.download_speed || 0)}</span>
+      <span class="aria2-chip">Remaining: ${fmtSize(summary.remaining_length || 0)}</span>
+    </div>`;
+  if (!ordered.length) {
+    el.innerHTML = header + '<div class="empty">No aria2 jobs currently visible.</div>';
+    return;
+  }
+  el.innerHTML = header + ordered.map(job => {
+    const canPause = job.status === 'active' || job.status === 'waiting';
+    const canResume = job.status === 'paused';
+    const files = (job.files || []).slice(0, 4).map(file => `
+      <div title="${esc(file.path || '')}">
+        ${esc(file.name || file.path || 'file')} · ${Math.max(0, file.progress || 0).toFixed(1)}% · ${fmtSize(file.completed_length || 0)} / ${fmtSize(file.length || 0)}
+      </div>`).join('');
+    const more = (job.files || []).length > 4 ? `<div>+ ${(job.files || []).length - 4} more file(s)</div>` : '';
+    const error = job.error_message ? `<div class="aria2-error">${esc(job.error_code || '')} ${esc(job.error_message)}</div>` : '';
+    return `
+      <div class="aria2-job">
+        <div class="aria2-job-top">
+          <div class="aria2-job-title">
+            <div class="aria2-job-name" title="${esc(job.name || '')}">${esc(job.name || job.gid || 'aria2 job')}</div>
+            <div class="aria2-job-meta" title="${esc(job.path || '')}">${esc(job.gid || '')}${job.path ? ' · ' + esc(job.path) : ''}</div>
+          </div>
+          <div class="aria2-actions">
+            ${canPause ? `<button class="btn btn-ghost btn-sm" onclick="aria2DownloadAction('${esc(job.gid)}','pause')">Pause</button>` : ''}
+            ${canResume ? `<button class="btn btn-blue btn-sm" onclick="aria2DownloadAction('${esc(job.gid)}','resume')">Resume</button>` : ''}
+            <button class="btn btn-danger btn-sm" onclick="aria2DownloadAction('${esc(job.gid)}','remove')">Remove</button>
+          </div>
+        </div>
+        <div>${progress(job.progress || 0, job.status === 'complete' ? 'completed' : 'downloading')}</div>
+        <div class="aria2-job-grid">
+          <div><div class="aria2-k">Status</div><div class="aria2-v">${aria2StatusLabel(job.status)}</div></div>
+          <div><div class="aria2-k">Speed</div><div class="aria2-v">${fmtSpeed(job.download_speed || 0)}</div></div>
+          <div><div class="aria2-k">Done</div><div class="aria2-v">${fmtSize(job.completed_length || 0)} / ${fmtSize(job.total_length || 0)}</div></div>
+          <div><div class="aria2-k">Remaining</div><div class="aria2-v">${fmtSize(job.remaining_length || 0)}</div></div>
+        </div>
+        ${error}
+        ${(files || more) ? `<div class="aria2-file-list">${files}${more}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+async function loadAria2Downloads() {
+  try {
+    const data = await api('GET', '/aria2/downloads');
+    renderAria2Downloads(data);
+    return data;
+  } catch(e) {
+    const el = document.getElementById('aria2-downloads');
+    if (el) el.innerHTML = `<div class="aria2-error">Queue error: ${esc(e.message)}</div>`;
+    throw e;
+  }
+}
+
+async function aria2DownloadAction(gid, action) {
+  try {
+    await api('POST', `/aria2/downloads/${encodeURIComponent(gid)}/${action}`);
+    toast(`aria2 ${action} sent`, 'success');
+    await loadAria2Downloads();
+    await loadAria2Runtime();
+  } catch(e) {
+    toast(`aria2 ${action}: ${e.message}`, 'error');
+  }
+}
+
+async function loadAria2Runtime() {
+  try {
+    const data = await api('GET', '/aria2/runtime');
+    renderAria2Runtime(data);
+    loadAria2Downloads().catch(()=>{});
+    return data;
+  } catch(e) {
+    const el = document.getElementById('aria2-runtime-status');
+    if (el) el.innerHTML = `<span style="color:var(--red)">Runtime error: ${esc(e.message)}</span>`;
+    throw e;
+  }
+}
+
+async function aria2RuntimeAction(action) {
+  try {
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = await api('GET','/settings');
+    const data = await api('POST', `/aria2/runtime/${action}`);
+    renderAria2Runtime(data);
+    loadAria2Downloads().catch(()=>{});
+    toast(`aria2 ${action} complete`, 'success');
+  } catch(e) {
+    toast(`aria2 ${action}: ${e.message}`, 'error');
+    loadAria2Runtime().catch(()=>{});
+  }
+}
+
+async function runAria2Housekeeping() {
+  try {
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = await api('GET','/settings');
+    const r = await api('POST', '/settings/aria2-housekeeping');
+    renderAria2Diagnostics(r.diagnostics || null);
+    toast('aria2 cleanup finished', 'success');
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function uploadDiscordAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const resp = await fetch('/api/settings/upload-avatar', {method:'POST', body: formData});
+    const data = await resp.json();
+    if (!resp.ok) { toast(data.detail || 'Upload failed', 'error'); return; }
+    // Discord requires a real HTTP URL, not a data URI
+    // The server saves the file and returns the public URL
+    document.getElementById('s-discord_avatar_url').value = data.url;
+    showAvatarPreview(data.url, file.name, data.size_bytes);
+    toast('Avatar uploaded — URL: ' + data.url, 'success');
+    if (data.warning) toast(data.warning, 'warn');
+  } catch(e) { toast(e.message, 'error'); }
+  input.value = '';
+}
+
+function showAvatarPreview(src, name, bytes) {
+  const preview = document.getElementById('avatar-preview');
+  const img = document.getElementById('avatar-preview-img');
+  const lbl = document.getElementById('avatar-preview-label');
+  if (!preview) return;
+  img.src = src;
+  lbl.textContent = (name || 'Custom avatar') + (bytes > 0 ? ' (' + Math.round(bytes/1024) + ' KB)' : '');
+  preview.style.display = 'flex';
+}
+
+function clearDiscordAvatar() {
+  document.getElementById('s-discord_avatar_url').value = '';
+  const preview = document.getElementById('avatar-preview');
+  if (preview) preview.style.display = 'none';
+}
+
+async function testSonarr() {
+  try {
+    const r = await api('POST', '/settings/test-sonarr');
+    toast(`Sonarr ${r.app_name} v${r.version} ✓`, 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function testRadarr() {
+  try {
+    const r = await api('POST', '/settings/test-radarr');
+    toast(`Radarr ${r.app_name} v${r.version} ✓`, 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function runDeepSync() {
+  try {
+    toast('Running deep sync…', 'info');
+    const r = await api('POST', '/admin/deep-sync');
+    toast(`Deep sync done in ${r.elapsed_seconds}s ✓`, 'success');
+    loadTorrents(); loadStats();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function triggerBackup() {
+  try {
+    toast('Running backup…', 'info');
+    const r = await api('POST', '/admin/backup');
+    if (r.skipped) { toast('Backup disabled in settings', 'warn'); return; }
+    toast(`Backup done: ${r.backed_up.join(', ')} (${r.rotated} old removed)`, 'success');
+    loadBackupList();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function loadBackupList() {
+  try {
+    const r = await api('GET', '/admin/backups');
+    const el = document.getElementById('backup-list');
+    if (!el) return;
+    if (!r.backups.length) { el.textContent = 'No backups found.'; return; }
+    el.innerHTML = r.backups.map(b =>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span>${b.name}</span>
+        <span style="color:var(--text3)">${b.files.join(', ')} — ${Math.round(b.size_bytes/1024)} KB</span>
+      </div>`
+    ).join('');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function triggerDatabaseBackup() {
+  try {
+    toast('Running database backup…', 'info');
+    const r = await api('POST', '/admin/database/backup');
+    if (r.skipped) { toast('Database backup disabled in settings', 'warn'); return; }
+    toast(`Database backup done (${Object.values(r.tables || {}).reduce((a, b) => a + b, 0)} rows exported)`, 'success');
+    loadDatabaseBackupList();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function loadDatabaseBackupList() {
+  try {
+    const r = await api('GET', '/admin/database/backups');
+    const el = document.getElementById('db-backup-list');
+    if (!el) return;
+    if (!r.backups.length) { el.textContent = 'No database backups found.'; return; }
+    el.innerHTML = r.backups.map(b =>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span>${b.name}</span>
+        <span style="color:var(--text3)">${b.files.join(', ')} — ${Math.round(b.size_bytes/1024)} KB</span>
+      </div>`
+    ).join('');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function wipeDatabase() {
+  const enabled = document.getElementById('s-db_wipe_enabled')?.checked;
+  if (!enabled) { toast('Enable database wipe in settings first', 'warn'); return; }
+  if (!confirm('This will remove all database rows. Continue?')) return;
+  const confirmText = prompt('Type WIPE to confirm database wipe');
+  if (confirmText !== 'WIPE') return;
+  try {
+    toast('Wiping database…', 'warn');
+    const r = await api('POST', '/admin/database/wipe', {confirm: true});
+    if (r.backup && !r.backup.skipped) {
+      toast('Database wiped. Pre-wipe backup created.', 'success');
+    } else {
+      toast('Database wiped.', 'success');
+    }
+    loadDatabaseBackupList();
+    loadStats().catch(()=>{});
+    loadRecent().catch(()=>{});
+    if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function flexgetListTasks(syncToEditor = false) {
+  const el = document.getElementById('flexget-task-list');
+  if (el) el.textContent = '⏳ Loading tasks…';
+  try {
+    const r = await api('GET', '/flexget/tasks');
+    flexgetAvailableTasks = Array.isArray(r.tasks) ? r.tasks : [];
+    const datalist = document.getElementById('flexget-task-options');
+    if (datalist) {
+      datalist.innerHTML = flexgetAvailableTasks.map(task => `<option value="${task}"></option>`).join('');
+    }
+    if (syncToEditor) {
+      const known = new Set(flexgetTaskSchedules.map(item => item.task));
+      for (const task of flexgetAvailableTasks) {
+        if (!known.has(task)) addFlexgetTaskSchedule(task);
+      }
+    }
+    if (!el) return;
+    if (!r.enabled) { el.textContent = 'FlexGet is not enabled.'; return; }
+    el.innerHTML = flexgetAvailableTasks.length
+      ? '<b>Available tasks (' + flexgetAvailableTasks.length + '):</b><br><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">'
+        + flexgetAvailableTasks.map(t =>
+            `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 6px;font-size:11px">
+              <span>${t}</span>
+              <button onclick="flexgetRunSingleTask('${t.replace(/'/g,"\\'")}')" title="Run ${t}" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;padding:0 2px;line-height:1" onmouseover="this.style.color='var(--accent2)'" onmouseout="this.style.color='var(--accent)'">▶</button>
+            </span>`
+          ).join('')
+        + '</div>'
+      : 'No tasks found.';
+  } catch(e) { if (el) el.textContent = '✗ ' + e.message; }
+}
+
+async function flexgetRun() {
+  const resultEl = document.getElementById('flexget-run-result');
+  resultEl.style.display = 'block';
+  resultEl.style.color = 'var(--text2)';
+  resultEl.textContent = '⏳ Running FlexGet tasks…';
+  const fgRow = document.getElementById('flexget-running-row');
+  if (fgRow) fgRow.style.display = 'flex';
+  const raw = document.getElementById('s-flexget_tasks_raw')?.value || '';
+  const tasks = raw.split(',').map(s=>s.trim()).filter(Boolean);
+  try {
+    const r = await api('POST', '/flexget/run', tasks.length ? {tasks} : {});
+    const hasErr = r.tasks_error > 0;
+    resultEl.style.color = hasErr ? 'var(--yellow)' : 'var(--green)';
+    let msg = `✓ ${r.tasks_ok}/${r.tasks_total} tasks OK, ${r.tasks_error} error(s)`;
+    if (hasErr && r.first_error) msg += ` — ${r.first_error}`;
+    resultEl.textContent = msg;
+    if (fgRow) { setTimeout(() => { if (fgRow) fgRow.style.display = 'none'; }, 2000); }
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '▶ Run'; }
+    loadFlexgetHistory();
+  } catch(e) {
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = '✗ ' + e.message;
+  }
+}
+
+async function loadFlexgetHistory() {
+  const el = document.getElementById('flexget-history');
+  if (!el) return;
+  try {
+    const r = await api('GET', '/flexget/history?limit=20');
+    if (!r.runs.length) { el.textContent = 'No FlexGet runs yet.'; return; }
+    el.innerHTML = r.runs.map(run => {
+      const color = run.status === 'ok' ? 'var(--green)' : run.status === 'timeout' ? 'var(--yellow)' : 'var(--red)';
+      return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px">
+        <span style="color:${color}">●</span>
+        <span style="flex:1;margin:0 8px">${run.task_name}</span>
+        <span style="color:var(--text3)">${run.triggered_by}</span>
+        <span style="color:var(--text3);margin-left:8px">${run.elapsed_seconds?.toFixed(1)}s</span>
+        <span style="color:var(--text3);margin-left:8px">${(run.ran_at||'').slice(0,16)}</span>
+      </div>`;
+    }).join('');
+  } catch(e) { el.textContent = '✗ ' + e.message; }
 }
 
 
+
+async function checkFlexgetRunning() {
+  if (!settingsData.flexget_enabled) {
+    const row = document.getElementById('flexget-running-row');
+    if (row) row.style.display = 'none';
+    return;
+  }
+  try {
+    const r = await api('GET', '/flexget/running');
+    const running = Array.isArray(r.running) && r.running.length > 0;
+    const row = document.getElementById('flexget-running-row');
+    const lbl = document.getElementById('lbl-flexget');
+    if (row) row.style.display = running ? 'flex' : 'none';
+    if (lbl && running) lbl.textContent = 'FlexGet: ' + r.running.join(', ') + '…';
+  } catch { /* silent */ }
+}
+
+async function flexgetRunSingleTask(task, btnEl) {
+  const resultEl = document.getElementById('flexget-run-result');
+  resultEl.style.display = 'block';
+  resultEl.style.color = 'var(--text2)';
+  resultEl.textContent = `⏳ Running task: ${task}…`;
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳'; }
+  const fgRow = document.getElementById('flexget-running-row');
+  if (fgRow) fgRow.style.display = 'flex';
+  try {
+    const r = await api('POST', `/flexget/run/${encodeURIComponent(task)}`);
+    const ok = r.ok || r.status === 'ok';
+    resultEl.style.color = ok ? 'var(--green)' : 'var(--yellow)';
+    let msg = `${task}: ${ok ? '✓ ok' : '✗ error'}`;
+    if (!ok && r.first_error) msg += ` — ${r.first_error}`;
+    if (r.elapsed) msg += ` (${Number(r.elapsed).toFixed(1)}s)`;
+    resultEl.textContent = msg;
+    setTimeout(() => checkFlexgetRunning(), 1000);
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '▶ Run'; }
+    loadFlexgetHistory();
+  } catch(e) {
+    const conflict = e.message && e.message.includes('409');
+    resultEl.style.color = conflict ? 'var(--yellow)' : 'var(--red)';
+    resultEl.textContent = conflict ? `⏳ ${task}: already running` : `✗ ${task}: ${e.message}`;
+    setTimeout(() => checkFlexgetRunning(), 500);
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '▶ Run'; }
+  }
+}
+
+async function sendStatsReport() {
+  const hours = parseInt(document.getElementById('stats-report-hours')?.value || '24', 10);
+  try {
+    const r = await api('POST', `/stats/report/send?hours=${hours}`);
+    toast(`Report sent via webhook (${r.hours}h) ✓`, 'success');
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function loadComprehensiveStats() {
+  const el = document.getElementById('comprehensive-stats');
+  if (!el) return;
+  const hours = parseInt(document.getElementById('stats-report-hours')?.value || '24');
+  el.innerHTML = '<div style="color:var(--text2);font-size:12px">⏳ Loading…</div>';
+  try {
+    const r = await api('GET', `/stats/comprehensive?hours=${hours}`);
+    const t = r.torrents || {};
+    const d = r.downloads || {};
+    const f = r.files || {};
+    const ev = r.events || {};
+    const fmtBytes = b => b > 1e9 ? (b/1e9).toFixed(2)+' GB' : b > 1e6 ? (b/1e6).toFixed(1)+' MB' : (b/1024).toFixed(0)+' KB';
+    const fmtDur = s => s > 3600 ? `${(s/3600).toFixed(1)}h` : s > 60 ? `${Math.floor(s/60)}m` : s+'s';
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        ${[
+          ['Total Torrents', t.total||0, ''],
+          ['Completed', t.completed||0, 'var(--green)'],
+          ['Errors', t.errors||0, 'var(--red)'],
+          ['Success Rate', t.success_rate_pct != null ? t.success_rate_pct+'%' : '—', 'var(--accent)'],
+          ['Downloaded', fmtBytes(d.total_bytes||0), 'var(--blue)'],
+          ['Avg Size', fmtBytes(d.avg_bytes||0), ''],
+          ['Avg Duration', fmtDur(d.avg_duration_sec||0), ''],
+          ['Total Files', f.total||0, ''],
+          ['Blocked Files', f.blocked||0, 'var(--yellow)'],
+          ['Total Retries', f.retry_total||0, ''],
+          ['Error Events', ev.error||0, 'var(--red)'],
+          ['Warn Events', ev.warn||0, 'var(--yellow)'],
+        ].map(([k,v,c]) => `<div style="background:var(--surface2);padding:8px 10px;border-radius:6px">
+          <div style="font-size:9px;text-transform:uppercase;color:var(--text2);font-weight:700">${k}</div>
+          <div style="font-size:20px;font-weight:800;color:${c||'var(--text)'}">${v}</div>
+        </div>`).join('')}
+      </div>
+      ${r.daily_trend?.length ? `<div style="font-size:11px;color:var(--text2);margin-top:8px"><b>Daily completions (last ${Math.min(14, hours/24|0)} days):</b><br>${r.daily_trend.map(d=>`${d.date}: ${d.cnt}`).join(' · ')}</div>` : ''}
+      ${Object.keys(t.sources||{}).length ? `<div style="font-size:11px;color:var(--text2);margin-top:6px"><b>Sources:</b> ${Object.entries(t.sources).map(([k,v])=>`${k}: ${v}`).join(', ')}</div>` : ''}
+    `;
+  } catch(e) {
+    el.innerHTML = `<span style="color:var(--red)">✗ ${e.message}</span>`;
+  }
+}
+
+async function exportStats() {
+  const hours = parseInt(document.getElementById('stats-report-hours')?.value || '24');
+  window.open(`/api/stats/export?hours=${hours}`, '_blank');
+}
+
+async function triggerStatsSnapshot() {
+  try {
+    await api('POST', '/stats/snapshot');
+    toast('Stats snapshot taken', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function runMigration(direction, dryRun) {
+  const resultEl = document.getElementById('migration-result');
+  resultEl.style.display = 'block';
+  resultEl.style.color = 'var(--text2)';
+  resultEl.textContent = '⏳ Running migration…';
+  try {
+    const r = await api('POST', '/admin/migrate', { direction, dry_run: dryRun, force: true });
+    resultEl.style.color = 'var(--green)';
+    resultEl.textContent = '✓ ' + (r.summary || 'Migration complete');
+    if (!dryRun) {
+      setTimeout(() => { loadStats(); loadRecent(); }, 1000);
+    }
+  } catch(e) {
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = '✗ ' + e.message;
+  }
+}
+
+async function testPostgres() {
+  try {
+    const r = await api('POST', '/settings/test-postgres');
+    toast(`PostgreSQL ${r.version} — ${r.host}:${r.port}/${r.database} ✓`, 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async()=>{
+  // ── Debug helper — shows status in UI (removed in production) ──────────────
+  function dbg(msg) {
+    const el = document.getElementById('debug-status');
+    if (!el) return;
+    el.style.display = 'block';
+    el.innerHTML += '<div>' + new Date().toLocaleTimeString() + ' — ' + msg + '</div>';
+  }
+
+  dbg('Script gestartet');
+  setDot('api',   'check', 'AllDebrid: checking…');
+  setDot('aria2', 'check', 'aria2: checking…');
+  setDot('db',    'check', 'DB: checking…');
+
+  // Settings laden
+  dbg('Lade Settings…');
+  try {
+    settingsData = await api('GET', '/settings');
+    dbg('Settings OK');
+  } catch(e) {
+    dbg('Settings FEHLER: ' + e.message);
+  }
+  renderTopbarActions();
+  updateAria2ngLink();
+  updateJackettNav();
+
+  // Stats laden mit sichtbarem Retry
+  dbg('Starte loadStats…');
+  let statsLoaded = false;
+  let statsAttempt = 0;
+  while (!statsLoaded) {
+    statsAttempt++;
+    dbg('loadStats Versuch ' + statsAttempt);
+    statsLoaded = await loadStats();
+    if (!statsLoaded) {
+      const delay = Math.min(400 + statsAttempt * 400, 3000);
+      dbg('Fehler — warte ' + delay + 'ms…');
+      await new Promise(r => setTimeout(r, delay));
+      if (statsAttempt >= 10) { dbg('Aufgegeben nach 10 Versuchen'); break; }
+    }
+  }
+  // Hintergrund-Tasks sofort starten — nicht auf Stats warten
+  loadRecent().catch(() => {});
+  checkConnections().catch(() => {});   // setzt aria2-Dot
+  checkPremiumStatus().catch(() => {});
+
+  if (statsLoaded) {
+    dbg('Stats geladen ✓');
+    setTimeout(() => { const el = document.getElementById('debug-status'); if (el) el.style.display = 'none'; }, 5000);
+  } else {
+    dbg('Stats konnten nicht geladen werden. Bitte Seite neu laden.');
+    setDot('api', 'error', 'AllDebrid: Fehler');
+  }
+
+  setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);
+  setInterval(checkFlexgetRunning, 10000);
+  checkFlexgetRunning();
+
+  setInterval(()=>{
+    loadStats().catch(()=>{});
+    if (document.getElementById('view-dashboard')?.classList.contains('active')) loadRecent().catch(()=>{});
+    if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
+  }, 15000);
+  setInterval(()=>checkConnections().catch(()=>{}), 60000);
+})();
+
+
+// ── Jackett Search ────────────────────────────────────────────────────────────
+
+window._jackettResults = [];
+window._jackettSort = { key: null, direction: null };
+window._jackettAddInFlight = {};
+
+function jackettSelectedTrackers() {
+  var sel = document.getElementById('jackett-tracker');
+  if (!sel) return [];
+  var value = String(sel.value || '').trim();
+  return value ? [value] : [];
+}
+
+function jackettSortResults(items) {
+  var sorted = (items || []).slice();
+  var byText = function(value) { return String(value || '').toLowerCase(); };
+  var byDate = function(value) { return String(value || ''); };
+  var mode = window._jackettSort || { key: null, direction: null };
+  var composite = mode.key && mode.direction ? (mode.key + '_' + mode.direction) : '';
+  switch (composite) {
+    case 'title_asc':
+      sorted.sort(function(a, b) { return byText(a.title).localeCompare(byText(b.title)); });
+      break;
+    case 'title_desc':
+      sorted.sort(function(a, b) { return byText(b.title).localeCompare(byText(a.title)); });
+      break;
+    case 'indexer_asc':
+      sorted.sort(function(a, b) { return byText(a.indexer).localeCompare(byText(b.indexer)); });
+      break;
+    case 'indexer_desc':
+      sorted.sort(function(a, b) { return byText(b.indexer).localeCompare(byText(a.indexer)); });
+      break;
+    case 'size_desc':
+      sorted.sort(function(a, b) { return (b.size_bytes || 0) - (a.size_bytes || 0); });
+      break;
+    case 'size_asc':
+      sorted.sort(function(a, b) { return (a.size_bytes || 0) - (b.size_bytes || 0); });
+      break;
+    case 'seeders_asc':
+      sorted.sort(function(a, b) { return (a.seeders || 0) - (b.seeders || 0); });
+      break;
+    case 'date_asc':
+      sorted.sort(function(a, b) { return byDate(a.pub_date).localeCompare(byDate(b.pub_date)); });
+      break;
+    case 'date_desc':
+      sorted.sort(function(a, b) { return byDate(b.pub_date).localeCompare(byDate(a.pub_date)); });
+      break;
+    case 'peers_asc':
+      sorted.sort(function(a, b) { return (a.leechers || 0) - (b.leechers || 0); });
+      break;
+    case 'peers_desc':
+      sorted.sort(function(a, b) { return (b.leechers || 0) - (a.leechers || 0); });
+      break;
+    case 'seeders_desc':
+      sorted.sort(function(a, b) {
+        var seederDiff = (b.seeders || 0) - (a.seeders || 0);
+        return seederDiff !== 0 ? seederDiff : byText(a.title).localeCompare(byText(b.title));
+      });
+      break;
+    default:
+      break;
+  }
+  return sorted;
+}
+
+function jackettUpdateSortIndicators() {
+  ['title', 'indexer', 'size', 'seeders', 'peers', 'date'].forEach(function(key) {
+    var el = document.getElementById('jackett-sort-' + key);
+    if (!el) return;
+    if (window._jackettSort.key === key && window._jackettSort.direction === 'asc') {
+      el.textContent = '↑';
+    } else if (window._jackettSort.key === key && window._jackettSort.direction === 'desc') {
+      el.textContent = '↓';
+    } else {
+      el.textContent = '';
+    }
+  });
+}
+
+function jackettCycleSort(key) {
+  var defaults = {
+    title: 'asc',
+    indexer: 'asc',
+    size: 'desc',
+    seeders: 'desc',
+    peers: 'desc',
+    date: 'desc'
+  };
+  if (window._jackettSort.key !== key) {
+    window._jackettSort = { key: key, direction: defaults[key] || 'asc' };
+  } else if (window._jackettSort.direction === (defaults[key] || 'asc')) {
+    window._jackettSort = { key: key, direction: (defaults[key] === 'asc' ? 'desc' : 'asc') };
+  } else {
+    window._jackettSort = { key: null, direction: null };
+  }
+  renderJackettResults();
+}
+
+function renderJackettResults() {
+  var wrap = document.getElementById('jackett-results-wrap');
+  var tbody = document.getElementById('jackett-tbody');
+  var count = document.getElementById('jackett-result-count');
+  var state = document.getElementById('jackett-state');
+  if (!tbody || !wrap) return;
+
+  var results = jackettSortResults(window._jackettResults || []);
+  jackettUpdateSortIndicators();
+
+  tbody.innerHTML = '';
+  if (!results.length) {
+    wrap.style.display = 'none';
+    if (count) count.textContent = '';
+    if (state) { state.style.display = 'block'; state.textContent = 'No results found.'; }
+    return;
+  }
+
+  results.forEach(function(r, i) {
+    var tr = document.createElement('tr');
+    var sc = r.seeders > 10 ? 'var(--green)' : r.seeders > 0 ? 'var(--accent)' : 'var(--text3)';
+    var key = String(r.hash || r.torrent_url || (r.title + '|' + r.indexer));
+    var inFlight = !!(window._jackettAddInFlight && window._jackettAddInFlight[key]);
+    var statusBadge = r.already_added
+        ? '<span class="badge badge-'+esc((r.existing_status || 'queued'))+'">'+esc(r.existing_status || 'added')+'</span>'
+        : '<span style="font-size:11px;color:var(--text3)">New</span>';
+    var addBtn = '';
+    if (!(r.magnet || r.torrent_url)) {
+        addBtn = '<span style="font-size:11px;color:var(--text3)">No link</span>';
+    } else if (r.already_added) {
+        addBtn = '<button class="btn btn-ghost btn-sm" disabled id="jbtn-'+i+'">Added</button>';
+    } else if (inFlight) {
+        addBtn = '<button class="btn btn-ghost btn-sm" disabled id="jbtn-'+i+'">Adding...</button>';
+    } else {
+        addBtn = '<button class="btn btn-primary btn-sm" onclick="jackettAdd('+i+')" id="jbtn-'+i+'">Add</button>';
+    }
+    tr.innerHTML =
+      '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.title)+'">'+esc(r.title)+'</td>'+
+      '<td style="color:var(--text2);font-size:12px">'+esc(r.indexer)+'</td>'+
+      '<td style="white-space:nowrap;font-size:12px">'+esc(r.size_human)+'</td>'+
+      '<td style="text-align:center;color:'+sc+';font-weight:600">'+(r.seeders || 0)+'</td>'+
+      '<td style="text-align:center;color:var(--text2)">'+(r.leechers || 0)+'</td>'+
+      '<td style="font-size:11px;color:var(--text2)">'+esc(r.pub_date)+'</td>'+
+      '<td>'+statusBadge+'</td>'+
+      '<td>'+addBtn+'</td>';
+    tbody.appendChild(tr);
+  });
+  wrap.style.display = '';
+  if (state) state.style.display = 'none';
+  if (count) count.textContent = results.length + ' result(s)';
+}
+
+async function jackettSearch() {
+  var query = (document.getElementById('jackett-query')||{value:''}).value.trim();
+  if (!query) { toast('Please enter a search query', 'warn'); return; }
+  var cat     = ((document.getElementById('jackett-cat')||{}).value)||'0';
+  var trackers = jackettSelectedTrackers();
+  var availability = ((document.getElementById('jackett-availability')||{}).value)||'all';
+  var hideDead = availability === 'alive';
+  var btn   = document.getElementById('jackett-search-btn');
+  var state = document.getElementById('jackett-state');
+  var wrap  = document.getElementById('jackett-results-wrap');
+  var tbody = document.getElementById('jackett-tbody');
+  var count = document.getElementById('jackett-result-count');
+
+  if (btn)   { btn.disabled=true; btn.textContent='Searching...'; }
+  if (state) { state.style.display='block'; state.textContent='Searching...'; }
+  if (wrap)  wrap.style.display='none';
+  if (tbody) tbody.innerHTML='';
+
+  try {
+    var data = await api('POST', '/jackett/search', {query:query, category:parseInt(cat,10), trackers:trackers, hide_dead:hideDead});
+    if (data.error) {
+      if (state) { state.style.display='block'; state.textContent='Error: '+data.error; }
+      return;
+    }
+    if (!data.results || !data.results.length) {
+      if (state) { state.style.display='block'; state.textContent='No results found for: '+query; }
+      return;
+    }
+    if (count) count.textContent=data.total+' result(s) for: '+query+(hideDead ? ' · dead torrents hidden' : '');
+    window._jackettResults = data.results;
+    renderJackettResults();
+  } catch(e) {
+    if (state) { state.style.display='block'; state.textContent='Error: '+e.message; }
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent='Search'; }
+  }
+}
+
+async function jackettAdd(idx) {
+  var r = jackettSortResults(window._jackettResults || [])[idx];
+  if (!r) return;
+  var key = String(r.hash || r.torrent_url || (r.title + '|' + r.indexer));
+  if (window._jackettAddInFlight && window._jackettAddInFlight[key]) return;
+  window._jackettAddInFlight[key] = true;
+  var btn=document.getElementById('jbtn-'+idx);
+  if (btn) { btn.disabled=true; btn.textContent='Adding...'; }
+  try {
+      var row=await api('POST', '/jackett/add', {
+        hash:r.hash, magnet:r.magnet, torrent_url:r.torrent_url,
+        title:r.title, indexer:r.indexer, size_bytes:r.size_bytes
+      });
+    (window._jackettResults || []).forEach(function(item) {
+      if ((item.hash && item.hash === r.hash) || (item.title === r.title && item.indexer === r.indexer)) {
+        item.already_added = true;
+        item.existing_torrent_id = row && row.id ? row.id : null;
+        item.existing_status = row && row.status ? row.status : 'uploading';
+      }
+    });
+    if (btn) {
+      btn.textContent='\u2705 Added';
+      btn.style.background='var(--green)';
+      btn.style.color='#fff';
+      }
+      delete window._jackettAddInFlight[key];
+      renderJackettResults();
+    var label = row && row.added_via ? row.added_via.replace(/_/g, ' ') : (r.torrent_url ? 'torrent file' : 'magnet');
+    var adId = (row && row.alldebrid_id) ? ' (ID: '+row.alldebrid_id+')' : '';
+    toast('\u2714 Queued via '+label+adId+'\n'+r.title.slice(0,50), 'success');
+    // Badge aktualisieren
+    if (typeof loadStats === 'function') loadStats().catch(function(){});
+    } catch(e) {
+      delete window._jackettAddInFlight[key];
+      if (btn) { btn.disabled=false; btn.textContent='Add'; }
+      renderJackettResults();
+      toast('\u274c Failed to add: '+e.message, 'error');
+    }
+  }
+
+async function testJackett() {
+  var el=document.getElementById('jackett-test-result');
+  if (el) { el.style.color='var(--text2)'; el.textContent='Testing...'; }
+  try {
+    const activeTab = getActiveSettingsTab();
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = await api('GET','/settings');
+    renderSettings();
+    switchSettingsTab(activeTab);
+    updateJackettNav();
+    el=document.getElementById('jackett-test-result');
+    if (el) { el.style.color='var(--text2)'; el.textContent='Testing...'; }
+    var r=await api('POST', '/settings/test-jackett');
+    if (el) { el.style.color='var(--green)'; el.textContent='Connected - Jackett '+(r.version||''); }
+  } catch(e) {
+    if (el) { el.style.color='var(--red)'; el.textContent='Error: '+e.message; }
+  }
+}
+
+async function loadJackettIndexers() {
+  try {
+    var items=await api('GET', '/jackett/indexers');
+    var sel=document.getElementById('jackett-tracker');
+    if (!sel) return;
+    var selected = ((sel && sel.value) || '').trim();
+    sel.innerHTML = '<option value="">All Indexers</option>';
+    (items||[]).forEach(function(item) {
+      var opt=document.createElement('option');
+      opt.value=item.id; opt.textContent=item.name||item.id;
+      if (selected === item.id) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } catch(e) { /* indexers optional */ }
+}
+
+function initSearchView() {
+  var cfg=settingsData||{};
+  var notConf=document.getElementById('jackett-not-configured');
+  var searchBar=document.getElementById('jackett-search-bar');
+  if (!cfg.jackett_enabled || !cfg.jackett_url || !cfg.jackett_api_key) {
+    if (notConf) notConf.style.display='';
+    if (searchBar) searchBar.style.display='none';
+    return;
+  }
+  if (notConf) notConf.style.display='none';
+  if (searchBar) searchBar.style.display='';
+  loadJackettIndexers();
+  // Focus auf das Suchfeld
+  setTimeout(function(){ var q=document.getElementById('jackett-query'); if(q)q.focus(); }, 100);
+}
+
+function updateJackettNav() {
+  var cfg=settingsData||{};
+  var el=document.querySelector('[data-view="search"]');
+  if (el) el.style.display=cfg.jackett_enabled?'':'none';
+}
+
+
+// ── Downloads View (aria2 Queue) ─────────────────────────────────────────────
+
+var _aria2qTimer = null;
+
+async function loadAria2QueueView() {
+  clearTimeout(_aria2qTimer);
+  // Event-Delegation für Action-Buttons (einmalig registrieren)
+  var tb2 = document.getElementById('aria2q-tbody');
+  if (tb2 && !tb2._delegated) {
+    tb2._delegated = true;
+    tb2.addEventListener('click', function(e) {
+      var btn = e.target.closest('[data-gid]');
+      if (!btn) return;
+      var gid = decodeURIComponent(btn.getAttribute('data-gid')||'');
+      var act = btn.getAttribute('data-act')||'';
+      if (gid && act) aria2QueueAction(gid, act);
+    });
+  }
+  try {
+    var data = await api('GET', '/aria2/downloads');
+    renderAria2QueueView(data);
+    // Refresh badge
+    var badge = document.getElementById('nb-aria2-active');
+    var cnt = (data.summary || {}).active || 0;
+    if (badge) { badge.textContent = cnt; badge.style.display = cnt > 0 ? '' : 'none'; }
+    // Auto-refresh every 4s while view is active
+    if (document.getElementById('view-aria2queue') &&
+        document.getElementById('view-aria2queue').classList.contains('active')) {
+      _aria2qTimer = setTimeout(loadAria2QueueView, 1000);
+    }
+    // Read current speed limit
+    loadAria2SpeedLimit();
+  } catch(e) {
+    var tb = document.getElementById('aria2q-tbody');
+    if (tb) tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--red);padding:24px">Error: ' + esc(e.message) + '</td></tr>';
+  }
+}
+
+function renderAria2QueueView(data) {
+  var summary = data.summary || {};
+  var items   = data.items   || [];
+
+  // Summary bar
+  var sb = document.getElementById('aria2q-summary');
+  if (sb) {
+    sb.innerHTML =
+      '<span class="aria2-chip" style="font-size:12px"><b>' + (summary.active||0) + '</b>&nbsp;active</span>' +
+      '<span class="aria2-chip" style="font-size:12px"><b>' + (summary.waiting||0) + '</b>&nbsp;waiting</span>' +
+      '<span class="aria2-chip" style="font-size:12px"><b>' + (summary.stopped||0) + '</b>&nbsp;stopped</span>' +
+      '<span class="aria2-chip" style="font-size:12px">&#9660;&nbsp;' + fmtSpeed(summary.download_speed||0) + '</span>' +
+      '<span class="aria2-chip" style="font-size:12px">Remaining:&nbsp;' + fmtSize(summary.remaining_length||0) + '</span>';
+  }
+
+  var tb = document.getElementById('aria2q-tbody');
+  if (!tb) return;
+
+  if (!items.length) {
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text2)">No downloads in aria2 queue.</td></tr>';
+    return;
+  }
+
+  // Sort: active first, then waiting/paused, then stopped
+  items = items.slice().sort(function(a,b) {
+    var w = {active:0, waiting:1, paused:2, error:3, complete:4, removed:5};
+    return ((w[a.status]||9) - (w[b.status]||9));
+  });
+
+  tb.innerHTML = items.map(function(job) {
+    var pct = Math.min(100, Math.max(0, job.progress||0));
+    var isActive  = job.status === 'active';
+    var isPaused  = job.status === 'paused';
+    var isWaiting = job.status === 'waiting';
+    var canPause  = isActive || isWaiting;
+    var canResume = isPaused;
+    var canRemove = job.status !== 'complete';
+    var barColor  = job.status === 'error' ? 'var(--red)' : isActive ? 'var(--accent)' : isPaused ? 'var(--text3)' : 'var(--green)';
+
+    var firstFile = (job.files||[])[0] || {};
+    var name = job.name || firstFile.name || job.gid || '—';
+    var fileCount = (job.files||[]).length;
+    var nameLabel = fileCount > 1 ? esc(name) + ' <span style="color:var(--text2);font-size:11px">(+' + (fileCount-1) + ' more)</span>' : esc(name);
+
+    var statusDot = isActive ? '<span style="color:var(--accent)">&#9679;</span>' :
+                   isPaused  ? '<span style="color:var(--text3)">&#9646;</span>' :
+                   job.status === 'error' ? '<span style="color:var(--red)">&#10007;</span>' :
+                   job.status === 'complete' ? '<span style="color:var(--green)">&#10003;</span>' :
+                   '<span style="color:var(--text3)">&#9675;</span>';
+
+    var progressBar =
+      '<div style="width:100%;background:var(--surface2);border-radius:3px;height:5px;overflow:hidden">' +
+        '<div style="width:'+pct+'%;background:'+barColor+';height:100%;border-radius:3px;transition:width .4s"></div>' +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--text2);margin-top:2px">' + pct.toFixed(1) + '%</div>';
+
+    var gEsc = encodeURIComponent(job.gid);
+    var actions =
+      (canPause  ? '<button class="btn btn-ghost btn-sm" style="padding:2px 7px;font-size:11px" data-gid="'+gEsc+'" data-act="pause"   title="Pause"  >&#9646;&#9646;</button>' : '') +
+      (canResume ? '<button class="btn btn-ghost btn-sm" style="padding:2px 7px;font-size:11px" data-gid="'+gEsc+'" data-act="resume"  title="Resume" >&#9654;</button>' : '') +
+      (canRemove ? '<button class="btn btn-ghost btn-sm" style="padding:2px 7px;font-size:11px;color:var(--red)" data-gid="'+gEsc+'" data-act="remove"  title="Remove" >&#128465;</button>' : '');
+
+    return '<tr>' +
+      '<td style="text-align:center">' + statusDot + '</td>' +
+      '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(job.name||'') + '">' + nameLabel + '</td>' +
+      '<td>' + progressBar + '</td>' +
+      '<td style="font-size:12px;white-space:nowrap">' + fmtSize(job.total_length||0) + '</td>' +
+      '<td style="font-size:12px;white-space:nowrap;color:var(--accent)">' + (isActive ? fmtSpeed(job.download_speed||0) : '—') + '</td>' +
+      '<td style="font-size:12px;white-space:nowrap">' + aria2StatusLabel(job.status) + '</td>' +
+      '<td style="white-space:nowrap">' + actions + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+async function aria2QueueAction(gid, action) {
+  try {
+    await api('POST', '/aria2/downloads/' + encodeURIComponent(gid) + '/' + action);
+    toast('aria2: ' + action + ' sent', 'success');
+    await loadAria2QueueView();
+  } catch(e) {
+    toast('aria2 ' + action + ': ' + e.message, 'error');
+  }
+}
+
+// ── Speed Limit ───────────────────────────────────────────────────────────────
+
+async function loadAria2SpeedLimit() {
+  try {
+    var data = await api('GET', '/aria2/global-options');
+    var bps  = parseInt(data.max_download_speed||0);
+    var sel  = document.getElementById('aria2-speed-preset');
+    var st   = document.getElementById('aria2-speed-status');
+    if (!sel) return;
+    // Match preset
+    var found = false;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value !== 'custom' && parseInt(sel.options[i].value||0) === bps) {
+        sel.value = sel.options[i].value;
+        found = true; break;
+      }
+    }
+    if (!found) {
+      sel.value = 'custom';
+      var ci = document.getElementById('aria2-speed-custom');
+      var cb = document.getElementById('aria2-speed-apply');
+      if (ci) { ci.style.display=''; ci.value = Math.round(bps/1024); }
+      if (cb) cb.style.display='';
+    }
+    if (st) st.textContent = bps > 0 ? '(' + fmtSpeed(bps) + ')' : '(unlimited)';
+  } catch(e) { /* aria2 might not be connected */ }
+}
+
+async function applyAria2SpeedPreset(val) {
+  var ci = document.getElementById('aria2-speed-custom');
+  var cb = document.getElementById('aria2-speed-apply');
+  if (val === 'custom') {
+    if (ci) ci.style.display=''; if (cb) cb.style.display=''; return;
+  }
+  if (ci) ci.style.display='none'; if (cb) cb.style.display='none';
+  await _setAria2Speed(parseInt(val||0));
+}
+
+async function applyAria2SpeedCustom() {
+  var ci = document.getElementById('aria2-speed-custom');
+  var kbps = parseInt((ci&&ci.value)||0);
+  await _setAria2Speed(kbps * 1024);
+}
+
+async function _setAria2Speed(bps) {
+  var st = document.getElementById('aria2-speed-status');
+  if (st) { st.style.color='var(--text2)'; st.textContent='Applying…'; }
+  try {
+    await api('POST', '/aria2/global-options', {max_download_speed: bps});
+    if (st) { st.style.color='var(--green)'; st.textContent = bps > 0 ? 'Set: ' + fmtSpeed(bps) : 'Unlimited'; }
+    setTimeout(function(){ if(st) st.style.color='var(--text2)'; }, 3000);
+  } catch(e) {
+    if (st) { st.style.color='var(--red)'; st.textContent='Error: '+e.message; }
+    toast('Speed limit error: '+e.message, 'error');
+  }
+}
+
+// Update Downloads badge from loadStats
+function updateAria2Badge(activeCount) {
+  var badge = document.getElementById('nb-aria2-active');
+  if (!badge) return;
+  badge.textContent = activeCount;
+  badge.style.display = activeCount > 0 ? '' : 'none';
+}
+
+
+async function showMemoryInfo() {
+  var el = document.getElementById('aria2-memory-info');
+  if (!el) return;
+  el.style.display = '';
+  el.innerHTML = '<span style="color:var(--text2)">Loading&#8230;</span>';
+  try {
+    var d = await api('GET', '/admin/memory-info');
+    el.innerHTML =
+      '<b>&#128202; System Memory</b><br>' +
+      'Total: <b>' + d.total + '</b> &nbsp; ' +
+      'Really used: <b>' + d.really_used + '</b> &nbsp; ' +
+      'Page cache: <b style="color:var(--accent)">' + d.page_cache + '</b> &nbsp; ' +
+      'Available: <b style="color:var(--green)">' + d.available + '</b><br>' +
+      '<span style="font-size:11px;color:var(--text2)">' +
+      'Page cache = kernel file cache shown as \"used\" in Unraid dashboard, ' +
+      'but reclaimed automatically when needed. ' +
+      'If large, click \"Drop Page Cache\" to release it immediately.' +
+      '</span>';
+  } catch(e) {
+    el.innerHTML = '<span style="color:var(--red)">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+async function dropPageCache() {
+  var el = document.getElementById('aria2-memory-info');
+  if (el) { el.style.display = ''; el.innerHTML = '<span style="color:var(--text2)">Releasing page cache&#8230;</span>'; }
+  try {
+    var d = await api('POST', '/admin/drop-page-cache');
+    toast('Page cache released for ' + d.cache_released + '/' + d.files_processed + ' files', 'success');
+    if (el) el.innerHTML =
+      '<b style="color:var(--green)">&#10003; ' + d.message + '</b><br>' +
+      '<span style="font-size:11px;color:var(--text2)">Run Memory Info again to see updated RAM usage.</span>';
+    // refresh memory info after 1s
+    setTimeout(showMemoryInfo, 1200);
+  } catch(e) {
+    toast('Drop page cache failed: ' + e.message, 'error');
+    if (el) el.innerHTML = '<span style="color:var(--red)">Error: ' + esc(e.message) + '</span>';
+  }
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<div id="mobile-overlay" onclick="closeSidebar()"></div>
+<button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</button>
+</body>
+</html>

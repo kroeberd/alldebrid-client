@@ -32,7 +32,7 @@ class AppSettings(BaseModel):
 
     # Download delivery
     download_client: str = "aria2"
-    aria2_mode: str = "builtin"  # built-in aria2 is the default; set to "external" to use your own aria2
+    aria2_mode: str = "external"
     aria2_url: str = "http://127.0.0.1:6800/jsonrpc"
     aria2_secret: str = ""
     aria2_download_path: str = ""
