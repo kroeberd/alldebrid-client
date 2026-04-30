@@ -178,7 +178,28 @@ async def _fill_missing_hashes_from_torrent_files(results: List[Dict[str, Any]])
     await asyncio.gather(*[_resolve(item) for item in pending])
 
 
-def _build_result_params(query: str, category: int, trackers: List[str], limit: int, api_key: str) -> Dict[str, Any]:
+def _build_result_params(
+    query: str,
+    category: int,
+    trackers: List[str],
+    limit: int,
+    api_key: str,
+    search_type: str = "search",
+    genre: str = "",
+    imdbid: str = "",
+    year: Optional[str] = None,
+    season: Optional[str] = None,
+    ep: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build Jackett/Torznab query parameters.
+
+    search_type: "search" | "tvsearch" | "movie" | "music" | "book"
+    genre:  genre tag, passed as &genre=<value> (supported by tvsearch/movie/music/book)
+    imdbid: IMDb ID e.g. tt1234567 (movie/tvsearch)
+    year:   release year string (movie/tvsearch)
+    season: TV season number (tvsearch)
+    ep:     TV episode number (tvsearch)
+    """
     params: Dict[str, Any] = {
         "apikey": api_key,
         "Query": query.strip(),
@@ -189,6 +210,19 @@ def _build_result_params(query: str, category: int, trackers: List[str], limit: 
     tracker_values = [str(t).strip() for t in trackers if str(t).strip()]
     if tracker_values:
         params["Tracker[]"] = tracker_values
+    # Extended Torznab parameters
+    if genre:
+        params["genre"] = genre.strip()
+    if imdbid:
+        # Normalise: ensure tt prefix
+        raw = imdbid.strip().lstrip("t").lstrip("T")
+        params["imdbid"] = f"tt{raw}" if raw.isdigit() else imdbid.strip()
+    if year:
+        params["year"] = str(year).strip()
+    if season:
+        params["season"] = str(season).strip()
+    if ep:
+        params["ep"] = str(ep).strip()
     return params
 
 
@@ -285,6 +319,12 @@ async def search(
     category: int = CATEGORY_ALL,
     trackers: Optional[List[str]] = None,
     limit: int = 100,
+    search_type: str = "search",
+    genre: str = "",
+    imdbid: str = "",
+    year: str = "",
+    season: str = "",
+    ep: str = "",
 ) -> Dict[str, Any]:
     cfg = _cfg()
     if not cfg:
@@ -298,7 +338,11 @@ async def search(
         return {"results": [], "total": 0, "query": query, "error": "Jackett URL or API key not configured"}
 
     endpoint = f"{url}/api/v2.0/indexers/all/results"
-    params = _build_result_params(query, category, trackers or [], limit, api_key)
+    params = _build_result_params(
+        query, category, trackers or [], limit, api_key,
+        search_type=search_type, genre=genre, imdbid=imdbid,
+        year=year, season=season, ep=ep,
+    )
 
     try:
         timeout = aiohttp.ClientTimeout(total=30)

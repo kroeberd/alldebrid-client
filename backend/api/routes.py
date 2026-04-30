@@ -1107,7 +1107,20 @@ async def jackett_search(body: dict):
     trackers = [str(t).strip() for t in trackers if str(t).strip()]
     limit = min(int(body.get("limit") or 100), 500)
     hide_dead = bool(body.get("hide_dead"))
-    result = await search(query=query, category=category, trackers=trackers, limit=limit)
+    # Extended tag-search parameters
+    search_type = (body.get("search_type") or "search").strip().lower()
+    if search_type not in ("search", "tvsearch", "movie", "music", "book"):
+        search_type = "search"
+    genre  = (body.get("genre")  or "").strip()
+    imdbid = (body.get("imdbid") or "").strip()
+    year   = (body.get("year")   or "").strip()
+    season = (body.get("season") or "").strip()
+    ep     = (body.get("ep")     or "").strip()
+    result = await search(
+        query=query, category=category, trackers=trackers, limit=limit,
+        search_type=search_type, genre=genre, imdbid=imdbid,
+        year=year, season=season, ep=ep,
+    )
     if hide_dead:
         result["results"] = [
             item for item in (result.get("results", []) or [])

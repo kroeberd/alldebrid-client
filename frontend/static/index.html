@@ -67,6 +67,33 @@ body.light {
   cursor:pointer; font-size:16px; box-shadow:0 2px 10px rgba(0,0,0,.3); transition:all .2s; }
 .theme-toggle:hover { transform:scale(1.1); }
 
+/* ── Search Advanced Tags ────────────────────────────────────────────────── */
+.search-tags-row {
+  display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;
+  padding:10px 0 0; border-top:1px solid var(--border); margin-top:4px;
+}
+.search-tag-chip {
+  display:inline-flex; align-items:center; gap:4px;
+  background:var(--surface2); border:1px solid var(--border2);
+  border-radius:14px; padding:3px 10px; font-size:11.5px; color:var(--text2);
+  cursor:pointer; transition:all .12s; user-select:none;
+}
+.search-tag-chip:hover { border-color:var(--accent); color:var(--text); }
+.search-tag-chip.active { background:var(--accent); border-color:var(--accent); color:#000; font-weight:600; }
+.search-tag-chip .chip-x { opacity:.6; margin-left:2px; }
+.search-tag-chip.active .chip-x { opacity:.8; }
+.search-adv-toggle {
+  font-size:11px; color:var(--text3); cursor:pointer; display:flex;
+  align-items:center; gap:4px; white-space:nowrap; align-self:flex-end;
+  padding:8px 0 0; border:none; background:none;
+}
+.search-adv-toggle:hover { color:var(--text2); }
+.search-adv-panel {
+  display:none; flex-direction:column; gap:0;
+  padding-top:10px; border-top:1px solid var(--border); margin-top:8px;
+}
+.search-adv-panel.open { display:flex; }
+
 /* ── Custom Indexer Multi-Select Picker ──────────────────────────────────── */
 .idx-picker { position:relative; min-width:180px; }
 .idx-trigger {
@@ -992,6 +1019,79 @@ textarea.input { resize: vertical; }
             style="align-self:flex-end;white-space:nowrap">
             &#128269; Search
           </button>
+          <button class="search-adv-toggle" onclick="toggleSearchAdv(this)" title="Advanced search options">
+            <span id="search-adv-arrow">&#9656;</span> Advanced
+          </button>
+        </div>
+
+        <!-- Advanced / Tag-Search Panel -->
+        <div class="search-adv-panel" id="search-adv-panel">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding-top:10px">
+
+            <!-- Search type -->
+            <div style="min-width:130px">
+              <label class="form-label">Search type
+                <span style="font-size:9px;color:var(--text3);font-weight:400;margin-left:4px">Torznab mode</span>
+              </label>
+              <select class="input" id="jackett-search-type" style="width:100%" onchange="onSearchTypeChange()">
+                <option value="search">General</option>
+                <option value="tvsearch">TV Series</option>
+                <option value="movie">Movie</option>
+                <option value="music">Music</option>
+                <option value="book">Book</option>
+              </select>
+            </div>
+
+            <!-- Genre / Tag -->
+            <div style="min-width:150px">
+              <label class="form-label">Genre / Tag
+                <span style="font-size:9px;color:var(--text3);font-weight:400;margin-left:4px">tvsearch·movie·music·book</span>
+              </label>
+              <div style="position:relative">
+                <input class="input" id="jackett-genre" placeholder="e.g. comedy, horror, rock&#8230;"
+                  list="genre-suggestions" style="width:100%"
+                  oninput="updateGenreChips()" onkeydown="if(event.key==='Enter'){addGenreChip();event.preventDefault();}">
+                <datalist id="genre-suggestions">
+                  <option value="action"><option value="adventure"><option value="animation">
+                  <option value="biography"><option value="comedy"><option value="crime">
+                  <option value="documentary"><option value="drama"><option value="fantasy">
+                  <option value="horror"><option value="mystery"><option value="romance">
+                  <option value="sci-fi"><option value="thriller"><option value="western">
+                  <option value="rock"><option value="pop"><option value="jazz"><option value="classical">
+                  <option value="hip-hop"><option value="electronic"><option value="metal">
+                </datalist>
+              </div>
+              <div id="genre-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;min-height:0"></div>
+            </div>
+
+            <!-- IMDb ID (movie + tvsearch) -->
+            <div id="adv-imdbid-wrap" style="min-width:130px">
+              <label class="form-label">IMDb ID
+                <span style="font-size:9px;color:var(--text3);font-weight:400;margin-left:4px">movie·tvsearch</span>
+              </label>
+              <input class="input" id="jackett-imdbid" placeholder="tt1234567 or 1234567" style="width:100%">
+            </div>
+
+            <!-- Year (movie + tvsearch) -->
+            <div id="adv-year-wrap" style="min-width:90px">
+              <label class="form-label">Year</label>
+              <input class="input" id="jackett-year" placeholder="2024" type="number" min="1900" max="2100" style="width:100%">
+            </div>
+
+            <!-- Season / Ep (tvsearch only) -->
+            <div id="adv-season-wrap" style="min-width:80px;display:none">
+              <label class="form-label">Season</label>
+              <input class="input" id="jackett-season" placeholder="1" type="number" min="1" style="width:100%">
+            </div>
+            <div id="adv-ep-wrap" style="min-width:80px;display:none">
+              <label class="form-label">Episode</label>
+              <input class="input" id="jackett-ep" placeholder="1" type="number" min="1" style="width:100%">
+            </div>
+
+            <!-- Clear advanced -->
+            <button class="btn btn-ghost btn-sm" onclick="clearSearchAdv()"
+              style="align-self:flex-end;white-space:nowrap;opacity:.7">&#10005; Clear</button>
+          </div>
         </div>
       </div>
 
@@ -4400,13 +4500,109 @@ function renderJackettResults() {
   if (count) count.textContent = results.length + ' result(s)';
 }
 
+// ── Genre chip state ────────────────────────────────────────────────────────
+var _genreChips = new Set();
+
+function toggleSearchAdv(btn) {
+  var panel = document.getElementById('search-adv-panel');
+  var arrow = document.getElementById('search-adv-arrow');
+  if (!panel) return;
+  var open = panel.classList.toggle('open');
+  if (arrow) arrow.innerHTML = open ? '&#9662;' : '&#9656;';
+  if (open) onSearchTypeChange();
+}
+
+function onSearchTypeChange() {
+  var t = (document.getElementById('jackett-search-type')||{value:'search'}).value;
+  var showImdb   = t === 'movie' || t === 'tvsearch';
+  var showYear   = t === 'movie' || t === 'tvsearch';
+  var showSeason = t === 'tvsearch';
+  var showGenre  = t !== 'search';
+  var g  = document.getElementById('adv-imdbid-wrap');
+  var y  = document.getElementById('adv-year-wrap');
+  var s  = document.getElementById('adv-season-wrap');
+  var ep = document.getElementById('adv-ep-wrap');
+  var gw = document.getElementById('jackett-genre');
+  if (g)  g.style.display  = showImdb   ? '' : 'none';
+  if (y)  y.style.display  = showYear   ? '' : 'none';
+  if (s)  s.style.display  = showSeason ? '' : 'none';
+  if (ep) ep.style.display = showSeason ? '' : 'none';
+  if (gw && gw.parentElement && gw.parentElement.parentElement)
+    gw.parentElement.parentElement.style.opacity = showGenre ? '1' : '0.45';
+}
+
+function addGenreChip() {
+  var inp = document.getElementById('jackett-genre');
+  if (!inp) return;
+  var val = inp.value.trim().toLowerCase();
+  if (!val) return;
+  _genreChips.add(val);
+  inp.value = '';
+  renderGenreChips();
+}
+
+function updateGenreChips() {
+  var inp = document.getElementById('jackett-genre');
+  if (!inp || !inp.value.includes(',')) return;
+  inp.value.split(',').forEach(function(v) {
+    v = v.trim().toLowerCase();
+    if (v) _genreChips.add(v);
+  });
+  inp.value = '';
+  renderGenreChips();
+}
+
+function renderGenreChips() {
+  var container = document.getElementById('genre-chips');
+  if (!container) return;
+  container.innerHTML = '';
+  _genreChips.forEach(function(tag) {
+    var chip = document.createElement('span');
+    chip.className = 'search-tag-chip active';
+    chip.title = 'Click to remove';
+    var nm = document.createElement('span');
+    nm.textContent = tag;
+    var cl = document.createElement('span');
+    cl.className = 'chip-x';
+    cl.innerHTML = '&#215;';
+    cl.onclick = (function(t){ return function(){ removeGenreChip(t); }; })(tag);
+    chip.appendChild(nm); chip.appendChild(cl);
+    chip.onclick = function(e){ if(e.target !== cl) removeGenreChip(tag); };
+    container.appendChild(chip);
+  });
+}
+
+function removeGenreChip(tag) {
+  _genreChips.delete(tag);
+  renderGenreChips();
+}
+
+function clearSearchAdv() {
+  _genreChips.clear();
+  renderGenreChips();
+  ['jackett-imdbid','jackett-year','jackett-season','jackett-ep','jackett-genre'].forEach(function(id) {
+    var el = document.getElementById(id); if(el) el.value = '';
+  });
+  var t = document.getElementById('jackett-search-type');
+  if (t) { t.value = 'search'; onSearchTypeChange(); }
+}
+
 async function jackettSearch() {
   var query = (document.getElementById('jackett-query')||{value:''}).value.trim();
   if (!query) { toast('Please enter a search query', 'warn'); return; }
-  var cat     = ((document.getElementById('jackett-cat')||{}).value)||'0';
-  var trackers = jackettSelectedTrackers();
+  var cat          = ((document.getElementById('jackett-cat')||{}).value)||'0';
+  var trackers     = jackettSelectedTrackers();
   var availability = ((document.getElementById('jackett-availability')||{}).value)||'all';
-  var hideDead = availability === 'alive';
+  var hideDead     = availability === 'alive';
+  var searchType   = (document.getElementById('jackett-search-type')||{value:'search'}).value || 'search';
+  var genreVal     = _genreChips.size > 0
+    ? Array.from(_genreChips).join(',')
+    : ((document.getElementById('jackett-genre')||{value:''}).value.trim());
+  var imdbid  = ((document.getElementById('jackett-imdbid')||{value:''}).value.trim());
+  var year    = ((document.getElementById('jackett-year')||{value:''}).value.trim());
+  var season  = ((document.getElementById('jackett-season')||{value:''}).value.trim());
+  var epNum   = ((document.getElementById('jackett-ep')||{value:''}).value.trim());
+
   var btn   = document.getElementById('jackett-search-btn');
   var state = document.getElementById('jackett-state');
   var wrap  = document.getElementById('jackett-results-wrap');
@@ -4419,16 +4615,33 @@ async function jackettSearch() {
   if (tbody) tbody.innerHTML='';
 
   try {
-    var data = await api('POST', '/jackett/search', {query:query, category:parseInt(cat,10), trackers:trackers, hide_dead:hideDead});
+    var payload = {
+      query:query, category:parseInt(cat,10), trackers:trackers,
+      hide_dead:hideDead, search_type:searchType,
+    };
+    if (genreVal) payload.genre  = genreVal;
+    if (imdbid)   payload.imdbid = imdbid;
+    if (year)     payload.year   = year;
+    if (season)   payload.season = season;
+    if (epNum)    payload.ep     = epNum;
+
+    var data = await api('POST', '/jackett/search', payload);
     if (data.error) {
       if (state) { state.style.display='block'; state.textContent='Error: '+data.error; }
       return;
     }
     if (!data.results || !data.results.length) {
-      if (state) { state.style.display='block'; state.textContent='No results found for: '+query; }
+      var hint = searchType !== 'search' ? ' (indexer may not support '+searchType+' mode)' : '';
+      if (state) { state.style.display='block'; state.textContent='No results for: '+query+hint; }
       return;
     }
-    if (count) count.textContent=data.total+' result(s) for: '+query+(hideDead ? ' · dead torrents hidden' : '');
+    var parts = ['"'+query+'"'];
+    if (searchType !== 'search') parts.push('mode: '+searchType);
+    if (genreVal)  parts.push('genre: '+genreVal);
+    if (imdbid)    parts.push('IMDb: '+imdbid);
+    if (year)      parts.push(year);
+    if (hideDead)  parts.push('seeded only');
+    if (count) count.textContent = data.total+' result(s) for '+parts.join(' · ');
     window._jackettResults = data.results;
     renderJackettResults();
   } catch(e) {

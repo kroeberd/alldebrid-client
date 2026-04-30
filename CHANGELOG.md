@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.5.3] — 2026-04-29
+
+### Added — Extended Jackett tag/genre search
+
+The Jackett Search view now has an **Advanced** toggle (collapsed by default) that exposes
+the full Torznab extended-parameter set supported by Jackett's API:
+
+| Field | Torznab param | Supported modes |
+|-------|--------------|-----------------|
+| Search type | `t=` | General / TV Series / Movie / Music / Book |
+| Genre / Tag | `&genre=` | tvsearch · movie · music · book |
+| IMDb ID | `&imdbid=` | movie · tvsearch |
+| Year | `&year=` | movie · tvsearch |
+| Season | `&season=` | tvsearch |
+| Episode | `&ep=` | tvsearch |
+
+**Genre chips:** type a genre and press Enter (or use commas) to add chips.
+Multiple genres are sent as a comma-separated list (`genre=comedy,drama`).
+Chips can be removed individually. A `datalist` provides 20+ common suggestions
+for faster input.
+
+**Search type** controls the Torznab `t=` mode. Fields that are not applicable to
+the selected mode are hidden automatically (e.g. Season/Episode only shown for TV).
+
+**Backend (`services/jackett.py`):**
+- `_build_result_params()` extended with `genre`, `imdbid`, `year`, `season`, `ep`
+- `search()` signature extended with same parameters
+- IMDb normalisation: strips leading `t`s, adds `tt` prefix for bare numeric IDs
+
+**Backend (`api/routes.py`):**
+- `POST /jackett/search` reads `search_type`, `genre`, `imdbid`, `year`, `season`, `ep`
+- `search_type` validated against allowed set; defaults to `search`
+
+**Result count line** summarises all active filters:
+`17 result(s) for "breaking bad" · mode: tvsearch · genre: drama · 2008`
+
 ## [1.5.2] — 2026-04-29
 
 ### Fixed — Settings icons showing as raw HTML entities
