@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.5.5] — 2026-04-29
+
+### Fixed — Search UI: flat consistent filter bar
+
+The Search view was redesigned from two mismatched rows (main bar + separate Advanced panel)
+into a single unified filter layout.
+
+**Row 1:** Query input (full-width) + Search button
+
+**Row 2:** Category · Indexers · Mode · Genre/Tag · IMDb ID · Year · Season · Episode · Availability · Reset
+
+- All controls share the same height (34px) and font size (12px)
+- Genre/Tag, IMDb, Year, Season, Episode are hidden when Mode=General and shown contextually
+- No separate collapsible 'Advanced' panel — filters are always visible and accessible
+- Reset button clears every filter including query, category, indexer chips, and mode
+- idx-trigger height unified with other inputs
+
 ## [1.5.4] — 2026-04-29
 
 ### Fixed — Jackett extended search: correct Torznab endpoint
