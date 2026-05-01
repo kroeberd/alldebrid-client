@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.5.4] — 2026-04-29
+
+### Fixed — Jackett extended search: correct Torznab endpoint
+
+**Bug:** `genre`, `imdbid`, `year`, `season`, `ep` were sent to the JSON Results API
+(`/api/v2.0/indexers/all/results`) which silently ignores Torznab-specific parameters.
+**Fix:** When any extended parameter is set, the Torznab XML API is used instead
+(`/api/v2.0/indexers/<filter>/results/torznab/api?t=<mode>&...`).
+New `_parse_torznab_results()` parses the RSS XML response into the same normalised format.
+
+**Bug:** Advanced search panel was hidden by default (display:none).
+**Fix:** Panel is now open by default — genre and search-type fields are immediately visible.
+
+### Security — Path traversal in Torznab tracker-filter URL
+
+Tracker IDs from the frontend were joined directly into the endpoint URL:
+`/api/v2.0/indexers/{tracker_id}/results/torznab/api`
+An attacker could send `tracker='../../../etc'` to traverse paths on the Jackett server.
+**Fix:** Whitelist regex `^[A-Za-z0-9][A-Za-z0-9_.-]*$` validates all tracker IDs
+before they are joined into the URL segment. Invalid IDs are silently dropped;
+if none remain the `all` aggregator is used.
+
+### Security audit (full scan, all confirmed safe)
+
+| Finding | Verdict |
+|---------|---------|
+| SQL `{table}` f-strings | ✅ Source is hardcoded `MIGRATION_TABLES` list |
+| SQL `{where_*}` f-strings | ✅ Source is hardcoded `period_map` dict |
+| SQL `{h}` in stats.py | ✅ `int(hours)` + `Query(ge=1, le=8760)` |
+| URL params via aiohttp `params=dict` | ✅ Automatically URL-encoded |
+| Genre chips DOM insertion | ✅ `textContent` (not `innerHTML`) |
+| Jackett result titles | ✅ All output through `esc()` |
+| `search_type` parameter | ✅ Whitelist-validated before use |
+| `category` parameter | ✅ Cast to `int` before use |
+| `limit` parameter | ✅ `min/max` clamped (1–500) |
+
 ## [1.5.3] — 2026-04-29
 
 ### Added — Extended Jackett tag/genre search
