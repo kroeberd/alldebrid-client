@@ -266,6 +266,104 @@ def _parse_torznab_indexers(xml_text: str) -> List[Dict[str, str]]:
     return items
 
 
+TORZNAB_NS = "http://torznab.com/api/1.0"
+
+
+def _parse_torznab_results(xml_text: str) -> List[Dict[str, Any]]:
+    """Parse Torznab RSS search-result XML into normalised result dicts."""
+    if not xml_text.strip():
+        return []
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as exc:
+        logger.warning("Jackett Torznab XML parse error: %s", exc)
+        return []
+
+    items = []
+    channel = root.find("channel")
+    if channel is None:
+        return []
+
+    for item in channel.findall("item"):
+        def _text(tag: str) -> str:
+            el = item.find(tag)
+            return (el.text or "").strip() if el is not None else ""
+
+        def _attr(name: str) -> str:
+            """Read torznab:attr name=<name> value."""
+            for el in item.findall(f"{{{TORZNAB_NS}}}attr"):
+                if el.attrib.get("name") == name:
+                    return (el.attrib.get("value") or "").strip()
+            return ""
+
+        title = _text("title")
+        magnet = _attr("magneturl") or ""
+        infohash = _attr("infohash") or ""
+        enclosure = item.find("enclosure")
+        torrent_url = ""
+        if enclosure is not None:
+            torrent_url = (enclosure.attrib.get("url") or "").strip()
+
+        if not magnet and not torrent_url:
+            # try guid / link
+            for tag in ("guid", "link", "comments"):
+                val = _text(tag)
+                if val.lower().startswith("magnet:"):
+                    magnet = val
+                    break
+
+        if not infohash and magnet:
+            infohash = _extract_btih(magnet)
+        if not magnet and infohash:
+            dn = quote(title) if title else ""
+            magnet = f"magnet:?xt=urn:btih:{infohash}" + (f"&dn={dn}" if dn else "")
+
+        try:
+            size_b = int(_attr("size") or _text("size") or "0")
+        except ValueError:
+            size_b = 0
+
+        try:
+            seeders = int(_attr("seeders") or "0")
+        except ValueError:
+            seeders = 0
+
+        try:
+            leechers = int(_attr("peers") or _attr("leechers") or "0")
+        except ValueError:
+            leechers = 0
+
+        tracker = _attr("tracker") or _text("jackettIndexer") or ""
+        category = _text("category")
+
+        pub_date = ""
+        raw_date = _text("pubDate")
+        if raw_date:
+            try:
+                from email.utils import parsedate_to_datetime
+                dt = parsedate_to_datetime(raw_date)
+                pub_date = dt.strftime("%Y-%m-%d")
+            except Exception:
+                pub_date = raw_date[:10]
+
+        items.append({
+            "title": title,
+            "indexer": tracker,
+            "category": category,
+            "size_bytes": size_b,
+            "size_human": _fmt_size(size_b),
+            "seeders": seeders,
+            "leechers": leechers,
+            "pub_date": pub_date,
+            "magnet": magnet,
+            "torrent_url": torrent_url,
+            "hash": infohash.lower(),
+            "has_link": bool(magnet or torrent_url),
+        })
+    return items
+
+
+
 def _filename_from_response(url: str, content_disposition: str) -> str:
     msg = Message()
     if content_disposition:
@@ -337,32 +435,82 @@ async def search(
     if not url or not api_key:
         return {"results": [], "total": 0, "query": query, "error": "Jackett URL or API key not configured"}
 
-    endpoint = f"{url}/api/v2.0/indexers/all/results"
-    params = _build_result_params(
-        query, category, trackers or [], limit, api_key,
-        search_type=search_type, genre=genre, imdbid=imdbid,
-        year=year, season=season, ep=ep,
-    )
+    # Choose endpoint:
+    # - extended params (genre/imdbid/year/season/ep) require Torznab XML API
+    # - simple query uses the faster JSON Results API
+    use_torznab = bool(genre or imdbid or year or season or ep or search_type != "search")
 
-    try:
-        timeout = aiohttp.ClientTimeout(total=30)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            data = await _get_json(session, endpoint, params)
-    except aiohttp.ClientConnectorError as exc:
-        logger.warning("Jackett: connection refused — %s", exc)
-        return {"results": [], "total": 0, "query": query, "error": "Jackett not reachable — check URL and port"}
-    except PermissionError as exc:
-        logger.warning("Jackett: %s", exc)
-        return {"results": [], "total": 0, "query": query, "error": str(exc)}
-    except RuntimeError as exc:
-        logger.warning("Jackett: %s", exc)
-        return {"results": [], "total": 0, "query": query, "error": str(exc)}
-    except Exception as exc:
-        logger.error("Jackett: unexpected error during search: %s", exc)
-        return {"results": [], "total": 0, "query": query, "error": str(exc)}
+    if use_torznab:
+        # Build Torznab API params (XML endpoint)
+        tnb_params: Dict[str, Any] = {
+            "apikey": api_key,
+            "t": search_type,
+            "q": query.strip(),
+            "limit": limit,
+        }
+        if category and category != CATEGORY_ALL:
+            tnb_params["cat"] = category
+        if genre:
+            tnb_params["genre"] = genre.strip()
+        if imdbid:
+            raw = imdbid.strip().lstrip("tT")
+            tnb_params["imdbid"] = f"tt{raw}" if raw.isdigit() else imdbid.strip()
+        if year:
+            tnb_params["year"] = str(year).strip()
+        if season:
+            tnb_params["season"] = str(season).strip()
+        if ep:
+            tnb_params["ep"] = str(ep).strip()
+        # Sanitise tracker IDs — allow only URL-safe characters to prevent
+        # path traversal in the Torznab endpoint URL segment.
+        _SAFE_TRACKER_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+        safe_trackers = [
+            str(t).strip() for t in trackers
+            if _SAFE_TRACKER_RE.match(str(t).strip())
+        ]
+        tracker_filter = ",".join(safe_trackers) if safe_trackers else "all"
 
-    raw_results = data.get("Results") or []
-    normalised = [_normalise_result(r) for r in raw_results]
+        torznab_endpoint = f"{url}/api/v2.0/indexers/{tracker_filter}/results/torznab/api"
+
+        try:
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                xml_text = await _get_text(session, torznab_endpoint, tnb_params)
+        except aiohttp.ClientConnectorError as exc:
+            logger.warning("Jackett: connection refused — %s", exc)
+            return {"results": [], "total": 0, "query": query, "error": "Jackett not reachable — check URL and port"}
+        except PermissionError as exc:
+            return {"results": [], "total": 0, "query": query, "error": str(exc)}
+        except RuntimeError as exc:
+            return {"results": [], "total": 0, "query": query, "error": str(exc)}
+        except Exception as exc:
+            logger.error("Jackett: unexpected error during Torznab search: %s", exc)
+            return {"results": [], "total": 0, "query": query, "error": str(exc)}
+
+        normalised = _parse_torznab_results(xml_text)
+    else:
+        # Simple search: JSON Results API
+        endpoint = f"{url}/api/v2.0/indexers/all/results"
+        params = _build_result_params(
+            query, category, trackers or [], limit, api_key,
+        )
+        try:
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                data = await _get_json(session, endpoint, params)
+        except aiohttp.ClientConnectorError as exc:
+            logger.warning("Jackett: connection refused — %s", exc)
+            return {"results": [], "total": 0, "query": query, "error": "Jackett not reachable — check URL and port"}
+        except PermissionError as exc:
+            return {"results": [], "total": 0, "query": query, "error": str(exc)}
+        except RuntimeError as exc:
+            return {"results": [], "total": 0, "query": query, "error": str(exc)}
+        except Exception as exc:
+            logger.error("Jackett: unexpected error during search: %s", exc)
+            return {"results": [], "total": 0, "query": query, "error": str(exc)}
+
+        raw_results = data.get("Results") or []
+        normalised = [_normalise_result(r) for r in raw_results]
     await _fill_missing_hashes_from_torrent_files(normalised)
     normalised.sort(key=lambda r: r["seeders"], reverse=True)
     logger.info("Jackett search %r → %d result(s)", query, len(normalised))
