@@ -98,8 +98,8 @@ body.light {
 .idx-picker { position:relative; min-width:180px; }
 .idx-trigger {
   display:flex; align-items:center; gap:4px; flex-wrap:wrap;
-  padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius-sm);
-  background:var(--surface2); cursor:pointer; min-height:36px;
+  padding:0 8px; border:1px solid var(--border); border-radius:var(--radius-sm);
+  background:var(--surface2); cursor:pointer; min-height:34px; height:34px;
 }
 .idx-trigger:hover { border-color:var(--border2); }
 .idx-chip {
@@ -108,7 +108,7 @@ body.light {
 }
 .idx-chip-close { cursor:pointer; font-size:13px; line-height:1; opacity:.7; }
 .idx-chip-close:hover { opacity:1; }
-.idx-placeholder { color:var(--text3); font-size:13px; flex:1; }
+.idx-placeholder { color:var(--text3); font-size:12px; flex:1; }
 .idx-arrow { color:var(--text3); font-size:10px; flex-shrink:0; margin-left:auto; }
 .idx-dropdown {
   display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:500;
@@ -968,36 +968,45 @@ textarea.input { resize: vertical; }
 
     <!-- Search -->
     <div class="view" id="view-search">
-      <div class="view-header">
-        <h2 class="view-title">&#128269; Torrent Search</h2>
-      </div>
 
-      <div class="card" id="jackett-search-bar" style="margin-bottom:16px">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-          <div style="flex:1;min-width:220px">
-            <label class="form-label">Search</label>
-            <input class="input" id="jackett-query" placeholder="Title, keyword&#8230;"
-              onkeydown="if(event.key===&apos;Enter&apos;)jackettSearch()" style="width:100%">
-          </div>
-          <div style="min-width:140px">
-            <label class="form-label">Category</label>
-            <select class="input" id="jackett-cat" style="width:100%">
-              <option value="0">All</option>
-              <option value="2000">Movies</option>
-              <option value="5000">TV</option>
-              <option value="3000">Music</option>
-              <option value="7000">Books</option>
-              <option value="1000">Games</option>
-              <option value="4000">Software</option>
-              <option value="6000">XXX</option>
+      <div id="jackett-search-bar" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+
+        <!-- Row 1: Query + Search button -->
+        <div style="display:flex;gap:8px;align-items:stretch">
+          <input class="input" id="jackett-query" placeholder="Search by title, keyword, IMDb ID&#8230;"
+            onkeydown="if(event.key==='Enter')jackettSearch()"
+            style="flex:1;font-size:14px;height:40px;padding:0 14px">
+          <button class="btn btn-primary" onclick="jackettSearch()" id="jackett-search-btn"
+            style="height:40px;padding:0 22px;font-size:13px;white-space:nowrap;flex-shrink:0">
+            &#128269; Search
+          </button>
+        </div>
+
+        <!-- Row 2: Filters -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+
+          <!-- Category -->
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:120px">
+            <label class="form-label" style="margin:0">Category</label>
+            <select class="input" id="jackett-cat" style="height:34px;padding:0 8px;font-size:12px">
+              <option value="0">All categories</option>
+              <option value="2000">&#127916; Movies</option>
+              <option value="5000">&#128250; TV</option>
+              <option value="3000">&#127925; Music</option>
+              <option value="7000">&#128218; Books</option>
+              <option value="1000">&#127918; Games</option>
+              <option value="4000">&#128187; Software</option>
             </select>
           </div>
-          <div style="min-width:180px">
-            <label class="form-label">Indexers</label>
-            <div class="idx-picker" id="idx-picker">
-              <div class="idx-trigger" id="idx-trigger" onclick="idxToggle(event)">
+
+          <!-- Indexers -->
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+            <label class="form-label" style="margin:0">Indexers</label>
+            <div class="idx-picker" id="idx-picker" style="height:34px">
+              <div class="idx-trigger" id="idx-trigger" onclick="idxToggle(event)"
+                style="height:34px;padding:0 8px;font-size:12px">
                 <span class="idx-placeholder" id="idx-placeholder">All Indexers</span>
-                <span class="idx-arrow">&#9660;</span>
+                <span class="idx-arrow" style="font-size:9px">&#9660;</span>
               </div>
               <div class="idx-dropdown" id="idx-dropdown">
                 <label class="idx-option idx-all-opt">
@@ -1008,90 +1017,85 @@ textarea.input { resize: vertical; }
             </div>
             <select id="jackett-tracker" multiple style="display:none"></select>
           </div>
-          <div style="min-width:150px">
-            <label class="form-label">Availability</label>
-            <select class="input" id="jackett-availability" style="width:100%">
-              <option value="all">All torrents</option>
-              <option value="alive">Seeded only</option>
+
+          <!-- Search type -->
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:120px">
+            <label class="form-label" style="margin:0">Mode</label>
+            <select class="input" id="jackett-search-type" style="height:34px;padding:0 8px;font-size:12px"
+              onchange="onSearchTypeChange()">
+              <option value="search">&#128269; General</option>
+              <option value="tvsearch">&#128250; TV Series</option>
+              <option value="movie">&#127916; Movie</option>
+              <option value="music">&#127925; Music</option>
+              <option value="book">&#128218; Book</option>
             </select>
           </div>
-          <button class="btn btn-primary" onclick="jackettSearch()" id="jackett-search-btn"
-            style="align-self:flex-end;white-space:nowrap">
-            &#128269; Search
-          </button>
-          <button class="search-adv-toggle" onclick="toggleSearchAdv(this)" title="Advanced search options">
-            <span id="search-adv-arrow">&#9662;</span> Advanced
-          </button>
-        </div>
 
-        <!-- Advanced / Tag-Search Panel -->
-        <div class="search-adv-panel open" id="search-adv-panel">
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding-top:10px">
+          <!-- Genre chips input (hidden for General mode) -->
+          <div id="adv-genre-wrap" style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+            <label class="form-label" style="margin:0">Genre / Tag</label>
+            <div style="position:relative">
+              <input class="input" id="jackett-genre"
+                placeholder="comedy, horror&#8230; (Enter to add)"
+                list="genre-suggestions"
+                style="height:34px;padding:0 8px;font-size:12px;width:100%"
+                oninput="updateGenreChips()"
+                onkeydown="if(event.key==='Enter'){addGenreChip();event.preventDefault();}">
+              <datalist id="genre-suggestions">
+                <option value="action"><option value="adventure"><option value="animation">
+                <option value="biography"><option value="comedy"><option value="crime">
+                <option value="documentary"><option value="drama"><option value="fantasy">
+                <option value="horror"><option value="mystery"><option value="romance">
+                <option value="sci-fi"><option value="thriller"><option value="western">
+                <option value="rock"><option value="pop"><option value="jazz"><option value="classical">
+                <option value="hip-hop"><option value="electronic"><option value="metal">
+              </datalist>
+            </div>
+            <div id="genre-chips" style="display:flex;flex-wrap:wrap;gap:3px;min-height:0"></div>
+          </div>
 
-            <!-- Search type -->
-            <div style="min-width:130px">
-              <label class="form-label">Search type
-                <span style="font-size:9px;color:var(--text3);font-weight:400;margin-left:4px">Torznab mode</span>
-              </label>
-              <select class="input" id="jackett-search-type" style="width:100%" onchange="onSearchTypeChange()">
-                <option value="search">General</option>
-                <option value="tvsearch">TV Series</option>
-                <option value="movie">Movie</option>
-                <option value="music">Music</option>
-                <option value="book">Book</option>
+          <!-- IMDb ID (movie + tvsearch only) -->
+          <div id="adv-imdbid-wrap" style="display:none;flex-direction:column;gap:4px;min-width:130px">
+            <label class="form-label" style="margin:0">IMDb ID</label>
+            <input class="input" id="jackett-imdbid" placeholder="tt1234567"
+              style="height:34px;padding:0 8px;font-size:12px">
+          </div>
+
+          <!-- Year -->
+          <div id="adv-year-wrap" style="display:none;flex-direction:column;gap:4px;min-width:80px">
+            <label class="form-label" style="margin:0">Year</label>
+            <input class="input" id="jackett-year" placeholder="2024" type="number" min="1900" max="2100"
+              style="height:34px;padding:0 8px;font-size:12px">
+          </div>
+
+          <!-- Season (tvsearch only) -->
+          <div id="adv-season-wrap" style="display:none;flex-direction:column;gap:4px;min-width:70px">
+            <label class="form-label" style="margin:0">Season</label>
+            <input class="input" id="jackett-season" placeholder="1" type="number" min="1"
+              style="height:34px;padding:0 8px;font-size:12px">
+          </div>
+
+          <!-- Episode (tvsearch only) -->
+          <div id="adv-ep-wrap" style="display:none;flex-direction:column;gap:4px;min-width:70px">
+            <label class="form-label" style="margin:0">Episode</label>
+            <input class="input" id="jackett-ep" placeholder="1" type="number" min="1"
+              style="height:34px;padding:0 8px;font-size:12px">
+          </div>
+
+          <!-- Availability + Clear -->
+          <div style="display:flex;gap:6px;align-items:flex-end;margin-left:auto">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label class="form-label" style="margin:0">Availability</label>
+              <select class="input" id="jackett-availability" style="height:34px;padding:0 8px;font-size:12px">
+                <option value="all">All torrents</option>
+                <option value="alive">Seeded only</option>
               </select>
             </div>
-
-            <!-- Genre / Tag -->
-            <div style="min-width:150px">
-              <label class="form-label">Genre / Tag
-                <span style="font-size:9px;color:var(--text3);font-weight:400;margin-left:4px">tvsearch·movie·music·book</span>
-              </label>
-              <div style="position:relative">
-                <input class="input" id="jackett-genre" placeholder="e.g. comedy, horror, rock&#8230;"
-                  list="genre-suggestions" style="width:100%"
-                  oninput="updateGenreChips()" onkeydown="if(event.key==='Enter'){addGenreChip();event.preventDefault();}">
-                <datalist id="genre-suggestions">
-                  <option value="action"><option value="adventure"><option value="animation">
-                  <option value="biography"><option value="comedy"><option value="crime">
-                  <option value="documentary"><option value="drama"><option value="fantasy">
-                  <option value="horror"><option value="mystery"><option value="romance">
-                  <option value="sci-fi"><option value="thriller"><option value="western">
-                  <option value="rock"><option value="pop"><option value="jazz"><option value="classical">
-                  <option value="hip-hop"><option value="electronic"><option value="metal">
-                </datalist>
-              </div>
-              <div id="genre-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;min-height:0"></div>
-            </div>
-
-            <!-- IMDb ID (movie + tvsearch) -->
-            <div id="adv-imdbid-wrap" style="min-width:130px">
-              <label class="form-label">IMDb ID
-                <span style="font-size:9px;color:var(--text3);font-weight:400;margin-left:4px">movie·tvsearch</span>
-              </label>
-              <input class="input" id="jackett-imdbid" placeholder="tt1234567 or 1234567" style="width:100%">
-            </div>
-
-            <!-- Year (movie + tvsearch) -->
-            <div id="adv-year-wrap" style="min-width:90px">
-              <label class="form-label">Year</label>
-              <input class="input" id="jackett-year" placeholder="2024" type="number" min="1900" max="2100" style="width:100%">
-            </div>
-
-            <!-- Season / Ep (tvsearch only) -->
-            <div id="adv-season-wrap" style="min-width:80px;display:none">
-              <label class="form-label">Season</label>
-              <input class="input" id="jackett-season" placeholder="1" type="number" min="1" style="width:100%">
-            </div>
-            <div id="adv-ep-wrap" style="min-width:80px;display:none">
-              <label class="form-label">Episode</label>
-              <input class="input" id="jackett-ep" placeholder="1" type="number" min="1" style="width:100%">
-            </div>
-
-            <!-- Clear advanced -->
             <button class="btn btn-ghost btn-sm" onclick="clearSearchAdv()"
-              style="align-self:flex-end;white-space:nowrap;opacity:.7">&#10005; Clear</button>
+              style="height:34px;padding:0 10px;opacity:.6;white-space:nowrap"
+              title="Clear all filters">&#10005; Reset</button>
           </div>
+
         </div>
       </div>
 
@@ -4504,12 +4508,8 @@ function renderJackettResults() {
 var _genreChips = new Set();
 
 function toggleSearchAdv(btn) {
-  var panel = document.getElementById('search-adv-panel');
-  var arrow = document.getElementById('search-adv-arrow');
-  if (!panel) return;
-  var open = panel.classList.toggle('open');
-  if (arrow) arrow.innerHTML = open ? '&#9662;' : '&#9656;';
-  if (open) onSearchTypeChange();
+  // No longer used — filters always visible
+  onSearchTypeChange();
 }
 
 function onSearchTypeChange() {
@@ -4518,17 +4518,15 @@ function onSearchTypeChange() {
   var showYear   = t === 'movie' || t === 'tvsearch';
   var showSeason = t === 'tvsearch';
   var showGenre  = t !== 'search';
-  var g  = document.getElementById('adv-imdbid-wrap');
-  var y  = document.getElementById('adv-year-wrap');
-  var s  = document.getElementById('adv-season-wrap');
-  var ep = document.getElementById('adv-ep-wrap');
-  var gw = document.getElementById('jackett-genre');
-  if (g)  g.style.display  = showImdb   ? '' : 'none';
-  if (y)  y.style.display  = showYear   ? '' : 'none';
-  if (s)  s.style.display  = showSeason ? '' : 'none';
-  if (ep) ep.style.display = showSeason ? '' : 'none';
-  if (gw && gw.parentElement && gw.parentElement.parentElement)
-    gw.parentElement.parentElement.style.opacity = showGenre ? '1' : '0.45';
+  var setDisplay = function(id, show) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = show ? 'flex' : 'none';
+  };
+  setDisplay('adv-genre-wrap',  showGenre);
+  setDisplay('adv-imdbid-wrap', showImdb);
+  setDisplay('adv-year-wrap',   showYear);
+  setDisplay('adv-season-wrap', showSeason);
+  setDisplay('adv-ep-wrap',     showSeason);
 }
 
 function addGenreChip() {
@@ -4580,11 +4578,19 @@ function removeGenreChip(tag) {
 function clearSearchAdv() {
   _genreChips.clear();
   renderGenreChips();
-  ['jackett-imdbid','jackett-year','jackett-season','jackett-ep','jackett-genre'].forEach(function(id) {
-    var el = document.getElementById(id); if(el) el.value = '';
+  ['jackett-imdbid','jackett-year','jackett-season','jackett-ep','jackett-genre',
+   'jackett-query','jackett-cat','jackett-availability'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = '';
   });
   var t = document.getElementById('jackett-search-type');
   if (t) { t.value = 'search'; onSearchTypeChange(); }
+  _idxSelected.clear();
+  var allCb = document.getElementById('idx-all-cb');
+  if (allCb) allCb.checked = true;
+  idxPickerCommit();
 }
 
 async function jackettSearch() {
@@ -4746,9 +4752,9 @@ function initSearchView() {
     return;
   }
   if (notConf) notConf.style.display='none';
-  if (searchBar) searchBar.style.display='';
+  if (searchBar) searchBar.style.display='flex';
+  onSearchTypeChange();
   loadJackettIndexers();
-  // Focus auf das Suchfeld
   setTimeout(function(){ var q=document.getElementById('jackett-query'); if(q)q.focus(); }, 100);
 }
 
