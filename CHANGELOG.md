@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.5.6] — 2026-05-02
+
+### Fixed — Jackett search silently returning 0 results
+
+**Root cause:** Jackett with 618 indexers took **33.18 seconds** to complete a search.
+The backend had a 30-second timeout — the request was aborted and the broad
+`except Exception` handler returned `{results: [], total: 0}` without showing any error.
+The Jackett log showed `Found 331 releases [33180ms]` but the UI showed *"No results"*.
+
+**Fixes:**
+- Search timeout raised from **30 s → 120 s** (both JSON and Torznab paths)
+- `aiohttp.ServerTimeoutError` now caught explicitly and shown to the user:
+  *"Jackett search timed out — try fewer indexers or a more specific query"*
+- Debug logging added when `Results` key is empty to diagnose future issues
+- Frontend shows a *"still searching…"* hint after 8 s so the user knows
+  Jackett is still running (large indexer sets can take up to 60 s)
+
 ## [1.5.5] — 2026-04-29
 
 ### Fixed — Search UI: flat consistent filter bar
