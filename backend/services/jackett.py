@@ -473,9 +473,12 @@ async def search(
         torznab_endpoint = f"{url}/api/v2.0/indexers/{tracker_filter}/results/torznab/api"
 
         try:
-            timeout = aiohttp.ClientTimeout(total=30)
+            timeout = aiohttp.ClientTimeout(total=120)  # Jackett can be slow with many indexers
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 xml_text = await _get_text(session, torznab_endpoint, tnb_params)
+        except aiohttp.ServerTimeoutError:
+            logger.warning("Jackett: Torznab search timed out after 120s for query %r", query)
+            return {"results": [], "total": 0, "query": query, "error": "Jackett search timed out — try fewer indexers or a more specific query"}
         except aiohttp.ClientConnectorError as exc:
             logger.warning("Jackett: connection refused — %s", exc)
             return {"results": [], "total": 0, "query": query, "error": "Jackett not reachable — check URL and port"}
@@ -495,9 +498,12 @@ async def search(
             query, category, trackers or [], limit, api_key,
         )
         try:
-            timeout = aiohttp.ClientTimeout(total=30)
+            timeout = aiohttp.ClientTimeout(total=120)  # Jackett can be slow with many indexers
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 data = await _get_json(session, endpoint, params)
+        except aiohttp.ServerTimeoutError:
+            logger.warning("Jackett: search timed out after 120s for query %r", query)
+            return {"results": [], "total": 0, "query": query, "error": "Jackett search timed out — try fewer indexers or a more specific query"}
         except aiohttp.ClientConnectorError as exc:
             logger.warning("Jackett: connection refused — %s", exc)
             return {"results": [], "total": 0, "query": query, "error": "Jackett not reachable — check URL and port"}
@@ -510,6 +516,15 @@ async def search(
             return {"results": [], "total": 0, "query": query, "error": str(exc)}
 
         raw_results = data.get("Results") or []
+        if not raw_results:
+            # Log the actual response keys to help debug empty-result issues
+            actual_keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
+            logger.warning(
+                "Jackett JSON search: 'Results' key empty or missing. "
+                "Actual top-level keys: %s. Raw data sample: %s",
+                actual_keys,
+                str(data)[:500] if isinstance(data, dict) else str(data)[:200],
+            )
         normalised = [_normalise_result(r) for r in raw_results]
     await _fill_missing_hashes_from_torrent_files(normalised)
     normalised.sort(key=lambda r: r["seeders"], reverse=True)

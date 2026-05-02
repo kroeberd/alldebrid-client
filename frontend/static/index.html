@@ -4615,10 +4615,16 @@ async function jackettSearch() {
   var tbody = document.getElementById('jackett-tbody');
   var count = document.getElementById('jackett-result-count');
 
-  if (btn)   { btn.disabled=true; btn.textContent='Searching...'; }
-  if (state) { state.style.display='block'; state.textContent='Searching...'; }
+  if (btn)   { btn.disabled=true; btn.textContent='Searching…'; }
+  if (state) { state.style.display='block'; state.textContent='Searching…'; }
   if (wrap)  wrap.style.display='none';
   if (tbody) tbody.innerHTML='';
+  // Show a "still searching" hint after 8s (Jackett with many indexers can take 30s+)
+  var _slowHint = setTimeout(function() {
+    if (state && state.style.display !== 'none' && (state.textContent||'').startsWith('Search')) {
+      state.innerHTML = 'Searching… <span style="color:var(--text3);font-size:11px">(Jackett is querying all indexers — this can take up to 60s)</span>';
+    }
+  }, 8000);
 
   try {
     var payload = {
@@ -4653,6 +4659,7 @@ async function jackettSearch() {
   } catch(e) {
     if (state) { state.style.display='block'; state.textContent='Error: '+e.message; }
   } finally {
+    clearTimeout(_slowHint);
     if (btn) { btn.disabled=false; btn.textContent='Search'; }
   }
 }
