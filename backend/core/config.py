@@ -75,6 +75,7 @@ class AppSettings(BaseModel):
     discord_notify_added: bool = True
     discord_notify_finished: bool = True
     discord_notify_error: bool = True
+    discord_notify_update: bool = True
 
     # Filters
     filters_enabled: bool = False
@@ -166,6 +167,7 @@ class AppSettings(BaseModel):
     stats_snapshot_keep_days: int = 30
     # Auto-report: interval in hours (0 = disabled)
     stats_report_interval_hours: int = 0
+    update_check_interval_hours: int = 12
     # Report window in hours used for manual default display and scheduled reports
     stats_report_window_hours: int = 24
     # Webhook URL that receives automated reporting payloads

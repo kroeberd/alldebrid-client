@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.5.8] — 2026-05-04
+
+### Fixed — Changelog always shows current version
+
+**Root cause:** `CHANGELOG.md` is copied into the Docker image at build time.
+When running a stale image the local file was missing the newer version entries.
+
+**Fix:** `GET /changelog` now checks whether the local file contains the running
+version's entry (`[1.5.x]` marker). If not, it fetches all release bodies from
+the GitHub Releases API and returns them merged — cached for 1 hour to avoid
+hitting rate limits. Users always see the up-to-date changelog regardless of
+image age.
+
+### Added — Automatic update check with Discord notification
+
+| Component | Details |
+|-----------|---------|
+| `GET /version/check` | Compares running version against latest GitHub release. Returns `{current, latest, update_available, release_url, release_notes}`. Cached for 30 minutes. |
+| `update_check_loop()` | Background scheduler task. Polls GitHub every N hours (configurable). Sends a Discord embed when a newer version is found. Skips duplicate notifications for the same version. |
+| `Notifier.send_update()` | Rich Discord embed: new version number, current version, link to GitHub release, first 900 chars of release notes. |
+| Settings → 🔔 Notifications | **"Notify on new version"** toggle (`discord_notify_update`, default on). **"Version check interval"** number input (hours, 0 = disabled, default 12). |
+| Header update badge | Orange pill badge appears in the topbar when a newer version is available. Click opens the Changelog view. Checked automatically on each stats refresh. |
+
+**Config fields added:**
+- `discord_notify_update: bool = True`
+- `update_check_interval_hours: int = 12`
+
 ## [1.5.7] — 2026-05-04
 
 ### Maintenance — Dependency updates (Dependabot PRs #12–18)

@@ -253,6 +253,38 @@ class NotificationService:
             color=color,
         )
 
+    async def send_update(
+        self,
+        current_version: str,
+        latest_version: str,
+        release_url: str = "",
+        release_notes: str = "",
+    ) -> None:
+        """Notify that a new AllDebrid-Client version is available."""
+        cfg = get_settings()
+        if not getattr(cfg, "discord_notify_update", True):
+            return
+        url = self.webhook_url
+        if not url:
+            return
+        desc = (
+            "**AllDebrid-Client " + latest_version + "** is available.\n"
+            "You are running **" + current_version + "**."
+        )
+        fields: List[Dict[str, Any]] = []
+        if release_url:
+            fields.append({"name": "Release", "value": "[View on GitHub](" + release_url + ")", "inline": False})
+        if release_notes:
+            notes = release_notes[:900] + ("…" if len(release_notes) > 900 else "")
+            fields.append({"name": "Release Notes", "value": notes, "inline": False})
+        await self._send(
+            url=url,
+            title="📦 New version available",
+            description=desc,
+            color=COLOR_INFO,
+            fields=fields or None,
+        )
+
     async def test(self) -> bool:
         """Sends a test message. Returns True if actually sent to Discord."""
         if not self.webhook_url:

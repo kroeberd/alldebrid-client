@@ -769,6 +769,7 @@ textarea.input { resize: vertical; }
   <div id="topbar">
     <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
     <h1 id="page-title">Dashboard</h1>
+    <div id="update-badge" style="display:none;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--accent);border-radius:20px;padding:3px 12px;font-size:11px;color:var(--accent);cursor:pointer" onclick="nav(document.querySelector('[data-view=changelog]'))" title="New version available">&#128230; <span id="update-badge-version"></span> available</div>
     <div id="aria2-speed-badge" style="display:none;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text2)"><span style="color:var(--green)">&#11015;</span><span id="aria2-speed-dl">0 B/s</span></div>
     <div id="topbar-actions"></div>
   </div>
@@ -2047,6 +2048,22 @@ function renderTorrentPagination(total, limit, offset) {
 function goToTorrentPage(p) { torrentPage = Math.max(1,p); loadTorrents(); }
 function onPageSizeChange(v) { torrentPageSize=Math.min(Math.max(parseInt(v)||25,15),100); torrentPage=1; loadTorrents(); }
 
+async function checkForUpdate() {
+  try {
+    const data = await api('GET', '/version/check');
+    const badge = document.getElementById('update-badge');
+    const badgeV = document.getElementById('update-badge-version');
+    if (!badge) return;
+    if (data.update_available && data.latest) {
+      if (badgeV) badgeV.textContent = 'v' + data.latest;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch (_) {}
+}
+
+
 async function loadDetailedStats(period) {
   period = period || (document.querySelector('#stats-period-tabs .ftab.active')||{}).dataset?.period || '24h';
 
@@ -3052,6 +3069,15 @@ function renderSettings() {
           <div class="toggle-info"><div class="tl">Notify on Error</div></div>
           <label class="toggle"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error?'checked':''}><div class="ttrack"></div></label>
         </div>
+        <div class="toggle-row">
+          <div class="toggle-info"><div class="tl">Notify on new version</div><div class="ts">Send a webhook when a newer release is available on GitHub. Respects the main Discord webhook URL.</div></div>
+          <label class="tswitch"><input type="checkbox" id="s-discord_notify_update" ${s.discord_notify_update!==false?'checked':''}><div class="ttrack"></div></label>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label class="form-label">Version check interval (hours) <span style="font-size:9px;color:var(--text3);font-weight:400">0&nbsp;=&nbsp;disabled</span></label>
+          <input class="input" id="s-update_check_interval_hours" type="number" min="0" max="168" style="width:90px" value="${s.update_check_interval_hours??12}"/>
+          <span class="form-hint">How often GitHub is polled for a new release. Default: 12 h.</span>
+        </div>
       </div>
     </div>
     </div>
@@ -3543,6 +3569,8 @@ function getFormSettings() {
     discord_webhook_added: t('discord_webhook_added'),
     discord_notify_added: c('discord_notify_added'), discord_notify_finished: c('discord_notify_finished'),
     discord_notify_error: c('discord_notify_error'),
+    discord_notify_update: c('discord_notify_update'),
+    update_check_interval_hours: n('update_check_interval_hours', 12),
     sonarr_enabled: c('sonarr_enabled'), sonarr_url: t('sonarr_url'), sonarr_api_key: t('sonarr_api_key'),
     radarr_enabled: c('radarr_enabled'), radarr_url: t('radarr_url'), radarr_api_key: t('radarr_api_key'),
     torrent_labels: (t('torrent_labels_raw')||'').split(',').map(s=>s.trim()).filter(Boolean),

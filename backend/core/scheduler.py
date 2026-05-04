@@ -199,6 +199,61 @@ async def aria2_restart_loop():
         except Exception as e:
             logger.error("aria2_restart_loop error: %s", e)
 
+async def update_check_loop() -> None:
+    """Check GitHub for new releases every N hours and send a Discord webhook if enabled."""
+    await asyncio.sleep(300)  # 5 min initial delay
+    _last_notified: str = ""
+    while True:
+        try:
+            cfg = get_settings()
+            interval_h = max(0, _coerce_int_setting(
+                getattr(cfg, "update_check_interval_hours", 12), 12
+            ))
+            if interval_h <= 0:
+                await asyncio.sleep(3600)
+                continue
+
+            from core.version import read_version
+            import aiohttp as _aiohttp
+
+            current = read_version()
+            timeout = _aiohttp.ClientTimeout(total=10)
+            async with _aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(
+                    "https://api.github.com/repos/kroeberd/alldebrid-client/releases/latest",
+                    headers={"Accept": "application/vnd.github.v3+json"},
+                ) as resp:
+                    if resp.status != 200:
+                        raise RuntimeError(f"GitHub API returned {resp.status}")
+                    rel = await resp.json()
+
+            latest = (rel.get("tag_name") or "").lstrip("v")
+
+            def _v(s: str):
+                try:
+                    return tuple(int(x) for x in s.split("."))
+                except ValueError:
+                    return (0, 0, 0)
+
+            if latest and _v(latest) > _v(current) and latest != _last_notified:
+                logger.info("Update available: %s → %s", current, latest)
+                from services.notifications import notifier
+                await notifier.send_update(
+                    current_version=current,
+                    latest_version=latest,
+                    release_url=rel.get("html_url", ""),
+                    release_notes=(rel.get("body") or "").strip(),
+                )
+                _last_notified = latest
+
+        except asyncio.CancelledError:
+            return
+        except Exception as exc:
+            logger.warning("update_check_loop error: %s", exc)
+
+        await asyncio.sleep(max(3600, interval_h * 3600))
+
+
 async def start_scheduler():
     _tasks.append(asyncio.create_task(watch_folder_loop()))
     _tasks.append(asyncio.create_task(sync_status_loop()))
@@ -211,6 +266,7 @@ async def start_scheduler():
     _tasks.append(asyncio.create_task(stats_snapshot_loop()))
     _tasks.append(asyncio.create_task(stats_report_loop()))
     _tasks.append(asyncio.create_task(aria2_restart_loop()))
+    _tasks.append(asyncio.create_task(update_check_loop()))
     logger.info("Scheduler started")
 
 
