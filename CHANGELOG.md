@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.5.11] — 2026-05-04
+
+### Fixed — Notifications tab blank (structural and CSS bugs)
+
+Three issues were causing the Notifications tab to render as an empty panel:
+
+1. **Wrong CSS class on update-notification toggle**
+   The "Notify on new version" toggle used `class="tswitch"` which has no CSS
+   definition. All other toggles use `class="toggle"` (width/height/position
+   defined). The undefined class caused the toggle-row to render with collapsed
+   height, which (due to `overflow: hidden` on `.scard`) clipped the entire
+   scard content.
+
+2. **`form-hint` paragraph outside `scard-body`**
+   The hint paragraph was placed between `scard-header` and `scard-body`,
+   outside the flex container. This broke the flex layout of the scard.
+
+3. **Residual `</div>` nesting drift**
+   Previous div-balance fixes had left one misplaced `</div>` causing the
+   browser's HTML error recovery to render the Notifications panel content
+   in an unexpected position.
+
+**Fix:** Notifications panel rebuilt from scratch with correct structure:
+`scard > scard-header > scard-body > (all fields including hint, toggles,
+inputs)`. All toggles use `class="toggle"`. Template verified:
+290/290 balanced divs.
+
 ## [1.5.10] — 2026-05-04
 
 ### Fixed — Settings Notifications tab blank on mobile

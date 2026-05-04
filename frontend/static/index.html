@@ -3040,66 +3040,66 @@ function renderSettings() {
 
     <div class="stab-panel" id="tab-notifications">
       <div class="scard">
-      <div class="scard-header">🔔 Discord Notifications</div>
-      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Receive Discord notifications when torrents are added, complete, or fail.</p>
-      <div class="scard-body">
-        <div class="form-group">
-          <label class="form-label">Bot Name <span style="font-weight:400;color:var(--muted)">(shown as sender in Discord)</span></label>
-          <input class="input" id="s-discord_username" value="${s.discord_username||'AllDebrid-Client'}" placeholder="AllDebrid-Client"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Bot Avatar <span style="font-weight:400;color:var(--muted)">(Discord requires PNG/JPG/WEBP — no SVG. Use Upload to host via this app)</span></label>
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-            <input class="input" id="s-discord_avatar_url" value="${s.discord_avatar_url||''}" placeholder="https://…/avatar.png (PNG/JPG/WEBP, leave empty for no avatar)" style="flex:1"/>
-            <label class="btn btn-ghost btn-sm" style="cursor:pointer;white-space:nowrap">
-              📎 Upload
-              <input type="file" accept="image/png,image/jpeg,image/gif,image/webp"
-                style="display:none" onchange="uploadDiscordAvatar(this)"/>
-            </label>
+        <div class="scard-header">🔔 Discord Notifications</div>
+        <div class="scard-body">
+          <p class="form-hint" style="margin:0 0 10px">Receive Discord notifications when torrents are added, complete, or fail.</p>
+          <div class="form-group">
+            <label class="form-label">Bot Name <span style="font-weight:400;color:var(--muted)">(shown as sender in Discord)</span></label>
+            <input class="input" id="s-discord_username" value="${s.discord_username||'AllDebrid-Client'}" placeholder="AllDebrid-Client"/>
           </div>
-          <div id="avatar-preview" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
-            <img id="avatar-preview-img" src="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--border)"/>
-            <span id="avatar-preview-label"></span>
-            <button class="btn btn-ghost btn-sm" onclick="clearDiscordAvatar()" style="font-size:11px">✕ Remove</button>
+          <div class="form-group">
+            <label class="form-label">Bot Avatar <span style="font-weight:400;color:var(--muted)">(PNG/JPG/WEBP only — no SVG)</span></label>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+              <input class="input" id="s-discord_avatar_url" value="${s.discord_avatar_url||''}" placeholder="https://…/avatar.png" style="flex:1"/>
+              <label class="btn btn-ghost btn-sm" style="cursor:pointer;white-space:nowrap">
+                📎 Upload
+                <input type="file" accept="image/png,image/jpeg,image/gif,image/webp"
+                  style="display:none" onchange="uploadDiscordAvatar(this)"/>
+              </label>
+            </div>
+            <div id="avatar-preview" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
+              <img id="avatar-preview-img" src="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--border)"/>
+              <span id="avatar-preview-label"></span>
+              <button class="btn btn-ghost btn-sm" onclick="clearDiscordAvatar()" style="font-size:11px">✕ Remove</button>
+            </div>
           </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Webhook URL</label>
-          <div class="test-row">
-            <input class="input" id="s-discord_webhook_url" value="${s.discord_webhook_url||''}" placeholder="https://discord.com/api/webhooks/…"/>
-            <button class="btn btn-blue btn-sm" onclick="testDiscord()">Test</button>
+          <div class="form-group">
+            <label class="form-label">Main Webhook URL</label>
+            <div class="test-row">
+              <input class="input" id="s-discord_webhook_url" value="${s.discord_webhook_url||''}" placeholder="https://discord.com/api/webhooks/…"/>
+              <button class="btn btn-blue btn-sm" onclick="testDiscord()">Test</button>
+            </div>
           </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Webhook URL — Torrent Added <span style="font-weight:400;color:var(--muted)">(optional, falls back to main webhook)</span></label>
-          <input class="input" id="s-discord_webhook_added" value="${s.discord_webhook_added||''}" placeholder="https://discord.com/api/webhooks/… (separate channel for added torrents)"/>
-        </div>
-        <div class="toggle-row">
-          <div class="toggle-info"><div class="tl">Notify on Added</div></div>
-          <label class="toggle"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added?'checked':''}><div class="ttrack"></div></label>
-        </div>
-        <div class="toggle-row">
-          <div class="toggle-info"><div class="tl">Notify on Finished</div></div>
-          <label class="toggle"><input type="checkbox" id="s-discord_notify_finished" ${s.discord_notify_finished?'checked':''}><div class="ttrack"></div></label>
-        </div>
-        <div class="toggle-row">
-          <div class="toggle-info"><div class="tl">Notify on Error</div></div>
-          <label class="toggle"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error?'checked':''}><div class="ttrack"></div></label>
-        </div>
-        <div class="toggle-row">
-          <div class="toggle-info"><div class="tl">Notify on new version</div><div class="ts">Send a webhook when a newer release is available on GitHub. Respects the main Discord webhook URL.</div></div>
-          <label class="tswitch"><input type="checkbox" id="s-discord_notify_update" ${s.discord_notify_update!==false?'checked':''}><div class="ttrack"></div></label>
-        </div>
-        <div class="form-group" style="margin-top:10px">
-          <label class="form-label">Version check interval (hours) <span style="font-size:9px;color:var(--text3);font-weight:400">0&nbsp;=&nbsp;disabled</span></label>
-          <input class="input" id="s-update_check_interval_hours" type="number" min="0" max="168" style="width:90px" value="${s.update_check_interval_hours??12}"/>
-          <span class="form-hint">How often GitHub is polled for a new release. Default: 12 h.</span>
+          <div class="form-group">
+            <label class="form-label">Webhook URL — Torrent Added <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+            <input class="input" id="s-discord_webhook_added" value="${s.discord_webhook_added||''}" placeholder="https://discord.com/api/webhooks/…"/>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Notify on Added</div></div>
+            <label class="toggle"><input type="checkbox" id="s-discord_notify_added" ${s.discord_notify_added?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Notify on Finished</div></div>
+            <label class="toggle"><input type="checkbox" id="s-discord_notify_finished" ${s.discord_notify_finished?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Notify on Error</div></div>
+            <label class="toggle"><input type="checkbox" id="s-discord_notify_error" ${s.discord_notify_error?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><div class="tl">Notify on new version</div><div class="ts">Send a webhook when a newer release is available on GitHub.</div></div>
+            <label class="toggle"><input type="checkbox" id="s-discord_notify_update" ${s.discord_notify_update!==false?'checked':''}><div class="ttrack"></div></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Version check interval (hours) <span style="font-size:9px;color:var(--text3);font-weight:400">0 = disabled</span></label>
+            <input class="input" id="s-update_check_interval_hours" type="number" min="0" max="168" style="width:90px" value="${s.update_check_interval_hours??12}"/>
+            <span class="form-hint">How often GitHub is polled for a new release. Default: 12 h.</span>
+          </div>
         </div>
       </div>
     </div>
-    </div>
 
-    <div class="stab-panel" id="tab-services">
+    id="tab-services">
       <div class="scard">
         <div class="scard-header">📺 Sonarr</div>
         <div class="scard-body">
