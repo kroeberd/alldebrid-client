@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.5.7] — 2026-05-04
+
+### Maintenance — Dependency updates (Dependabot PRs #12–18)
+
+**GitHub Actions:**
+
+| Action | From | To |
+|--------|------|----|
+| `docker/setup-qemu-action` | v3 | v4 |
+| `actions/cache` | v4 | v5 |
+| `docker/build-push-action` | v5 | v7 |
+| `docker/metadata-action` | v5 | v6 |
+| `github/codeql-action` | v3 | v4 |
+
+**Python dependencies:**
+
+| Package | From | To |
+|---------|------|-----|
+| `uvicorn[standard]` | 0.35.0 | 0.46.0 |
+| `asyncpg` | ≥0.29.0 | ≥0.31.0 |
+
+All changes verified locally — 188/188 tests passing. No breaking changes
+affect this project. Notable removals in updated packages that were confirmed
+not in use: `DOCKER_BUILD_NO_SUMMARY` env (build-push-action v7),
+`Config.setup_event_loop()` (uvicorn 0.36.1), Python 3.9 support (uvicorn 0.40.0).
+
 ## [1.5.6] — 2026-05-02
 
 ### Fixed — Jackett search silently returning 0 results
