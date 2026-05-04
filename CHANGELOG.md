@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.5.10] — 2026-05-04
+
+### Fixed — Settings Notifications tab blank on mobile
+
+**Root cause:** When the "Notify on new version" toggle and interval input were
+inserted into the Notifications panel (v1.5.8), one extra `</div>` was added
+at the end of the panel. This closed the parent `stab-panel` div one level too
+early:
+
+- The Notifications `<div class="stab-panel">` was never properly closed
+  (its `</div>` had migrated one panel too far).
+- The Advanced panel accumulated an extra `</div>`, causing it to close one
+  element it shouldn't have.
+
+The browser's HTML error recovery meant the Notifications tab rendered as an
+empty gray area — all form fields existed in the DOM but were outside the
+visible panel boundary.
+
+**Fix:** Restored the correct `</div>` nesting so all five panels
+(General / Download / Notifications / Services / Advanced) are exactly balanced.
+All 5 panels verified: `opens == closes` per panel, `285/285` total.
+
 ## [1.5.9] — 2026-05-04
 
 ### Fixed — Hamburger menu unresponsive on mobile
