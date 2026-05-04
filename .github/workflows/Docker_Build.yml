@@ -83,7 +83,7 @@ jobs:
       - name: Docker meta
         if: steps.compare.outputs.skip != 'true'
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             ghcr.io/kroeberd/alldebrid-client
