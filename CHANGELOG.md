@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.5.9] — 2026-05-04
+
+### Fixed — Hamburger menu unresponsive on mobile
+
+Two bugs prevented the sidebar from opening on mobile:
+
+1. **Sidebar blocks clicks when hidden (pointer-events)**
+   The sidebar uses `position: fixed; transform: translateX(-100%)` on mobile.
+   Even though it was visually off-screen, it still occupied the left edge of the
+   viewport and intercepted all touch events there — including the hamburger button.
+   **Fix:** Added `pointer-events: none` to the hidden sidebar state;
+   `pointer-events: auto` on `#sidebar.open`.
+
+2. **Topbar had no z-index**
+   The sidebar has `z-index: 200` (mobile). The topbar had no `z-index` set,
+   so the sidebar layer sat above the topbar even when closed.
+   **Fix:** `#topbar` now has `position: relative; z-index: 210`.
+
+### Fixed — "Waiting for stats" stuck on slow start
+
+Two issues caused the dashboard to stay on the initial placeholder text:
+
+3. **`api()` had no fetch timeout**
+   On a slow mobile connection or slow server start, `fetch()` could hang for
+   minutes with no timeout, making the app appear frozen.
+   **Fix:** `api()` now uses `AbortController` with an **8-second timeout**.
+   Timed-out requests throw `Error('Request timed out')` for clean retry handling.
+
+4. **`loadStats()` exited after first failure instead of retrying**
+   The internal `for` loop (5 attempts) contained `return false` in the `catch`
+   block, which exited the entire function after the very first error — making the
+   outer retry loop in the IIFE pointless.
+   **Fix:** The loop now `continue`s with exponential back-off (`500ms × attempt`)
+   for the first 4 failures, and only returns `false` on the 5th.
+
 ## [1.5.8] — 2026-05-04
 
 ### Fixed — Changelog always shows current version
