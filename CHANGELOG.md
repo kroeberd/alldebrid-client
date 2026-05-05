@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.5.17] — 2026-05-05
+
+### Fixed — Statistics periods work on PostgreSQL + existing installations
+
+**Problem:** All stat-period queries (`1h`, `24h`, `7d`, `30d`, `1y`) used
+SQLite-specific SQL functions that fail silently or throw errors on PostgreSQL:
+
+| SQLite | PostgreSQL equivalent |
+|--------|-----------------------|
+| `datetime('now','-1 hour')` | `NOW() - INTERVAL '1 hour'` |
+| `strftime('%H:%M', field)` | `TO_CHAR(field, 'HH24:MI')` |
+| `strftime('%Y-%m', field)` | `TO_CHAR(field, 'YYYY-MM')` |
+
+**Fix:** Three SQL dialect helper functions added to `routes.py`:
+
+- `_sql_now_minus(interval)` — returns the correct "now minus interval" expression
+  for the active DB engine (SQLite `datetime('now',…)` or PG `NOW() - INTERVAL …`)
+- `_sql_strftime(fmt, field)` — converts strftime-style format to the correct
+  `strftime(…)` (SQLite) or `TO_CHAR(…)` (PG) expression
+- `_sql_date(field)` — `DATE(field)` works identically on both engines
+
+All usages in `GET /stats/detail` (period_map, chart queries, file_status)
+and the two hardcoded queries in `GET /stats` (last_24h, last_7d) are now
+dialect-agnostic.
+
+**Existing installations:** `updated_at` on `download_files` is guaranteed to
+exist — it is part of `_SCHEMA_COLUMNS_FILES` which is applied via
+`_ensure_column` / `_ensure_column_pg` (SQLite/PG `ALTER TABLE ADD COLUMN IF
+NOT EXISTS`) on every app start. No manual migration needed.
+
 ## [1.5.16] — 2026-05-05
 
 ### Fixed — Statistics internal error for all periods except "All time"

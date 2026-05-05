@@ -30,6 +30,42 @@ from core.config import (
 from core.config_validator import validate_and_sanitise
 from core.version import read_version
 from db.database import DB_PATH, _is_postgres, get_db
+
+# ── SQL dialect helpers ────────────────────────────────────────────────────────
+def _sql_now_minus(interval: str) -> str:
+    """Return a SQL expression for (NOW - interval) that works on both SQLite and PostgreSQL.
+
+    interval examples: '1 hour', '1 day', '7 days', '30 days', '1 year', '90 days'
+    """
+    if _is_postgres():
+        return f"NOW() - INTERVAL '{interval}'"
+    # SQLite: rewrite '1 hour' -> '-1 hour', '7 days' -> '-7 days', etc.
+    parts = interval.split()
+    n, unit = parts[0], parts[1]
+    return f"datetime('now','-{n} {unit}')"
+
+
+def _sql_strftime(fmt: str, field: str) -> str:
+    """Return a SQL date-format expression for the given field.
+
+    fmt uses strftime-style placeholders: %H, %M, %Y, %m, %d
+    """
+    if _is_postgres():
+        # Map strftime -> TO_CHAR format
+        pg_fmt = (fmt
+                  .replace("%Y", "YYYY")
+                  .replace("%m", "MM")
+                  .replace("%d", "DD")
+                  .replace("%H", "HH24")
+                  .replace("%M", "MI"))
+        return f"TO_CHAR({field}, '{pg_fmt}')"
+    return f"strftime('{fmt}', {field})"
+
+
+def _sql_date(field: str) -> str:
+    """Return DATE(field) — same syntax on both SQLite and PostgreSQL."""
+    return f"DATE({field})"
+
 from services.manager_v2 import manager
 from services.aria2_runtime import runtime as aria2_runtime
 from services.aria2 import aria2_download_to_dict
@@ -653,8 +689,8 @@ async def get_stats():
         queued          = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status='queued'"))
         error_count     = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status='error'"))
         completed_count = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE status='completed'"))
-        last_24h        = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now','-1 day')"))
-        last_7d         = _c(await db.fetchone("SELECT COUNT(*) as c FROM torrents WHERE completed_at >= datetime('now','-7 days')"))
+        last_24h        = _c(await db.fetchone(f"SELECT COUNT(*) as c FROM torrents WHERE completed_at >= {_sql_now_minus('1 day')}") )
+        last_7d         = _c(await db.fetchone(f"SELECT COUNT(*) as c FROM torrents WHERE completed_at >= {_sql_now_minus('7 days')}") )
         avg_dur_row     = await db.fetchone(
             """SELECT AVG(CAST((julianday(completed_at)-julianday(created_at))*86400 AS INTEGER)) as v
                FROM torrents WHERE completed_at IS NOT NULL AND created_at IS NOT NULL""")
@@ -696,12 +732,12 @@ async def get_stats_detail(period: str = "all"):
     All metrics (including totals) are filtered to the selected period.
     """
     period_map = {
-        "1h":  ("datetime('now','-1 hour')",  "1h",  "strftime('%H:%M', completed_at)", 60),
-        "24h": ("datetime('now','-1 day')",   "24h", "strftime('%H:00', completed_at)", 24),
-        "7d":  ("datetime('now','-7 days')",  "7d",  "DATE(completed_at)",              7),
-        "30d": ("datetime('now','-30 days')", "30d", "DATE(completed_at)",              30),
-        "1y":  ("datetime('now','-1 year')",  "1y",  "strftime('%Y-%m', completed_at)", 12),
-        "all": (None,                         "all", "DATE(completed_at)",              None),
+        "1h":  (_sql_now_minus("1 hour"),  "1h",  _sql_strftime("%H:%M", "completed_at"), 60),
+        "24h": (_sql_now_minus("1 day"),   "24h", _sql_strftime("%H:00", "completed_at"), 24),
+        "7d":  (_sql_now_minus("7 days"),  "7d",  _sql_date("completed_at"),              7),
+        "30d": (_sql_now_minus("30 days"), "30d", _sql_date("completed_at"),              30),
+        "1y":  (_sql_now_minus("1 year"),  "1y",  _sql_strftime("%Y-%m", "completed_at"), 12),
+        "all": (None,                      "all", _sql_date("completed_at"),              None),
     }
     entry = period_map.get(period, period_map["all"])
     cutoff, period_label, date_fmt, _ = entry
@@ -752,33 +788,38 @@ async def get_stats_detail(period: str = "all"):
             f"GROUP BY source ORDER BY count DESC LIMIT 10")
 
         # ── Chart data (period-aware grouping) ───────────────────────────────
+        _cutoff_90d = _sql_now_minus("90 days")
         if period == "1h":
-            # Group by minute for last hour
+            _grp = _sql_strftime("%H:%M", "completed_at")
             daily_completions = await db.fetchall(
-                f"SELECT strftime('%H:%M', completed_at) as date, COUNT(*) as count "
+                f"SELECT {_grp} as date, COUNT(*) as count "
                 f"FROM torrents WHERE completed_at >= {cutoff} AND status='completed' "
-                f"GROUP BY strftime('%H:%M', completed_at) ORDER BY date ASC")
+                f"GROUP BY {_grp} ORDER BY date ASC")
         elif period == "24h":
-            # Group by hour for last 24h
+            _grp = _sql_strftime("%m-%d %H:00", "completed_at")
+            _gb  = _sql_strftime("%H", "completed_at")
             daily_completions = await db.fetchall(
-                f"SELECT strftime('%m-%d %H:00', completed_at) as date, COUNT(*) as count "
+                f"SELECT {_grp} as date, COUNT(*) as count "
                 f"FROM torrents WHERE completed_at >= {cutoff} AND status='completed' "
-                f"GROUP BY strftime('%H', completed_at) ORDER BY date ASC")
+                f"GROUP BY {_gb} ORDER BY date ASC")
         elif period in ("7d", "30d"):
+            _grp = _sql_date("completed_at")
             daily_completions = await db.fetchall(
-                f"SELECT DATE(completed_at) as date, COUNT(*) as count "
+                f"SELECT {_grp} as date, COUNT(*) as count "
                 f"FROM torrents WHERE completed_at >= {cutoff} AND status='completed' "
-                f"GROUP BY DATE(completed_at) ORDER BY date ASC")
+                f"GROUP BY {_grp} ORDER BY date ASC")
         elif period == "1y":
+            _grp = _sql_strftime("%Y-%m", "completed_at")
             daily_completions = await db.fetchall(
-                f"SELECT strftime('%Y-%m', completed_at) as date, COUNT(*) as count "
+                f"SELECT {_grp} as date, COUNT(*) as count "
                 f"FROM torrents WHERE completed_at >= {cutoff} AND status='completed' "
-                f"GROUP BY strftime('%Y-%m', completed_at) ORDER BY date ASC")
-        else:  # all
+                f"GROUP BY {_grp} ORDER BY date ASC")
+        else:  # all — last 90 days grouped by day
+            _grp = _sql_date("completed_at")
             daily_completions = await db.fetchall(
-                "SELECT DATE(completed_at) as date, COUNT(*) as count "
-                "FROM torrents WHERE completed_at >= datetime('now','-90 days') AND status='completed' "
-                "GROUP BY DATE(completed_at) ORDER BY date ASC")
+                f"SELECT {_grp} as date, COUNT(*) as count "
+                f"FROM torrents WHERE completed_at >= {_cutoff_90d} AND status='completed' "
+                f"GROUP BY {_grp} ORDER BY date ASC")
 
         return {
             "period":             period_label,
