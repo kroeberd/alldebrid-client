@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.5.20] — 2026-05-05
+
+### Fixed — "Request timed out" when adding a torrent from search results
+
+**Root cause:** `jackettAdd()` called `api('POST', '/jackett/add', {...})` without
+a custom timeout, so the default 8-second `AbortController` from `api()` applied.
+
+The `/jackett/add` backend endpoint can take significantly longer than 8 s because it:
+1. Downloads the `.torrent` file from the tracker via Jackett (up to 30 s backend timeout)
+2. Uploads the torrent to AllDebrid and waits for confirmation
+
+Both steps combined easily exceed 8 seconds, especially on slower trackers or
+under AllDebrid load.
+
+**Fix:**
+- `jackettAdd()` now passes `60_000 ms` (60 s) as the fourth argument to `api()`.
+- `loadJackettIndexers()` now passes `15_000 ms` (15 s) — the backend Jackett
+  indexer fetch has a 10 s timeout, so 8 s was always too tight.
+
 ## [1.5.19] — 2026-05-05
 
 ### Fixed — Statistics 24h (and 1y) broken on PostgreSQL

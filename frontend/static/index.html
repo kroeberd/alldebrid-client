@@ -4671,7 +4671,7 @@ async function jackettAdd(idx) {
       var row=await api('POST', '/jackett/add', {
         hash:r.hash, magnet:r.magnet, torrent_url:r.torrent_url,
         title:r.title, indexer:r.indexer, size_bytes:r.size_bytes
-      });
+      }, 60000);
     (window._jackettResults || []).forEach(function(item) {
       if ((item.hash && item.hash === r.hash) || (item.title === r.title && item.indexer === r.indexer)) {
         item.already_added = true;
@@ -4721,7 +4721,7 @@ async function testJackett() {
 
 async function loadJackettIndexers() {
   try {
-    var items = await api('GET', '/jackett/indexers');
+    var items = await api('GET', '/jackett/indexers', null, 15000);
     var dd = document.getElementById('idx-dropdown');
     if (!dd) return;
     dd.querySelectorAll('.idx-item').forEach(function(el){el.remove();});
