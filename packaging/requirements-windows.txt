@@ -1,0 +1,31 @@
+# requirements-windows.txt
+# Dependencies for the Windows EXE build.
+# Identical to requirements.txt EXCEPT:
+#   - asyncpg: included but may be skipped at runtime if PostgreSQL is not used
+#   - Testing packages excluded (pytest, pytest-asyncio, pytest-cov)
+#   - pyinstaller added for the build step itself
+
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi==0.136.1
+uvicorn[standard]==0.46.0
+
+# ── Async I/O ─────────────────────────────────────────────────────────────────
+aiohttp==3.13.5
+aiofiles==25.1.0
+aiosqlite==0.22.1
+
+# ── Data / validation ─────────────────────────────────────────────────────────
+pydantic==2.13.3
+pydantic-settings==2.14.0
+
+# ── Encoding / crypto ─────────────────────────────────────────────────────────
+bencodepy==0.9.5
+python-multipart==0.0.27
+pycryptodome==3.23.0
+
+# ── Database (optional PostgreSQL support) ────────────────────────────────────
+# asyncpg ships a Windows wheel and is included so PG users can switch backends.
+asyncpg>=0.31.0
+
+# ── Build tool ────────────────────────────────────────────────────────────────
+pyinstaller>=6.0

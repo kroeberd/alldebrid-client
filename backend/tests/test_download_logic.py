@@ -322,7 +322,7 @@ class TestFullSyncRestartableSet:
         import re
         import os
         root = os.path.dirname(os.path.dirname(__file__))
-        with open(os.path.join(root, 'services', 'manager_v2.py')) as f:
+        with open(os.path.join(root, 'services', 'manager_v2.py'), encoding='utf-8') as f:
             src = f.read()
         # Find the _restartable definition in full_alldebrid_sync
         m = re.search(r'_restartable\s*=\s*\(([^)]+)\)', src)
