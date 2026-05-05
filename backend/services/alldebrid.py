@@ -118,9 +118,19 @@ class AllDebridService:
         if not magnets:
             raise Exception("AllDebrid returned no magnet data")
         m = magnets[0]
+        if not isinstance(m, dict):
+            raise Exception(f"AllDebrid returned unexpected magnet response type: {type(m).__name__}")
         if "error" in m:
             err = m["error"]
-            raise Exception(f"AllDebrid [{err.get('code')}]: {err.get('message')}")
+            if isinstance(err, dict):
+                code = err.get("code") or "UNKNOWN"
+                # AllDebrid sometimes echoes the magnet URL as the error message — replace with a clear description
+                raw_msg = str(err.get("message") or "")
+                msg = raw_msg if not raw_msg.startswith("magnet:") else f"AllDebrid rejected the magnet (code: {code})"
+            else:
+                code = "UNKNOWN"
+                msg = "AllDebrid rejected the magnet" if str(err).startswith("magnet:") else str(err)
+            raise Exception(f"AllDebrid [{code}]: {msg}")
         return m
 
     async def upload_torrent_file(self, file_bytes: bytes, filename: str) -> Dict:

@@ -4697,7 +4697,12 @@ async function jackettAdd(idx) {
       delete window._jackettAddInFlight[key];
       if (btn) { btn.disabled=false; btn.textContent='Add'; }
       renderJackettResults();
-      toast('\u274c Failed to add: '+e.message, 'error');
+      var _errMsg = e.message || 'Unknown error';
+      // Avoid showing raw magnet URLs in error toast — truncate at the magnet portion
+      var _mIdx = _errMsg.indexOf('magnet:');
+      if (_mIdx > 0) _errMsg = _errMsg.slice(0, _mIdx).trim().replace(/:$/, '');
+      else if (_mIdx === 0) _errMsg = 'Failed to add magnet — rejected by AllDebrid';
+      toast('\u274c Failed to add: ' + _errMsg, 'error');
     }
   }
 

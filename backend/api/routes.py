@@ -1355,7 +1355,13 @@ async def jackett_add(body: dict):
             row = await manager.add_magnet_direct(magnet, source="jackett")
             added_via = "magnet"
     except Exception as exc:
-        raise HTTPException(400, str(exc))
+        # Sanitize error message — never expose raw magnet links as the error detail
+        raw = str(exc)
+        if raw.startswith("magnet:"):
+            detail = "Failed to add magnet to AllDebrid (invalid or rejected)"
+        else:
+            detail = raw
+        raise HTTPException(400, detail)
 
     # Fire webhook (non-blocking, don't fail the request if it errors)
     try:

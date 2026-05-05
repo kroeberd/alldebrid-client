@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.5.24] — 2026-05-05
+
+### Fixed — Magnet URL shown as error message when add fails
+
+When adding a magnet from Jackett/0magnet fails, the toast used to display
+the full raw magnet link as the error text (e.g.
+`❌ Failed to add: magnet:?xt=urn:btih:…`). The actual error reason was hidden.
+
+**Root cause:** AllDebrid's API echoes the submitted magnet URL verbatim in
+the `error.message` field of failed upload responses.
+
+**Fixes applied at three layers:**
+
+1. **`alldebrid.py` `upload_magnet()`** — when AllDebrid's error message is a
+   magnet URL, replaces it with a human-readable description
+   (`AllDebrid rejected the magnet (code: MAGNET_INVALID_URL)`).
+2. **`routes.py` `/jackett/add`** — sanitises the HTTP 400 detail string;
+   a raw `magnet:` URL as the sole error detail is replaced with a generic message.
+3. **`index.html` `jackettAdd()`** — defensive client-side guard: if `e.message`
+   still contains a magnet URL (e.g. `AllDebrid [X]: magnet:?…`), the toast
+   truncates it at the `magnet:` position so the user sees only the code prefix.
+
 ## [1.5.23] — 2026-05-05
 
 ### Added — Auto-retry when AllDebrid reports "Upload failed" (statusCode 5)
