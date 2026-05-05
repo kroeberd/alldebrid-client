@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.5.16] — 2026-05-05
+
+### Fixed — Statistics internal error for all periods except "All time"
+
+**Root cause:** The `GET /stats/detail` endpoint used a shared `where_ts` clause
+(`WHERE created_at >= datetime(...)`) for all tables. The `download_files` table
+has no `created_at` column — only `updated_at`. SQLite raised
+`"no such column: created_at"` which became a 500 Internal Server Error for
+every period except `all` (where `where_ts` is an empty string and no column
+is referenced).
+
+**Fix:** A separate `where_files` clause using `updated_at` is now built for
+`download_files` queries. All other tables (`torrents`, `events`) have `created_at`
+and continue to use `where_ts` unchanged.
+
 ## [1.5.15] — 2026-05-05
 
 ### Fixed — Statistics period selector had no effect

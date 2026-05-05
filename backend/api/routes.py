@@ -741,9 +741,10 @@ async def get_stats_detail(period: str = "all"):
         torrent_status = await db.fetchall(
             f"SELECT status, COUNT(*) as count FROM torrents {where_ts} "
             f"GROUP BY status ORDER BY count DESC")
+        where_files = (f"WHERE updated_at >= {cutoff}" if cutoff else "")
         file_status = await db.fetchall(
             f"SELECT status, COUNT(*) as count, COALESCE(SUM(size_bytes),0) as size_bytes "
-            f"FROM download_files {where_ts} GROUP BY status ORDER BY count DESC")
+            f"FROM download_files {where_files} GROUP BY status ORDER BY count DESC")
         event_levels = await db.fetchall(
             f"SELECT level, COUNT(*) as count FROM events {where_ts} GROUP BY level")
         sources = await db.fetchall(
