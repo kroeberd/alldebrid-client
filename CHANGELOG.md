@@ -2,6 +2,35 @@
 
 ## [1.5.24] — 2026-05-05
 
+### Fixed — Magnet link shown as error message when "Add" fails
+
+**Symptom:** Clicking "Add" on a magnet from sites like 0magnet showed a toast
+with the entire raw magnet link as the error message:
+`❌ Failed to add: magnet:?xt=urn:btih:…&dn=…&tr=…`
+
+**Root causes (two separate paths):**
+
+1. **Backend (`routes.py`):** `except Exception as e: raise HTTPException(400, str(e))`
+   — `str(e)` could contain the full magnet string if AllDebrid echoed it back in
+   an error response (e.g. invalid-JSON payload that included the submitted magnet).
+2. **Frontend (`jackettAdd`):** The existing partial mitigation only handled
+   `magnet:` at position 0; longer AllDebrid error messages that included the magnet
+   further into the string still showed the full magnet URL.
+
+**Fix:**
+
+*Backend — `_sanitize_error(exc)`* (new helper in `routes.py`):
+- Strips all `magnet:?xt=urn:btih:…` links from exception strings using regex
+- Strips very long URLs (≥ 80 chars)
+- Truncates messages to 200 characters
+- Applied to every `raise HTTPException(400, …)` that wraps a caught exception
+
+*Frontend — `sanitizeErrorMsg(msg)` (new helper):*
+- Same magnet/URL stripping + 200-char truncation
+- Applied in `addMagnet()`, `jackettAdd()`, and all other error toasts
+
+## [1.5.24] — 2026-05-05
+
 ### Fixed — Magnet URL shown as error message when add fails
 
 When adding a magnet from Jackett/0magnet fails, the toast used to display

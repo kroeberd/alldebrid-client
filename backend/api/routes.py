@@ -30,6 +30,24 @@ from core.config_validator import validate_and_sanitise
 from core.version import read_version
 from db.database import DB_PATH, _is_postgres, get_db
 
+_MAGNET_RE = re.compile(r"magnet:[?]xt=urn:btih:[0-9a-fA-F]{40,}\S*", re.IGNORECASE)
+_LONG_URL_RE = re.compile(r"https?://\S{80,}")
+
+
+def _sanitize_error(exc: Exception) -> str:
+    """Return a safe, short error message suitable for API responses.
+
+    Strips raw magnet links and very long URLs that may appear in exception
+    strings — e.g. when AllDebrid echoes back the submitted magnet in an
+    error payload, or when a download_torrent_file exception includes the URL.
+    Truncates the result to 200 characters.
+    """
+    msg = str(exc)
+    msg = _MAGNET_RE.sub("<magnet>", msg)
+    msg = _LONG_URL_RE.sub("<url>", msg)
+    return (msg[:200] + "\u2026") if len(msg) > 200 else msg
+
+
 # ── SQL dialect helpers ────────────────────────────────────────────────────────
 def _sql_now_minus(interval: str) -> str:
     """Return a SQL expression for (NOW - interval) that works on both SQLite and PostgreSQL.
@@ -538,7 +556,7 @@ async def add_magnet(body: dict):
         row = await manager.add_magnet_direct(magnet, source="manual")
         return row
     except Exception as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, _sanitize_error(e))
 
 
 @router.post("/torrents/import-existing")
@@ -606,7 +624,7 @@ async def pause_torrent(torrent_id: int):
         await manager.pause_torrent(torrent_id)
         return {"ok": True}
     except Exception as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, _sanitize_error(e))
 
 
 @router.post("/torrents/{torrent_id}/resume")
@@ -615,7 +633,7 @@ async def resume_torrent(torrent_id: int):
         await manager.resume_torrent(torrent_id)
         return {"ok": True}
     except Exception as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, _sanitize_error(e))
 
 
 class LabelUpdate(BaseModel):

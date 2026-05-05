@@ -1973,7 +1973,7 @@ async function pauseProcessing() {
     renderTopbarActions();
     toast('Processing paused','warn');
     loadStats();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 async function resumeProcessing() {
@@ -1985,7 +1985,7 @@ async function resumeProcessing() {
     loadStats();
     loadRecent();
     if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
@@ -2175,7 +2175,7 @@ async function loadDetailedStats(period) {
         }
       });
     }
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 function setStatsPeriod(el) {
@@ -2277,7 +2277,7 @@ async function loadTorrents() {
         </div>
       </td>
     </tr>`).join('');
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 async function addMagnet() {
@@ -2288,7 +2288,7 @@ async function addMagnet() {
     toast('Added!','success');
     document.getElementById('t-magnet').value='';
     loadTorrents();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 async function importExisting() {
@@ -2297,7 +2297,7 @@ async function importExisting() {
     toast(`Imported ${r.imported} magnets from AllDebrid`,'success');
     loadStats(); loadRecent();
     if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 async function deleteT(id, e) {
@@ -2307,7 +2307,7 @@ async function deleteT(id, e) {
     await api('DELETE',`/torrents/${id}?from_alldebrid=true`);
     toast('Deleted','success');
     loadTorrents(); loadStats();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 async function retryT(id) {
@@ -2315,7 +2315,7 @@ async function retryT(id) {
     await api('POST',`/torrents/${id}/retry`);
     toast('Queued for retry','success');
     loadTorrents();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 async function pauseT(id) {
@@ -2323,7 +2323,7 @@ async function pauseT(id) {
     await api('POST',`/torrents/${id}/pause`);
     toast('aria2 queue paused','warn');
     loadTorrents(); loadStats();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 async function resumeT(id) {
@@ -2331,7 +2331,7 @@ async function resumeT(id) {
     await api('POST',`/torrents/${id}/resume`);
     toast('aria2 queue resumed','success');
     loadTorrents(); loadStats();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 // ── Detail Modal ───────────────────────────────────────────────────────────
@@ -2380,7 +2380,7 @@ async function showDetail(id) {
       `:''}
     `;
     document.getElementById('overlay').classList.add('open');
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 function closeModal(e) {
@@ -2577,7 +2577,7 @@ async function loadEvents() {
   try {
     _allEvents = await api('GET','/events?limit=500');
     filterEvents();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 function filterEvents() {
@@ -2665,7 +2665,7 @@ async function loadSettings() {
   try {
     settingsData = await api('GET','/settings');
     renderSettings();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
   // Activate first tab by default
   switchSettingsTab('tab-general');
   // Avatar preview: show if a custom avatar URL is set
@@ -3612,7 +3612,7 @@ async function saveSettings() {
     toast('Settings saved!','success');
     checkConnections();
     checkFlexgetRunning();
-  } catch(e) { toast(e.message,'error'); }
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
 async function testDiscord() {
@@ -4698,11 +4698,7 @@ async function jackettAdd(idx) {
       if (btn) { btn.disabled=false; btn.textContent='Add'; }
       renderJackettResults();
       var _errMsg = e.message || 'Unknown error';
-      // Avoid showing raw magnet URLs in error toast — truncate at the magnet portion
-      var _mIdx = _errMsg.indexOf('magnet:');
-      if (_mIdx > 0) _errMsg = _errMsg.slice(0, _mIdx).trim().replace(/:$/, '');
-      else if (_mIdx === 0) _errMsg = 'Failed to add magnet — rejected by AllDebrid';
-      toast('\u274c Failed to add: ' + _errMsg, 'error');
+      toast('\u274c Failed to add: ' + sanitizeErrorMsg(_errMsg), 'error');
     }
   }
 
