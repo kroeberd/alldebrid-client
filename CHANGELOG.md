@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.5.15] — 2026-05-05
+
+### Fixed — Statistics period selector had no effect
+
+**Root cause: duplicate function declaration**
+
+There were two definitions of `loadDetailedStats` in the JavaScript:
+
+1. `async function loadDetailedStats()` (L2603, old — no parameter, called `/stats/detail` without `?period=`, called it twice)
+2. `async function loadDetailedStats(period)` (L2107, new — correct, sends `?period=` to backend)
+
+In JavaScript, function declarations are hoisted and the **last** one wins.
+The old definition (L2603) silently overwrote the new one, so:
+
+- Every period tab always showed the same data (backend default: `all`)
+- The chart title never updated when switching periods
+- The API was called twice per load (once for stats, once for the chart)
+- Sources breakdown was never rendered
+
+**Fix:** Removed the stale duplicate. The surviving `async function loadDetailedStats(period)`:
+- Reads the active period tab if called without argument (for initial load via `nav()`)
+- Sends `GET /stats/detail?period=<period>` — a single call for all data
+- Updates the chart title, metric cards, status breakdowns, sources, and chart in one pass
+
 ## [1.5.14] — 2026-05-05
 
 ### Fixed — Settings Services tab raw HTML persists on mobile (root fix)
