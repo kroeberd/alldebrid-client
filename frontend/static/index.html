@@ -1517,7 +1517,7 @@ textarea.input { resize: vertical; }
               <h4 style="margin:0 0 8px;color:var(--text);font-size:13px">&#128269; Jackett</h4>
               <p style="margin:0;font-size:13px;color:var(--text2)">
                 Jackett lets you search hundreds of torrent trackers from the built-in Search view.
-                Enable it in Settings → 🔍 Jackett, enter the base URL and API key (found in the Jackett dashboard top-right).
+                Enable it in Settings → 🔌 Services → Jackett, enter the base URL and API key (found in the Jackett dashboard top-right).
                 The Search sidebar entry appears once Jackett is enabled and connected.
                 The API key is proxied through the backend — it is never sent to the browser.
               </p>
@@ -1657,6 +1657,28 @@ textarea.input { resize: vertical; }
             </details>
 
             <details style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">Jackett search returns no results or times out</summary>
+              <p style="margin:10px 0 0;font-size:13px;color:var(--text2)">
+                Jackett with many indexers (100+) can take 30–90 s to return results.
+                The client waits up to 150 s. If you see results in Jackett's own log but not in the UI:
+              </p>
+              <ul style="margin:6px 0 0 18px;font-size:13px;color:var(--text2)">
+                <li>Select specific indexers with the chip picker to speed up the search</li>
+                <li>Use a more specific query or add a Genre / Year filter</li>
+                <li>Check that the Jackett URL in Settings → 🔌 Services is reachable from this container</li>
+                <li>On slow mobile networks the browser's own timeout may fire before Jackett responds — use Wi-Fi or a desktop browser</li>
+              </ul>
+            </details>
+
+            <details class="faq" style="border-top:1px solid var(--border);padding-top:14px">
+              <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">Hamburger / sidebar does not open on mobile</summary>
+              <p style="margin:10px 0 0;font-size:13px;color:var(--text2)">
+                If the ☰ button is unresponsive, do a <b>hard reload</b> (pull-to-refresh or force-reload in the browser menu) to clear stale JavaScript.
+                If the problem persists, wait 5–10 s for the initial settings load to complete — the sidebar opens correctly once the app has finished starting up.
+              </p>
+            </details>
+
+            <details class="faq" style="border-top:1px solid var(--border);padding-top:14px">
               <summary style="cursor:pointer;font-weight:600;color:var(--text);font-size:13px">Database locked / SQLite errors</summary>
               <p style="margin:8px 0 0;font-size:13px;color:var(--text2)">Restart the container. If the error persists, check that no other process has the database file open. The database file is at <code>/app/data/alldebrid.db</code> inside the container. If corruption is suspected, use Settings → 🗄️ Database → Create Backup before attempting any repairs.</p>
             </details>
@@ -1756,11 +1778,12 @@ function nav(el) {
 }
 
 // ── API ────────────────────────────────────────────────────────────────────
-async function api(method, path, body) {
+async function api(method, path, body, timeoutMs) {
   const opts = {method, headers: {'Content-Type':'application/json'}};
   if (body) opts.body = JSON.stringify(body);
+  const ms = timeoutMs || 8000; // default 8s; callers can pass longer for slow operations
   const controller = new AbortController();
-  const tid = setTimeout(() => controller.abort(), 8000); // 8s timeout
+  const tid = setTimeout(() => controller.abort(), ms);
   opts.signal = controller.signal;
   try {
     const r = await fetch(API + path, opts);
@@ -1770,7 +1793,7 @@ async function api(method, path, body) {
     return data;
   } catch(e) {
     clearTimeout(tid);
-    if (e.name === 'AbortError') throw new Error('Request timed out');
+    if (e.name === 'AbortError') throw new Error('Request timed out after ' + Math.round(ms/1000) + 's');
     throw e;
   }
 }
@@ -4681,7 +4704,7 @@ async function jackettSearch() {
     if (season)   payload.season = season;
     if (epNum)    payload.ep     = epNum;
 
-    var data = await api('POST', '/jackett/search', payload);
+    var data = await api('POST', '/jackett/search', payload, 150000); // 150s — Jackett with many indexers can take 60–90s
     if (data.error) {
       if (state) { state.style.display='block'; state.textContent='Error: '+data.error; }
       return;

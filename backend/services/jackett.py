@@ -476,8 +476,8 @@ async def search(
             timeout = aiohttp.ClientTimeout(total=120)  # Jackett can be slow with many indexers
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 xml_text = await _get_text(session, torznab_endpoint, tnb_params)
-        except aiohttp.ServerTimeoutError:
-            logger.warning("Jackett: Torznab search timed out after 120s for query %r", query)
+        except (aiohttp.ServerTimeoutError, asyncio.TimeoutError):
+            logger.warning("Jackett: Torznab search timed out for query %r", query)
             return {"results": [], "total": 0, "query": query, "error": "Jackett search timed out — try fewer indexers or a more specific query"}
         except aiohttp.ClientConnectorError as exc:
             logger.warning("Jackett: connection refused — %s", exc)
@@ -501,8 +501,8 @@ async def search(
             timeout = aiohttp.ClientTimeout(total=120)  # Jackett can be slow with many indexers
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 data = await _get_json(session, endpoint, params)
-        except aiohttp.ServerTimeoutError:
-            logger.warning("Jackett: search timed out after 120s for query %r", query)
+        except (aiohttp.ServerTimeoutError, asyncio.TimeoutError):
+            logger.warning("Jackett: search timed out for query %r", query)
             return {"results": [], "total": 0, "query": query, "error": "Jackett search timed out — try fewer indexers or a more specific query"}
         except aiohttp.ClientConnectorError as exc:
             logger.warning("Jackett: connection refused — %s", exc)

@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.5.12] — 2026-05-05
+
+### Fixed — Jackett search times out immediately in the UI
+
+**Root cause:** `api()` was given an `AbortController` with an 8-second timeout
+in v1.5.9. The Jackett search request is sent to `/jackett/search` which then
+waits up to 120 s for Jackett to respond. After 8 s the browser aborted the
+fetch — Jackett was still running (visible in its own log as a successful
+"Manual search") but the UI showed "Request timed out".
+
+**Fix:**
+- `api()` now accepts an optional fourth argument `timeoutMs` (default 8 s).
+- `jackettSearch()` passes `150_000` ms (150 s) so long Jackett queries have
+  room to complete even with 600+ indexers.
+- Backend: `asyncio.TimeoutError` is now caught alongside `ServerTimeoutError`
+  in both the Torznab and JSON search paths — previously it fell through to the
+  generic `except Exception` handler and returned empty results silently.
+
+### Updated — Help sidebar
+
+| Section | Change |
+|---------|--------|
+| Integrations → Jackett | Settings path corrected to `🔌 Services → Jackett`; multi-indexer chip picker described; advanced search (genre/IMDb/season) explained; search-speed note added |
+| Troubleshooting | Two new FAQ entries: *Jackett search returns no results or times out* and *Hamburger / sidebar does not open on mobile* |
+| Quick Start | Jackett settings path corrected (`🔌 Services → Jackett`) |
+
 ## [1.5.11] — 2026-05-04
 
 ### Fixed — Notifications tab blank (structural and CSS bugs)
