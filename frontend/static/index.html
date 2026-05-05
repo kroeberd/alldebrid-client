@@ -2940,7 +2940,7 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">aria2 RPC URL</label>
           <div class="test-row">
-            <input class="input" id="s-aria2_url" value="${aria2BuiltIn ? `http://127.0.0.1:${s.aria2_builtin_port??6800}/jsonrpc` : (s.aria2_url||'http://127.0.0.1:6800/jsonrpc')}" placeholder="http://127.0.0.1:6800/jsonrpc" ${aria2BuiltIn?'readonly':''}/>
+            <input class="input" id="s-aria2_url" value="${aria2BuiltIn ? 'http://127.0.0.1:'+(s.aria2_builtin_port||6800)+'/jsonrpc' : (s.aria2_url||'http://127.0.0.1:6800/jsonrpc')}" placeholder="http://127.0.0.1:6800/jsonrpc" ${aria2BuiltIn?'readonly':''}/>
             <button class="btn btn-blue btn-sm" onclick="testAria2()">Test</button>
           </div>
         </div>
@@ -3010,7 +3010,7 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">aria2 File Allocation</label>
           <select class="input" id="s-aria2_file_allocation">
-            ${['none','prealloc','trunc','falloc'].map(v=>`<option value="${v}" ${(s.aria2_file_allocation||'falloc')===v?'selected':''}>${v}</option>`).join('')}
+            ${['none','prealloc','trunc','falloc'].map(v=>'<option value="'+v+'" '+((s.aria2_file_allocation||'falloc')===v?'selected':'')+'>'+v+'</option>').join('')}
           </select>
         </div>
         <div class="form-group">
@@ -3253,7 +3253,7 @@ function renderSettings() {
           <label class="form-label">Scheduled Task Profiles</label>
           <span class="form-hint">Each task can have its own interval and jitter. Disabled rows are ignored.</span>
           <datalist id="flexget-task-options">
-            ${flexgetAvailableTasks.map(task => `<option value="${task}"></option>`).join('')}
+            ${flexgetAvailableTasks.map(function(task){return '<option value="'+task+'"></option>';}).join('')}
           </datalist>
           <div id="flexget-schedule-editor" style="margin-top:8px"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">

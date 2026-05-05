@@ -2,6 +2,31 @@
 
 ## [1.5.13] — 2026-05-05
 
+### Fixed — Settings Services tab content visible as raw HTML text on mobile
+
+**Symptom:** On some mobile browsers the Settings page showed `id="tab-services">`
+as literal text and the Sonarr/Radarr/Jackett content appeared inside the Advanced
+tab instead of the Services tab.
+
+**Root cause:** The settings `innerHTML` template literal contained three *nested*
+template literals (backtick strings inside `${...}` expressions). While V8/SpiderMonkey
+desktop handle these correctly, some mobile browser JS engines misparse nested
+backticks within a template literal — they interpret the inner closing backtick as
+the end of the *outer* template, which truncates the HTML at that point. Everything
+after the truncation point is emitted as a raw text node, including the opening
+`<div class="stab-panel" id="tab-services">` tag.
+
+**Affected expressions (all in the Download tab):**
+1. `aria2_url` value — `` `http://127.0.0.1:${port}/jsonrpc` ``
+2. `aria2_file_allocation` options — `['none',...].map(v => \`<option ...>\`)`
+3. `flexgetAvailableTasks` options — `tasks.map(task => \`<option ...>\`)`
+
+**Fix:** All three nested template literals replaced with equivalent string
+concatenation expressions. The outer `innerHTML` template now contains zero
+nested backticks — compatible with all JS engines.
+
+## [1.5.13] — 2026-05-05
+
 ### Fixed — Settings Services tab shows raw HTML attribute as text
 
 The text `id="tab-services">` was visible on screen above the Sonarr card.
