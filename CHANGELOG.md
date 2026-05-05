@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.5.22] — 2026-05-05
+
+### Fixed — All GitHub Actions workflows broken by incorrect SHA pinning
+
+v1.5.21 pinned `actions/checkout`, `actions/setup-python`, `actions/cache`,
+and `actions/upload-artifact` to commit SHAs fetched incorrectly via the
+`/commits/<tag>` API endpoint, which returns the HEAD of the tag's branch
+rather than the commit the tag actually points to. This caused every workflow
+to fail with *"unable to find version"* on the "Set up job" step.
+
+**Root cause:** `actions/*` tags are managed by GitHub and use a different
+SHA resolution mechanism. The SHAs we fetched were incorrect.
+
+**Fix:**
+- `actions/checkout`, `actions/cache`, `actions/setup-python`,
+  `actions/upload-artifact` → reverted to mutable version tags (`@v4`/`@v5`).
+  These are **GitHub first-party** Actions and were never flagged by CodeQL.
+- `docker/*`, `peter-evans/*`, `softprops/*` → kept pinned to verified
+  commit SHAs (these were the actual CodeQL `actions/unpinned-tag` alerts).
+
 ## [1.5.21] — 2026-05-05
 
 ### Fixed — GitHub Actions: all Actions pinned to full commit SHAs

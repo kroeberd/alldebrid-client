@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b47dc5f609f90ad530f4e2afb73a4  # v4
+        uses: actions/checkout@v4
 
       - name: Get base image
         id: base
@@ -48,7 +48,7 @@ jobs:
 
       - name: Restore cached digest
         id: cache
-        uses: actions/cache@27d5ce7f107f28d9d16fae4ff8a98f9b1c5b0e61  # v5
+        uses: actions/cache@v5
         with:
           path: .base-digest
           key: base-digest-${{ runner.os }}
@@ -75,7 +75,7 @@ jobs:
 
       - name: Cache new digest
         if: steps.compare.outputs.skip != 'true'
-        uses: actions/cache@27d5ce7f107f28d9d16fae4ff8a98f9b1c5b0e61  # v5
+        uses: actions/cache@v5
         with:
           path: .base-digest
           key: base-digest-${{ runner.os }}
