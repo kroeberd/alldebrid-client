@@ -5,20 +5,32 @@
 ### Fixed — All GitHub Actions workflows broken by incorrect SHA pinning
 
 v1.5.21 pinned `actions/checkout`, `actions/setup-python`, `actions/cache`,
-and `actions/upload-artifact` to commit SHAs fetched incorrectly via the
-`/commits/<tag>` API endpoint, which returns the HEAD of the tag's branch
-rather than the commit the tag actually points to. This caused every workflow
-to fail with *"unable to find version"* on the "Set up job" step.
+and `actions/upload-artifact` to commit SHAs fetched via the wrong API endpoint.
+This caused every workflow to fail with *"unable to find version"* on "Set up job".
 
-**Root cause:** `actions/*` tags are managed by GitHub and use a different
-SHA resolution mechanism. The SHAs we fetched were incorrect.
+**Fix:** `actions/*` (GitHub first-party, not flagged by CodeQL) reverted to
+`@v4`/`@v5` tags. `docker/*`, `peter-evans/*`, `softprops/*` remain pinned to
+verified commit SHAs as required by the CodeQL `actions/unpinned-tag` alerts.
 
-**Fix:**
-- `actions/checkout`, `actions/cache`, `actions/setup-python`,
-  `actions/upload-artifact` → reverted to mutable version tags (`@v4`/`@v5`).
-  These are **GitHub first-party** Actions and were never flagged by CodeQL.
-- `docker/*`, `peter-evans/*`, `softprops/*` → kept pinned to verified
-  commit SHAs (these were the actual CodeQL `actions/unpinned-tag` alerts).
+### Fixed — 50 CodeQL code-scanning alerts resolved (CWE-117, CWE-209, CWE-829, CWE-918 and more)
+
+**ERRORs (4):**
+- `py/log-injection` (jackett.py) — user-supplied search query truncated to 100 chars before logging
+- `py/stack-trace-exposure` (routes.py) — `str(exc)` replaced with generic safe messages in API responses; full errors still logged server-side
+- `py/partial-ssrf` (jackett.py) — URL validation in `_get_text()` ensures endpoint starts with `http://` or `https://`
+
+**WARNINGs (10):**
+- `actions/missing-workflow-permissions` — added `permissions: contents: read` to `tests.yml` and `build-windows-exe.yml`
+- `actions/unpinned-tag` — `docker/metadata-action`, `docker/setup-qemu-action`, `docker/setup-buildx-action`, `docker/login-action`, `docker/build-push-action`, `peter-evans/dockerhub-description`, `softprops/action-gh-release` all pinned to full 40-char commit SHAs
+- `py/implicit-string-concatenation-in-list` — `database.py` CREATE INDEX strings split with explicit continuation
+- `py/redundant-comparison` — `manager_v2.py`: removed redundant `and active_count > 0` (guaranteed by elif branch)
+
+**NOTEs (36):**
+- `py/unused-import` — removed unused `asyncio`, `json`, `Tuple`, repeated `import logging` across routes.py, tests, migration.py
+- `py/unused-global-variable` — removed unused vars in `windows_main.py`
+- `py/empty-except` — 8 bare `except: pass` blocks replaced with `logger.debug()` calls (aria2_runtime.py, manager_v2.py, jackett.py, db_maintenance.py, backup.py, migration.py)
+- `py/mixed-returns` — `notifications._send()`: implicit `return None` replaced with explicit `return False`
+
 
 ## [1.5.21] — 2026-05-05
 
