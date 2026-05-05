@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.5.18] — 2026-05-05
+
+### Fixed — Statistics 24h period: internal error
+
+**Root cause:** The 24h chart query used two different expressions for `SELECT`
+and `GROUP BY`:
+
+```sql
+-- SQLite (was)
+SELECT strftime('%m-%d %H:00', completed_at) as date  -- full label
+...GROUP BY strftime('%H', completed_at)              -- hour only
+```
+
+PostgreSQL requires every `SELECT`-ed column that is not an aggregate to appear
+identically in `GROUP BY`. Using `strftime('%m-%d %H:00', …)` in `SELECT` but
+`strftime('%H', …)` in `GROUP BY` caused a PostgreSQL error. SQLite allowed it
+silently, but it also caused incorrect grouping (two entries at the same hour on
+different days would be merged into one bar).
+
+**Fix:** Both `SELECT` and `GROUP BY` now use the same expression — hour label
+only (`%H:00` → `"14:00"`), which is unambiguous within a 24-hour window and
+valid on both SQLite and PostgreSQL:
+
+```sql
+-- SQLite (fixed)
+SELECT strftime('%H:00', completed_at) as date
+...GROUP BY strftime('%H:00', completed_at)
+
+-- PostgreSQL (fixed)
+SELECT TO_CHAR(completed_at, 'HH24:00') as date
+...GROUP BY TO_CHAR(completed_at, 'HH24:00')
+```
+
 ## [1.5.17] — 2026-05-05
 
 ### Fixed — Statistics periods work on PostgreSQL + existing installations

@@ -796,12 +796,13 @@ async def get_stats_detail(period: str = "all"):
                 f"FROM torrents WHERE completed_at >= {cutoff} AND status='completed' "
                 f"GROUP BY {_grp} ORDER BY date ASC")
         elif period == "24h":
-            _grp = _sql_strftime("%m-%d %H:00", "completed_at")
-            _gb  = _sql_strftime("%H", "completed_at")
+            # Group and label by hour — both SELECT and GROUP BY use the same expression
+            # to satisfy PostgreSQL's strict grouping rules.
+            _grp = _sql_strftime("%H:00", "completed_at")
             daily_completions = await db.fetchall(
                 f"SELECT {_grp} as date, COUNT(*) as count "
                 f"FROM torrents WHERE completed_at >= {cutoff} AND status='completed' "
-                f"GROUP BY {_gb} ORDER BY date ASC")
+                f"GROUP BY {_grp} ORDER BY {_grp} ASC")
         elif period in ("7d", "30d"):
             _grp = _sql_date("completed_at")
             daily_completions = await db.fetchall(
