@@ -431,12 +431,19 @@ app.include_router(router, prefix="/api")
 
 # ── Static files ──────────────────────────────────────────────────────────────
 _here = Path(__file__).parent
+# When frozen by PyInstaller, _MEIPASS is the extraction temp dir that contains
+# all bundled files. __file__ resolves to _MEIPASS/main.py, so _here == _MEIPASS.
+_meipass = Path(getattr(sys, "_MEIPASS", _here))
+
 _candidates = []
 
 _env = os.getenv("STATIC_DIR", "").strip()
 if _env:
     _candidates.append(Path(_env))
 
+# PyInstaller bundle: frontend/static is extracted to _MEIPASS/frontend/static
+_candidates.append(_meipass / "frontend" / "static")
+# Dev / Docker: frontend is a sibling of backend/
 _candidates.append(_here.parent / "frontend" / "static")
 _candidates.append(Path("/app/frontend/static"))
 _candidates.append(Path("/app/static"))

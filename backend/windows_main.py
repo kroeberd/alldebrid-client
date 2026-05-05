@@ -44,6 +44,15 @@ os.environ.setdefault("DOWNLOAD_FOLDER", str(_dl_dir))
 os.environ.setdefault("ARIA2_LOG",       str(_data_dir   / "aria2" / "aria2.log"))
 os.environ.setdefault("ARIA2_SESSION",   str(_data_dir   / "aria2" / "aria2.session"))
 
+# ── Set STATIC_DIR for PyInstaller bundle ────────────────────────────────────
+# sys._MEIPASS is the temp dir where PyInstaller extracts all bundled files.
+# We set STATIC_DIR so main.py finds the frontend without guessing.
+if getattr(sys, "frozen", False):
+    _meipass = pathlib.Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    _static_dir = _meipass / "frontend" / "static"
+    if _static_dir.exists():
+        os.environ.setdefault("STATIC_DIR", str(_static_dir))
+
 # ── Patch config.py defaults at module level before first import ─────────────
 # We monkey-patch the module-level CONFIG_PATH constant used by core/config.py
 # so that every subsequent import picks up the Windows path automatically.
