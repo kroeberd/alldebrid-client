@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.5.19] — 2026-05-05
+
+### Fixed — Statistics 24h (and 1y) broken on PostgreSQL
+
+**Root cause:** `_sql_strftime("%H:00", field)` produced `TO_CHAR(field, 'HH24:00')`.
+In PostgreSQL `TO_CHAR` for timestamps, `'0'` is a **numeric format code** (digit with
+leading zero), not a literal. So `':00'` was interpreted as colon + two numeric
+placeholders applied to a timestamp field → PostgreSQL error.
+
+The same issue affects `%Y-%m` → `'YYYY-MM'` where `'-'` fortunately has no
+special meaning in PG timestamp format, but `%H:00` → `'HH24:00'` is broken.
+
+**Fix:** `_sql_strftime` now wraps any characters that are not recognised
+PostgreSQL format codes (not in `YYYY MM DD HH24 MI SS`) in double-quotes,
+which are the PostgreSQL way to denote literal text inside a `TO_CHAR` format
+string:
+
+| Format | Old PG output | New PG output |
+|--------|---------------|---------------|
+| `%H:%M` | `TO_CHAR(…, 'HH24:MI')` | `TO_CHAR(…, 'HH24":"MI')` |
+| `%H:00` | `TO_CHAR(…, 'HH24:00')` ❌ | `TO_CHAR(…, 'HH24":00"')` ✓ |
+| `%Y-%m` | `TO_CHAR(…, 'YYYY-MM')` | `TO_CHAR(…, 'YYYY"-"MM')` |
+
+All literal separators are now safely quoted; `HH24":"MI` produces `14:30`,
+`HH24":00"` produces `14:00`, `YYYY"-"MM` produces `2026-05`.
+
 ## [1.5.18] — 2026-05-05
 
 ### Fixed — Statistics 24h period: internal error

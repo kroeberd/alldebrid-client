@@ -49,16 +49,31 @@ def _sql_strftime(fmt: str, field: str) -> str:
     """Return a SQL date-format expression for the given field.
 
     fmt uses strftime-style placeholders: %H, %M, %Y, %m, %d
+
+    For PostgreSQL, literal text in the format string (e.g. ':00') must be
+    quoted with double-quotes inside the TO_CHAR format string, because
+    digits like '0' are format codes in PostgreSQL TO_CHAR (unlike strftime).
     """
     if _is_postgres():
-        # Map strftime -> TO_CHAR format
+        # Map strftime codes -> TO_CHAR codes, then quote any remaining literal text
         pg_fmt = (fmt
                   .replace("%Y", "YYYY")
                   .replace("%m", "MM")
                   .replace("%d", "DD")
                   .replace("%H", "HH24")
                   .replace("%M", "MI"))
-        return f"TO_CHAR({field}, '{pg_fmt}')"
+        # Any remaining non-PG-code characters (like ':00') must be wrapped in
+        # double-quotes so PostgreSQL treats them as literals, not format codes.
+        # Split on known PG format codes and re-join with quoted literals.
+        import re as _re
+        parts = _re.split(r"(YYYY|MM|DD|HH24|MI|SS)", pg_fmt)
+        quoted = "".join(
+            part if part in ("YYYY", "MM", "DD", "HH24", "MI", "SS") else (
+                '"' + part + '"' if part else ""
+            )
+            for part in parts
+        )
+        return f"TO_CHAR({field}, '{quoted}')"
     return f"strftime('{fmt}', {field})"
 
 
