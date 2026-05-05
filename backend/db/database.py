@@ -292,6 +292,7 @@ _SCHEMA_COLUMNS_TORRENTS = [
     ("download_client",      "TEXT DEFAULT 'aria2'"),
     ("label",                "TEXT DEFAULT ''"),
     ("priority",             "INTEGER DEFAULT 0"),
+    ("upload_retry_count",   "INTEGER DEFAULT 0"),  # auto-retry counter for statusCode 5
 ]
 
 _SCHEMA_COLUMNS_FILES = [

@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.5.23] — 2026-05-05
+
+### Added — Auto-retry when AllDebrid reports "Upload failed" (statusCode 5)
+
+When AllDebrid returns statusCode 5 ("Upload failed") for a torrent, the client
+now automatically re-queues the upload instead of marking the torrent as failed.
+
+**Behaviour:**
+1. On first statusCode 5: the failed magnet is deleted from AllDebrid, the torrent
+   is set back to `uploading`, and the re-upload is scheduled after a configurable delay.
+2. A Discord webhook notification is sent for each re-queue attempt (🔄) and
+   on permanent failure (❌) if notifications are enabled.
+3. After exhausting all retries the torrent is marked `error` with a permanent
+   failure message and a final Discord notification is sent.
+
+**New settings (Settings → ⬇️ Download):**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `upload_fail_retry_count` | 3 | Max re-upload attempts for statusCode 5. Set to 0 to disable. |
+| `upload_fail_retry_delay_minutes` | 5 | Minutes to wait between re-upload attempts. |
+
+**Implementation:**
+- `manager_v2._apply_provider_update`: statusCode 5 dispatches `_handle_upload_failed()` task
+- `manager_v2._handle_upload_failed()`: new async method handling retry logic
+- `notifications.send_requeue()`: new Discord embed — 🔄 "Upload failed — re-queued"
+- `notifications.send_upload_failed_permanent()`: new Discord embed — ❌ "Upload failed permanently"
+- `database._SCHEMA_COLUMNS_TORRENTS`: new `upload_retry_count` column (auto-migrated)
+- `config.py`: `upload_fail_retry_count` and `upload_fail_retry_delay_minutes`
+
 ## [1.5.22] — 2026-05-05
 
 ### Fixed — All GitHub Actions workflows broken by incorrect SHA pinning

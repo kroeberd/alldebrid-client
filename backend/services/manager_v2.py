@@ -21,6 +21,7 @@ logger = logging.getLogger("alldebrid.manager")
 
 READY_CODE = 4
 ERROR_CODES = set(range(5, 16))
+UPLOAD_FAILED_CODE = 5  # AllDebrid statusCode 5 = "Upload failed"
 
 # AllDebrid API rate limiter — shared across all manager instances
 _ad_rate_sem: asyncio.Semaphore | None = None
@@ -1039,6 +1040,9 @@ class TorrentManager:
                     f"Auto-removed: no peers found after 30 minutes (code {status_code})")
                 await self.ad().delete_magnet(str(row["alldebrid_id"]))
                 await self._set_deleted(row["id"], "Auto-removed: no peers after 30 minutes")
+            elif status_code == UPLOAD_FAILED_CODE:
+                # statusCode 5 = "Upload failed" — re-queue automatically if retries remain
+                asyncio.create_task(self._handle_upload_failed(row, error_message))
             else:
                 await self._fail_torrent(row["id"], error_message, notify=True)
         elif provider_status == "error" and current_status == "error" and provider_state_changed:
@@ -2367,6 +2371,134 @@ class TorrentManager:
                 alldebrid_id=str(row.get("alldebrid_id") or ""),
                 status_code=row.get("provider_status_code"),
             )
+
+    async def _handle_upload_failed(self, row: dict, error_message: str) -> None:
+        """Handle AllDebrid statusCode 5 (Upload failed) with automatic re-queue.
+
+        On each occurrence:
+          1. Increment upload_retry_count on the torrent row.
+          2. If retries remain: delete the failed magnet from AllDebrid, wait
+             upload_fail_retry_delay_minutes, then re-upload.
+          3. Send a Discord notification for each attempt and on permanent failure.
+          4. If all retries exhausted: mark as error and notify permanently.
+        """
+        cfg = get_settings()
+        max_retries = max(0, int(getattr(cfg, "upload_fail_retry_count", 3) or 3))
+        delay_minutes = max(0, int(getattr(cfg, "upload_fail_retry_delay_minutes", 5) or 5))
+
+        torrent_id  = int(row["id"])
+        name        = str(row["name"] or f"torrent {torrent_id}")
+        ad_id       = str(row.get("alldebrid_id") or "")
+        magnet_link = str(row.get("magnet") or "")
+        source      = str(row.get("source") or "manual")
+
+        # Read current retry counter
+        async with get_db() as db:
+            r = await (await db.execute(
+                "SELECT upload_retry_count FROM torrents WHERE id=?", (torrent_id,)
+            )).fetchone()
+        current_retry = int((r["upload_retry_count"] if r else None) or 0)
+        attempt = current_retry + 1
+
+        logger.warning(
+            "Upload failed (code 5) for torrent %s (id=%s) — attempt %s/%s",
+            name, torrent_id, attempt, max_retries,
+        )
+
+        if attempt > max_retries or not magnet_link:
+            # No retries left or no magnet stored → permanent failure
+            msg = (
+                f"Upload failed permanently after {max_retries} retries"
+                if attempt > max_retries
+                else "Upload failed: no magnet link stored for re-upload"
+            )
+            logger.error("Upload failed permanently for torrent %s: %s", torrent_id, msg)
+            await self._log_event(torrent_id, "error",
+                f"Upload failed permanently (code 5, {attempt-1} retries exhausted): {error_message}")
+            await self._fail_torrent(torrent_id, msg, notify=False)
+            if getattr(cfg, "discord_notify_error", False):
+                await self.notify().send_upload_failed_permanent(
+                    name,
+                    max_attempts=max_retries,
+                    reason=error_message,
+                    alldebrid_id=ad_id,
+                )
+            return
+
+        # Increment retry counter and set status back to uploading
+        async with get_db() as db:
+            await db.execute(
+                """UPDATE torrents
+                   SET upload_retry_count=?, status='uploading',
+                       provider_status='queued', provider_status_code=NULL,
+                       error_message=NULL, updated_at=CURRENT_TIMESTAMP
+                   WHERE id=?""",
+                (attempt, torrent_id),
+            )
+            await db.execute(
+                "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
+                (torrent_id, "warn",
+                 f"Upload failed (code 5) — scheduling retry {attempt}/{max_retries} in {delay_minutes} min"),
+            )
+            await db.commit()
+
+        # Notify Discord about the re-queue
+        if getattr(cfg, "discord_notify_error", False):
+            await self.notify().send_requeue(
+                name,
+                attempt=attempt,
+                max_attempts=max_retries,
+                reason=error_message,
+                alldebrid_id=ad_id,
+            )
+
+        # Delete the failed magnet from AllDebrid so we can re-upload
+        if ad_id:
+            try:
+                await self.ad().delete_magnet(ad_id)
+                logger.info("Deleted failed magnet %s from AllDebrid before re-upload", ad_id)
+            except Exception as exc:
+                logger.debug("Could not delete failed magnet %s: %s", ad_id, exc)
+
+        # Wait before retrying
+        if delay_minutes > 0:
+            logger.info("Waiting %s min before re-uploading torrent %s", delay_minutes, torrent_id)
+            await asyncio.sleep(delay_minutes * 60)
+
+        # Re-upload via magnet
+        try:
+            async with self._upload_sem:
+                result = await self.ad().upload_magnet(magnet_link)
+            new_ad_id = str(result.get("id", ""))
+            new_name  = result.get("name") or result.get("filename") or name
+            logger.info(
+                "Re-upload successful for torrent %s: new ad_id=%s", torrent_id, new_ad_id
+            )
+            async with get_db() as db:
+                await db.execute(
+                    """UPDATE torrents
+                       SET alldebrid_id=?, name=?, status='uploading',
+                           provider_status='queued', provider_status_code=NULL,
+                           updated_at=CURRENT_TIMESTAMP
+                       WHERE id=?""",
+                    (new_ad_id, new_name, torrent_id),
+                )
+                await db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
+                    (torrent_id, "info",
+                     f"Re-upload attempt {attempt}/{max_retries} succeeded (new ad_id={new_ad_id})"),
+                )
+                await db.commit()
+        except Exception as exc:
+            logger.error("Re-upload attempt %s failed for torrent %s: %s", attempt, torrent_id, exc)
+            async with get_db() as db:
+                await db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, ?, ?)",
+                    (torrent_id, "error", f"Re-upload attempt {attempt} failed: {exc}"),
+                )
+                await db.commit()
+            # Will be caught on next status poll and retried again
+
 
     async def _set_deleted(self, torrent_id: int, message: str):
         async with get_db() as db:

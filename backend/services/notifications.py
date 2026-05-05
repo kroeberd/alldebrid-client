@@ -253,6 +253,55 @@ class NotificationService:
             color=color,
         )
 
+    async def send_requeue(
+        self,
+        name: str,
+        attempt: int,
+        max_attempts: int,
+        reason: str = "",
+        alldebrid_id: str = "",
+    ) -> None:
+        """Notify that a failed upload has been automatically re-queued."""
+        if not self.webhook_url:
+            return
+        fields: List[Dict[str, Any]] = []
+        if alldebrid_id:
+            fields.append({"name": "AllDebrid ID", "value": alldebrid_id, "inline": True})
+        fields.append({"name": "Attempt", "value": f"{attempt} / {max_attempts}", "inline": True})
+        if reason:
+            fields.append({"name": "Reason", "value": reason[:200], "inline": False})
+        await self._send(
+            url=self.webhook_url,
+            title="🔄 Upload failed — re-queued automatically",
+            description=f"**{name[:100]}** could not be uploaded to AllDebrid and has been re-queued.",
+            color=COLOR_WARN,
+            fields=fields or None,
+        )
+
+    async def send_upload_failed_permanent(
+        self,
+        name: str,
+        max_attempts: int,
+        reason: str = "",
+        alldebrid_id: str = "",
+    ) -> None:
+        """Notify that a failed upload has exhausted all retries."""
+        if not self.webhook_url:
+            return
+        fields: List[Dict[str, Any]] = []
+        if alldebrid_id:
+            fields.append({"name": "AllDebrid ID", "value": alldebrid_id, "inline": True})
+        fields.append({"name": "Retries", "value": f"{max_attempts} attempts exhausted", "inline": True})
+        if reason:
+            fields.append({"name": "Last error", "value": reason[:200], "inline": False})
+        await self._send(
+            url=self.webhook_url,
+            title="❌ Upload failed permanently",
+            description=f"**{name[:100]}** could not be uploaded to AllDebrid after {max_attempts} attempts.",
+            color=COLOR_ERROR,
+            fields=fields or None,
+        )
+
     async def send_update(
         self,
         current_version: str,

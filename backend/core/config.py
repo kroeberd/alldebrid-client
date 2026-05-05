@@ -126,6 +126,10 @@ class AppSettings(BaseModel):
     db_wipe_enabled: bool = False
     db_backup_before_wipe: bool = True
 
+    # AllDebrid upload retry (statusCode 5 = upload failed)
+    upload_fail_retry_count: int = 3   # max retries for statusCode 5
+    upload_fail_retry_delay_minutes: int = 5  # minutes between retries
+
     # aria2 download retry on error
     # How many times to retry a failed aria2 download before giving up (0 = no retry)
     aria2_error_retry_count: int = 3
