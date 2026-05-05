@@ -10,8 +10,6 @@ Tests cover:
 - partial-blocked torrents: continue with remaining files
 - _finalize_aria2_torrent: correct completion detection
 """
-import asyncio
-import json
 import pytest
 import sys
 import types

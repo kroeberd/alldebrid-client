@@ -1,4 +1,3 @@
-import asyncio
 import sys
 import types
 import unittest

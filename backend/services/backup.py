@@ -125,6 +125,6 @@ def list_backups() -> list:
             files = [f.name for f in d.iterdir() if f.is_file()]
             size = sum(f.stat().st_size for f in d.iterdir() if f.is_file())
             entries.append({"name": d.name, "files": files, "size_bytes": size})
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("Backup dir listing failed: %s", _e)
     return entries

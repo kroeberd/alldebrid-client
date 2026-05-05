@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import aiosqlite  # Module-level import so tests can patch db.migration.aiosqlite
 
@@ -357,7 +357,7 @@ async def _insert_rows_pg(conn, table: str, rows: List[Dict[str, Any]]) -> int:
                     from datetime import datetime
                     val = datetime.fromisoformat(val.replace("Z", "+00:00"))
                 except Exception:
-                    pass
+                    pass  # keep original string value if datetime parse fails
             values.append(val)
         await conn.execute(sql, *values)
         count += 1

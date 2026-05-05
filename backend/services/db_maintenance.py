@@ -139,8 +139,8 @@ async def wipe_database() -> dict:
                 await db.execute(
                     "DELETE FROM sqlite_sequence WHERE name IN ('torrents','download_files','events','flexget_runs','stats_snapshots')"
                 )
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug("sqlite_sequence reset skipped: %s", _e)
         await db.commit()
 
     logger.warning("Database wipe completed")

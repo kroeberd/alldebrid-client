@@ -59,8 +59,6 @@ _config_mod = types.ModuleType("core.config_pre")  # dummy — just to trigger p
 # We do this by subclassing / monkey-patching AFTER import.
 import core.config as _cfg_mod
 
-_original_get = _cfg_mod.get_settings.__wrapped__ if hasattr(_cfg_mod.get_settings, "__wrapped__") else None
-
 # Patch CONFIG_PATH constant in module namespace
 _cfg_mod.CONFIG_PATH = pathlib.Path(os.environ["CONFIG_PATH"])
 

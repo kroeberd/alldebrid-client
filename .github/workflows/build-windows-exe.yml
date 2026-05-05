@@ -19,6 +19,9 @@ concurrency:
   group: windows-exe-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build-windows-exe:
     name: PyInstaller → alldebrid-client-windows.exe

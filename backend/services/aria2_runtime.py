@@ -134,8 +134,8 @@ class BuiltinAria2Runtime:
             try:
                 session_file.write_text("")  # clear so aria2 starts clean
                 logger.debug("Cleared aria2 session file on startup (DB is source of truth)")
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug("Session file clear failed (non-critical): %s", _e)
         cmd.extend(f"--{key}={value}" for key, value in options.items())
         return cmd
 
@@ -192,8 +192,8 @@ class BuiltinAria2Runtime:
                 if is_builtin_mode():
                     try:
                         await self._service()._call("aria2.shutdown")
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        logger.debug("aria2 shutdown RPC failed (process will be killed): %s", _e)
                 if self._process and self._process.returncode is None:
                     try:
                         await asyncio.wait_for(self._process.wait(), timeout=5)
@@ -300,8 +300,8 @@ class BuiltinAria2Runtime:
                 tail = log_file.read_text(encoding="utf-8", errors="replace").splitlines()[-10:]
                 if tail:
                     details.append("log tail: " + " | ".join(tail))
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("aria2 log tail failed: %s", _e)
         return "; ".join(details)
 
 

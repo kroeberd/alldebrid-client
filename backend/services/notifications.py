@@ -266,7 +266,7 @@ class NotificationService:
             return
         url = self.webhook_url
         if not url:
-            return
+            return False
         desc = (
             "**AllDebrid-Client " + latest_version + "** is available.\n"
             "You are running **" + current_version + "**."

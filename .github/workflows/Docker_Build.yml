@@ -83,7 +83,7 @@ jobs:
       - name: Docker meta
         if: steps.compare.outputs.skip != 'true'
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@030e881283bb21e73b990a6ab5fc8e9b6e88f61  # v6
         with:
           images: |
             ghcr.io/kroeberd/alldebrid-client
@@ -97,15 +97,15 @@ jobs:
 
       - name: Set up QEMU
         if: steps.compare.outputs.skip != 'true'
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@ce360397dd3f17f7049dfcbc5e6a9a14db90b16  # v4
 
       - name: Set up Docker Buildx
         if: steps.compare.outputs.skip != 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42f5e5af308ce14a7a65dc4ef9bcc  # v3
 
       - name: Login to GHCR
         if: steps.compare.outputs.skip != 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb46858eba26ddae7534e64b6bb3e40d9  # v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -113,14 +113,14 @@ jobs:
 
       - name: Login to Docker Hub
         if: steps.compare.outputs.skip != 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb46858eba26ddae7534e64b6bb3e40d9  # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
         if: steps.compare.outputs.skip != 'true'
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@bcafcacb16a7f75d5e4e745fc4b8e4ca2f0e4ce  # v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -133,7 +133,7 @@ jobs:
 
       - name: Update Docker Hub description
         if: steps.compare.outputs.skip != 'true'
-        uses: peter-evans/dockerhub-description@v4
+        uses: peter-evans/dockerhub-description@432a30c9e07405cde0e1a4a698875e49b7fcd29  # v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}

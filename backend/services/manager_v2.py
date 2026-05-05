@@ -8,9 +8,9 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import aiofiles
 import aiohttp
-import aiosqlite
 
 from core.config import AppSettings, get_settings
+import aiosqlite  # used by tests via patch; kept for compatibility
 from db.database import DB_PATH, get_db
 from services.alldebrid import AllDebridService, flatten_files
 from services.aria2 import Aria2Service
@@ -201,8 +201,8 @@ def _file_in_use(path: Path) -> bool:
                         continue
             except (PermissionError, FileNotFoundError):
                 continue
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("Torrent file check failed: %s", _e)
     return False
 
 
@@ -2126,7 +2126,7 @@ class TorrentManager:
                     )
                 return
             elif active_count > 0:
-                new_status = "paused" if paused_count == active_count and active_count > 0 else "queued"
+                new_status = "paused" if paused_count == active_count else "queued"  # active_count > 0 guaranteed by elif
                 await db.execute("UPDATE torrents SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", (new_status, torrent_id))
                 await db.commit()
                 return
@@ -2583,8 +2583,8 @@ class TorrentManager:
         """Best-effort removal of a single GID from aria2's memory."""
         try:
             await self.aria2().remove(gid)
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("aria2 remove failed for gid (already gone): %s", _e)
 
 
 manager = TorrentManager()

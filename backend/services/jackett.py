@@ -237,6 +237,11 @@ async def _get_json(session: aiohttp.ClientSession, endpoint: str, params: Dict[
 
 
 async def _get_text(session: aiohttp.ClientSession, endpoint: str, params: Dict[str, Any]) -> str:
+    # Validate that the endpoint is an absolute HTTP/HTTPS URL from the configured Jackett host.
+    # This prevents SSRF if an attacker were to manipulate the config URL.
+    _parsed = str(endpoint)
+    if not (_parsed.startswith("http://") or _parsed.startswith("https://")):
+        raise ValueError(f"Jackett endpoint must be an absolute HTTP(S) URL, got: {_parsed[:100]}")
     async with session.get(endpoint, params=params) as resp:
         if resp.status == 401:
             raise PermissionError("Invalid Jackett API key")
@@ -477,7 +482,7 @@ async def search(
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 xml_text = await _get_text(session, torznab_endpoint, tnb_params)
         except (aiohttp.ServerTimeoutError, asyncio.TimeoutError):
-            logger.warning("Jackett: Torznab search timed out for query %r", query)
+            logger.warning("Jackett: Torznab search timed out for query %r", str(query)[:100])
             return {"results": [], "total": 0, "query": query, "error": "Jackett search timed out — try fewer indexers or a more specific query"}
         except aiohttp.ClientConnectorError as exc:
             logger.warning("Jackett: connection refused — %s", exc)
@@ -502,7 +507,7 @@ async def search(
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 data = await _get_json(session, endpoint, params)
         except (aiohttp.ServerTimeoutError, asyncio.TimeoutError):
-            logger.warning("Jackett: search timed out for query %r", query)
+            logger.warning("Jackett: search timed out for query %r", str(query)[:100])
             return {"results": [], "total": 0, "query": query, "error": "Jackett search timed out — try fewer indexers or a more specific query"}
         except aiohttp.ClientConnectorError as exc:
             logger.warning("Jackett: connection refused — %s", exc)
@@ -553,8 +558,8 @@ async def test_connection() -> Dict[str, Any]:
                 return {"ok": True, "version": version}
             except PermissionError:
                 return {"ok": False, "error": "Invalid API key"}
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug("Jackett config endpoint failed, trying indexers: %s", _e)
 
             try:
                 data = await _get_json(session, f"{url}/api/v2.0/indexers", {"apikey": api_key, "configured": "true"})
@@ -562,8 +567,8 @@ async def test_connection() -> Dict[str, Any]:
                     return {"ok": True, "version": f"reachable ({len(data)} indexers)"}
             except PermissionError:
                 return {"ok": False, "error": "Invalid API key"}
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug("Jackett indexers JSON endpoint failed, trying torznab: %s", _e)
 
             try:
                 xml_text = await _get_text(
@@ -576,8 +581,8 @@ async def test_connection() -> Dict[str, Any]:
                     return {"ok": True, "version": f"reachable ({len(indexers)} indexers)"}
             except PermissionError:
                 return {"ok": False, "error": "Invalid API key"}
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug("Jackett torznab indexers endpoint failed, trying results: %s", _e)
 
             try:
                 await _get_json(
@@ -618,8 +623,8 @@ async def get_indexers() -> List[Dict[str, str]]:
                 ]
                 if items:
                     return items
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug("Jackett get_indexers JSON failed, trying torznab: %s", _e)
 
             try:
                 xml_text = await _get_text(

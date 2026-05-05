@@ -63,7 +63,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298bc8b6b5764f24f3c0de7e8bf8b5  # v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: "v${{ steps.version.outputs.version }}"
@@ -73,26 +73,26 @@ jobs:
           make_latest: true
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@ce360397dd3f17f7049dfcbc5e6a9a14db90b16  # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42f5e5af308ce14a7a65dc4ef9bcc  # v3
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb46858eba26ddae7534e64b6bb3e40d9  # v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb46858eba26ddae7534e64b6bb3e40d9  # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@bcafcacb16a7f75d5e4e745fc4b8e4ca2f0e4ce  # v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
