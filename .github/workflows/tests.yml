@@ -24,10 +24,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b47dc5f609f90ad530f4e2afb73a4  # v4
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951f3c84939f01a4d6cf69d63b3c1e5  # v5
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -74,10 +74,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b47dc5f609f90ad530f4e2afb73a4  # v4
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951f3c84939f01a4d6cf69d63b3c1e5  # v5
         with:
           python-version: '3.12'
           cache: 'pip'

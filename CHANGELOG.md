@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.5.21] — 2026-05-05
+
+### Fixed — GitHub Actions: all Actions pinned to full commit SHAs
+
+All GitHub Actions across every workflow are now pinned to their full 40-character
+commit SHA instead of mutable version tags (e.g. `@v4`). This eliminates the
+supply-chain attack vector described in CWE-829 and also fixes the workflow
+failures caused by the previous incomplete SHA pinning.
+
+**Workflows updated:** `Docker_Build.yml`, `release.yml`, `tests.yml`,
+`build-windows-exe.yml`, `codeql.yml`, `update-dockerhub-description.yml`
+
+**Actions pinned:**
+`actions/checkout`, `actions/cache`, `actions/setup-python`,
+`actions/upload-artifact`, `docker/metadata-action`, `docker/setup-qemu-action`,
+`docker/setup-buildx-action`, `docker/login-action`, `docker/build-push-action`,
+`peter-evans/dockerhub-description`, `softprops/action-gh-release`
+
+### Fixed — 50 CodeQL code-scanning alerts resolved
+
+See previous commit for full details. Summary:
+- ERRORs: log injection, stack-trace exposure, partial SSRF
+- WARNINGs: missing workflow permissions, unpinned action tags,
+  implicit string concatenation, redundant comparison
+- NOTEs: unused imports, empty except blocks, mixed returns, unused variables
+
 ## [1.5.20] — 2026-05-05
 
 ### Fixed — "Request timed out" when adding a torrent from search results
