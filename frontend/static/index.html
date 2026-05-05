@@ -2767,8 +2767,9 @@ function renderSettings() {
   document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
     `<div class="stab${i===0?' active':''}" data-tab="${t.id}" onclick="switchSettingsTab('${t.id}')">${t.label}</div>`
   ).join('');
-  document.getElementById('settings-form').innerHTML = `
-    <div class="stab-panel  active" id="tab-general">
+  const _sf = document.getElementById('settings-form');
+  _sf.innerHTML = '';
+  _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel  active" id="tab-general">
       <div class="scard">
         <div class="scard-header">🔑 AllDebrid</div>
       <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Required. Your AllDebrid API key — get it at <a href="https://alldebrid.com/apikeys/" target="_blank" style="color:var(--accent)">alldebrid.com/apikeys</a>.</p>
@@ -2848,9 +2849,8 @@ function renderSettings() {
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="stab-panel" id="tab-download">
+    </div>`);
+  _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-download">
       <div class="scard">
       <div class="scard-header">⬇️ Download Client</div>
       <div class="scard-body">
@@ -3059,9 +3059,8 @@ function renderSettings() {
         </div>
       </div>
     </div>
-    </div>
-
-    <div class="stab-panel" id="tab-notifications">
+    </div>`);
+  _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-notifications">
       <div class="scard">
         <div class="scard-header">🔔 Discord Notifications</div>
         <div class="scard-body">
@@ -3120,9 +3119,8 @@ function renderSettings() {
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="stab-panel" id="tab-services">
+    </div>`);
+  _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-services">
       <div class="scard">
         <div class="scard-header">📺 Sonarr</div>
         <div class="scard-body">
@@ -3304,8 +3302,8 @@ function renderSettings() {
         </div>
       </div>
       
-    </div>
-    </div>
+    </div>`);
+  _sf.insertAdjacentHTML('beforeend', `</div>
 
     <div class="stab-panel" id="tab-advanced">
       <div class="scard">
@@ -3544,9 +3542,7 @@ function renderSettings() {
           </div>
         </div>
       </div>
-    </div>
-
-  `;
+    </div>`);
   renderFlexgetTaskSchedules();
 }
 

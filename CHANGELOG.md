@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.5.14] — 2026-05-05
+
+### Fixed — Settings Services tab raw HTML persists on mobile (root fix)
+
+v1.5.13 removed nested template literals but the bug persisted. The real root
+cause was the **50 KB `innerHTML` template literal itself**: some mobile JS
+engines (Android WebView, Samsung Internet) silently truncate very long template
+literal string evaluations, leaving the remainder as raw text nodes in the DOM.
+
+**Fix:** `renderSettings()` no longer assigns one giant template string.
+Instead it clears the container and appends each of the five tab panels
+individually via `insertAdjacentHTML('beforeend', ...)`:
+
+```
+form.innerHTML = '';
+form.insertAdjacentHTML('beforeend', `[tab-general  — 4 712 chars]`);
+form.insertAdjacentHTML('beforeend', `[tab-download — 14 307 chars]`);
+form.insertAdjacentHTML('beforeend', `[tab-notifications — 4 398 chars]`);
+form.insertAdjacentHTML('beforeend', `[tab-services — 11 318 chars]`);
+form.insertAdjacentHTML('beforeend', `[tab-advanced — 15 531 chars]`);
+```
+
+Each individual string is well under the ~15 KB limit where mobile truncation
+is observed. All five panels verified: 0 nested backticks, balanced divs.
+
 ## [1.5.13] — 2026-05-05
 
 ### Fixed — Settings Services tab content visible as raw HTML text on mobile
