@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.5.13] — 2026-05-05
+
+### Fixed — Settings Services tab shows raw HTML attribute as text
+
+The text `id="tab-services">` was visible on screen above the Sonarr card.
+
+**Root cause:** When the Notifications panel was rebuilt in v1.5.11, the
+opening `<div class="stab-panel"` of the `tab-services` panel was accidentally
+stripped — only `id="tab-services">` remained as bare text in the template.
+Additionally, the matching closing `</div>` of the `tab-services` stab-panel
+wrapper was also missing, leaving the template with one unbalanced `<div>`.
+
+**Fix:** Restored both the opening `<div class="stab-panel" id="tab-services">`
+and its closing `</div>`. Template verified: 291/291 balanced divs, all 5
+panels present.
+
 ## [1.5.12] — 2026-05-05
 
 ### Fixed — Jackett search times out immediately in the UI
