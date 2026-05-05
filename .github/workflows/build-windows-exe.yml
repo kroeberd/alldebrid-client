@@ -1,0 +1,119 @@
+name: Build Windows EXE
+
+# ─── Triggers ────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches:
+      - test-exe-build          # automatic build on every push to the test branch
+  workflow_dispatch:            # manual trigger via GitHub UI → Actions → Run workflow
+    inputs:
+      upload_artifact:
+        description: "Upload the EXE as a GitHub Actions artifact"
+        required: false
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+
+# ─── Concurrency: cancel in-progress run when a new one starts ───────────────
+concurrency:
+  group: windows-exe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows-exe:
+    name: PyInstaller → alldebrid-client-windows.exe
+    runs-on: windows-latest          # native Windows runner — no Wine needed
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Python ────────────────────────────────────────────────────
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: packaging/requirements-windows.txt
+
+      # ── 3. Install dependencies ──────────────────────────────────────────────
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r packaging/requirements-windows.txt
+
+      # ── 4. Verify project integrity (run tests against SQLite only) ──────────
+      # asyncpg / PostgreSQL tests are skipped — no PG server available here.
+      - name: Run backend tests (SQLite only)
+        working-directory: backend
+        env:
+          DB_TYPE: sqlite
+          PYTHONPATH: "."
+        run: |
+          pip install pytest pytest-asyncio pytest-cov
+          python -m pytest tests/ -q --tb=short --ignore=tests/test_postgres.py
+        continue-on-error: false
+
+      # ── 5. Read VERSION ──────────────────────────────────────────────────────
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      # ── 6. Build Windows EXE with PyInstaller ────────────────────────────────
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller packaging/alldebrid_client.spec --clean --noconfirm
+        env:
+          # Tell PyInstaller where the spec file's SPECPATH resolves from
+          PYTHONPATH: backend
+
+      # ── 7. Verify the EXE was produced ──────────────────────────────────────
+      - name: Verify EXE exists
+        shell: bash
+        run: |
+          ls -lh dist/
+          test -f dist/alldebrid-client-windows.exe
+          echo "EXE size: $(du -sh dist/alldebrid-client-windows.exe | cut -f1)"
+
+      # ── 8. Rename with version tag ───────────────────────────────────────────
+      - name: Rename EXE with version
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          cp dist/alldebrid-client-windows.exe \
+             "dist/alldebrid-client-windows-v${VERSION}.exe"
+          echo "Artifact: alldebrid-client-windows-v${VERSION}.exe"
+
+      # ── 9. Upload as GitHub Actions Artifact ─────────────────────────────────
+      - name: Upload EXE as artifact
+        if: ${{ github.event.inputs.upload_artifact != 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: alldebrid-client-windows-v${{ steps.version.outputs.version }}
+          path: |
+            dist/alldebrid-client-windows.exe
+            dist/alldebrid-client-windows-v${{ steps.version.outputs.version }}.exe
+          retention-days: 30
+          if-no-files-found: error
+
+      # ── 10. Print download instructions ──────────────────────────────────────
+      - name: Build summary
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "## ✅ Windows EXE built successfully" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Version:** \`v${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Artifact:** \`alldebrid-client-windows-v${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### 📥 How to download" >> "$GITHUB_STEP_SUMMARY"
+          echo "1. Go to **Actions → Build Windows EXE → this run**" >> "$GITHUB_STEP_SUMMARY"
+          echo "2. Scroll to **Artifacts** at the bottom of the page" >> "$GITHUB_STEP_SUMMARY"
+          echo "3. Click \`alldebrid-client-windows-v${VERSION}\` to download the ZIP" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ⚠️ Requirements on Windows" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Windows 10 / 11 (x64)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Optional: [aria2c](https://github.com/aria2/aria2/releases) on PATH for built-in download mode" >> "$GITHUB_STEP_SUMMARY"
+          echo "- No Python installation needed — everything is bundled" >> "$GITHUB_STEP_SUMMARY"

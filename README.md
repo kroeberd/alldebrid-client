@@ -264,3 +264,6 @@ See [CHANGELOG.md](CHANGELOG.md) for full release history.
 ## License
 
 MIT — see [LICENSE](LICENSE)
+# Windows EXE Build
+
+See [docs/windows-exe-build.md](docs/windows-exe-build.md) for full documentation on building and running the Windows EXE.
