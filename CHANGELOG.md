@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.5.27] — 2026-05-06
+
+### Fixed — Header badge shows ∞ intermittently and missing live speed
+
+**Three bugs fixed:**
+
+1. **∞ flicker on every `loadStats()` call** — `loadStats` updated `active` in the
+   badge state but `limitBps` was still 0 (initial state), so whenever the badge
+   refreshed without a concurrent `loadAria2SpeedLimit()` finishing first it would
+   display ∞ for a frame.
+   *Fix:* `loadAria2Runtime()` pre-seeds `_aria2BadgeState.limitBps` from
+   `settingsData` before making the badge visible, so the first render is already
+   correct. The live RPC call (`loadAria2SpeedLimit`) then patches the value without
+   any visible flash.
+
+2. **Limit value came from stale `settingsData`** — `loadAria2Runtime()` read
+   `aria2_max_download_limit` from the cached settings object, which is only updated
+   when the user saves Settings. If the limit was changed via the quick widget (which
+   goes directly to RPC + persist), the badge could show an outdated value.
+   *Fix:* `loadAria2Runtime()` now calls `loadAria2SpeedLimit()` (a live RPC read)
+   instead of reading from `settingsData`.
+
+3. **No live download speed shown** — the badge only showed the configured speed
+   *limit*, not the actual current throughput.
+   *Fix:* Badge now has a third section: `↓ active/max | 17.6 MB/s | ↓ 20 MB/s`
+   — live speed (from `/aria2/downloads` summary) in the middle, limit on the right.
+   `loadAria2QueueView()` passes `liveBps` from `summary.download_speed` on every
+   poll tick (every ~1 s while the Downloads view is active).
+
 ## [1.5.26] — 2026-05-06
 
 ### Added — Max Downloads quick-setting + expanded header badge

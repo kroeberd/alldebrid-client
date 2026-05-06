@@ -772,7 +772,7 @@ textarea.input { resize: vertical; }
     <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
     <h1 id="page-title">Dashboard</h1>
     <div id="update-badge" style="display:none;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--accent);border-radius:20px;padding:3px 12px;font-size:11px;color:var(--accent);cursor:pointer" onclick="nav(document.querySelector('[data-view=changelog]'))" title="New version available">&#128230; <span id="update-badge-version"></span> available</div>
-    <div id="aria2-speed-badge" style="display:none;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text2);cursor:default" title="Active downloads / max — speed limit"><span style="color:var(--green)">&#9660;</span><span id="aria2-badge-active">0</span><span style="color:var(--text3)">/</span><span id="aria2-badge-max">—</span><span style="color:var(--border);margin:0 2px">|</span><span style="color:var(--text3)">&#9660;</span><span id="aria2-badge-limit">&#8734;</span></div>
+    <div id="aria2-speed-badge" style="display:none;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text2);cursor:default" title="Active / max — live speed — limit"><span style="color:var(--green)">&#9660;</span><span id="aria2-badge-active">0</span><span style="color:var(--text3)">/</span><span id="aria2-badge-max">—</span><span style="color:var(--border);margin:0 2px">|</span><span id="aria2-badge-speed" style="color:var(--green)">0 B/s</span><span style="color:var(--border);margin:0 2px">|</span><span style="color:var(--text3)">&#9660;</span><span id="aria2-badge-limit">&#8734;</span></div>
     <div id="topbar-actions"></div>
   </div>
   <div id="content">
@@ -3851,12 +3851,17 @@ async function loadAria2Runtime() {
     const dlEl  = document.getElementById('aria2-speed-dl');
     if (badge) {
       const isBuiltin = (data.mode||'')==='builtin' && data.running;
-      badge.style.display = isBuiltin ? 'flex' : 'none';
-      // Update topbar badge visibility + live speed
-      if (isBuiltin) {
-        var lim = settingsData ? (parseInt(settingsData.aria2_max_download_limit)||0) : 0;
-        var mx  = settingsData ? (parseInt(settingsData.aria2_max_active_downloads)||3) : 3;
-        updateAria2TopbarBadge({limitBps: lim, maxDl: mx});
+      if (!isBuiltin) {
+        badge.style.display = 'none';
+      } else {
+        // Pre-seed from settingsData for instant first render,
+        // then fetch live values from RPC
+        if (settingsData) {
+          _aria2BadgeState.limitBps = parseInt(settingsData.aria2_max_download_limit)||0;
+          _aria2BadgeState.maxDl    = parseInt(settingsData.aria2_max_active_downloads)||3;
+        }
+        badge.style.display = 'flex';
+        loadAria2SpeedLimit().catch(function(){});
       }
     }
     return data;
@@ -4816,8 +4821,9 @@ async function loadAria2QueueView() {
     var badge = document.getElementById('nb-aria2-active');
     var cnt = (data.summary || {}).active || 0;
     if (badge) { badge.textContent = cnt; badge.style.display = cnt > 0 ? '' : 'none'; }
-    // Update topbar badge (active count; limit/max updated by loadAria2SpeedLimit)
-    updateAria2TopbarBadge({active: cnt});
+    // Update topbar badge: active count + live speed
+    var liveBps = (data.summary || {}).download_speed || 0;
+    updateAria2TopbarBadge({active: cnt, liveBps: liveBps});
     // Auto-refresh every 4s while view is active
     if (document.getElementById('view-aria2queue') &&
         document.getElementById('view-aria2queue').classList.contains('active')) {
@@ -4994,19 +5000,19 @@ function updateAria2Badge(activeCount) {
 }
 
 // Topbar badge: live active count, speed limit, max concurrent
-var _aria2BadgeState = {active: 0, limitBps: 0, maxDl: 3};
+var _aria2BadgeState = {active: 0, limitBps: 0, maxDl: 3, liveBps: 0};
 function updateAria2TopbarBadge(patch) {
   Object.assign(_aria2BadgeState, patch);
   var s = _aria2BadgeState;
   var topBadge = document.getElementById('aria2-speed-badge');
   var elActive = document.getElementById('aria2-badge-active');
   var elMax    = document.getElementById('aria2-badge-max');
+  var elSpeed  = document.getElementById('aria2-badge-speed');
   var elLimit  = document.getElementById('aria2-badge-limit');
   if (!topBadge) return;
-  // Badge only shows when builtin aria2 is running
-  if (topBadge.style.display === 'none') return;
   if (elActive) elActive.textContent = s.active;
   if (elMax)    elMax.textContent    = s.maxDl || '—';
+  if (elSpeed)  elSpeed.textContent  = fmtSpeed(s.liveBps || 0);
   if (elLimit)  elLimit.textContent  = s.limitBps > 0 ? fmtSpeed(s.limitBps) : '\u221e';
 }
 
