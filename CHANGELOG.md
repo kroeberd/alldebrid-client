@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.5.29] — 2026-05-06
+
+### Fixed — Docker build fails: `unrar` not available in Debian Trixie
+
+`unrar` (non-free) is not installable from the default Debian Trixie repos without
+enabling `non-free`. Replaced with `unrar-free` (LGPL, available by default).
+
+**RAR extraction strategy updated** in `services/extractor.py`:
+1. **`7z`** (from `p7zip-full`) — tried first; handles both RAR3 and RAR5 reliably
+2. **`unrar-free`** — fallback for RAR3 if 7z is unavailable
+3. Error if neither tool succeeds
+
+### Fixed — Duplicate Docker builds on every push
+
+`release.yml` contained a full Docker build-and-push job in addition to the
+`Docker_Build.yml` workflow — both triggered on every push to `main` that
+touched `VERSION`, causing two identical multi-arch builds to run in parallel.
+
+The Docker build steps have been removed from `release.yml`.
+`Docker_Build.yml` remains the single source of truth for image builds
+(path-filtered on `backend/**`, `frontend/**`, `Dockerfile`, `VERSION`; 
+weekly schedule; `workflow_dispatch`).
+
+`release.yml` now only creates the GitHub Release (tag + changelog body).
+
 ## [1.5.28] — 2026-05-06
 
 ### Added — Automatic archive extraction after download

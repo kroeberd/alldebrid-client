@@ -158,17 +158,33 @@ def _extract_7z(archive: Path, dest: Path) -> None:
 
 
 def _extract_rar(archive: Path, dest: Path) -> None:
-    """Use system `unrar` binary."""
-    if _tool_available("unrar"):
-        rc, out = _run_tool(["unrar", "x", "-y", str(archive), str(dest) + "/"])
-        if rc == 0:
-            return
-        raise RuntimeError(f"unrar exited {rc}: {out}")
-    # Fallback: try 7z (handles most RAR3/RAR5)
-    if any(_tool_available(b) for b in ("7z", "7za", "7zz")):
-        _extract_7z(archive, dest)
-        return
-    raise RuntimeError("Neither unrar nor 7z found — cannot extract RAR archives")
+    """Extract RAR archives using unrar-free, unrar, or 7z (in that order).
+
+    unrar-free is the default Debian package (LGPL, handles RAR ≤ 3.0).
+    unrar (non-free) handles RAR5 natively.
+    7z from p7zip-full handles both RAR3 and RAR5 and is the reliable fallback.
+    """
+    # Try 7z first — it handles RAR3 and RAR5 and is always present in the image
+    for binary in ("7z", "7za", "7zz"):
+        if _tool_available(binary):
+            rc, out = _run_tool([binary, "x", str(archive), f"-o{dest}", "-y"])
+            if rc == 0:
+                return
+            # If 7z fails, fall through to unrar tools
+            break
+
+    # Fallback: native unrar tools
+    for binary, args in [
+        ("unrar",      ["unrar",      "x", "-y", str(archive), str(dest) + "/"]),
+        ("unrar-free", ["unrar-free", "x",        str(archive), str(dest) + "/"]),
+    ]:
+        if _tool_available(binary):
+            rc, out = _run_tool(args)
+            if rc == 0:
+                return
+            raise RuntimeError(f"{binary} exited {rc}: {out}")
+
+    raise RuntimeError("No RAR extraction tool available (p7zip-full or unrar-free required)")
 
 
 def _extract_sync(archive: Path, dest: Path) -> None:

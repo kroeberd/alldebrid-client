@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gosu \
     p7zip-full \
-    unrar && rm -rf /var/lib/apt/lists/*
+    unrar-free && rm -rf /var/lib/apt/lists/*
 
 # Python deps
 COPY backend/requirements.txt .

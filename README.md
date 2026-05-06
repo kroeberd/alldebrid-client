@@ -145,9 +145,9 @@ archives are automatically extracted after every successful download.
 | Bzip2 single-file | `.bz2` | Python `bz2` (built-in) |
 | XZ / LZMA single-file | `.xz` | Python `lzma` (built-in) |
 | 7-Zip | `.7z` | `7z` binary (`p7zip-full`) |
-| RAR / RAR5 | `.rar`, `.r00`, multi-part | `unrar` binary |
+| RAR / RAR5 | `.rar`, `.r00`, multi-part | `7z` (primary) + `unrar-free` (fallback) |
 
-`p7zip-full` and `unrar` are included in the Docker image — no extra setup needed.
+`p7zip-full` and `unrar-free` are included in the Docker image — no extra setup needed. `7z` handles both RAR3 and RAR5; `unrar-free` covers RAR3 as a fallback.
 
 ### Behaviour
 
