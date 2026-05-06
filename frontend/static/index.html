@@ -2707,6 +2707,7 @@ function renderSettings() {
   const tabs = [
     { id:'tab-general',       label:'⚡ General' },
     { id:'tab-download',      label:'⬇️ Download' },
+    { id:'tab-extract',       label:'📦 Extract' },
     { id:'tab-notifications', label:'🔔 Notifications' },
     { id:'tab-services',      label:'🔌 Services' },
     { id:'tab-advanced',      label:'🛠️ Advanced' },
@@ -3007,31 +3008,8 @@ function renderSettings() {
       </div>
     </div>
     <div class="scard">
-      <div class="scard-header">&#128230; Auto-Extraction</div>
+      <div class="scard-header">&#9889; Upload Retry</div>
       <div class="scard-body">
-        <div class="form-group">
-          <label class="form-label toggle-label"><span>Enable Auto-Extraction</span>
-            <label class="tswitch"><input type="checkbox" id="s-extract_enabled" ${s.extract_enabled?'checked':''}/><span class="tslider"></span></label>
-          </label>
-          <span class="form-hint">Automatically extract archives (.zip .rar .7z .tar.gz .tar.bz2 .tar.xz and more) after download completes. Requires <b>p7zip-full</b> and <b>unrar</b> (both included in the Docker image).</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label toggle-label"><span>Delete Archive After Extraction</span>
-            <label class="tswitch"><input type="checkbox" id="s-extract_delete_archive" ${s.extract_delete_archive!==false?'checked':''}/><span class="tslider"></span></label>
-          </label>
-          <span class="form-hint">Remove the source archive after successful extraction. Enabled by default.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Max Concurrent Extractions</label>
-          <input class="input" type="number" id="s-extract_max_concurrent" value="${s.extract_max_concurrent??2}" min="1" max="10"/>
-          <span class="form-hint">Maximum number of archives extracted in parallel. Default: 2.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label toggle-label"><span>Discord Notification on Extraction</span>
-            <label class="tswitch"><input type="checkbox" id="s-discord_notify_extract" ${s.discord_notify_extract!==false?'checked':''}/><span class="tslider"></span></label>
-          </label>
-          <span class="form-hint">Send a Discord webhook on extraction completion or failure.</span>
-        </div>
         <div class="form-group">
           <label class="form-label">AllDebrid Upload Retry Count</label>
           <input class="input" type="number" id="s-upload_fail_retry_count" value="${s.upload_fail_retry_count??3}" min="0" max="10"/>
@@ -3044,6 +3022,36 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    </div>`);
+  _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-extract">
+      <div class="scard">
+        <div class="scard-header">&#128230; Auto-Extraction</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label toggle-label"><span>Enable Auto-Extraction</span>
+              <label class="tswitch"><input type="checkbox" id="s-extract_enabled" ${s.extract_enabled?'checked':''}/><span class="tslider"></span></label>
+            </label>
+            <span class="form-hint">Automatically extract archives (.zip .rar .7z .tar.gz .tar.bz2 .tar.xz and more) after download completes. p7zip-full and unrar-free are included in the Docker image.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label toggle-label"><span>Delete Archive After Extraction</span>
+              <label class="tswitch"><input type="checkbox" id="s-extract_delete_archive" ${s.extract_delete_archive!==false?'checked':''}/><span class="tslider"></span></label>
+            </label>
+            <span class="form-hint">Remove the source archive after successful extraction. Enabled by default.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Max Concurrent Extractions</label>
+            <input class="input" type="number" id="s-extract_max_concurrent" value="${s.extract_max_concurrent??2}" min="1" max="10"/>
+            <span class="form-hint">Maximum number of archives extracted in parallel. Default: 2.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label toggle-label"><span>Discord Notification on Extraction</span>
+              <label class="tswitch"><input type="checkbox" id="s-discord_notify_extract" ${s.discord_notify_extract!==false?'checked':''}/><span class="tslider"></span></label>
+            </label>
+            <span class="form-hint">Send a Discord webhook on extraction completion or failure.</span>
+          </div>
+        </div>
+      </div>
     </div>`);
   _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-notifications">
       <div class="scard">

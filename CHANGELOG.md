@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.30] — 2026-05-06
+
+### Changed — Auto-Extraction moved to its own Settings tab
+
+The extraction settings have been moved out of the ⬇️ Download tab into a
+dedicated **📦 Extract** tab (between Download and Notifications).
+
+The Upload Retry settings remain in the Download tab, now in their own
+"⚡ Upload Retry" card.
+
+Tab order: ⚡ General · ⬇️ Download · 📦 Extract · 🔔 Notifications · 🔌 Services · 🛠️ Advanced
+
 ## [1.5.29] — 2026-05-06
 
 ### Fixed — Docker build fails: `unrar` not available in Debian Trixie
