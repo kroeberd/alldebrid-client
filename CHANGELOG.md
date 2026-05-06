@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.5.26] — 2026-05-06
+
+### Added — Max Downloads quick-setting + expanded header badge
+
+**Header badge** (visible when built-in aria2 is running) now shows three values:
+`↓ active / max | ↓ limit`
+- **active**: how many files aria2 is currently downloading
+- **max**: the configured concurrent download limit
+- **limit**: the set speed cap (∞ = unlimited)
+
+Previously the badge only showed the live download speed, which is less useful
+at a glance than knowing the current caps.
+
+**New "Max DL" widget** in the ⬇ Downloads view (next to the speed limiter):
+A compact dropdown (1 / 2 / 3 / 5 / 10 / 20) that applies the concurrent
+download limit immediately via RPC **and** persists it to `settings.json` so
+it survives container restarts — same two-step approach as the speed limiter.
+
+**Backend:**
+- `GET /aria2/global-options` now also returns `max_concurrent_downloads`
+- `POST /aria2/global-options` now accepts `max_concurrent_downloads`,
+  applies it via `aria2.changeGlobalOption`, and persists it as
+  `aria2_max_active_downloads` in settings (alongside the existing
+  speed-limit persistence added in v1.5.25)
+
 ## [1.5.25] — 2026-05-06
 
 ### Fixed — Built-in aria2 ignores max download/upload speed after restart

@@ -1200,7 +1200,8 @@ async def aria2_get_global_options():
             "ok": True,
             "max_download_speed": int(opts.get("max-overall-download-limit") or 0),
             "max_upload_speed":   int(opts.get("max-overall-upload-limit")   or 0),
-            "raw": {k: v for k, v in opts.items() if "limit" in k or "speed" in k},
+            "max_concurrent_downloads": int(opts.get("max-concurrent-downloads") or 0),
+            "raw": {k: v for k, v in opts.items() if "limit" in k or "speed" in k or "concurrent" in k},
         }
     except Exception as e:
         raise HTTPException(502, str(e))
@@ -1222,6 +1223,10 @@ async def aria2_set_global_options(body: dict):
         val = int(body["max_upload_speed"])
         options["max-overall-upload-limit"] = str(val)
         cfg_updates["aria2_max_upload_limit"] = val
+    if "max_concurrent_downloads" in body:
+        val = max(1, int(body["max_concurrent_downloads"]))
+        options["max-concurrent-downloads"] = str(val)
+        cfg_updates["aria2_max_active_downloads"] = val
     if not options:
         raise HTTPException(400, "No valid options provided")
     try:
