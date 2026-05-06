@@ -253,6 +253,48 @@ class NotificationService:
             color=color,
         )
 
+    async def send_extract_complete(
+        self,
+        name: str,
+        archive_count: int = 0,
+        dest: str = "",
+    ) -> None:
+        """Notify that archives were extracted successfully after download."""
+        if not self.webhook_url:
+            return
+        fields: List[Dict[str, Any]] = []
+        if archive_count:
+            fields.append({"name": "Archives extracted", "value": str(archive_count), "inline": True})
+        if dest:
+            fields.append({"name": "Destination", "value": f"`{dest}`", "inline": False})
+        fields.append({"name": "Time", "value": _now_utc(), "inline": True})
+        await self._send(
+            url=self.webhook_url,
+            title="📦 Extraction Complete",
+            description=f"**{name[:100]}**",
+            color=COLOR_SUCCESS,
+            fields=fields or None,
+        )
+
+    async def send_extract_failed(
+        self,
+        name: str,
+        reason: str = "",
+    ) -> None:
+        """Notify that archive extraction failed."""
+        if not self.webhook_url:
+            return
+        fields: List[Dict[str, Any]] = []
+        if reason:
+            fields.append({"name": "Error", "value": reason[:300], "inline": False})
+        await self._send(
+            url=self.webhook_url,
+            title="❌ Extraction Failed",
+            description=f"**{name[:100]}**",
+            color=COLOR_ERROR,
+            fields=fields or None,
+        )
+
     async def send_requeue(
         self,
         name: str,

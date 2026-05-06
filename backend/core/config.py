@@ -128,6 +128,12 @@ class AppSettings(BaseModel):
     db_wipe_enabled: bool = False
     db_backup_before_wipe: bool = True
 
+    # Post-download extraction
+    extract_enabled: bool = False          # auto-extract archives after download
+    extract_delete_archive: bool = True    # delete archive after successful extraction
+    extract_max_concurrent: int = 2        # max parallel extractions
+    discord_notify_extract: bool = True    # Discord notification after extraction
+
     # AllDebrid upload retry (statusCode 5 = upload failed)
     upload_fail_retry_count: int = 3   # max retries for statusCode 5
     upload_fail_retry_delay_minutes: int = 5  # minutes between retries

@@ -42,7 +42,8 @@ AllDebrid-Client automates the full torrent lifecycle via your AllDebrid account
 |----------|---------|
 | **Input sources** | Web UI paste, Jackett search (multi-indexer), watch folder (`.torrent`/`.magnet`), Sonarr/Radarr, REST API |
 | **Download client** | **Built-in aria2** (default, zero setup) or external aria2 instance |
-| **Live speed badge** | Real-time aria2 download speed shown in the header (built-in mode only) |
+| **Live speed badge** | Header shows active / max downloads, live speed, and speed limit (built-in mode only) |
+| **Auto-extraction** | Automatically extract `.zip`, `.rar`, `.7z`, `.tar.*` and more after download; configurable concurrency, archive deletion, and Discord notifications |
 | **Jackett search** | Multi-indexer selection with chip UI, category filters, direct Add from results |
 | **Torrent list** | Pagination (15 / 25 / 50 / 100 per page), status filter, full-text search, bulk actions |
 | **Downloads view** | Live aria2 queue with 1-second auto-refresh, per-file progress bars, Pause/Resume/Remove |
@@ -128,6 +129,42 @@ If you already run aria2 separately, switch to External in Settings → ⬇️ D
 5. Click **Add** next to any result to queue it immediately
 
 ---
+
+## Auto-Extraction
+
+When **Enable Auto-Extraction** is turned on (Settings → ⬇️ Download → 📦 Auto-Extraction),
+archives are automatically extracted after every successful download.
+
+### Supported formats
+
+| Format | Extension(s) | Engine |
+|--------|-------------|--------|
+| ZIP | `.zip` | Python `zipfile` (built-in) |
+| TAR (all compressions) | `.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tar.xz`, `.tar.zst` | Python `tarfile` (built-in) |
+| Gzip single-file | `.gz` | Python `gzip` (built-in) |
+| Bzip2 single-file | `.bz2` | Python `bz2` (built-in) |
+| XZ / LZMA single-file | `.xz` | Python `lzma` (built-in) |
+| 7-Zip | `.7z` | `7z` binary (`p7zip-full`) |
+| RAR / RAR5 | `.rar`, `.r00`, multi-part | `unrar` binary |
+
+`p7zip-full` and `unrar` are included in the Docker image — no extra setup needed.
+
+### Behaviour
+
+1. After a torrent completes, the download folder is scanned for archives.
+2. Each archive is extracted **into its own parent folder** (= the torrent folder).
+3. Multi-part RAR sets: only the first part (`*.part1.rar` / `*.r00`) is processed; subsequent parts are read automatically.
+4. If **Delete Archive After Extraction** is enabled (default), the source archive is removed on success.
+5. Failures do **not** delete the archive and are logged to the Event Log.
+
+### Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Enable Auto-Extraction | Off | Master switch |
+| Delete Archive After Extraction | On | Remove archive on success |
+| Max Concurrent Extractions | 2 | Parallel extraction limit |
+| Discord Notification on Extraction | On | Send embed on completion/failure |
 
 ## Discord Webhooks
 

@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.5.28] — 2026-05-06
+
+### Added — Automatic archive extraction after download
+
+When **Enable Auto-Extraction** is turned on (Settings → ⬇ Download → 📦 Auto-Extraction),
+archives inside the torrent folder are automatically extracted after every successful
+aria2 download. The source archive is deleted after extraction by default.
+
+**Supported formats:**
+- `.zip` — Python `zipfile` (zero deps)
+- `.tar`, `.tar.gz` / `.tgz`, `.tar.bz2`, `.tar.xz`, `.tar.zst` — Python `tarfile`
+- `.gz`, `.bz2`, `.xz` (single-file) — Python stdlib
+- `.7z` — system `7z` binary (`p7zip-full`, included in Docker image)
+- `.rar` / `.r00` / multi-part RAR — system `unrar` binary (included in Docker image)
+
+**New in Dockerfile:** `p7zip-full` and `unrar` added to apt dependencies.
+
+**Settings (Settings → ⬇ Download → 📦 Auto-Extraction):**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `extract_enabled` | Off | Master switch |
+| `extract_delete_archive` | On | Delete archive on successful extraction |
+| `extract_max_concurrent` | 2 | Max parallel extractions (semaphore-limited) |
+| `discord_notify_extract` | On | Discord embed on completion / failure |
+
+**Discord notifications:**
+- 📦 Extraction Complete — sent after all archives in a torrent folder are extracted
+- ❌ Extraction Failed — sent per archive if extraction fails
+
+**New files:**
+- `backend/services/extractor.py` — `Extractor` class with async semaphore, format detection, extraction dispatch
+- `backend/tests/test_extractor.py` — 33 tests covering detection, extraction, concurrency, error paths
+
+**Manager integration:**
+- `manager_v2._extract_torrent()` — dispatched as an `asyncio.Task` after `_mark_finished()`
+- Respects `extract_enabled`; reads folder from DB `local_path` as fallback if folder not found by name
+
+**Also fixed in this release:**
+- Upload-retry HTML fields (`upload_fail_retry_count`, `upload_fail_retry_delay_minutes`) were
+  present in `getFormSettings()` but had no corresponding `<input>` elements in the Settings
+  Download panel. Both inputs are now properly rendered.
+
 ## [1.5.27] — 2026-05-06
 
 ### Fixed — Header badge shows ∞ intermittently and missing live speed

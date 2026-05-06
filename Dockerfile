@@ -3,14 +3,16 @@ FROM python:3.12-slim
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="AllDebrid-Client"
-LABEL org.opencontainers.image.version="1.5.8"
+LABEL org.opencontainers.image.version="1.5.28"
 LABEL org.opencontainers.image.description="Automated torrent downloading via AllDebrid with a branded web UI"
 
 # System deps + gosu (for PUID/PGID user-switching)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     aria2 \
     curl \
-    gosu && rm -rf /var/lib/apt/lists/*
+    gosu \
+    p7zip-full \
+    unrar && rm -rf /var/lib/apt/lists/*
 
 # Python deps
 COPY backend/requirements.txt .

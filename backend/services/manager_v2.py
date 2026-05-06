@@ -2168,6 +2168,10 @@ class TorrentManager:
 
         await self._delete_magnet_after_completion(torrent_id, torrent_dict["alldebrid_id"])
         await self._mark_finished(torrent_id, name=torrent_dict.get("name",""))
+        # Trigger auto-extraction if enabled
+        asyncio.create_task(
+            self._extract_torrent(torrent_id, torrent_dict)
+        )
         if get_settings().discord_notify_finished:
             await self.notify().send_complete(
                 torrent_dict["name"],
@@ -2498,6 +2502,85 @@ class TorrentManager:
                 )
                 await db.commit()
             # Will be caught on next status poll and retried again
+
+
+    async def _extract_torrent(self, torrent_id: int, torrent_dict: dict) -> None:
+        """Auto-extract archives in the torrent download folder after completion.
+
+        Respects ``extract_enabled``, ``extract_delete_archive``, and
+        ``extract_max_concurrent`` from config.  Sends Discord notifications
+        if ``discord_notify_extract`` is set.
+        """
+        cfg = get_settings()
+        if not getattr(cfg, "extract_enabled", False):
+            return
+
+        name = str(torrent_dict.get("name") or f"torrent {torrent_id}")
+
+        # Build download folder path — same logic as _download()
+        download_folder = str(getattr(cfg, "download_folder", "/download")).rstrip("/")
+        folder_name = safe_name(name)
+        from pathlib import Path as _Path
+        folder = _Path(download_folder) / folder_name
+        if not folder.exists():
+            # Try to find from local_path of any completed file
+            try:
+                async with get_db() as db:
+                    row = await (await db.execute(
+                        "SELECT local_path FROM download_files "
+                        "WHERE torrent_id=? AND local_path IS NOT NULL LIMIT 1",
+                        (torrent_id,),
+                    )).fetchone()
+                if row and row["local_path"]:
+                    folder = _Path(row["local_path"]).parent
+                else:
+                    logger.warning("Extract: no folder found for torrent %s", torrent_id)
+                    return
+            except Exception as exc:
+                logger.error("Extract: DB lookup failed for torrent %s: %s", torrent_id, exc)
+                return
+
+        # Update extractor concurrency from config
+        max_concurrent = max(1, int(getattr(cfg, "extract_max_concurrent", 2) or 2))
+        extractor = get_extractor()
+        extractor.update_max_concurrent(max_concurrent)
+
+        delete_after = bool(getattr(cfg, "extract_delete_archive", True))
+
+        logger.info("Auto-extract: scanning %s (torrent %s)", folder, torrent_id)
+        await self._log_event(torrent_id, "info", f"Auto-extract: scanning {folder}")
+
+        results = await extractor.extract_folder(folder, delete_after=delete_after)
+
+        if not results:
+            logger.debug("Auto-extract: no archives found in %s", folder)
+            return
+
+        ok_list   = [(p, msg) for p, ok, msg in results if ok]
+        fail_list = [(p, msg) for p, ok, msg in results if not ok]
+
+        summary_parts = []
+        if ok_list:
+            summary_parts.append(f"{len(ok_list)} archive(s) extracted")
+        if fail_list:
+            summary_parts.append(f"{len(fail_list)} failed")
+        summary = ", ".join(summary_parts)
+
+        await self._log_event(
+            torrent_id,
+            "warn" if fail_list else "info",
+            f"Auto-extract complete: {summary}",
+        )
+
+        if getattr(cfg, "discord_notify_extract", True):
+            if ok_list:
+                await self.notify().send_extract_complete(
+                    name,
+                    archive_count=len(ok_list),
+                    dest=str(folder),
+                )
+            for _p, err_msg in fail_list:
+                await self.notify().send_extract_failed(name, reason=err_msg)
 
 
     async def _set_deleted(self, torrent_id: int, message: str):
