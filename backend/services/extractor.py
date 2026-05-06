@@ -1,13 +1,14 @@
 """
 services/extractor.py — Post-download archive extraction service.
 
-Supports: .zip, .tar, .tar.gz, .tgz, .tar.bz2, .tar.xz, .tar.zst, .gz,
-          .bz2, .xz, .7z, .rar, multi-part .rar (*.part1.rar / *.r00)
+Supports: .zip, .tar, .tar.gz, .tgz, .tar.bz2, .tar.xz, .gz,
+          .bz2, .xz, .7z, .rar, multi-part .rar (*.part1.rar / *.r00),
+          .tar.zst / .tar.lzma (via 7z binary)
 
 Strategy:
   1. Python-native for zip / tar / gz / bz2 / xz (zero extra deps)
-  2. System binary `7z` (from p7zip-full) for .7z and as fallback
-  3. System binary `unrar` for .rar (requires unrar package)
+  2. System binary `7z` (from p7zip-full) for .7z, .tar.zst, .tar.lzma, and RAR
+  3. System binary `unrar-free` as last-resort RAR fallback
 
 After successful extraction the source archive is deleted.
 """
@@ -33,7 +34,9 @@ logger = logging.getLogger("alldebrid.extractor")
 # Extension groups in priority order
 _ZIP_EXTS  = {".zip"}
 _TAR_EXTS  = {".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2",
-               ".tar.xz", ".txz", ".tar.zst", ".tzst", ".tar.lzma"}
+               ".tar.xz", ".txz"}
+# .tar.zst and .tar.lzma need 7z — keep separate so _extract_sync routes correctly
+_TAR_7Z_EXTS = {".tar.zst", ".tzst", ".tar.lzma"}
 _GZ_EXTS   = {".gz"}   # single-file gzip (not .tar.gz — that's handled by tar)
 _BZ2_EXTS  = {".bz2"}
 _XZ_EXTS   = {".xz"}
@@ -63,7 +66,7 @@ def _suffix(path: Path) -> str:
 def is_archive(path: Path) -> bool:
     """Return True if *path* looks like an extractable archive."""
     s = _suffix(path)
-    if s in _ZIP_EXTS | _TAR_EXTS | _GZ_EXTS | _BZ2_EXTS | _XZ_EXTS | _7Z_EXTS:
+    if s in _ZIP_EXTS | _TAR_EXTS | _TAR_7Z_EXTS | _GZ_EXTS | _BZ2_EXTS | _XZ_EXTS | _7Z_EXTS:
         return True
     if s in _RAR_EXTS:
         # Skip non-first parts of multi-part RAR sets
@@ -158,31 +161,32 @@ def _extract_7z(archive: Path, dest: Path) -> None:
 
 
 def _extract_rar(archive: Path, dest: Path) -> None:
-    """Extract RAR archives using unrar-free, unrar, or 7z (in that order).
+    """Extract RAR archives using 7z (primary) or unrar-free/unrar (fallback).
 
-    unrar-free is the default Debian package (LGPL, handles RAR ≤ 3.0).
-    unrar (non-free) handles RAR5 natively.
-    7z from p7zip-full handles both RAR3 and RAR5 and is the reliable fallback.
+    7z from p7zip-full handles both RAR3 and RAR5 and is always present in
+    the Docker image.  unrar-free (LGPL) is a last-resort fallback for RAR3.
+    Note: unrar-free uses '-x' flag, not 'x' like the non-free unrar.
     """
-    # Try 7z first — it handles RAR3 and RAR5 and is always present in the image
+    # Primary: 7z handles RAR3 and RAR5
     for binary in ("7z", "7za", "7zz"):
         if _tool_available(binary):
             rc, out = _run_tool([binary, "x", str(archive), f"-o{dest}", "-y"])
             if rc == 0:
                 return
-            # If 7z fails, fall through to unrar tools
+            # 7z present but failed — try unrar tools before giving up
             break
 
-    # Fallback: native unrar tools
-    for binary, args in [
-        ("unrar",      ["unrar",      "x", "-y", str(archive), str(dest) + "/"]),
-        ("unrar-free", ["unrar-free", "x",        str(archive), str(dest) + "/"]),
-    ]:
-        if _tool_available(binary):
-            rc, out = _run_tool(args)
-            if rc == 0:
-                return
-            raise RuntimeError(f"{binary} exited {rc}: {out}")
+    # Fallback: unrar (non-free, 'x' subcommand)
+    if _tool_available("unrar"):
+        rc, out = _run_tool(["unrar", "x", "-y", str(archive), str(dest) + "/"])
+        if rc == 0:
+            return
+
+    # Last resort: unrar-free (LGPL, uses '-x' flag — different from non-free unrar)
+    if _tool_available("unrar-free"):
+        rc, out = _run_tool(["unrar-free", "-x", str(archive), str(dest) + "/"])
+        if rc == 0:
+            return
 
     raise RuntimeError("No RAR extraction tool available (p7zip-full or unrar-free required)")
 
@@ -196,8 +200,12 @@ def _extract_sync(archive: Path, dest: Path) -> None:
         _extract_zip(archive, dest)
     elif s in _TAR_EXTS:
         _extract_tar(archive, dest)
+    elif s in _TAR_7Z_EXTS:
+        # tar.zst and tar.lzma: Python tarfile cannot decompress these natively;
+        # route through 7z which handles them correctly.
+        _extract_7z(archive, dest)
     elif s in _GZ_EXTS:
-        # Could be a .gz that is NOT a tar — check
+        # Could be a .gz that is NOT a tar — check magic bytes via tarfile
         if tarfile.is_tarfile(str(archive)):
             _extract_tar(archive, dest)
         else:
@@ -246,7 +254,7 @@ class Extractor:
         Returns (success, message).
         """
         async with self._sem:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()  # get_event_loop() is deprecated in 3.10+
             try:
                 logger.info("Extracting %s → %s", archive, dest)
                 await loop.run_in_executor(None, _extract_sync, archive, dest)
@@ -268,29 +276,35 @@ class Extractor:
         """
         Find and extract all archives inside *folder*.
 
-        Each archive is extracted into its own sibling directory
-        (named after the archive without extension).
+        Each archive is extracted into its parent directory (= the torrent
+        download folder).  Extractions run concurrently up to *max_concurrent*
+        (controlled by the internal semaphore).
 
         Returns list of (archive_path, success, message).
         """
-        archives = await asyncio.get_event_loop().run_in_executor(
-            None, find_archives, folder
-        )
+        loop = asyncio.get_running_loop()
+        archives = await loop.run_in_executor(None, find_archives, folder)
         if not archives:
             logger.debug("No archives found in %s", folder)
             return []
 
+        # Create real Tasks so they run concurrently and the semaphore has effect.
+        # Previously coroutines were awaited serially, making max_concurrent useless.
+        tasks = [
+            asyncio.create_task(
+                self.extract_archive(archive, archive.parent, delete_after=delete_after)
+            )
+            for archive in archives
+        ]
+        results_raw = await asyncio.gather(*tasks, return_exceptions=True)
+
         results: List[Tuple[Path, bool, str]] = []
-        tasks = []
-        for archive in archives:
-            # Extract into the archive's parent directory (= torrent folder)
-            dest = archive.parent
-            tasks.append(self.extract_archive(archive, dest, delete_after=delete_after))
-
-        for archive, coro in zip(archives, tasks):
-            ok, msg = await coro
-            results.append((archive, ok, msg))
-
+        for archive, raw in zip(archives, results_raw):
+            if isinstance(raw, Exception):
+                results.append((archive, False, f"Extraction failed for {archive.name}: {raw}"))
+            else:
+                ok, msg = raw
+                results.append((archive, ok, msg))
         return results
 
 

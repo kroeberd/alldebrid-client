@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.5.31] — 2026-05-06
+
+### Fixed — Four bugs in the auto-extraction service
+
+#### Bug 1 — `extract_folder()` parallelism was broken
+Coroutines were appended to a list and then awaited sequentially
+(`for coro in tasks: await coro`), so the concurrency semaphore had no
+effect — extractions always ran one-at-a-time regardless of `max_concurrent`.
+
+**Fix:** Use `asyncio.create_task()` for each extraction and collect results
+with `asyncio.gather()`, so up to `max_concurrent` extractions run truly in
+parallel.
+
+#### Bug 2 — `.tar.zst` and `.tar.lzma` silently failed
+`_extract_sync()` routed `.tar.zst` and `.tar.lzma` through Python's
+`tarfile.open("r:*")`, which cannot decompress zstandard or lzma streams
+without extra native libraries — it raised `ReadError` at runtime.
+
+**Fix:** Introduce `_TAR_7Z_EXTS = {".tar.zst", ".tzst", ".tar.lzma"}` and
+route these formats through `_extract_7z()` (p7zip-full handles them
+correctly). They are also removed from `_TAR_EXTS` to prevent the wrong
+branch being taken.
+
+#### Bug 3 — `unrar-free` called with wrong CLI syntax
+The fallback RAR path called `unrar-free x archive dest/` — but `unrar-free`
+uses POSIX-style flags (`-x`), not the subcommand syntax of non-free `unrar`.
+
+**Fix:** `_extract_rar()` now calls `unrar-free -x archive dest/`. Since `7z`
+is already the primary tool (tried before unrar-free), this only matters when
+7z is absent.
+
+#### Bug 4 — `asyncio.get_event_loop()` deprecated
+`extract_archive()` and `extract_folder()` called `asyncio.get_event_loop()`
+which is deprecated in Python 3.10+ when called inside a running loop.
+
+**Fix:** Both methods now use `asyncio.get_running_loop()`.
+
+**Tests:** 7 new tests added; test count 221 → 228 (40 extractor-specific).
+New coverage: `tar.bz2`, `tar.xz`, single `.bz2`, single `.xz`, `tar.zst`
+detection, parallel task creation.
+
 ## [1.5.30] — 2026-05-06
 
 ### Changed — Auto-Extraction moved to its own Settings tab
