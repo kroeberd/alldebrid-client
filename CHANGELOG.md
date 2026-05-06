@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.5.25] — 2026-05-06
+
+### Fixed — Built-in aria2 ignores max download/upload speed after restart
+
+**Symptom:** Setting a download/upload speed limit in the aria2 speed widget
+had no effect after restarting the container or the built-in aria2 process.
+The limit was applied via RPC but never persisted — on restart aria2c was
+launched without `--max-overall-download-limit` / `--max-overall-upload-limit`.
+
+**Root cause:** `aria2_global_options()` (which builds both the startup command
+and the `changeGlobalOption` RPC call) did not include the speed limits.
+The config field `max_speed_mbps` existed but was never translated into aria2
+options. The `/aria2/global-options` POST endpoint applied limits at runtime
+but did not save them.
+
+**Fix:**
+
+- `config.py`: two new persisted fields — `aria2_max_download_limit` (bytes/s)
+  and `aria2_max_upload_limit` (bytes/s), default 0 (unlimited)
+- `aria2_runtime.aria2_global_options()`: both fields are now included as
+  `max-overall-download-limit` and `max-overall-upload-limit`, so they are
+  applied both on startup (via `_command()`) and on live reload
+  (via `apply_options()`)
+- `routes./aria2/global-options` POST: after applying limits via RPC, the
+  values are now written to `settings.json` so they survive restarts
+
 ## [1.5.24] — 2026-05-05
 
 ### Fixed — Magnet link shown as error message when "Add" fails

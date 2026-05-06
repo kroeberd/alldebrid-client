@@ -1213,14 +1213,25 @@ async def aria2_set_global_options(body: dict):
     Accepts: max_download_speed (bytes/s, 0=unlimited), max_upload_speed.
     """
     options: dict = {}
+    cfg_updates: dict = {}
     if "max_download_speed" in body:
-        options["max-overall-download-limit"] = str(int(body["max_download_speed"]))
+        val = int(body["max_download_speed"])
+        options["max-overall-download-limit"] = str(val)
+        cfg_updates["aria2_max_download_limit"] = val
     if "max_upload_speed" in body:
-        options["max-overall-upload-limit"]   = str(int(body["max_upload_speed"]))
+        val = int(body["max_upload_speed"])
+        options["max-overall-upload-limit"] = str(val)
+        cfg_updates["aria2_max_upload_limit"] = val
     if not options:
         raise HTTPException(400, "No valid options provided")
     try:
         await manager.aria2().change_global_options(options)
+        # Persist so the limits survive an aria2 restart
+        if cfg_updates:
+            current = load_settings()
+            for k, v in cfg_updates.items():
+                setattr(current, k, v)
+            save_settings(current)
         return {"ok": True, "applied": options}
     except Exception as e:
         raise HTTPException(502, str(e))

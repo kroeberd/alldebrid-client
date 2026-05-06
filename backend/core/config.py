@@ -29,6 +29,8 @@ class AppSettings(BaseModel):
     download_folder: str = "/download"
     max_concurrent_downloads: int = 3
     max_speed_mbps: int = 0
+    aria2_max_download_limit: int = 0  # bytes/s, 0=unlimited — persisted across restarts
+    aria2_max_upload_limit: int = 0    # bytes/s, 0=unlimited
 
     # Download delivery
     download_client: str = "aria2"

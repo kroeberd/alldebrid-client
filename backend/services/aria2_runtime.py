@@ -51,6 +51,8 @@ def aria2_global_options(cfg=None, *, include_safety: bool = False) -> Dict[str,
         "file-allocation": str(getattr(cfg, "aria2_file_allocation", "falloc") or "falloc"),
         "continue": "true" if bool(getattr(cfg, "aria2_continue_downloads", True)) else "false",
         "lowest-speed-limit": str(getattr(cfg, "aria2_lowest_speed_limit", "0") or "0"),
+        "max-overall-download-limit": str(int(getattr(cfg, "aria2_max_download_limit", 0) or 0)),
+        "max-overall-upload-limit":   str(int(getattr(cfg, "aria2_max_upload_limit", 0) or 0)),
     }
     if include_safety:
         options.update({
