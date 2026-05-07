@@ -1,4 +1,5 @@
 import asyncio
+import time
 import logging
 from core.config import get_settings
 from services.manager_v2 import manager
@@ -171,7 +172,7 @@ async def aria2_restart_loop():
             uptime_s = runtime._started_at
             if uptime_s <= 0:
                 continue
-            age_h = (asyncio.get_event_loop().time() - 0 + __import__("time").time() - uptime_s) / 3600
+            age_h = (time.time() - uptime_s) / 3600
             if age_h < interval_h:
                 continue
 

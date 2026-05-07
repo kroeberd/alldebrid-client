@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.5.34] — 2026-05-07
+
+### Fixed — Code audit: three bugs found and fixed
+
+#### Bug 1 — `scheduler.py`: wrong `aria2` auto-restart age calculation [Critical]
+
+The expression computing how long aria2 has been running contained two errors:
+
+```python
+# Before (broken):
+age_h = (asyncio.get_event_loop().time() - 0 + __import__("time").time() - uptime_s) / 3600
+```
+
+- `asyncio.get_event_loop()` is deprecated in Python 3.10+; use
+  `asyncio.get_running_loop()` (or avoid entirely).
+- `- 0` is a dead code fragment with no effect.
+- `loop.time()` returns a monotonic counter (seconds since the event loop
+  started), while `time.time()` returns a Unix timestamp. Adding them produces
+  a meaningless large number. The result happened to be roughly correct only
+  when the loop had been running for approximately as long as the desired
+  restart interval — pure coincidence.
+
+**Fix:** `age_h = (time.time() - uptime_s) / 3600`
+`_started_at` is already set with `time.time()`, so subtracting it from
+`time.time()` directly gives elapsed seconds. `import time` added to the
+module-level imports.
+
+#### Bug 2 — `Dockerfile`: image version label stale [Medium]
+
+The `org.opencontainers.image.version` label was stuck at `1.5.28` and had
+not been updated since v1.5.29. The label now reflects the current version.
+
+#### Bug 3 — `routes.py`: raw `str(e)` in `HTTPException` responses [Medium]
+
+Twelve `raise HTTPException(N, str(e))` calls (502, 500, 404) exposed raw
+exception messages to API clients. These can contain internal URLs, stack
+fragments, or AllDebrid error payloads. All replaced with `_sanitize_error(e)`,
+which strips magnet links, long URLs, and truncates to 200 characters (the
+same helper already used for 400-level errors since v1.5.24).
+
 ## [1.5.33] — 2026-05-07
 
 ### Fixed — "Upload failed" torrents cannot be re-added via Retry button

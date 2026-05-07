@@ -332,7 +332,7 @@ async def test_alldebrid():
             "premiumUntil": u.get("premiumUntil", u.get("premium_until", 0)),
         }
     except Exception as e:
-        raise HTTPException(502, str(e))
+        raise HTTPException(502, _sanitize_error(e))
 
 
 @router.post("/settings/test-aria2")
@@ -341,7 +341,7 @@ async def test_aria2():
         result = await manager.test_aria2()
         return {"ok": True, **result}
     except Exception as e:
-        raise HTTPException(502, str(e))
+        raise HTTPException(502, _sanitize_error(e))
 
 
 @router.post("/settings/aria2-housekeeping")
@@ -349,7 +349,7 @@ async def run_aria2_housekeeping_ep():
     try:
         return await manager.run_aria2_housekeeping()
     except Exception as e:
-        raise HTTPException(502, str(e))
+        raise HTTPException(502, _sanitize_error(e))
 
 
 @router.get("/aria2/runtime")
@@ -393,7 +393,7 @@ async def aria2_runtime_apply():
         result = await manager.run_aria2_housekeeping()
         return {"ok": True, **result}
     except Exception as e:
-        raise HTTPException(502, str(e))
+        raise HTTPException(502, _sanitize_error(e))
 
 
 @router.get("/aria2/downloads")
@@ -405,7 +405,7 @@ async def aria2_downloads():
             getattr(cfg, "aria2_stopped_window", 100),
         )
     except Exception as e:
-        raise HTTPException(502, str(e))
+        raise HTTPException(502, _sanitize_error(e))
     items = [aria2_download_to_dict(download) for download in downloads]
     groups = {
         "active": [item for item in items if item["status"] == "active"],
@@ -440,7 +440,7 @@ async def aria2_download_action(gid: str, action: str):
             await svc.remove(gid)
         return {"ok": True, "gid": gid, "action": action}
     except Exception as e:
-        raise HTTPException(502, str(e))
+        raise HTTPException(502, _sanitize_error(e))
 
 
 @router.post("/settings/test-postgres")
@@ -582,9 +582,9 @@ async def delete_torrent(torrent_id: int, from_alldebrid: bool = True):
         await manager.delete_torrent(torrent_id, delete_from_ad=from_alldebrid)
         return {"ok": True}
     except ValueError as e:
-        raise HTTPException(404, str(e))
+        raise HTTPException(404, _sanitize_error(e))
     except Exception as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, _sanitize_error(e))
 
 
 @router.post("/torrents/{torrent_id}/retry")
@@ -1083,7 +1083,7 @@ async def drop_page_cache_ep():
             "message": f"Page cache released for {dropped}/{len(paths)} files",
         }
     except Exception as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, _sanitize_error(e))
 
 
 @router.get("/admin/memory-info")
@@ -1136,7 +1136,7 @@ async def memory_info_ep():
                        if k in ("MemTotal","MemFree","MemAvailable","Cached","Buffers","SwapTotal","SwapFree")},
         }
     except Exception as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, _sanitize_error(e))
 
 
 
@@ -1258,7 +1258,7 @@ async def aria2_get_global_options():
             "raw": {k: v for k, v in opts.items() if "limit" in k or "speed" in k or "concurrent" in k},
         }
     except Exception as e:
-        raise HTTPException(502, str(e))
+        raise HTTPException(502, _sanitize_error(e))
 
 
 @router.post("/aria2/global-options")
@@ -1293,7 +1293,7 @@ async def aria2_set_global_options(body: dict):
             save_settings(current)
         return {"ok": True, "applied": options}
     except Exception as e:
-        raise HTTPException(502, str(e))
+        raise HTTPException(502, _sanitize_error(e))
 
 
 
