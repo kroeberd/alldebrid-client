@@ -2419,6 +2419,16 @@ class TorrentManager:
             logger.error("Upload failed permanently for torrent %s: %s", torrent_id, msg)
             await self._log_event(torrent_id, "error",
                 f"Upload failed permanently (code 5, {attempt-1} retries exhausted): {error_message}")
+            # Clear alldebrid_id so a manual retry can re-upload cleanly
+            async with get_db() as db:
+                await db.execute(
+                    """UPDATE torrents
+                       SET alldebrid_id=NULL, upload_retry_count=0,
+                           updated_at=CURRENT_TIMESTAMP
+                       WHERE id=?""",
+                    (torrent_id,),
+                )
+                await db.commit()
             await self._fail_torrent(torrent_id, msg, notify=False)
             if getattr(cfg, "discord_notify_error", False):
                 await self.notify().send_upload_failed_permanent(

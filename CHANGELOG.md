@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.5.33] — 2026-05-07
+
+### Fixed — "Upload failed" torrents cannot be re-added via Retry button
+
+**Symptom:** A torrent marked as "Upload failed" on AllDebrid (statusCode 5)
+that has exhausted its automatic retries ends up in `status=error` in the
+client. Clicking the ↻ Retry button would set its status to `ready` (because
+`alldebrid_id` was still set from the failed upload), causing the poll cycle
+to query AllDebrid with a stale ID — which either still shows statusCode 5 or
+no longer exists — and the torrent would never recover.
+
+**Root cause (two issues):**
+
+1. **`_handle_upload_failed` (permanent path):** after exhausting all retries,
+   the old `alldebrid_id` was left in the DB and `upload_retry_count` was not
+   reset. This prevented a clean manual retry from working.
+
+2. **`/torrents/{id}/retry` endpoint:** the logic was
+   `new_status = "ready" if alldebrid_id else "uploading"` — which is wrong
+   for upload-failed torrents. The stale `alldebrid_id` caused it to set
+   `status=ready` instead of re-uploading the magnet.
+
+**Fix:**
+
+- `_handle_upload_failed` now clears `alldebrid_id` to `NULL` and resets
+  `upload_retry_count` to `0` on permanent failure, leaving the torrent in a
+  clean state for a manual retry.
+
+- `/torrents/{id}/retry` now branches on whether a **magnet link** is stored
+  (not whether an `alldebrid_id` is present):
+  - **Magnet available:** clears `alldebrid_id`, resets all counters, and
+    calls `manager.add_magnet_direct()` to perform a real re-upload to
+    AllDebrid. If the re-upload fails the torrent is left in `status=error`
+    with a clear message.
+  - **No magnet (added via .torrent file):** resets status to `ready` and
+    clears counters so the poll cycle re-checks the existing `alldebrid_id`.
+
 ## [1.5.32] — 2026-05-06
 
 ### Fixed — Speed limit reverts to previous value after setting Unlimited

@@ -589,33 +589,87 @@ async def delete_torrent(torrent_id: int, from_alldebrid: bool = True):
 
 @router.post("/torrents/{torrent_id}/retry")
 async def retry_torrent(torrent_id: int):
+    """Re-queue a failed torrent.
+
+    If the torrent has a stored magnet link it is re-uploaded to AllDebrid
+    from scratch (old alldebrid_id cleared, upload_retry_count reset).
+    If only an alldebrid_id is known (no magnet — e.g. added via .torrent
+    file) the status is reset to 'ready' so the poll cycle re-checks it.
+    """
     async with get_db() as db:
         row = await db.fetchone("SELECT * FROM torrents WHERE id=?", (torrent_id,))
         if not row:
             raise HTTPException(404, "Torrent not found")
-        if not row["magnet"] and not row["alldebrid_id"]:
-            raise HTTPException(400, "No magnet or AllDebrid ID — cannot retry")
-        new_status = "ready" if row["alldebrid_id"] else "uploading"
-        await db.execute(
-            """UPDATE torrents
-               SET status=?, error_message=NULL,
-                   polling_failures=0, updated_at=CURRENT_TIMESTAMP
-               WHERE id=?""",
-            (new_status, torrent_id),
-        )
-        await db.execute(
-            """UPDATE download_files
-               SET status='pending', download_id=NULL, retry_count=0,
-                   updated_at=CURRENT_TIMESTAMP
-               WHERE torrent_id=? AND status='error'""",
-            (torrent_id,),
-        )
-        await db.execute(
-            "INSERT INTO events (torrent_id, level, message) VALUES (?, 'info', ?)",
-            (torrent_id, f"Manual retry — resetting to {new_status}"),
-        )
-        await db.commit()
-    return {"ok": True, "new_status": new_status}
+
+    magnet = (row.get("magnet") or "").strip()
+    ad_id  = (row.get("alldebrid_id") or "").strip()
+
+    if not magnet and not ad_id:
+        raise HTTPException(400, "No magnet or AllDebrid ID — cannot retry")
+
+    if magnet:
+        # Re-upload the magnet to AllDebrid from scratch.
+        # Clear the stale alldebrid_id and reset counters first so that
+        # if the upload fails the torrent is left in a clean error state.
+        async with get_db() as db:
+            await db.execute(
+                """UPDATE torrents
+                   SET status='uploading', alldebrid_id=NULL,
+                       error_message=NULL, polling_failures=0,
+                       upload_retry_count=0, provider_status=NULL,
+                       provider_status_code=NULL, updated_at=CURRENT_TIMESTAMP
+                   WHERE id=?""",
+                (torrent_id,),
+            )
+            await db.execute(
+                "INSERT INTO events (torrent_id, level, message) VALUES (?, 'info', ?)",
+                (torrent_id, "Manual retry — re-uploading magnet to AllDebrid"),
+            )
+            await db.commit()
+        try:
+            await manager.add_magnet_direct(magnet, source=str(row.get("source") or "manual"))
+        except Exception as exc:
+            async with get_db() as db:
+                await db.execute(
+                    """UPDATE torrents
+                       SET status='error', error_message=?,
+                           updated_at=CURRENT_TIMESTAMP
+                       WHERE id=?""",
+                    (_sanitize_error(exc), torrent_id),
+                )
+                await db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, 'error', ?)",
+                    (torrent_id, f"Manual retry failed: {_sanitize_error(exc)}"),
+                )
+                await db.commit()
+            raise HTTPException(502, _sanitize_error(exc))
+        return {"ok": True, "new_status": "uploading"}
+    else:
+        # No magnet stored (added via .torrent file) — reset status so
+        # the poll cycle re-checks the existing alldebrid_id.
+        async with get_db() as db:
+            await db.execute(
+                """UPDATE torrents
+                   SET status='ready', error_message=NULL,
+                       polling_failures=0, upload_retry_count=0,
+                       provider_status=NULL, provider_status_code=NULL,
+                       updated_at=CURRENT_TIMESTAMP
+                   WHERE id=?""",
+                (torrent_id,),
+            )
+            await db.execute(
+                """UPDATE download_files
+                   SET status='pending', download_id=NULL, retry_count=0,
+                       updated_at=CURRENT_TIMESTAMP
+                   WHERE torrent_id=? AND status='error'""",
+                (torrent_id,),
+            )
+            await db.execute(
+                "INSERT INTO events (torrent_id, level, message) VALUES (?, 'info', ?)",
+                (torrent_id, "Manual retry — resetting to ready (no magnet stored)"),
+            )
+            await db.commit()
+        return {"ok": True, "new_status": "ready"}
 
 
 @router.post("/torrents/{torrent_id}/pause")
