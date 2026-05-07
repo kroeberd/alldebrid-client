@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.5.32] — 2026-05-06
+
+### Fixed — Speed limit reverts to previous value after setting Unlimited
+
+**Symptom:** Setting the download speed to Unlimited, then reopening the client
+(new tab or after a container restart) showed the previous non-zero limit again
+instead of Unlimited.
+
+**Root cause:** `settingsData` (the frontend's in-memory copy of settings) was
+not updated when the speed limit was changed via the quick-widget. When the user
+subsequently changed *Max Downloads* via `applyAria2MaxDlPreset()`, that function
+called `PUT /settings` with the stale `settingsData` — which still contained the
+old speed limit — overwriting the correctly-persisted `0` (Unlimited) back to the
+old value in `settings.json`.
+
+**Fix (two changes):**
+
+1. `_setAria2Speed(bps)` now updates `settingsData.aria2_max_download_limit = bps`
+   immediately after a successful `POST /aria2/global-options`, keeping the
+   in-memory cache in sync.
+
+2. `applyAria2MaxDlPreset()` no longer calls `PUT /settings`. The
+   `POST /aria2/global-options` endpoint already persists `aria2_max_active_downloads`
+   to `settings.json` (added in v1.5.26). The redundant `PUT /settings` call was
+   the source of the clobber. `settingsData` is still updated in-memory for
+   consistency.
+
 ## [1.5.31] — 2026-05-06
 
 ### Fixed — Four bugs in the auto-extraction service

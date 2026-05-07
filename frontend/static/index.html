@@ -5032,6 +5032,9 @@ async function _setAria2Speed(bps) {
   if (st) { st.style.color='var(--text2)'; st.textContent='Applying…'; }
   try {
     await api('POST', '/aria2/global-options', {max_download_speed: bps});
+    // Keep settingsData in sync so subsequent PUT /settings calls don't
+    // overwrite this value with the stale cached number.
+    if (settingsData) settingsData.aria2_max_download_limit = bps;
     if (st) { st.style.color='var(--green)'; st.textContent = bps > 0 ? 'Set: ' + fmtSpeed(bps) : 'Unlimited'; }
     setTimeout(function(){ if(st) st.style.color='var(--text2)'; }, 3000);
     updateAria2TopbarBadge({limitBps: bps});
@@ -5071,11 +5074,11 @@ async function applyAria2MaxDlPreset(val) {
   var st = document.getElementById('aria2-maxdl-status');
   if (st) { st.style.color='var(--text2)'; st.textContent='Applying…'; }
   try {
-    // Apply live via RPC
+    // Apply live via RPC — POST /aria2/global-options also persists to settings.json
     await api('POST', '/aria2/global-options', {max_concurrent_downloads: n});
-    // Persist to settings.json
+    // Keep settingsData in sync so subsequent PUT /settings calls don't
+    // overwrite this value with the stale cached number.
     if (settingsData) settingsData.aria2_max_active_downloads = n;
-    await api('PUT', '/settings', Object.assign({}, settingsData||{}, {aria2_max_active_downloads: n}));
     if (st) { st.style.color='var(--green)'; st.textContent=n+' active'; }
     setTimeout(function(){ if(st) st.style.color='var(--text2)'; st.textContent=''; }, 3000);
     updateAria2TopbarBadge({maxDl: n});
