@@ -15,6 +15,7 @@ from db.database import DB_PATH, get_db
 from services.alldebrid import AllDebridService, flatten_files
 from services.aria2 import Aria2Service
 from services.aria2_runtime import aria2_global_options, effective_rpc_config, is_builtin_mode
+from services.extractor import get_extractor, init_extractor
 from services.notifications import NotificationService
 
 logger = logging.getLogger("alldebrid.manager")

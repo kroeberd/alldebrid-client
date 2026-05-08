@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.5.35] — 2026-05-08
+
+### Fixed — Auto-extraction crashes with `NameError: name 'get_extractor' is not defined`
+
+**Symptom:** Every completed download produced a `Task exception was never retrieved`
+error in the logs followed by `NameError: name 'get_extractor' is not defined` at
+`manager_v2.py:_extract_torrent`. The extraction setting was effectively non-functional
+regardless of whether it was enabled.
+
+**Root cause:** The import `from services.extractor import get_extractor, init_extractor`
+was added to `manager_v2.py` in a patch script during development but was never written
+to the actual file — the script replaced the module docstring only and left the import
+out of the real source.
+
+**Impact:** Downloads completed normally (`_delete_magnet_after_completion` and
+`_mark_finished` both ran before `_extract_torrent` is dispatched as a task).
+Only the post-download extraction step failed. No data loss occurred.
+
+**Fix:** Add the missing import line to `manager_v2.py`.
+
 ## [1.5.34] — 2026-05-07
 
 ### Fixed — Code audit: three bugs found and fixed
