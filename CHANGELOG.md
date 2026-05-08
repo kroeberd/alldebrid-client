@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.5.37] — 2026-05-08
+
+### Fixed — Downloads not processed in FIFO order (oldest torrent first)
+
+**Symptom:** When multiple torrents were ready for download at the same time,
+they were processed in an indeterminate order (database row-insertion order,
+which can vary between engines and is not guaranteed).
+
+**Root cause:** Four SQL queries that drive download dispatch and sync lacked
+an explicit `ORDER BY`, so the database was free to return rows in any order:
+
+| Location | Query | Effect |
+|---|---|---|
+| `sync_alldebrid_status` | Torrents to poll | `_start_download` tasks created in arbitrary order |
+| `_dispatch_pending_aria2_queue` | Pending files to send to aria2 | Files dispatched by file-id only, ignoring torrent age |
+| `deep_sync_aria2_finished` | Files to deep-sync | Sync loop processed files in arbitrary order |
+| `reconcile_aria2_on_startup` | Files to reconcile on boot | Startup reconciliation in arbitrary order |
+
+**Fix:** All four queries now use `ORDER BY t.id ASC, f.id ASC`
+(or `ORDER BY id ASC` where only torrents are selected).
+
+`t.id` is the torrent primary key (autoincrement) — a smaller id means an
+older torrent, so this guarantees FIFO ordering end-to-end:
+oldest torrent → dispatched first → its files sent to aria2 first.
+
+Within a single torrent, files are ordered by `f.id ASC` (insertion order),
+which preserves the order they were returned by the AllDebrid API.
+
 ## [1.5.36] — 2026-05-08
 
 ### Analysed — Automatic download flow audit

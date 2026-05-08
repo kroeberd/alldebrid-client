@@ -575,7 +575,8 @@ class TorrentManager:
                     """SELECT id, name, alldebrid_id, status, provider_status, provider_status_code, polling_failures
                        FROM torrents
                        WHERE alldebrid_id IS NOT NULL AND alldebrid_id != ''
-                         AND status NOT IN ('completed', 'deleted')"""
+                         AND status NOT IN ('completed', 'deleted')
+                       ORDER BY id ASC"""
                 )
             ).fetchall()
 
@@ -641,7 +642,8 @@ class TorrentManager:
                    WHERE f.download_client = 'aria2'
                      AND f.blocked = 0
                      AND f.status IN ('pending', 'queued', 'downloading', 'paused', 'error')
-                     AND t.status NOT IN ('completed', 'deleted')"""
+                     AND t.status NOT IN ('completed', 'deleted')
+                   ORDER BY t.id ASC, f.id ASC"""
             )).fetchall()
 
         if not rows:
@@ -1503,7 +1505,7 @@ class TorrentManager:
                              AND f.blocked=0
                              AND f.status='pending'
                              AND t.status NOT IN ('completed','deleted','error')
-                           ORDER BY f.id ASC
+                           ORDER BY t.id ASC, f.id ASC
                            LIMIT ?""",
                         (available_slots,),
                     )
@@ -1870,7 +1872,8 @@ class TorrentManager:
                        JOIN download_files f ON f.torrent_id = t.id
                        WHERE f.download_client='aria2'
                          AND f.blocked=0
-                         AND f.status IN ('pending', 'queued', 'downloading', 'paused')"""
+                         AND f.status IN ('pending', 'queued', 'downloading', 'paused')
+                       ORDER BY t.id ASC, f.id ASC"""
                 )
             ).fetchall()
 
