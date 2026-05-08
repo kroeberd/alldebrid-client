@@ -1,5 +1,47 @@
 # Changelog
 
+## [1.5.36] — 2026-05-08
+
+### Analysed — Automatic download flow audit
+
+The complete download pipeline was traced end-to-end:
+
+```
+add_magnet_direct / jackett_add
+  → _add_magnet → AllDebrid upload → DB status='uploading'
+  → sync_alldebrid_status (every poll_interval_seconds)
+      → _apply_provider_update → statusCode=4 (ready)
+      → _start_download (asyncio.Task)
+          → _download → _fetch_ready_files → unlock_links → _log_file (pending)
+          → _dispatch_pending_aria2_queue → unlock → aria2.ensure_download → GID
+  → sync_download_clients (every aria2_poll_interval_seconds)
+      → sync_aria2_downloads → aria2 status sync
+          → dl.status == 'complete' → _update_file_state('completed')
+          → _finalize_aria2_torrent → all files done → status='completed'
+              → _delete_magnet_after_completion → _mark_finished → Discord
+  → cleanup_stuck_downloads (every poll cycle)
+      → reset torrents stuck in queued/downloading > stuck_download_timeout_hours
+  → reconcile_aria2_on_startup (once at startup)
+      → GID gone + files not done → _reset_torrent_for_redownload → _start_download
+```
+
+**All core logic is correct.** No structural bugs found in the download
+pipeline itself.
+
+### Fixed — `cleanup_stuck_downloads` fails silently on PostgreSQL
+
+The stuck-download detection queries used SQLite-specific
+`datetime('now', '-N hours')` syntax which throws a syntax error on
+PostgreSQL. This caused the cleanup to fail silently every poll cycle on
+PG installations, meaning torrents stuck in `queued` or `downloading` were
+never automatically reset.
+
+**Fix:** Both queries now use `_is_postgres()` to emit the correct syntax:
+- PostgreSQL: `NOW() - INTERVAL 'N hours'`
+- SQLite: `datetime('now', '-N hours')`
+
+`_is_postgres` added to `manager_v2.py` imports from `db.database`.
+
 ## [1.5.35] — 2026-05-08
 
 ### Fixed — Auto-extraction crashes with `NameError: name 'get_extractor' is not defined`

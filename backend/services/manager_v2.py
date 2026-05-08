@@ -11,7 +11,7 @@ import aiohttp
 
 from core.config import AppSettings, get_settings
 import aiosqlite  # used by tests via patch; kept for compatibility
-from db.database import DB_PATH, get_db
+from db.database import DB_PATH, _is_postgres, get_db
 from services.alldebrid import AllDebridService, flatten_files
 from services.aria2 import Aria2Service
 from services.aria2_runtime import aria2_global_options, effective_rpc_config, is_builtin_mode
@@ -871,18 +871,23 @@ class TorrentManager:
             # Check 1: local download stuck
             stuck_local = []
             if timeout_hours and timeout_hours > 0:
+                # Use portable SQL: NOW()-INTERVAL for PostgreSQL, datetime() for SQLite
+                if _is_postgres():
+                    _cutoff_local = f"NOW() - INTERVAL '{int(timeout_hours)} hours'"
+                else:
+                    _cutoff_local = f"datetime('now','-{int(timeout_hours)} hours')"
                 stuck_local = await (await db.execute(
-                    """SELECT id, name, alldebrid_id, status FROM torrents
+                    f"""SELECT id, name, alldebrid_id, status FROM torrents
                        WHERE status IN ('queued', 'downloading')
-                         AND updated_at < datetime('now', ? || ' hours')""",
-                    (f"-{timeout_hours}",)
+                         AND updated_at < {_cutoff_local}"""
                 )).fetchall()
 
             # Check 2: AllDebrid processing stuck > 24h (configurable separately)
+            _cutoff_ad = "NOW() - INTERVAL '24 hours'" if _is_postgres() else "datetime('now','-24 hours')"
             stuck_ad = await (await db.execute(
-                """SELECT id, name, alldebrid_id, status FROM torrents
+                f"""SELECT id, name, alldebrid_id, status FROM torrents
                    WHERE status IN ('processing', 'uploading')
-                     AND updated_at < datetime('now', '-24 hours')
+                     AND updated_at < {_cutoff_ad}
                      AND alldebrid_id IS NOT NULL AND alldebrid_id != ''"""
             )).fetchall()
 
