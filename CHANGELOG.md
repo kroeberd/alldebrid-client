@@ -1,5 +1,47 @@
 # Changelog
 
+## [1.5.39] — 2026-05-08
+
+### Fixed — AllDebrid polling fails at scale; ready torrents re-dispatched every cycle
+
+Two bugs that together prevented large queues (92+ torrents) from being
+processed reliably:
+
+#### Bug 1 — N individual HTTP calls per poll cycle → rate-limit → torrents marked error
+
+`sync_alldebrid_status` issued one `GET /v4.1/magnet/status?id=X` request per
+torrent on every poll cycle (default every 30 seconds). With 92 torrents this
+was **92 HTTP requests per cycle** — over 180 requests/minute. AllDebrid's
+rate-limiter rejected many of these, causing `polling_failures` to climb.
+After 6 consecutive failures (`PROVIDER_FAILURE_THRESHOLD = 6`) the torrent
+was automatically marked `error`, preventing it from ever being downloaded.
+
+**Fix:** `sync_alldebrid_status` now issues **a single bulk call**
+(`get_magnet_status()` without an id) and looks up each torrent from the
+returned list by id. This collapses 92 HTTP calls into 1 per cycle.
+
+Additionally, torrents in `status='queued'`, `'downloading'`, or `'paused'`
+are **excluded from the AllDebrid poll entirely** — they are already tracked
+by aria2 via `sync_aria2_downloads` and need no AllDebrid check.
+
+#### Bug 2 — Status stays `ready` while waiting for Semaphore → re-dispatch every poll
+
+`_start_download` is called as an `asyncio.create_task()`. While the task is
+waiting for the concurrency Semaphore (which may take minutes when many
+torrents are queued), the torrent's DB status stays `ready`. The next
+`sync_alldebrid_status` poll sees `ready` again, calls `_apply_provider_update`
+again, which spawns another `_start_download` task — one per poll cycle, per
+waiting torrent.
+
+The `torrent_id in self._active` guard only works while the **previous task**
+is still alive. If a task finishes (e.g. was blocked by the Semaphore and
+gave up), `_active` is cleared and the next poll creates a new task.
+
+**Fix:** `_start_download` now immediately sets `status='downloading'` in the
+DB (inside the guard block, before `sem.acquire()`). Since `downloading` is
+excluded from the AllDebrid poll (Bug 1 fix), the torrent is invisible to
+subsequent poll cycles until aria2 processing begins.
+
 ## [1.5.38] — 2026-05-08
 
 ### Fixed — Ready AllDebrid magnets not being downloaded; re-dispatch storm every 5 minutes

@@ -569,24 +569,49 @@ class TorrentManager:
         if self.is_paused() or not get_settings().alldebrid_api_key:
             return
 
+        # Fetch only torrents that still need AllDebrid polling.
+        # Torrents in queued/downloading/paused are already tracked by aria2 —
+        # polling AllDebrid for them is unnecessary and wastes API quota.
         async with get_db() as db:
             rows = await (
                 await db.execute(
                     """SELECT id, name, alldebrid_id, status, provider_status, provider_status_code, polling_failures
                        FROM torrents
                        WHERE alldebrid_id IS NOT NULL AND alldebrid_id != ''
-                         AND status NOT IN ('completed', 'deleted')
+                         AND status NOT IN ('completed', 'deleted', 'queued', 'downloading', 'paused')
                        ORDER BY id ASC"""
                 )
             ).fetchall()
 
+        if not rows:
+            await self.sync_download_clients()
+            return
+
+        # One bulk API call instead of N individual calls.
+        # With many torrents (e.g. 92), N individual HTTP requests would hit
+        # AllDebrid's rate limit, causing polling failures that eventually mark
+        # torrents as errors even though AllDebrid has them ready.
+        try:
+            all_magnets = await self.ad().get_magnet_status()
+        except Exception as exc:
+            logger.warning("sync_alldebrid_status: bulk fetch failed: %s", exc)
+            await self.sync_download_clients()
+            return
+
+        # Index by id for O(1) lookup
+        magnet_by_id: dict = {str(m.get("id", "")): m for m in all_magnets}
+
         for row in rows:
             try:
-                magnets = await self.ad().get_magnet_status(str(row["alldebrid_id"]))
-                if not magnets:
-                    await self._increment_poll_failure(row["id"], row["name"], "No magnet data returned from AllDebrid")
+                ad_id = str(row["alldebrid_id"])
+                magnet = magnet_by_id.get(ad_id)
+                if magnet is None:
+                    # Not in AllDebrid response — treat as gone
+                    await self._increment_poll_failure(
+                        row["id"], row["name"],
+                        "Magnet not found in AllDebrid bulk status"
+                    )
                     continue
-                magnet = magnets[0]
                 normalized = normalize_provider_state(magnet)
                 await self._apply_provider_update(row, magnet, normalized)
             except Exception as exc:
@@ -1132,6 +1157,15 @@ class TorrentManager:
                                 torrent_id, _status, _file_count["c"],
                             )
                             return
+                    # Mark as 'downloading' immediately so the next sync_alldebrid_status
+                    # poll skips this torrent (queued/downloading/paused are excluded from
+                    # polling since v1.5.38+). Without this the torrent stays 'ready' while
+                    # waiting for the Semaphore, causing a re-dispatch on every poll cycle.
+                    await _guard_db.execute(
+                        "UPDATE torrents SET status='downloading', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                        (torrent_id,),
+                    )
+                    await _guard_db.commit()
             except Exception as exc:
                 logger.debug("_start_download guard DB check failed: %s — proceeding", exc)
             async with self.sem():
