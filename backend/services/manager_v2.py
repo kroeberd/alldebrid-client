@@ -513,12 +513,29 @@ class TorrentManager:
             magnet = ad_by_id.get(ad_id)
 
             if not magnet:
-                # No longer on AllDebrid — mark deleted if not already terminal
-                if row["status"] not in ("completed", "deleted", "error"):
-                    logger.info("full_alldebrid_sync: magnet %s gone from AllDebrid → deleted", ad_id)
-                    await self._set_deleted(row["id"], "Magnet no longer exists on AllDebrid")
-                    updated += 1
-                continue
+                # Not in bulk response. AllDebrid only returns the most recent ~100
+                # magnets in a bulk call — older magnets may simply be outside the
+                # window, not actually gone. Verify with an individual call before
+                # marking the torrent as deleted.
+                if row["status"] in ("completed", "deleted", "error"):
+                    continue
+                try:
+                    individual = await self.ad().get_magnet_status(str(row["alldebrid_id"]))
+                    if individual:
+                        magnet = individual[0]
+                    else:
+                        logger.info("full_alldebrid_sync: magnet %s confirmed gone → deleted", row["alldebrid_id"])
+                        await self._set_deleted(row["id"], "Magnet no longer exists on AllDebrid")
+                        updated += 1
+                        continue
+                except Exception as exc:
+                    if "MAGNET_INVALID_ID" in str(exc):
+                        logger.info("full_alldebrid_sync: magnet %s invalid → deleted", row["alldebrid_id"])
+                        await self._set_deleted(row["id"], "Magnet no longer exists on AllDebrid")
+                        updated += 1
+                    else:
+                        logger.debug("full_alldebrid_sync: individual check failed for %s: %s", row["alldebrid_id"], exc)
+                    continue
 
             normalized = normalize_provider_state(magnet)
             provider_status = normalized["provider_status"]
@@ -587,31 +604,45 @@ class TorrentManager:
             await self.sync_download_clients()
             return
 
-        # One bulk API call instead of N individual calls.
-        # With many torrents (e.g. 92), N individual HTTP requests would hit
-        # AllDebrid's rate limit, causing polling failures that eventually mark
-        # torrents as errors even though AllDebrid has them ready.
+        # Attempt a single bulk call first.
+        # IMPORTANT: AllDebrid /magnet/status without an id returns only the most
+        # recent ~100 magnets — older entries may be absent from the response.
+        # We use the bulk result where available and fall back to individual per-ID
+        # calls for any torrent not found in the bulk window.  This keeps the common
+        # case fast while correctly handling large backlogs without triggering
+        # spurious polling failures for old-but-valid magnets.
+        magnet_by_id: dict = {}
         try:
             all_magnets = await self.ad().get_magnet_status()
+            magnet_by_id = {str(m.get("id", "")): m for m in all_magnets}
         except Exception as exc:
-            logger.warning("sync_alldebrid_status: bulk fetch failed: %s", exc)
-            await self.sync_download_clients()
-            return
-
-        # Index by id for O(1) lookup
-        magnet_by_id: dict = {str(m.get("id", "")): m for m in all_magnets}
+            logger.warning("sync_alldebrid_status: bulk fetch failed (%s) — using per-ID fallback", exc)
 
         for row in rows:
             try:
                 ad_id = str(row["alldebrid_id"])
                 magnet = magnet_by_id.get(ad_id)
+
                 if magnet is None:
-                    # Not in AllDebrid response — treat as gone
-                    await self._increment_poll_failure(
-                        row["id"], row["name"],
-                        "Magnet not found in AllDebrid bulk status"
-                    )
-                    continue
+                    # Not in bulk response — could be an older magnet beyond AllDebrid's
+                    # bulk window. Fall back to an individual API call instead of
+                    # incrementing the polling failure counter (which would eventually
+                    # mark a perfectly valid torrent as error).
+                    try:
+                        individual = await self.ad().get_magnet_status(ad_id)
+                        magnet = individual[0] if individual else None
+                    except Exception as exc_ind:
+                        if "MAGNET_INVALID_ID" in str(exc_ind):
+                            await self._set_deleted(row["id"], "Magnet no longer exists on AllDebrid")
+                        else:
+                            logger.error("Individual poll failed for %s: %s", ad_id, exc_ind)
+                            await self._increment_poll_failure(row["id"], row["name"], str(exc_ind))
+                        continue
+
+                    if magnet is None:
+                        await self._set_deleted(row["id"], "Magnet no longer exists on AllDebrid")
+                        continue
+
                 normalized = normalize_provider_state(magnet)
                 await self._apply_provider_update(row, magnet, normalized)
             except Exception as exc:

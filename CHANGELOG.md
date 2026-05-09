@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.5.40] — 2026-05-09
+
+### Fixed — Older AllDebrid magnets ignored / marked as error or deleted
+
+**Root cause:** The AllDebrid `/magnet/status` endpoint without an `id` parameter
+returns only the most recent ~100 magnets. With 92+ magnets in the queue,
+older ones are absent from the bulk response.
+
+Two functions mishandled this missing-from-bulk case:
+
+#### `sync_alldebrid_status` (v1.5.39 regression)
+Introduced in v1.5.39, the bulk-call approach treated a missing magnet as a
+polling failure (`_increment_poll_failure`). After 6 consecutive poll cycles
+(≈ 3 minutes at the default 30 s interval) the torrent was automatically
+marked `error` — even though it was perfectly valid on AllDebrid, just older
+than the bulk window.
+
+**Fix:** When a magnet is absent from the bulk response, fall back to a single
+per-ID API call. Only increment `polling_failures` (or mark deleted) if the
+individual call also fails or returns nothing.
+
+#### `full_alldebrid_sync`
+The same bulk fetch is used here. A missing magnet caused an immediate
+`_set_deleted` → the torrent was silently removed from the client's queue.
+
+**Fix:** Same fallback — verify with a per-ID call before marking deleted.
+
+**Net effect:** The bulk call still covers the common case (small active queue)
+in a single HTTP request. Only magnets that fall outside AllDebrid's ~100-entry
+window incur an extra individual call, keeping API usage proportional to the
+actual backlog size.
+
 ## [1.5.39] — 2026-05-08
 
 ### Fixed — AllDebrid polling fails at scale; ready torrents re-dispatched every cycle
