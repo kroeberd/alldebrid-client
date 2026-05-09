@@ -567,14 +567,13 @@ async def import_existing():
 
 @router.get("/torrents/diagnose")
 async def diagnose_torrents():
-    """Return a count breakdown of local torrent statuses + AllDebrid status mismatch."""
+    """Return a full count breakdown of all local torrent statuses."""
     async with get_db() as db:
-        status_counts = await (await db.execute(
+        all_counts = await (await db.execute(
             """SELECT status, COUNT(*) AS cnt FROM torrents
-               WHERE status NOT IN ('completed', 'deleted')
                GROUP BY status ORDER BY cnt DESC"""
         )).fetchall()
-        stuck = await (await db.execute(
+        non_terminal = await (await db.execute(
             """SELECT t.id, t.name, t.status, t.alldebrid_id,
                       (SELECT COUNT(*) FROM download_files f WHERE f.torrent_id=t.id AND f.blocked=0) AS file_count
                FROM torrents t
@@ -582,8 +581,8 @@ async def diagnose_torrents():
                ORDER BY t.id DESC LIMIT 20"""
         )).fetchall()
     return {
-        "status_counts": [dict(r) for r in status_counts],
-        "sample_non_terminal": [dict(r) for r in stuck],
+        "status_counts": [dict(r) for r in all_counts],
+        "sample_non_terminal": [dict(r) for r in non_terminal],
     }
 
 
@@ -633,7 +632,21 @@ async def recover_all_ready():
         # Step 2: Import and dispatch all ready AllDebrid magnets.
         result = await manager.import_existing_magnets()
         started = sum(1 for r in result if r.get("should_queue") and r.get("status") == "ready")
-        return {"ok": True, "reset": reset_count, "checked": len(result), "started": started}
+        # Build breakdown for diagnosis
+        from collections import Counter
+        status_breakdown = Counter(r.get("status") for r in result)
+        sq_breakdown = Counter(
+            f"{r.get('status')}/sq={r.get('should_queue')}"
+            for r in result
+        )
+        return {
+            "ok": True,
+            "reset": reset_count,
+            "checked": len(result),
+            "started": started,
+            "status_breakdown": dict(status_breakdown),
+            "should_queue_breakdown": dict(sq_breakdown),
+        }
     except Exception as e:
         raise HTTPException(502, _sanitize_error(e))
 
