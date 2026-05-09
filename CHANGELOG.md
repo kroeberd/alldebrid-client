@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.5.43] — 2026-05-09
+
+### Fixed — `status='downloading'` with no download_files — torrents invisible forever
+
+**Symptom:** `recover-all` returned `started: 0` even with 102 magnets on AllDebrid,
+and no downloads were starting.
+
+**Root cause:** In v1.5.39, `_start_download` was changed to set `status='downloading'`
+immediately in the guard block — *before* acquiring the Semaphore. With 102 torrents
+all calling `_start_download`, all 102 were instantly marked `downloading` in the DB,
+but only 3 actually had a Semaphore slot. The other 99 tasks were waiting, but from
+the DB's perspective they were already `downloading`.
+
+This caused a three-way deadlock:
+
+- `import_existing_magnets` (and thus `recover-all`): sees `downloading` → `should_queue=False`
+  → `started=0`
+- `sync_alldebrid_status`: excludes `downloading` from polling → never retries them
+- `_dispatch_pending_aria2_queue`: no `download_files` rows exist yet → nothing to send to aria2
+
+The only recovery was `cleanup_stuck_downloads`, which resets `downloading` torrents
+— but only after `stuck_download_timeout_hours` (default **6 hours**).
+
+**Fix 1 — `_start_download`:** Move `status='downloading'` to *after* `sem.acquire()`.
+While waiting for the Semaphore the torrent keeps its previous status (`ready`/`error`/etc.),
+so it remains visible to polling and recovery. The `self._active` set still prevents
+duplicate `_start_download` tasks from being created for the same torrent.
+
+**Fix 2 — `cleanup_stuck_downloads`:** Add an immediate check (no timeout) for torrents
+with `status='downloading'` but **no `download_files` records** and **not in `self._active`**.
+These are definitively stuck — `_download()` never ran for them — and are reset to
+`status='ready'` immediately so they re-enter the queue.
+
 ## [1.5.42] — 2026-05-09
 
 ### Added — "Recover All" button for immediate manual recovery

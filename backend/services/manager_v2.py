@@ -915,17 +915,34 @@ class TorrentManager:
         """
         Resets torrents stuck in active states for too long.
 
-        Two checks:
-        1. Local download stuck (queued/downloading) > stuck_download_timeout_hours
-           → reset to 'ready' so the download restarts
-        2. AllDebrid processing stuck (processing/uploading) > 24h without update
-           → reset to trigger re-poll; AllDebrid may have finished or errored
+        Three checks:
+        1. status='downloading' but NO download_files records → stuck pre-_download;
+           reset immediately to 'ready' (no timeout needed — this is always wrong).
+        2. Local download stuck (queued/downloading) > stuck_download_timeout_hours
+           → reset to 'ready' so the download restarts.
+        3. AllDebrid processing stuck (processing/uploading) > 24h without update
+           → reset to trigger re-poll; AllDebrid may have finished or errored.
         """
         from core.config import get_settings
         cfg = get_settings()
         timeout_hours = getattr(cfg, "stuck_download_timeout_hours", 6)
 
         async with get_db() as db:
+            # Check 0: downloading with no download_files — torrent is stuck waiting
+            # for the semaphore but _download() has never run.  This can happen when
+            # many _start_download tasks pile up.  Reset immediately so polling resumes.
+            stuck_no_files = await (await db.execute(
+                """SELECT t.id, t.name, t.alldebrid_id, t.status
+                   FROM torrents t
+                   WHERE t.status = 'downloading'
+                     AND NOT EXISTS (
+                         SELECT 1 FROM download_files f
+                         WHERE f.torrent_id = t.id AND f.blocked = 0
+                     )"""
+            )).fetchall()
+            # Skip torrents that are actively in self._active (their task is running)
+            stuck_no_files = [r for r in stuck_no_files if r["id"] not in self._active]
+
             # Check 1: local download stuck
             stuck_local = []
             if timeout_hours and timeout_hours > 0:
@@ -949,7 +966,21 @@ class TorrentManager:
                      AND alldebrid_id IS NOT NULL AND alldebrid_id != ''"""
             )).fetchall()
 
-        rows = list(stuck_local) + [r for r in stuck_ad if r["id"] not in {s["id"] for s in stuck_local}]
+        # Combine, no_files first (immediate reset), then timed-out, de-duplicated
+        seen = set()
+        rows = []
+        for row in list(stuck_no_files) + list(stuck_local) + [r for r in stuck_ad]:
+            if row["id"] not in seen:
+                seen.add(row["id"])
+                rows.append(row)
+
+        if stuck_no_files:
+            logger.info(
+                "cleanup_stuck_downloads: %d torrent(s) stuck in 'downloading' with no "
+                "download_files — resetting immediately",
+                len(stuck_no_files),
+            )
+
         if not rows:
             return
 
@@ -1188,18 +1219,32 @@ class TorrentManager:
                                 torrent_id, _status, _file_count["c"],
                             )
                             return
-                    # Mark as 'downloading' immediately so the next sync_alldebrid_status
-                    # poll skips this torrent (queued/downloading/paused are excluded from
-                    # polling since v1.5.38+). Without this the torrent stays 'ready' while
-                    # waiting for the Semaphore, causing a re-dispatch on every poll cycle.
-                    await _guard_db.execute(
-                        "UPDATE torrents SET status='downloading', updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                        (torrent_id,),
-                    )
-                    await _guard_db.commit()
             except Exception as exc:
                 logger.debug("_start_download guard DB check failed: %s — proceeding", exc)
+            # Acquire the semaphore BEFORE marking status='downloading'.
+            # Previously status was set to 'downloading' immediately in the guard block,
+            # which meant 100 waiting tasks all showed 'downloading' in the DB even though
+            # _download() hadn't run yet for 97 of them.  This caused:
+            #   - import_existing_magnets to see them as 'downloading' → should_queue=False
+            #   - sync_alldebrid_status to exclude them ('downloading' is excluded)
+            #   - _dispatch_pending_aria2_queue to find no download_files → nothing to send
+            # Net effect: torrents stuck in 'downloading' with no progress, no polling,
+            # no recovery — until cleanup_stuck_downloads fires after 6 hours.
+            # Fix: mark 'downloading' only after acquiring the semaphore, so the DB
+            # reflects reality. While waiting, status stays as-is (ready/error/etc.) so
+            # the poll loop can still see and re-evaluate it if needed.
             async with self.sem():
+                # Now we have a slot — mark as downloading so aria2 sync and AllDebrid
+                # poll don't interfere while _download() runs.
+                try:
+                    async with get_db() as _slot_db:
+                        await _slot_db.execute(
+                            "UPDATE torrents SET status='downloading', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                            (torrent_id,),
+                        )
+                        await _slot_db.commit()
+                except Exception as exc:
+                    logger.debug("_start_download: could not set downloading status: %s", exc)
                 await self._download(torrent_id, ad_id, name)
         except TransientAllDebridStateError as exc:
             logger.warning("Download deferred db_id=%s: %s", torrent_id, exc)
