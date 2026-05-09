@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.5.38] — 2026-05-08
+
+### Fixed — Ready AllDebrid magnets not being downloaded; re-dispatch storm every 5 minutes
+
+**Symptom:** Magnets that are "ready" on AllDebrid (statusCode 4) were not
+being downloaded by the client, even after `import_existing_magnets` ran
+every 5 minutes.
+
+**Two bugs found in `import_existing_magnets()`:**
+
+#### Bug 1 — Re-dispatch storm for already-active torrents
+
+`should_queue` was set to `True` for *every* non-terminal torrent, including
+ones already in `status='queued'` or `status='downloading'`. On every
+5-minute full-sync cycle, `_start_download` was called again for every torrent
+that was already being downloaded. With 92 torrents this created 92 competing
+`asyncio.create_task()` calls every 5 minutes. The `_active` set blocks
+duplicate starts while a `_download()` is running, but between cycles (when
+`_active` is empty again) the storm of re-starts consumed the Semaphore slots,
+delaying or blocking newer torrents from starting.
+
+**Fix:** `should_queue = False` when the existing local status is already
+`queued`, `downloading`, or `paused`. These are handled by
+`sync_aria2_downloads` / `_dispatch_pending_aria2_queue` — no re-dispatch
+is needed.
+
+#### Bug 2 — AllDebrid magnets processed in arbitrary order
+
+`all_magnets` from the AllDebrid API has no guaranteed ordering.
+With 92 magnets, the order of `asyncio.create_task()` calls (and therefore
+which torrent gets the Semaphore first) was undefined.
+
+**Fix:** Sort `all_magnets` by `id` ascending before iteration.
+AllDebrid assigns monotonically increasing IDs, so `id ASC` = oldest-first,
+consistent with the `ORDER BY t.id ASC` fix applied to the SQL queries in
+v1.5.37.
+
 ## [1.5.37] — 2026-05-08
 
 ### Fixed — Downloads not processed in FIFO order (oldest torrent first)

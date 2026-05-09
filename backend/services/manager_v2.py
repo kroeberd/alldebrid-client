@@ -2639,6 +2639,10 @@ class TorrentManager:
             except Exception as exc:
                 logger.warning("import_existing_magnets: could not fetch aria2 state: %s", exc)
 
+        # Sort by AllDebrid id ascending so oldest magnets are processed first.
+        # AllDebrid assigns monotonically increasing IDs, so lower id = older magnet.
+        all_magnets = sorted(all_magnets, key=lambda m: int(m.get("id", 0) or 0))
+
         results = []
         async with get_db() as db:
             for magnet in all_magnets:
@@ -2651,7 +2655,14 @@ class TorrentManager:
                 should_queue = True
                 if existing:
                     torrent_id = existing["id"]
-                    if not _terminal_torrent_status(existing["status"]):
+                    local_status = existing["status"]
+                    if _terminal_torrent_status(local_status):
+                        # Already completed/deleted/error — do not restart
+                        should_queue = False
+                    elif local_status in ("queued", "downloading", "paused"):
+                        # Already actively downloading — do not re-dispatch;
+                        # sync_aria2_downloads / _dispatch_pending_aria2_queue handle it
+                        should_queue = False
                         await db.execute(
                             """UPDATE torrents
                                SET name=?, alldebrid_id=?, provider_status=?, provider_status_code=?, download_client=?, updated_at=CURRENT_TIMESTAMP
@@ -2659,7 +2670,14 @@ class TorrentManager:
                             (name, ad_id, normalized["provider_status"], normalized["status_code"], self.download_client_name(), torrent_id),
                         )
                     else:
-                        should_queue = False
+                        # Non-terminal, not actively downloading (uploading/processing/ready/error/pending)
+                        # → update and allow re-dispatch if AllDebrid says ready
+                        await db.execute(
+                            """UPDATE torrents
+                               SET name=?, alldebrid_id=?, provider_status=?, provider_status_code=?, download_client=?, updated_at=CURRENT_TIMESTAMP
+                               WHERE id=?""",
+                            (name, ad_id, normalized["provider_status"], normalized["status_code"], self.download_client_name(), torrent_id),
+                        )
                 else:
                     torrent_id = await db.execute_returning_id(
                         """INSERT INTO torrents
