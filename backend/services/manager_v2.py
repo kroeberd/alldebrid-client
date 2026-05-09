@@ -2721,8 +2721,27 @@ class TorrentManager:
                 if existing:
                     torrent_id = existing["id"]
                     local_status = existing["status"]
-                    if _terminal_torrent_status(local_status):
-                        # Already completed/deleted/error — do not restart
+                    if local_status in ("completed", "deleted"):
+                        # Truly terminal — never restart
+                        should_queue = False
+                    elif local_status == "error" and normalized["provider_status"] == "ready":
+                        # Previously failed (e.g. due to polling bugs) but AllDebrid says
+                        # ready — clear the error and allow re-dispatch
+                        await db.execute(
+                            """UPDATE torrents
+                               SET name=?, alldebrid_id=?, provider_status=?, provider_status_code=?,
+                                   download_client=?, status='ready', error_message=NULL,
+                                   polling_failures=0, updated_at=CURRENT_TIMESTAMP
+                               WHERE id=?""",
+                            (name, ad_id, normalized["provider_status"], normalized["status_code"],
+                             self.download_client_name(), torrent_id),
+                        )
+                        logger.info(
+                            "import_existing_magnets: torrent %s was error, AllDebrid ready → re-queuing",
+                            torrent_id,
+                        )
+                    elif local_status == "error":
+                        # Error + AllDebrid not ready yet — leave it alone
                         should_queue = False
                     elif local_status in ("queued", "downloading", "paused"):
                         # Already actively downloading — do not re-dispatch;

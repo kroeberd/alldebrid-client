@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.5.41] — 2026-05-09
+
+### Fixed — Torrents stuck in `error` state never re-downloaded despite being ready on AllDebrid
+
+**Symptom:** 92 torrents were ready on AllDebrid but the client did nothing with
+them. Previous bug-fixes (v1.5.38–v1.5.40) had introduced `polling_failures`
+that auto-marked valid torrents as `error`. Once in `error` state, no existing
+code path re-started them during the periodic sync.
+
+**Root cause in `import_existing_magnets`:**
+
+The function classifies all torrents with `status='error'` as "terminal" —
+`should_queue = False` — and skips them entirely, even when AllDebrid clearly
+reports the magnet as ready (`statusCode 4`).
+
+`full_alldebrid_sync` does handle the `error + ready` case, but it relies on
+the same bulk `/magnet/status` call that only returns the ~100 most recent
+magnets (see v1.5.40). Older backlogged torrents can be absent from that
+window, so `full_alldebrid_sync` also failed to restart them reliably.
+
+**Fix in `import_existing_magnets`:**
+
+`error` is no longer treated as unconditionally terminal:
+
+- `error` + AllDebrid reports **ready** → clear `error_message`, reset
+  `polling_failures` to 0, set `status='ready'`, allow re-dispatch via
+  `_start_download`. Logged at INFO level.
+- `error` + AllDebrid **not yet ready** → leave unchanged (still `error`).
+- `completed` / `deleted` → still unconditionally terminal, never restarted.
+
+This runs every `full_sync_interval_minutes` (default 5 min), so backlogged
+torrents that were incorrectly errored will be picked up and queued within
+one sync cycle after the upgrade.
+
 ## [1.5.40] — 2026-05-09
 
 ### Fixed — Older AllDebrid magnets ignored / marked as error or deleted
