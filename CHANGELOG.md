@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.5.42] — 2026-05-09
+
+### Added — "Recover All" button for immediate manual recovery
+
+A new **⟳ Recover All** button appears next to "Import Existing" in the
+Torrents view. It calls `POST /torrents/recover-all` which runs
+`import_existing_magnets()` immediately (outside the 5-minute scheduler
+cycle), resets any `error` torrents that AllDebrid now reports as ready,
+and dispatches `_start_download` for each.
+
+Use this when a batch of torrents are stuck on AllDebrid as ready but the
+client isn't picking them up.
+
+### Fixed — import_existing_magnets failures silently swallowed
+
+The scheduler caught all exceptions from `import_existing_magnets()` with
+`logger.debug`, making failures completely invisible in normal log output.
+Changed to `logger.error` so failures are always visible.
+
+### Added — `POST /torrents/recover-all` API endpoint
+
+Runs `import_existing_magnets()` and returns how many magnets were checked
+and how many `_start_download` tasks were dispatched.
+
 ## [1.5.41] — 2026-05-09
 
 ### Fixed — Torrents stuck in `error` state never re-downloaded despite being ready on AllDebrid

@@ -565,6 +565,24 @@ async def import_existing():
     return {"imported": len(results), "items": results}
 
 
+@router.post("/torrents/recover-all")
+async def recover_all_ready():
+    """
+    Immediately dispatch all torrents that AllDebrid reports as ready but
+    are locally stuck in error/ready/processing/uploading state.
+
+    Fetches the full AllDebrid magnet list, resets any error torrents that
+    are now ready, and fires _start_download for each.  Useful when a batch
+    of old torrents were incorrectly marked error by a polling bug.
+    """
+    try:
+        result = await manager.import_existing_magnets()
+        started = sum(1 for r in result if r.get("should_queue") and r.get("status") == "ready")
+        return {"ok": True, "checked": len(result), "started": started}
+    except Exception as e:
+        raise HTTPException(502, _sanitize_error(e))
+
+
 @router.get("/torrents/{torrent_id}")
 async def get_torrent(torrent_id: int):
     async with get_db() as db:

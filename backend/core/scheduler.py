@@ -76,7 +76,7 @@ async def full_sync_loop():
         try:
             await manager.import_existing_magnets()
         except Exception as e:
-            logger.debug(f"Existing magnet import skipped: {e}")
+            logger.error(f"Existing magnet import failed: {e}")
         try:
             await manager.full_alldebrid_sync()
         except Exception as e:

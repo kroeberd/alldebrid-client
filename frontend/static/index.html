@@ -842,6 +842,7 @@ textarea.input { resize: vertical; }
             <input class="input" id="q-magnet" placeholder="magnet:?xt=urn:btih:…" />
             <button class="btn btn-primary" onclick="quickAdd()">Add</button>
             <button class="btn btn-ghost" onclick="importExisting()" title="Import all magnets on AllDebrid">⬇ Import Existing</button>
+            <button class="btn btn-warn" onclick="recoverAll()" title="Reset stuck/error torrents and restart them from AllDebrid">⟳ Recover All</button>
           </div>
         </div>
       </div>
@@ -2311,6 +2312,16 @@ async function importExisting() {
   try {
     const r = await api('POST','/torrents/import-existing');
     toast(`Imported ${r.imported} magnets from AllDebrid`,'success');
+    loadStats(); loadRecent();
+    if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
+  } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
+}
+
+async function recoverAll() {
+  try {
+    toast('Checking AllDebrid for ready torrents…','info');
+    const r = await api('POST','/torrents/recover-all');
+    toast(`Recovery: checked ${r.checked} magnets, started ${r.started}`,'success');
     loadStats(); loadRecent();
     if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
   } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
