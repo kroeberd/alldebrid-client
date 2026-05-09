@@ -568,17 +568,50 @@ async def import_existing():
 @router.post("/torrents/recover-all")
 async def recover_all_ready():
     """
-    Immediately dispatch all torrents that AllDebrid reports as ready but
-    are locally stuck in error/ready/processing/uploading state.
+    Immediately recover torrents stuck in bad states and dispatch all that
+    AllDebrid reports as ready.
 
-    Fetches the full AllDebrid magnet list, resets any error torrents that
-    are now ready, and fires _start_download for each.  Useful when a batch
-    of old torrents were incorrectly marked error by a polling bug.
+    Step 1: Reset any torrent with status='downloading' but no download_files
+            records — these are stuck waiting for the semaphore and will never
+            progress on their own.
+    Step 2: Run import_existing_magnets() to pick up all ready AllDebrid magnets
+            and dispatch _start_download for each.
     """
     try:
+        # Step 1: Reset stuck 'downloading' torrents that have no download_files.
+        # These were set to 'downloading' by _start_download before acquiring the
+        # semaphore (v1.5.39 bug), so _download() never ran and no files were queued.
+        reset_count = 0
+        async with get_db() as db:
+            stuck = await (await db.execute(
+                """SELECT t.id FROM torrents t
+                   WHERE t.status = 'downloading'
+                     AND NOT EXISTS (
+                         SELECT 1 FROM download_files f
+                         WHERE f.torrent_id = t.id AND f.blocked = 0
+                     )"""
+            )).fetchall()
+            if stuck:
+                ids = [r["id"] for r in stuck]
+                placeholders = ",".join("?" * len(ids))
+                await db.execute(
+                    f"UPDATE torrents SET status='ready', updated_at=CURRENT_TIMESTAMP "
+                    f"WHERE id IN ({placeholders})",
+                    ids,
+                )
+                await db.execute(
+                    f"INSERT INTO events (torrent_id, level, message) "
+                    f"SELECT id, 'warn', 'recover-all: reset stuck downloading (no download_files)' "
+                    f"FROM torrents WHERE id IN ({placeholders})",
+                    ids,
+                )
+                await db.commit()
+                reset_count = len(ids)
+
+        # Step 2: Import and dispatch all ready AllDebrid magnets.
         result = await manager.import_existing_magnets()
         started = sum(1 for r in result if r.get("should_queue") and r.get("status") == "ready")
-        return {"ok": True, "checked": len(result), "started": started}
+        return {"ok": True, "reset": reset_count, "checked": len(result), "started": started}
     except Exception as e:
         raise HTTPException(502, _sanitize_error(e))
 

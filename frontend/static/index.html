@@ -2321,7 +2321,8 @@ async function recoverAll() {
   try {
     toast('Checking AllDebrid for ready torrents…','info');
     const r = await api('POST','/torrents/recover-all');
-    toast(`Recovery: checked ${r.checked} magnets, started ${r.started}`,'success');
+    const msg = `Recovery: reset ${r.reset} stuck, checked ${r.checked}, started ${r.started}`;
+    toast(msg, r.started > 0 || r.reset > 0 ? 'success' : 'warn');
     loadStats(); loadRecent();
     if (document.getElementById('view-torrents').classList.contains('active')) loadTorrents();
   } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }

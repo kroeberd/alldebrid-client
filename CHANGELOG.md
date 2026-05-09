@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.5.44] — 2026-05-09
+
+### Fixed — "Recover All" still shows started: 0
+
+**Root cause:** All 102 torrents had `status='downloading'` in the database
+from the v1.5.39 bug (which set that status before acquiring the Semaphore).
+`recover-all` called `import_existing_magnets()` which skipped all of them
+because `downloading` → `should_queue=False`.
+
+The v1.5.43 fix added `cleanup_stuck_downloads` detection for this, but that
+runs on a 30-second poll cycle — if `recover-all` was clicked before the first
+cleanup cycle after the upgrade, the torrents were still `downloading` in DB.
+
+**Fix:** `POST /torrents/recover-all` now runs two steps in order:
+
+1. **Reset stuck `downloading` torrents** — finds all torrents with
+   `status='downloading'` and no `download_files` records, resets them to
+   `status='ready'` immediately (no timeout), and logs a warning event.
+2. **Run `import_existing_magnets()`** — now that the torrents are `ready`
+   again, they are picked up and `_start_download` is dispatched for each.
+
+The response now includes `reset` (how many were un-stuck in step 1) in
+addition to `checked` and `started`.
+
 ## [1.5.43] — 2026-05-09
 
 ### Fixed — `status='downloading'` with no download_files — torrents invisible forever
