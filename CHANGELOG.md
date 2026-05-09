@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.5.46] — 2026-05-09
+
+### Added — Bulk selection and "Add All" in Torrent Search
+
+The search results table now supports multi-select and bulk-add:
+
+**Per-row selection**
+- Each addable result (not yet added, has a link) shows a checkbox in the
+  first column.
+- Clicking anywhere on a row toggles its checkbox (buttons excluded).
+
+**Header checkbox**
+- Checks/unchecks all selectable rows at once; shows an indeterminate state
+  when only some are selected.
+
+**Bulk-action toolbar** (appears when ≥ 1 row is selected)
+- **+ Add Selected** — adds the checked results one by one in order.
+- **Select all** — selects every addable result.
+- **Clear** — deselects everything.
+
+**Add All button** (always visible above the table)
+- Adds every result that has a valid link and has not been added yet,
+  sequentially. Shows a progress toast and a completion toast.
+
+Selection is reset on each new search / re-sort so it never carries stale
+indices across result sets.
+
 ## [1.5.44] — 2026-05-09
 
 ### Fixed — "Recover All" still shows started: 0

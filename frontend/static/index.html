@@ -1106,9 +1106,33 @@ textarea.input { resize: vertical; }
       <div id="jackett-state" style="text-align:center;padding:40px 0;color:var(--text2);display:none"></div>
 
       <div class="card" id="jackett-results-wrap" style="display:none;overflow-x:auto;padding:0">
+
+        <!-- Bulk-action toolbar (visible when ≥1 row is checked) -->
+        <div id="jackett-bulk-bar"
+          style="display:none;align-items:center;gap:10px;padding:8px 14px;
+                 border-bottom:1px solid var(--border);background:var(--surface2)">
+          <span id="jackett-sel-count" style="font-size:12px;color:var(--text2)"></span>
+          <button class="btn btn-primary btn-sm" onclick="jackettAddSelected()">
+            &#43; Add Selected
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="jackettSelectAll()">Select all</button>
+          <button class="btn btn-ghost btn-sm" onclick="jackettClearSelection()">Clear</button>
+        </div>
+
+        <!-- Add All button row -->
+        <div style="display:flex;justify-content:flex-end;padding:6px 14px;border-bottom:1px solid var(--border)">
+          <button class="btn btn-ghost btn-sm" onclick="jackettAddAll()" id="jackett-add-all-btn"
+            style="font-size:12px">&#8644; Add All</button>
+        </div>
+
         <table class="t-table" style="min-width:700px">
           <thead>
             <tr>
+              <th style="width:34px;padding:0 6px">
+                <input type="checkbox" id="jackett-check-all" title="Select all"
+                  onchange="jackettToggleAllCheckboxes(this.checked)"
+                  style="cursor:pointer;accent-color:var(--accent)">
+              </th>
               <th style="min-width:240px;cursor:pointer" onclick="jackettCycleSort('title')">Title <span id="jackett-sort-title"></span></th>
               <th style="cursor:pointer" onclick="jackettCycleSort('indexer')">Indexer <span id="jackett-sort-indexer"></span></th>
               <th style="cursor:pointer" onclick="jackettCycleSort('size')">Size <span id="jackett-sort-size"></span></th>
@@ -4547,6 +4571,10 @@ function renderJackettResults() {
   var results = jackettSortResults(window._jackettResults || []);
   jackettUpdateSortIndicators();
 
+  // Reset selection on re-render
+  window._jackettSelected = new Set();
+  jackettUpdateBulkBar();
+
   tbody.innerHTML = '';
   if (!results.length) {
     wrap.style.display = 'none';
@@ -4557,6 +4585,7 @@ function renderJackettResults() {
 
   results.forEach(function(r, i) {
     var tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
     var sc = r.seeders > 10 ? 'var(--green)' : r.seeders > 0 ? 'var(--accent)' : 'var(--text3)';
     var key = String(r.hash || r.torrent_url || (r.title + '|' + r.indexer));
     var inFlight = !!(window._jackettAddInFlight && window._jackettAddInFlight[key]);
@@ -4571,9 +4600,14 @@ function renderJackettResults() {
     } else if (inFlight) {
         addBtn = '<button class="btn btn-ghost btn-sm" disabled id="jbtn-'+i+'">Adding...</button>';
     } else {
-        addBtn = '<button class="btn btn-primary btn-sm" onclick="jackettAdd('+i+')" id="jbtn-'+i+'">Add</button>';
+        addBtn = '<button class="btn btn-primary btn-sm" onclick="jackettAdd('+i+');event.stopPropagation()" id="jbtn-'+i+'">Add</button>';
     }
+    var canSelect = !!(r.magnet || r.torrent_url) && !r.already_added;
+    var chk = canSelect
+      ? '<input type="checkbox" class="jck" data-idx="'+i+'" style="cursor:pointer;accent-color:var(--accent)" onclick="event.stopPropagation()" onchange="jackettRowCheck('+i+',this.checked)">'
+      : '';
     tr.innerHTML =
+      '<td style="padding:0 6px;width:34px">'+chk+'</td>'+
       '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.title)+'">'+esc(r.title)+'</td>'+
       '<td style="color:var(--text2);font-size:12px">'+esc(r.indexer)+'</td>'+
       '<td style="white-space:nowrap;font-size:12px">'+esc(r.size_human)+'</td>'+
@@ -4582,6 +4616,12 @@ function renderJackettResults() {
       '<td style="font-size:11px;color:var(--text2)">'+esc(r.pub_date)+'</td>'+
       '<td>'+statusBadge+'</td>'+
       '<td>'+addBtn+'</td>';
+    // Row click → toggle selection
+    tr.addEventListener('click', function(e) {
+      if (!canSelect) return;
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+      jackettRowCheck(i, null, true); // null = toggle
+    });
     tbody.appendChild(tr);
   });
   wrap.style.display = '';
@@ -4589,7 +4629,81 @@ function renderJackettResults() {
   if (count) count.textContent = results.length + ' result(s)';
 }
 
-// ── Genre chip state ────────────────────────────────────────────────────────
+// ── Bulk selection ───────────────────────────────────────────────────────────
+window._jackettSelected = new Set();
+
+function jackettRowCheck(idx, checked, toggle) {
+  if (toggle) checked = !window._jackettSelected.has(idx);
+  if (checked) window._jackettSelected.add(idx);
+  else window._jackettSelected.delete(idx);
+  // Sync checkbox element
+  var chk = document.querySelector('.jck[data-idx="'+idx+'"]');
+  if (chk) chk.checked = checked;
+  jackettUpdateBulkBar();
+}
+
+function jackettUpdateBulkBar() {
+  var bar = document.getElementById('jackett-bulk-bar');
+  var lbl = document.getElementById('jackett-sel-count');
+  var selCount = window._jackettSelected ? window._jackettSelected.size : 0;
+  if (bar) bar.style.display = selCount > 0 ? 'flex' : 'none';
+  if (lbl) lbl.textContent = selCount + ' selected';
+  // Sync header checkbox indeterminate state
+  var allChks = document.querySelectorAll('.jck');
+  var masterChk = document.getElementById('jackett-check-all');
+  if (masterChk && allChks.length) {
+    masterChk.checked = selCount === allChks.length;
+    masterChk.indeterminate = selCount > 0 && selCount < allChks.length;
+  }
+}
+
+function jackettToggleAllCheckboxes(checked) {
+  document.querySelectorAll('.jck').forEach(function(chk) {
+    var idx = parseInt(chk.dataset.idx, 10);
+    chk.checked = checked;
+    if (checked) window._jackettSelected.add(idx);
+    else window._jackettSelected.delete(idx);
+  });
+  jackettUpdateBulkBar();
+}
+
+function jackettSelectAll() {
+  jackettToggleAllCheckboxes(true);
+  var masterChk = document.getElementById('jackett-check-all');
+  if (masterChk) masterChk.checked = true;
+}
+
+function jackettClearSelection() {
+  jackettToggleAllCheckboxes(false);
+  var masterChk = document.getElementById('jackett-check-all');
+  if (masterChk) { masterChk.checked = false; masterChk.indeterminate = false; }
+}
+
+async function jackettAddSelected() {
+  var results = jackettSortResults(window._jackettResults || []);
+  var indices = Array.from(window._jackettSelected || []).sort(function(a,b){return a-b;});
+  if (!indices.length) return;
+  for (var i = 0; i < indices.length; i++) {
+    await jackettAdd(indices[i]);
+  }
+  jackettClearSelection();
+}
+
+async function jackettAddAll() {
+  var results = jackettSortResults(window._jackettResults || []);
+  var addable = [];
+  results.forEach(function(r, i) {
+    if ((r.magnet || r.torrent_url) && !r.already_added) addable.push(i);
+  });
+  if (!addable.length) { toast('Nothing new to add', 'warn'); return; }
+  toast('Adding ' + addable.length + ' result(s)…', 'info');
+  for (var i = 0; i < addable.length; i++) {
+    await jackettAdd(addable[i]);
+  }
+  toast('Added ' + addable.length + ' result(s)', 'success');
+}
+
+// ── Genre chip state ─────────────────────────────────────────────────────────
 var _genreChips = new Set();
 
 function toggleSearchAdv(btn) {
