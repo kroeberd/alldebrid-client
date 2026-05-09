@@ -565,6 +565,28 @@ async def import_existing():
     return {"imported": len(results), "items": results}
 
 
+@router.get("/torrents/diagnose")
+async def diagnose_torrents():
+    """Return a count breakdown of local torrent statuses + AllDebrid status mismatch."""
+    async with get_db() as db:
+        status_counts = await (await db.execute(
+            """SELECT status, COUNT(*) AS cnt FROM torrents
+               WHERE status NOT IN ('completed', 'deleted')
+               GROUP BY status ORDER BY cnt DESC"""
+        )).fetchall()
+        stuck = await (await db.execute(
+            """SELECT t.id, t.name, t.status, t.alldebrid_id,
+                      (SELECT COUNT(*) FROM download_files f WHERE f.torrent_id=t.id AND f.blocked=0) AS file_count
+               FROM torrents t
+               WHERE t.status NOT IN ('completed', 'deleted')
+               ORDER BY t.id DESC LIMIT 20"""
+        )).fetchall()
+    return {
+        "status_counts": [dict(r) for r in status_counts],
+        "sample_non_terminal": [dict(r) for r in stuck],
+    }
+
+
 @router.post("/torrents/recover-all")
 async def recover_all_ready():
     """
