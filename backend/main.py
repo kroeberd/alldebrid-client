@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router
+from api.qbit import router as qbit_router
 from core.scheduler import start_scheduler, stop_scheduler
 from core.version import read_version
 from db.database import init_db, _is_postgres, DB_PATH
@@ -469,6 +470,9 @@ async def basic_auth_middleware(request: Request, call_next):
     )
 
 app.include_router(router, prefix="/api")
+# qBittorrent v4.3.2 API emulation — allows Sonarr/Radarr to use AllDebrid-Client
+# as a standard qBittorrent download client (host=this server, port=8080).
+app.include_router(qbit_router, prefix="/api/v2")
 
 # ── Static files ──────────────────────────────────────────────────────────────
 _here = Path(__file__).parent

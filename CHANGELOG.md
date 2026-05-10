@@ -1,5 +1,76 @@
 # Changelog
 
+## [1.5.51] — 2026-05-10
+
+### Added — qBittorrent API emulation (P8), State Machine (P9), Help page rewrite
+
+#### P8 — qBittorrent v4.3.2 API emulation
+
+AllDebrid-Client now exposes a qBittorrent-compatible Web API at `/api/v2/`.
+Configure Sonarr, Radarr, Lidarr (and any other *arr app) like this:
+
+```
+Download Client: qBittorrent
+Host:   <your-server-ip>
+Port:   <your-mapped-port>
+Category: (any — stored, not used for routing)
+Username/Password: (empty, or match Settings → Access Control)
+```
+
+**Implemented endpoints** (`api/qbit.py`):
+
+| Endpoint | Description |
+|---|---|
+| `POST /api/v2/auth/login` | Accept any credentials (AllDebrid-Client handles real auth) |
+| `GET  /api/v2/app/version` | Returns `v4.3.2` |
+| `GET  /api/v2/app/preferences` | Returns config values as qBit prefs |
+| `GET  /api/v2/torrents/info` | Full torrent list with qBit state mapping |
+| `POST /api/v2/torrents/add` | Adds magnet or .torrent file via manager |
+| `GET  /api/v2/torrents/files` | Per-file progress for a torrent |
+| `GET  /api/v2/torrents/properties` | Extended torrent properties |
+| `POST /api/v2/torrents/delete` | Deletes torrent(s) |
+| `POST /api/v2/torrents/pause` / `resume` | Pause / resume |
+| `POST /api/v2/torrents/setCategory` | Stores category in source field |
+| `GET  /api/v2/transfer/info` | Download speed from aria2 |
+| `GET  /api/v2/sync/maindata` | Full state snapshot |
+
+**Status mapping** (our status → qBit state):
+`processing/ready → stalledDL`, `downloading/queued → downloading`,
+`paused → pausedDL`, `completed → uploading` (triggers *arr import),
+`error → error`
+
+Unimplemented endpoints return safe stubs so *arr doesn't abort.
+
+#### P9 — Torrent State Machine (`services/torrent_state.py`)
+
+A new module centralises all torrent lifecycle constants and validates
+status transitions:
+
+- `TorrentStatus` enum — all valid DB status values as typed constants
+- `TERMINAL`, `ACTIVE_DOWNLOAD`, `POLL_EXCLUDED` — named frozensets
+  used throughout the manager instead of inline string literals
+- `VALID_TRANSITIONS` — explicit graph of which status may follow which
+- `assert_transition(from, to, torrent_id)` — logs a WARNING on invalid
+  transitions (non-raising for safety, hardening possible later)
+- `is_terminal()`, `is_active_download()`, `should_poll_alldebrid()` helpers
+
+Integrated into `manager_v2.py`:
+- `_start_download` guard uses `ACTIVE_DOWNLOAD` instead of a string tuple
+- `_apply_provider_update` calls `assert_transition()` before every DB write
+
+#### Help page rewritten
+
+The Help view has been fully rewritten and reorganised:
+
+- **Quick Start** — 5-step setup guide (unchanged, simplified)
+- **How it works** — visual pipeline with status labels
+- **Sonarr/Radarr** *(new tab)* — qBit API setup, status mapping table
+- **aria2** — setup modes, performance tips (condensed)
+- **Integrations** — Jackett, FlexGet, Discord, Prometheus, Post-Processing
+- **Settings Reference** — grouped expandable sections for all key settings
+- **Troubleshooting** — 6 concrete problem/solution entries including SSE
+  proxy config, auth lockout recovery, stuck downloads, and qBit API debug
+
 ## [1.5.50] — 2026-05-10
 
 ### Added — Server-Sent Events live updates (P6) + Prometheus metrics (P7)

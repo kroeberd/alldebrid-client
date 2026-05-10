@@ -19,6 +19,15 @@ from services.aria2 import Aria2Service
 from services.aria2_runtime import aria2_global_options, effective_rpc_config, is_builtin_mode
 from services.extractor import get_extractor, init_extractor
 from services.notifications import NotificationService
+from services.torrent_state import (
+    TorrentStatus,
+    assert_transition,
+    is_terminal,
+    is_active_download,
+    POLL_EXCLUDED,
+    TERMINAL,
+    ACTIVE_DOWNLOAD,
+)
 
 logger = logging.getLogger("alldebrid.manager")
 
@@ -1264,7 +1273,7 @@ class TorrentManager:
                             torrent_id, _status,
                         )
                         return
-                    if _status in ("queued", "downloading", "paused"):
+                    if _status in ACTIVE_DOWNLOAD:
                         _file_count = await (await _guard_db.execute(
                             "SELECT COUNT(*) AS c FROM download_files "
                             "WHERE torrent_id=? AND blocked=0 "
