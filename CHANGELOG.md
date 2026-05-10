@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.3] — 2026-05-10
+
+### Fixed — Docker release tags on VERSION pushes
+
+Docker builds triggered from `main` now read the repository `VERSION` file and
+publish matching image tags (`<version>` and `<major>.<minor>`) in addition to
+`latest` and `sha-*`.
+
+This closes the release gap where the GitHub Release workflow created `v*`
+tags from `VERSION`, but the Docker workflow running on the same `main` push
+only published `latest` and `sha-*` because semver tags are only resolved on
+tag refs.
+
 ## [1.6.2] — 2026-05-10
 
 ### Fixed — Docker build dependency lock

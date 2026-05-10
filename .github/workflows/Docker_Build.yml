@@ -40,6 +40,13 @@ jobs:
           IMAGE=$(grep -i '^FROM ' Dockerfile | head -n1 | awk '{print $2}')
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
+      - name: Read version
+        id: version
+        run: |
+          VERSION="$(tr -d '\r\n' < VERSION)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "major_minor=$(echo "$VERSION" | cut -d. -f1,2)" >> "$GITHUB_OUTPUT"
+
       - name: Get remote digest
         id: digest
         run: |
@@ -91,6 +98,8 @@ jobs:
             kroeberd/alldebrid-client
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.major_minor }},enable={{is_default_branch}}
             type=raw,value=weekly,enable=${{ github.event_name == 'schedule' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
