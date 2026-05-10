@@ -2,62 +2,176 @@
 
 ## [1.6.0] — 2026-05-10
 
-### Major release — Architecture audit and full feature parity with RDT-Client
+### Major release — Infrastructure hardening, Sonarr/Radarr integration, live UI
 
-This release closes all **critical** and **high-priority** gaps identified in
-the architecture audit against RDT-Client and Mediastarr. The nine items from
-the recommended implementation order are complete.
-
----
-
-#### Summary of changes since v1.5.47
-
-| Version | Change |
-|---------|--------|
-| v1.5.48 | DB indexes (4 new composite), Events TTL, Token-Bucket Rate Limiter |
-| v1.5.49 | HTTP Basic Auth (P4), Disk Space Guard (P5), Post-Processing Script (P6) |
-| v1.5.50 | Server-Sent Events live updates (P6/SSE), Prometheus metrics (P7) |
-| v1.5.51 | qBittorrent v4.3.2 API emulation (P8), State Machine (P9), Help page rewrite |
-| v1.6.0  | README rewrite, analysis sign-off, version bump |
+This release brings a comprehensive set of improvements across reliability,
+security, integrations, and developer experience. All changes are backwards-
+compatible — existing setups continue to work without reconfiguration.
 
 ---
 
-#### Completed analysis items
+#### Security
 
-**Critical (previously blocking for professional use):**
-- ✅ HTTP Basic Auth — optional access control, health-check paths exempt
-- ✅ qBittorrent API emulation — Sonarr/Radarr connect as native qBit client
+**HTTP Basic Auth** (`v1.5.49`) — Optional access control for the web UI and
+all API endpoints. Enable by setting both `auth_username` and `auth_password`
+in **Settings → Access Control**. Leave either field empty to keep the client
+open (default). Health-check paths (`/api/stats`, `/api/version`, `/api/avatar`)
+are always exempt so Unraid, Uptime Kuma, and similar tools continue to work
+without credentials.
 
-**High priority:**
-- ✅ Server-Sent Events (SSE) — replaces 15-second polling; push on status change
-- ✅ DB indexes — 8 composite indexes on all hot query paths
-- ✅ Token-Bucket Rate Limiter — true time-based limit, not concurrency semaphore
-- ✅ Events TTL — daily pruning, torrent rows never deleted
-- ✅ Disk Space Guard — abort before download if free space below threshold
-- ✅ Prometheus metrics — `/api/metrics` with 8 gauges; Grafana-ready
+---
 
-**Medium priority:**
-- ✅ Post-Processing Scripts — shell command after completion with placeholders
-- ✅ State Machine — `services/torrent_state.py`: TorrentStatus enum + VALID_TRANSITIONS
+#### Sonarr / Radarr
 
-**Remaining (out of scope / future roadmap):**
-- Prowlarr integration (P1.6)
-- Per-file selection before download (P2.1)
-- Symlink downloader for rclone mounts (P2.2)
-- Frontend component refactor from single-file (P3.2)
+**qBittorrent v4.3.2 API emulation** (`v1.5.51`) — A complete second router
+mounted at `/api/v2/` implements the qBittorrent Web API so Sonarr, Radarr,
+Lidarr and other *arr applications can use AllDebrid-Client as a native
+qBittorrent download client. No webhook setup required.
+
+Configure in Sonarr/Radarr:
+```
+Settings → Download Clients → + → qBittorrent
+  Host:      your-server-ip
+  Port:      8080
+  Category:  (any)
+  Username/Password: (empty, or match Settings → Access Control)
+```
+
+Implemented endpoints: `auth/login`, `auth/logout`, `app/version`,
+`app/preferences`, `torrents/info`, `torrents/add`, `torrents/files`,
+`torrents/properties`, `torrents/delete`, `torrents/pause`, `torrents/resume`,
+`torrents/setCategory`, `torrents/categories`, `transfer/info`, `sync/maindata`.
+
+Status mapping: `processing/ready → stalledDL`, `downloading/queued → downloading`,
+`completed → uploading` (triggers *arr import), `error → error`.
+
+---
+
+#### Live UI — Server-Sent Events
+
+**SSE replaces 15-second polling** (`v1.5.50`) — The web UI now opens a
+persistent `EventSource` connection to `GET /api/events/stream`. The server
+pushes `torrent_updated` and `stats_changed` events immediately when
+`_mark_finished()` (completed) or `_fail_torrent()` (error) run. A 30-second
+heartbeat `ping` keeps the connection alive through proxies.
+
+The frontend falls back to 15-second polling automatically if `EventSource`
+is unavailable. A 60-second safety-net stats refresh continues in the background.
+
+Diagnostic endpoint: `GET /api/events/subscriber-count`.
+
+---
+
+#### Observability
+
+**Prometheus metrics** (`v1.5.50`) — `GET /api/metrics` returns a
+Prometheus-compatible text exposition:
+
+| Metric | Description |
+|--------|-------------|
+| `alldebrid_torrents_by_status{status=...}` | Torrent count per status |
+| `alldebrid_active_downloads` | queued + downloading |
+| `alldebrid_completed_downloads` | completed |
+| `alldebrid_error_torrents` | error |
+| `alldebrid_pending_files` | download_files in pending |
+| `alldebrid_sse_subscribers` | Active SSE connections |
+| `alldebrid_downloaded_bytes_total` | Sum of size_bytes for completed torrents |
+
+Scrape config: `metrics_path: /api/metrics`.
+
+---
+
+#### Download pipeline
+
+**Disk Space Guard** (`v1.5.49`) — Set **Minimum Free Disk Space (GB)** in
+Settings → Download Client. `_download()` checks `shutil.disk_usage()` before
+fetching AllDebrid links. If free space is below the threshold, `_fail_torrent`
+is called with a clear message. The torrent row is kept — the `hash` UNIQUE
+constraint remains intact, so no duplicate download occurs when space is freed
+and the user retries.
+
+**Post-Processing Script** (`v1.5.49`) — Set **On Torrent Complete** in
+Settings → Download Client to a shell command that runs after each completed
+download and Sonarr/Radarr notification. Placeholders: `{name}`, `{path}`,
+`{torrent_id}`, `{status}`. 300-second timeout. Non-zero exit codes are logged
+as warnings without affecting torrent status.
+
+---
+
+#### Reliability & performance
+
+**Token-Bucket Rate Limiter** (`v1.5.48`) — The AllDebrid API client now uses
+a true time-based token-bucket limiter (`_TokenBucketRateLimiter`) instead of
+an `asyncio.Semaphore`. A semaphore limits *concurrency* (how many requests run
+at once); the token-bucket limits *rate* (how many per minute). With 100+
+torrents, the semaphore allowed all requests to fire in the first second;
+the token-bucket distributes them across the full 60-second window. Integrated
+in `alldebrid.py._post()` — applies to every HTTP call. Configurable via
+`alldebrid_rate_limit_per_minute` (0 = unlimited).
+
+**8 new database indexes** (`v1.5.48`) — Added to both SQLite and PostgreSQL
+init paths (idempotent `CREATE INDEX IF NOT EXISTS`):
+
+| Index | Covers |
+|-------|--------|
+| `idx_torrents_status_alldebrid` | `(status, alldebrid_id)` — `sync_alldebrid_status` composite filter |
+| `idx_torrents_status_updated` | `(status, updated_at)` — `cleanup_stuck_downloads` time filter |
+| `idx_torrents_completed_at` | `(completed_at)` — stats queries |
+| `idx_events_created_at` | `(created_at)` — TTL cleanup scan |
+| (4 existing) | `idx_dlfiles_torrent_status`, `idx_torrents_alldebrid_id`, `idx_torrents_status`, `idx_events_torrent_id` |
+
+**Events TTL** (`v1.5.48`) — New setting `events_keep_days` (default: 30).
+`cleanup_old_events()` in `db_maintenance.py` deletes events older than the
+configured threshold once per day (`events_ttl_loop` in scheduler). Torrent
+rows are **never** deleted — the `hash` UNIQUE constraint and `status` column
+remain intact; duplicate-download prevention is not affected.
+
+---
+
+#### Architecture
+
+**Formal State Machine** (`v1.5.51`) — New module `services/torrent_state.py`:
+
+- `TorrentStatus` — enum of all 10 valid `torrents.status` values
+- `VALID_TRANSITIONS` — explicit graph of allowed status changes
+- `assert_transition(from, to, torrent_id)` — logs a WARNING on invalid
+  transitions (non-raising for production safety)
+- `TERMINAL`, `ACTIVE_DOWNLOAD`, `POLL_EXCLUDED` — named frozensets used
+  throughout `manager_v2.py` instead of inline string literals
+
+Integrated into: `_start_download` guard (uses `ACTIVE_DOWNLOAD`),
+`_apply_provider_update` (calls `assert_transition` before every DB write).
+
+---
+
+#### Settings UI additions
+
+New settings visible in the web UI:
+
+| Setting | Tab | Added in |
+|---------|-----|----------|
+| Auth Username / Password | General → Access Control | v1.5.49 |
+| Min Free Disk Space (GB) | Download Client | v1.5.49 |
+| On Torrent Complete (script) | Download Client | v1.5.49 |
+| Event Log Retention (days) | Advanced → Statistics | v1.5.48 |
+
+---
+
+#### Help page
+
+Completely rewritten with a new **Sonarr/Radarr** tab covering the qBit API
+setup guide and status mapping table. Troubleshooting expanded to 6 concrete
+problem/solution entries including SSE proxy configuration, auth lockout
+recovery, and qBit API debugging.
 
 ---
 
 #### README
 
-- Completely rewritten for v1.6.0
-- Removed Windows EXE section (not maintained)
-- Removed screenshot section (screenshots were SVG placeholders)
-- Added Sonarr/Radarr qBit API setup guide
-- Added Prometheus metrics section
-- Added complete API reference including `/api/v2/` qBit endpoints
-- Updated project structure to reflect new modules
-- Badge updated: 228 passing tests
+Updated to reflect v1.6.0: added qBit API setup guide, Prometheus scrape
+config, full `/api/v2/` endpoint table, updated project structure and
+test-count badge (228 passing).
+
 
 ## [1.5.51] — 2026-05-10
 
