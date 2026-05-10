@@ -1328,6 +1328,23 @@ class TorrentManager:
         client_name = self.download_client_name()
         initial_status = "queued"  # aria2 is the only download client
 
+        # ── Disk-space guard ─────────────────────────────────────────────────
+        min_free_gb = float(getattr(cfg, "min_free_disk_gb", 0) or 0)
+        if min_free_gb > 0:
+            try:
+                usage = shutil.disk_usage(cfg.download_folder)
+                free_gb = usage.free / (1024 ** 3)
+                if free_gb < min_free_gb:
+                    msg = (
+                        f"Not enough disk space: {free_gb:.1f} GB free, "
+                        f"{min_free_gb:.1f} GB required (download_folder={cfg.download_folder})"
+                    )
+                    logger.warning("Disk-space guard blocked torrent %s: %s", torrent_id, msg)
+                    await self._fail_torrent(torrent_id, msg, notify=True)
+                    return
+            except Exception as exc:
+                logger.warning("Disk-space check failed (skipping): %s", exc)
+
         # Cancel any existing aria2 jobs for this torrent before clearing the DB rows.
         # Without this, the old aria2 entries become orphans that download in parallel.
         try:
@@ -2532,6 +2549,41 @@ class TorrentManager:
             )
         except Exception as exc:
             logger.warning("Integration notify failed: %s", exc)
+
+        # Post-processing script (on_torrent_complete)
+        cfg = get_settings()
+        script_template = str(getattr(cfg, "on_torrent_complete", "") or "").strip()
+        if script_template:
+            try:
+                async with get_db() as _s_db:
+                    _row = await (await _s_db.execute(
+                        "SELECT local_path FROM torrents WHERE id=?", (torrent_id,)
+                    )).fetchone()
+                local_path = str((_row["local_path"] if _row else "") or "")
+                cmd = (script_template
+                       .replace("{name}", name.replace('"', '\\"'))
+                       .replace("{path}", local_path.replace('"', '\\"'))
+                       .replace("{torrent_id}", str(torrent_id))
+                       .replace("{status}", "completed"))
+                logger.info("Running post-processing script for torrent %s: %s", torrent_id, cmd)
+                proc = await asyncio.create_subprocess_shell(
+                    cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
+                if proc.returncode != 0:
+                    logger.warning(
+                        "Post-processing script exited %d for torrent %s: %s",
+                        proc.returncode, torrent_id,
+                        (stderr or b"").decode("utf-8", errors="replace")[:200],
+                    )
+                else:
+                    logger.info("Post-processing script completed for torrent %s", torrent_id)
+            except asyncio.TimeoutError:
+                logger.warning("Post-processing script timed out (>300s) for torrent %s", torrent_id)
+            except Exception as exc:
+                logger.warning("Post-processing script failed for torrent %s: %s", torrent_id, exc)
 
     async def _fail_torrent(self, torrent_id: int, message: str, notify: bool = False):
         async with get_db() as db:

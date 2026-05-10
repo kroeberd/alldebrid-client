@@ -1,5 +1,64 @@
 # Changelog
 
+## [1.5.49] — 2026-05-10
+
+### Added — HTTP Basic Auth (P4), Disk Space Guard (P5), Post-Processing Script (P6)
+### Fixed — P1/P2/P3 now visible in Settings UI
+
+#### P4 — HTTP Basic Auth
+
+Optional access control for the web UI and API. Set **both** `auth_username`
+and `auth_password` in **Settings → Access Control**; leave either field empty
+to disable.
+
+Implementation:
+- FastAPI `@app.middleware("http")` inspects the `Authorization: Basic ...`
+  header before every request, using `secrets.compare_digest` for
+  timing-safe comparison.
+- Exempt paths (`/api/stats`, `/api/version`, `/api/avatar`) bypass auth so
+  health-checkers (Unraid, Uptime Kuma, etc.) continue working without
+  credentials.
+- On failure the response is `401 Unauthorized` with
+  `WWW-Authenticate: Basic realm="AllDebrid-Client"` so browsers show a
+  native login prompt.
+
+#### P5 — Disk Space Guard (optional)
+
+Set **Minimum Free Disk Space (GB)** in **Settings → Download Client**
+(0 = disabled). Before `_download()` starts fetching AllDebrid links, it
+checks `shutil.disk_usage(download_folder).free`. If free space is below
+the threshold:
+
+- `_fail_torrent` is called with a clear error message.
+- The torrent row is kept in the database — the `hash` UNIQUE constraint and
+  `status` field remain intact, so no duplicate download will occur when space
+  is freed and the user retries.
+
+#### P6 — Post-Processing Script (optional)
+
+Set **On Torrent Complete** in **Settings → Download Client** to a shell
+command that runs after a torrent finishes and Sonarr/Radarr are notified.
+
+Supported placeholders: `{name}` · `{path}` · `{torrent_id}` · `{status}`
+
+Example: `/scripts/notify.sh "{name}" "{path}"`
+
+The script runs via `asyncio.create_subprocess_shell` with a 300-second
+timeout. Non-zero exit codes and timeouts are logged as warnings but do not
+affect the torrent status.
+
+#### P1–P3 UI visibility
+
+Three settings from v1.5.48 that were wired in the backend but not yet
+exposed in the Settings UI:
+
+- **Event Log Retention (days)** — `events_keep_days` in
+  Settings → Advanced → Statistics Reporting
+- **API Rate Limit** — `alldebrid_rate_limit_per_minute` — already present
+  in Settings → Integrations (confirmed)
+- Both settings now show inline hints explaining they do not affect torrents
+  or duplicate-download prevention
+
 ## [1.5.48] — 2026-05-10
 
 ### Improved — DB indexes, Events TTL, Token-Bucket Rate Limiter

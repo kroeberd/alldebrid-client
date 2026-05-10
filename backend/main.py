@@ -1,9 +1,10 @@
 import asyncio
 import logging
 import os
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -426,6 +427,46 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Optional HTTP Basic Auth ───────────────────────────────────────────────────
+# Enabled when auth_username AND auth_password are both set in config.
+# The /api/stats endpoint is exempt so health-checkers don't need credentials.
+_AUTH_EXEMPT = {"/api/stats", "/api/version", "/api/avatar"}
+
+@app.middleware("http")
+async def basic_auth_middleware(request: Request, call_next):
+    from core.config import get_settings
+    cfg = get_settings()
+    username = str(getattr(cfg, "auth_username", "") or "").strip()
+    password = str(getattr(cfg, "auth_password", "") or "").strip()
+
+    # Auth disabled when either credential is empty
+    if not username or not password:
+        return await call_next(request)
+
+    # Exempt health/version endpoints (e.g. Unraid health check)
+    if request.url.path in _AUTH_EXEMPT:
+        return await call_next(request)
+
+    # Check Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Basic "):
+        import base64
+        try:
+            decoded = base64.b64decode(auth_header[6:]).decode("utf-8", errors="replace")
+            provided_user, _, provided_pass = decoded.partition(":")
+            user_ok = secrets.compare_digest(provided_user.encode(), username.encode())
+            pass_ok = secrets.compare_digest(provided_pass.encode(), password.encode())
+            if user_ok and pass_ok:
+                return await call_next(request)
+        except Exception:
+            pass
+
+    return Response(
+        content="Unauthorized",
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="AllDebrid-Client"'},
+    )
 
 app.include_router(router, prefix="/api")
 

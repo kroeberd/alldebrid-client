@@ -192,6 +192,29 @@ class AppSettings(BaseModel):
     # duplicate downloads from being started.
     events_keep_days: int = 30
 
+    # ── Authentication ────────────────────────────────────────────────────────
+    # HTTP Basic Auth for the web UI and API (empty = disabled / open access).
+    # Set both fields to enable password protection.
+    auth_username: str = ""
+    auth_password: str = ""
+
+    # ── Disk space guard ─────────────────────────────────────────────────────
+    # Minimum free disk space required before a download starts (GB).
+    # 0 = disabled. When the download folder has less free space than this
+    # value the download is deferred and an error event is logged.
+    min_free_disk_gb: float = 0
+
+    # ── Post-processing script ────────────────────────────────────────────────
+    # Shell command to run after a torrent is fully downloaded and imported.
+    # Supports the following placeholders:
+    #   {name}        — torrent name
+    #   {path}        — local download path (may be empty)
+    #   {torrent_id}  — internal torrent ID
+    #   {status}      — final status (completed)
+    # Example: /scripts/notify.sh "{name}" "{path}"
+    # Leave empty to disable.
+    on_torrent_complete: str = ""
+
 
 _settings: AppSettings = AppSettings()
 
