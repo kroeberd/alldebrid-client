@@ -255,6 +255,33 @@ async def update_check_loop() -> None:
         await asyncio.sleep(max(3600, interval_h * 3600))
 
 
+async def events_ttl_loop() -> None:
+    """Prune old event log entries once per day.
+
+    Only the ``events`` table is pruned — torrents and download_files are never
+    touched, so duplicate-download prevention (based on the torrent hash and
+    status columns) is not affected.
+    """
+    await asyncio.sleep(3600)  # 1-hour initial delay so startup isn't noisy
+    while True:
+        try:
+            cfg = get_settings()
+            keep_days = int(getattr(cfg, "events_keep_days", 30) or 30)
+            if keep_days > 0:
+                from services.db_maintenance import cleanup_old_events
+                result = await cleanup_old_events(keep_days=keep_days)
+                if result.get("deleted", 0) > 0:
+                    logger.info(
+                        "events_ttl_loop: pruned %d event(s) older than %d days",
+                        result["deleted"], keep_days,
+                    )
+        except asyncio.CancelledError:
+            return
+        except Exception as exc:
+            logger.warning("events_ttl_loop error: %s", exc)
+        await asyncio.sleep(86400)  # run once every 24 hours
+
+
 async def start_scheduler():
     _tasks.append(asyncio.create_task(watch_folder_loop()))
     _tasks.append(asyncio.create_task(sync_status_loop()))
@@ -268,6 +295,7 @@ async def start_scheduler():
     _tasks.append(asyncio.create_task(stats_report_loop()))
     _tasks.append(asyncio.create_task(aria2_restart_loop()))
     _tasks.append(asyncio.create_task(update_check_loop()))
+    _tasks.append(asyncio.create_task(events_ttl_loop()))
     logger.info("Scheduler started")
 
 

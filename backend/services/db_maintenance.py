@@ -145,3 +145,47 @@ async def wipe_database() -> dict:
 
     logger.warning("Database wipe completed")
     return {"ok": True, "wiped_tables": TABLES}
+
+
+async def cleanup_old_events(keep_days: int = 30) -> dict:
+    """Delete events older than ``keep_days`` days.
+
+    IMPORTANT: Only the *events* table is pruned — torrents and download_files
+    are never touched.  Old events are just audit-log entries; their removal
+    does not affect any torrent state, duplicate-prevention logic, or download
+    tracking.  The torrent row (with its ``hash`` UNIQUE constraint and
+    ``status``) is the single source of truth for "has this been downloaded".
+
+    Safe to call repeatedly — idempotent.
+
+    Args:
+        keep_days: How many days of events to keep (default 30).
+                   Events older than this are deleted.  Must be >= 1.
+
+    Returns:
+        dict with ``deleted`` (row count) and ``keep_days``.
+    """
+    keep_days = max(1, int(keep_days))
+
+    if _is_postgres():
+        cutoff_expr = f"NOW() - INTERVAL '{keep_days} days'"
+    else:
+        cutoff_expr = f"datetime('now', '-{keep_days} days')"
+
+    async with get_db() as db:
+        result = await db.execute(
+            f"DELETE FROM events WHERE created_at < {cutoff_expr}"
+        )
+        # aiosqlite returns a cursor; asyncpg returns the status string
+        try:
+            deleted = result.rowcount if hasattr(result, "rowcount") else -1
+        except Exception:
+            deleted = -1
+        await db.commit()
+
+    if deleted > 0:
+        logger.info("Events TTL cleanup: deleted %d event(s) older than %d days", deleted, keep_days)
+    else:
+        logger.debug("Events TTL cleanup: no events older than %d days", keep_days)
+
+    return {"deleted": deleted, "keep_days": keep_days}

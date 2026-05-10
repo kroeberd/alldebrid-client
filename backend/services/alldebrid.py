@@ -59,6 +59,15 @@ class AllDebridService:
     async def _post(self, base: str, endpoint: str,
                     data: Optional[Dict] = None,
                     retries: int = 1) -> Dict[str, Any]:
+        # Acquire a token from the rate limiter before every HTTP call.
+        # This is a no-op when the limiter is configured as unlimited (rate=1_000_000).
+        try:
+            from services.manager_v2 import _get_ad_rate_limiter
+            limiter = await _get_ad_rate_limiter()
+            await limiter.acquire()
+        except ImportError:
+            pass  # tests or standalone use — skip rate limiting
+
         url = f"{base}/{endpoint}"
         last_error: Optional[Exception] = None
         attempts = max(1, int(retries or 1))

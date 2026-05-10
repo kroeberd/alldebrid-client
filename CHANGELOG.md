@@ -1,5 +1,59 @@
 # Changelog
 
+## [1.5.48] — 2026-05-10
+
+### Improved — DB indexes, Events TTL, Token-Bucket Rate Limiter
+
+Three infrastructure improvements from the architecture audit (v1.5.46 analysis).
+
+#### 1. Additional database indexes
+
+Four new indexes covering the most-frequently-hit query paths:
+
+| Index | Columns | Benefits |
+|---|---|---|
+| `idx_torrents_status_alldebrid` | `(status, alldebrid_id)` | `sync_alldebrid_status` composite filter |
+| `idx_torrents_status_updated` | `(status, updated_at)` | `cleanup_stuck_downloads` time-based filter |
+| `idx_torrents_completed_at` | `(completed_at)` | all stats queries |
+| `idx_events_created_at` | `(created_at)` | TTL cleanup scan |
+
+Added to both SQLite (`_init_db_sqlite`) and PostgreSQL (`_init_db_postgres`)
+init paths — idempotent `CREATE INDEX IF NOT EXISTS`.
+
+#### 2. Events TTL — automatic pruning of old event log entries
+
+The `events` table grows indefinitely (≈10 events/torrent/day). After 30 days
+with 100 active torrents that is ~30 000 rows that carry no operational value.
+
+**New setting:** `events_keep_days` (default: `30`, `0` = keep forever).
+
+**New function:** `services.db_maintenance.cleanup_old_events(keep_days)` —
+deletes events older than the configured threshold. Works on both SQLite and
+PostgreSQL.
+
+**New scheduler loop:** `events_ttl_loop()` runs the cleanup once every 24 hours
+with a 1-hour startup delay.
+
+**Torrent rows are never touched.** The unique `hash` constraint and `status`
+column on the `torrents` table remain intact, so duplicate-download prevention
+is unaffected. Events are purely audit-log entries.
+
+#### 3. Token-Bucket Rate Limiter — replaces asyncio.Semaphore
+
+`asyncio.Semaphore(N)` limits *concurrency* (how many requests run at once),
+not *rate* (how many requests per minute). With 60 requests that complete in
+100 ms the semaphore allowed all 60 to fire in the first second, potentially
+triggering AllDebrid's per-minute rate limit for the rest of the minute.
+
+**New class:** `_TokenBucketRateLimiter` in `manager_v2.py` — maintains a
+rolling deque of request timestamps and sleeps until the oldest falls outside
+the configured window before allowing a new request.
+
+**Integration point:** `alldebrid.py._post()` now calls
+`await limiter.acquire()` before every HTTP call. The limiter is a
+process-wide singleton reconfigured from `alldebrid_rate_limit_per_minute`
+on each call (zero = effectively unlimited).
+
 ## [1.5.47] — 2026-05-09
 
 ### Fixed — Upload Failed (statusCode 5) always triggered permanent failure instead of retry

@@ -185,6 +185,13 @@ class AppSettings(BaseModel):
     # Webhook URL that receives automated reporting payloads
     stats_report_webhook_url: str = ""
 
+    # ── Event log TTL ─────────────────────────────────────────────────────────
+    # How many days to keep event log entries (0 = keep forever).
+    # Only events are pruned — torrent rows are NEVER deleted by TTL, so
+    # the unique hash constraint and status fields remain intact and prevent
+    # duplicate downloads from being started.
+    events_keep_days: int = 30
+
 
 _settings: AppSettings = AppSettings()
 

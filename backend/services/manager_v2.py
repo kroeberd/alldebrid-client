@@ -3,6 +3,8 @@ import base64
 import logging
 import re
 import shutil
+import time as _time
+from collections import deque
 from pathlib import Path, PurePosixPath
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -24,28 +26,70 @@ READY_CODE = 4
 ERROR_CODES = set(range(5, 16))
 UPLOAD_FAILED_CODE = 5  # AllDebrid statusCode 5 = "Upload failed"
 
-# AllDebrid API rate limiter — shared across all manager instances
-_ad_rate_sem: asyncio.Semaphore | None = None
+
+class _TokenBucketRateLimiter:
+    """Token-bucket rate limiter for AllDebrid API calls.
+
+    Allows at most ``rate`` requests per ``window`` seconds.  Callers
+    ``await acquire()`` and block until a token is available.
+
+    Unlike an asyncio.Semaphore this correctly enforces a *time-based* rate —
+    a Semaphore only limits concurrency, not throughput.  60 requests that
+    complete in 100 ms still fire all 60 within the first second; this limiter
+    spreads them across the full minute-long window.
+    """
+
+    def __init__(self, rate: int = 60, window: float = 60.0):
+        self._rate = max(1, rate)
+        self._window = window
+        self._timestamps: deque[float] = deque()
+        self._lock = asyncio.Lock()
+
+    def reconfigure(self, rate: int, window: float = 60.0) -> None:
+        """Update limits without dropping in-progress requests."""
+        self._rate = max(1, rate)
+        self._window = window
+
+    async def acquire(self) -> None:
+        async with self._lock:
+            now = _time.monotonic()
+            # Remove timestamps outside the current window
+            while self._timestamps and self._timestamps[0] < now - self._window:
+                self._timestamps.popleft()
+            if len(self._timestamps) >= self._rate:
+                # Wait until the oldest timestamp leaves the window
+                sleep_for = self._window - (now - self._timestamps[0])
+                if sleep_for > 0:
+                    await asyncio.sleep(sleep_for)
+                    # Prune again after sleeping
+                    now = _time.monotonic()
+                    while self._timestamps and self._timestamps[0] < now - self._window:
+                        self._timestamps.popleft()
+            self._timestamps.append(_time.monotonic())
+
+
+# Singleton limiter — shared across all manager instances
+_ad_rate_limiter: _TokenBucketRateLimiter = _TokenBucketRateLimiter(rate=60, window=60.0)
 _ad_rate_lock = asyncio.Lock()
+
+
+async def _get_ad_rate_limiter() -> _TokenBucketRateLimiter:
+    """Return the singleton rate limiter, reconfigured from current settings."""
+    global _ad_rate_limiter
+    try:
+        limit = int(get_settings().alldebrid_rate_limit_per_minute)
+    except Exception:
+        limit = 60
+    if limit <= 0:
+        limit = 1_000_000  # effectively unlimited
+    _ad_rate_limiter.reconfigure(rate=limit)
+    return _ad_rate_limiter
 
 
 class TransientAllDebridStateError(Exception):
     """Raised when AllDebrid is temporarily inconsistent but not actually failed."""
 
 
-async def _get_ad_semaphore() -> asyncio.Semaphore:
-    """Returns a semaphore that enforces alldebrid_rate_limit_per_minute."""
-    global _ad_rate_sem
-    async with _ad_rate_lock:
-        try:
-            limit = int(get_settings().alldebrid_rate_limit_per_minute)
-        except Exception:
-            limit = 60
-        if limit <= 0:
-            limit = 1_000_000
-        if _ad_rate_sem is None or _ad_rate_sem._value != limit:
-            _ad_rate_sem = asyncio.Semaphore(limit)
-    return _ad_rate_sem
 MAX_FILE_RETRIES = 3
 READY_FILE_RETRIES = 5
 PROVIDER_FAILURE_THRESHOLD = 6

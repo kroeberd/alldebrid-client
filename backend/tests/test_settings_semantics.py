@@ -64,19 +64,20 @@ class SchedulerSettingsTests(unittest.TestCase):
 
 class AllDebridRateLimitTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        manager_v2._ad_rate_sem = None
+        # Reset the singleton limiter to a known state before each test
+        manager_v2._ad_rate_limiter = manager_v2._TokenBucketRateLimiter(rate=60, window=60.0)
 
     async def test_rate_limit_zero_means_effectively_unlimited(self):
         cfg = types.SimpleNamespace(alldebrid_rate_limit_per_minute=0)
         with patch("services.manager_v2.get_settings", return_value=cfg):
-            sem = await manager_v2._get_ad_semaphore()
-        self.assertGreaterEqual(sem._value, 1_000_000)
+            limiter = await manager_v2._get_ad_rate_limiter()
+        self.assertGreaterEqual(limiter._rate, 1_000_000)
 
     async def test_rate_limit_positive_value_is_respected(self):
         cfg = types.SimpleNamespace(alldebrid_rate_limit_per_minute=12)
         with patch("services.manager_v2.get_settings", return_value=cfg):
-            sem = await manager_v2._get_ad_semaphore()
-        self.assertEqual(sem._value, 12)
+            limiter = await manager_v2._get_ad_rate_limiter()
+        self.assertEqual(limiter._rate, 12)
 
 
 if __name__ == "__main__":
