@@ -6,17 +6,19 @@ Conventions:
 - Pydantic models for request bodies are defined inline.
 - No inline `import` statements — all imports are at module level.
 """
+import asyncio
 import ipaddress
+import json as _json
 import logging
 import os
 import re
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, AsyncGenerator
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse, Response
 from pydantic import BaseModel
 
 from core.config import (
@@ -1629,3 +1631,164 @@ async def trigger_deep_sync():
     t0 = time.monotonic()
     await manager.deep_sync_aria2_finished()
     return {"ok": True, "elapsed_seconds": round(time.monotonic() - t0, 2)}
+
+
+# ── Server-Sent Events (SSE) ──────────────────────────────────────────────────
+# Lightweight pub/sub: a set of asyncio.Queue instances, one per connected client.
+# The backend pushes events when significant state changes occur; the frontend
+# listens via EventSource and drops its 15-second polling interval.
+#
+# Event types:
+#   ping          — heartbeat every 30 s (keeps the connection alive through proxies)
+#   stats_changed — basic stats object; frontend re-renders stats bar
+#   torrent_updated — {id, status, name}; frontend refreshes the affected row
+#
+# This requires NO external dependencies (no Redis, no WebSocket library).
+
+_sse_subscribers: set[asyncio.Queue] = set()
+_sse_lock = asyncio.Lock()
+
+
+async def _sse_broadcast(event_type: str, data: dict) -> None:
+    """Push an SSE event to all connected clients (fire-and-forget)."""
+    payload = f"event: {event_type}\ndata: {_json.dumps(data)}\n\n"
+    dead: list[asyncio.Queue] = []
+    async with _sse_lock:
+        for q in _sse_subscribers:
+            try:
+                q.put_nowait(payload)
+            except asyncio.QueueFull:
+                dead.append(q)
+        for q in dead:
+            _sse_subscribers.discard(q)
+
+
+async def _sse_generator(request: Request) -> AsyncGenerator[str, None]:
+    """Yield SSE frames until the client disconnects."""
+    queue: asyncio.Queue = asyncio.Queue(maxsize=100)
+    async with _sse_lock:
+        _sse_subscribers.add(queue)
+    try:
+        yield "event: connected\ndata: {}\n\n"
+        while True:
+            if await request.is_disconnected():
+                break
+            try:
+                frame = await asyncio.wait_for(queue.get(), timeout=30)
+                yield frame
+            except asyncio.TimeoutError:
+                # Send heartbeat so proxies don't close the connection
+                yield "event: ping\ndata: {}\n\n"
+    finally:
+        async with _sse_lock:
+            _sse_subscribers.discard(queue)
+
+
+@router.get("/events/stream")
+async def events_stream(request: Request):
+    """Server-Sent Events stream for live UI updates.
+
+    Connect via:  const es = new EventSource('/api/events/stream');
+    Events:  connected, ping, stats_changed, torrent_updated
+    """
+    return StreamingResponse(
+        _sse_generator(request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # disable nginx buffering
+        },
+    )
+
+
+@router.get("/events/subscriber-count")
+async def sse_subscriber_count():
+    """Diagnostic: how many SSE clients are currently connected."""
+    return {"subscribers": len(_sse_subscribers)}
+
+
+# ── Prometheus metrics ────────────────────────────────────────────────────────
+
+@router.get("/metrics")
+async def prometheus_metrics():
+    """Prometheus-compatible metrics endpoint.
+
+    Scrape with: `- job_name: alldebrid  static_configs: [{targets: [host:8080]}]`
+    and set `metrics_path: /api/metrics`.
+    """
+    try:
+        from prometheus_client import (
+            Counter, Gauge, Histogram, CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST,
+            REGISTRY,
+        )
+    except ImportError:
+        raise HTTPException(
+            503,
+            "prometheus-client is not installed. Add it to requirements.txt and rebuild.",
+        )
+
+    async with get_db() as db:
+        # Torrent counts by status
+        rows = await db.fetchall(
+            "SELECT status, COUNT(*) AS c FROM torrents GROUP BY status"
+        )
+        by_status = {r["status"]: int(r["c"]) for r in rows}
+
+        # Download file counts by status
+        frows = await db.fetchall(
+            "SELECT status, COUNT(*) AS c FROM download_files GROUP BY status"
+        )
+        by_file_status = {r["status"]: int(r["c"]) for r in frows}
+
+        # Total size downloaded (bytes)
+        size_row = await db.fetchone(
+            "SELECT COALESCE(SUM(size_bytes),0) AS total FROM torrents WHERE status='completed'"
+        )
+        total_bytes = int((size_row["total"] if size_row else 0) or 0)
+
+    # Build output manually to avoid global registry side-effects on repeated scrapes
+    lines: list[str] = []
+
+    def _gauge(name: str, help_text: str, value: float, labels: dict | None = None) -> None:
+        lstr = ""
+        if labels:
+            lstr = "{" + ",".join(f'{k}="{v}"' for k, v in labels.items()) + "}"
+        lines.append(f"# HELP {name} {help_text}")
+        lines.append(f"# TYPE {name} gauge")
+        lines.append(f"{name}{lstr} {value}")
+
+    _gauge("alldebrid_torrents_total",
+           "Number of torrents by status",
+           sum(by_status.values()))
+
+    for status, count in by_status.items():
+        lines.append(f'alldebrid_torrents_by_status{{status="{status}"}} {count}')
+
+    _gauge("alldebrid_active_downloads",
+           "Torrents currently in queued or downloading state",
+           by_status.get("queued", 0) + by_status.get("downloading", 0))
+
+    _gauge("alldebrid_completed_downloads",
+           "Total torrents completed",
+           by_status.get("completed", 0))
+
+    _gauge("alldebrid_error_torrents",
+           "Torrents in error state",
+           by_status.get("error", 0))
+
+    _gauge("alldebrid_pending_files",
+           "download_files rows in pending state (waiting for aria2 slot)",
+           by_file_status.get("pending", 0))
+
+    _gauge("alldebrid_sse_subscribers",
+           "Number of active SSE connections",
+           len(_sse_subscribers))
+
+    _gauge("alldebrid_downloaded_bytes_total",
+           "Total bytes downloaded (completed torrents)",
+           total_bytes)
+
+    return Response(
+        content="\n".join(lines) + "\n",
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )

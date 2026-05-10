@@ -1,5 +1,68 @@
 # Changelog
 
+## [1.5.50] — 2026-05-10
+
+### Added — Server-Sent Events live updates (P6) + Prometheus metrics (P7)
+
+#### P6 — Server-Sent Events (SSE) — replaces 15-second polling
+
+The frontend no longer polls `/api/stats` and `/api/torrents` on a fixed
+15-second timer. Instead it opens a persistent SSE connection to
+`GET /api/events/stream` and reacts to push notifications from the server.
+
+**Backend** (`api/routes.py`):
+- `_sse_subscribers` — a `set[asyncio.Queue]`, one queue per connected client
+- `_sse_broadcast(event_type, data)` — fan-out to all connected queues
+- `GET /api/events/stream` — `StreamingResponse` with `text/event-stream` MIME type
+- Heartbeat `ping` every 30 seconds keeps connections alive through proxies/nginx
+- `GET /api/events/subscriber-count` — diagnostic endpoint
+- `X-Accel-Buffering: no` header disables nginx response buffering
+
+**Event types pushed:**
+- `connected` — sent once on connection establishment
+- `ping` — keepalive heartbeat every 30 s
+- `torrent_updated` — `{id, status, name}` pushed from `_mark_finished`
+  (completed) and `_fail_torrent` (error)
+- `stats_changed` — empty payload; tells the frontend to refresh the stats bar
+
+**Frontend** (`index.html`):
+- `initSSE()` — creates `EventSource('/api/events/stream')` on page load
+- On `stats_changed`: calls `loadStats()` + `loadRecent()` / `loadTorrents()`
+  for whichever view is currently active
+- On `torrent_updated`: refreshes the torrent list and stats
+- Automatic reconnect after 10 s on error
+- Falls back to 15-second polling if `EventSource` is unavailable (old browser
+  or misconfigured proxy)
+- Safety-net 60-second stats refresh continues in the background
+
+Zero external dependencies — no Redis, no WebSocket library.
+
+#### P7 — Prometheus metrics endpoint
+
+`GET /api/metrics` returns a Prometheus-compatible text exposition:
+
+| Metric | Type | Description |
+|---|---|---|
+| `alldebrid_torrents_total` | gauge | All torrents |
+| `alldebrid_torrents_by_status{status=...}` | gauge | Per-status count |
+| `alldebrid_active_downloads` | gauge | queued + downloading |
+| `alldebrid_completed_downloads` | gauge | completed |
+| `alldebrid_error_torrents` | gauge | error |
+| `alldebrid_pending_files` | gauge | download_files in pending |
+| `alldebrid_sse_subscribers` | gauge | Live SSE connections |
+| `alldebrid_downloaded_bytes_total` | gauge | Sum of size_bytes for completed torrents |
+
+Scrape config for Prometheus:
+```yaml
+- job_name: alldebrid
+  static_configs:
+    - targets: [your-host:8080]
+  metrics_path: /api/metrics
+```
+
+Requires `prometheus-client` (added to `requirements.txt`). The endpoint
+returns `503` with a clear message if the package is not installed.
+
 ## [1.5.49] — 2026-05-10
 
 ### Added — HTTP Basic Auth (P4), Disk Space Guard (P5), Post-Processing Script (P6)

@@ -4429,11 +4429,54 @@ async function testPostgres() {
   setInterval(checkFlexgetRunning, 10000);
   checkFlexgetRunning();
 
-  setInterval(()=>{
-    loadStats().catch(()=>{});
-    if (document.getElementById('view-dashboard')?.classList.contains('active')) loadRecent().catch(()=>{});
-    if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
-  }, 15000);
+  // ── Server-Sent Events — live updates without 15 s polling ──────────────
+  // Falls back to polling if SSE is unavailable (proxy, browser quirk, etc.)
+  (function initSSE() {
+    if (typeof EventSource === 'undefined') return startPolling();
+    var es;
+    var sseOk = false;
+    var fallbackTimer = null;
+
+    function connect() {
+      try {
+        es = new EventSource('/api/events/stream');
+        es.addEventListener('connected', function() {
+          sseOk = true;
+          if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; }
+        });
+        es.addEventListener('stats_changed', function() {
+          loadStats().catch(()=>{});
+          if (document.getElementById('view-dashboard')?.classList.contains('active')) loadRecent().catch(()=>{});
+        });
+        es.addEventListener('torrent_updated', function(e) {
+          if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
+          if (document.getElementById('view-dashboard')?.classList.contains('active')) loadRecent().catch(()=>{});
+          loadStats().catch(()=>{});
+        });
+        es.addEventListener('ping', function() {});
+        es.onerror = function() {
+          if (!sseOk) startPolling();
+          es.close();
+          setTimeout(connect, 10000); // reconnect after 10 s
+        };
+      } catch(err) {
+        startPolling();
+      }
+    }
+
+    function startPolling() {
+      if (fallbackTimer) return;
+      fallbackTimer = setInterval(()=>{
+        loadStats().catch(()=>{});
+        if (document.getElementById('view-dashboard')?.classList.contains('active')) loadRecent().catch(()=>{});
+        if (document.getElementById('view-torrents')?.classList.contains('active')) loadTorrents().catch(()=>{});
+      }, 15000);
+    }
+
+    connect();
+    // Still refresh stats every 60 s as a safety net even with SSE
+    setInterval(()=>{ loadStats().catch(()=>{}); }, 60000);
+  })();
   setInterval(()=>checkConnections().catch(()=>{}), 60000);
 })();
 

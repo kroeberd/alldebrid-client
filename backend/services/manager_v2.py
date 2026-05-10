@@ -2585,6 +2585,18 @@ class TorrentManager:
             except Exception as exc:
                 logger.warning("Post-processing script failed for torrent %s: %s", torrent_id, exc)
 
+        # Push live update to SSE subscribers
+        try:
+            from api.routes import _sse_broadcast
+            await _sse_broadcast("torrent_updated", {
+                "id": torrent_id,
+                "status": "completed",
+                "name": name,
+            })
+            await _sse_broadcast("stats_changed", {})
+        except Exception:
+            pass
+
     async def _fail_torrent(self, torrent_id: int, message: str, notify: bool = False):
         async with get_db() as db:
             row = await (await db.execute(
@@ -2605,6 +2617,17 @@ class TorrentManager:
                 alldebrid_id=str(row.get("alldebrid_id") or ""),
                 status_code=row.get("provider_status_code"),
             )
+        # Push live update to SSE subscribers
+        try:
+            from api.routes import _sse_broadcast
+            await _sse_broadcast("torrent_updated", {
+                "id": torrent_id,
+                "status": "error",
+                "name": str(row["name"] if row else ""),
+            })
+            await _sse_broadcast("stats_changed", {})
+        except Exception:
+            pass
 
     async def _handle_upload_failed(self, row: dict, error_message: str) -> None:
         """Handle AllDebrid statusCode 5 (Upload failed) with automatic re-queue.
