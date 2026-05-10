@@ -1,5 +1,64 @@
 # Changelog
 
+## [1.6.0] — 2026-05-10
+
+### Major release — Architecture audit and full feature parity with RDT-Client
+
+This release closes all **critical** and **high-priority** gaps identified in
+the architecture audit against RDT-Client and Mediastarr. The nine items from
+the recommended implementation order are complete.
+
+---
+
+#### Summary of changes since v1.5.47
+
+| Version | Change |
+|---------|--------|
+| v1.5.48 | DB indexes (4 new composite), Events TTL, Token-Bucket Rate Limiter |
+| v1.5.49 | HTTP Basic Auth (P4), Disk Space Guard (P5), Post-Processing Script (P6) |
+| v1.5.50 | Server-Sent Events live updates (P6/SSE), Prometheus metrics (P7) |
+| v1.5.51 | qBittorrent v4.3.2 API emulation (P8), State Machine (P9), Help page rewrite |
+| v1.6.0  | README rewrite, analysis sign-off, version bump |
+
+---
+
+#### Completed analysis items
+
+**Critical (previously blocking for professional use):**
+- ✅ HTTP Basic Auth — optional access control, health-check paths exempt
+- ✅ qBittorrent API emulation — Sonarr/Radarr connect as native qBit client
+
+**High priority:**
+- ✅ Server-Sent Events (SSE) — replaces 15-second polling; push on status change
+- ✅ DB indexes — 8 composite indexes on all hot query paths
+- ✅ Token-Bucket Rate Limiter — true time-based limit, not concurrency semaphore
+- ✅ Events TTL — daily pruning, torrent rows never deleted
+- ✅ Disk Space Guard — abort before download if free space below threshold
+- ✅ Prometheus metrics — `/api/metrics` with 8 gauges; Grafana-ready
+
+**Medium priority:**
+- ✅ Post-Processing Scripts — shell command after completion with placeholders
+- ✅ State Machine — `services/torrent_state.py`: TorrentStatus enum + VALID_TRANSITIONS
+
+**Remaining (out of scope / future roadmap):**
+- Prowlarr integration (P1.6)
+- Per-file selection before download (P2.1)
+- Symlink downloader for rclone mounts (P2.2)
+- Frontend component refactor from single-file (P3.2)
+
+---
+
+#### README
+
+- Completely rewritten for v1.6.0
+- Removed Windows EXE section (not maintained)
+- Removed screenshot section (screenshots were SVG placeholders)
+- Added Sonarr/Radarr qBit API setup guide
+- Added Prometheus metrics section
+- Added complete API reference including `/api/v2/` qBit endpoints
+- Updated project structure to reflect new modules
+- Badge updated: 228 passing tests
+
 ## [1.5.51] — 2026-05-10
 
 ### Added — qBittorrent API emulation (P8), State Machine (P9), Help page rewrite
