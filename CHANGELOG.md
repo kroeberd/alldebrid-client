@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.5.47] — 2026-05-09
+
+### Fixed — Upload Failed (statusCode 5) always triggered permanent failure instead of retry
+
+**Root cause:** The `SELECT` queries in both `sync_alldebrid_status` and
+`full_alldebrid_sync` did not include the `magnet` and `source` columns.
+When `_apply_provider_update` dispatched `_handle_upload_failed`, the `row`
+dict had no `magnet` key, so `magnet_link = str(row.get("magnet") or "") = ""`.
+
+`_handle_upload_failed` treats a missing magnet as a permanent failure
+(`"Upload failed: no magnet link stored for re-upload"`) and immediately
+calls `_fail_torrent` — skipping all configured retries.
+
+**Fix:** Added `magnet, source` to both poll queries so `_handle_upload_failed`
+receives the magnet link it needs to re-upload.
+
+### Fixed — No Peers (statusCode 8) deleted torrent without attempting re-upload
+
+When AllDebrid reported statusCode 8 ("No peer after 30 minutes"),
+`_apply_provider_update` immediately called `delete_magnet` and `_set_deleted`
+without checking whether a re-upload was possible.
+
+**Fix:** The no-peer path now branches on magnet availability, identical to
+the Upload-Failed flow:
+
+- **Magnet stored** → `_handle_upload_failed` is called, which deletes the
+  failed magnet, waits `upload_fail_retry_delay_minutes`, and re-uploads.
+  Retries are controlled by `upload_fail_retry_count` (default 3) and the
+  Discord notification mirrors the Upload Failed one.
+- **No magnet stored** (e.g. added via `.torrent` file) → delete from
+  AllDebrid, call `_fail_torrent` with a clear message, and send a Discord
+  notification explaining that a manual re-add is required.
+
+`cleanup_no_peer_errors` remains as a fallback for error-state torrents that
+were missed by the real-time handler.
+
 ## [1.5.46] — 2026-05-09
 
 ### Added — Bulk selection and "Add All" in Torrent Search

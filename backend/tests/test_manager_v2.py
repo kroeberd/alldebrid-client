@@ -1614,7 +1614,7 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         mgr = TorrentManager()
         mgr._notify_provider_error = AsyncMock()
         mgr._log_event = AsyncMock()
-        mgr._set_deleted = AsyncMock()
+        mgr._fail_torrent = AsyncMock()
         delete_magnet = AsyncMock()
         mgr.ad = lambda: types.SimpleNamespace(delete_magnet=delete_magnet)
 
@@ -1627,6 +1627,7 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         async def fake_get_db():
             yield fake_db
 
+        # Row WITHOUT a stored magnet → cannot re-upload → fail_torrent
         row = {
             "id": 67,
             "name": "Broken Torrent",
@@ -1634,6 +1635,8 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
             "provider_status": "processing",
             "provider_status_code": 4,
             "alldebrid_id": "516558854",
+            "magnet": None,
+            "source": "manual",
         }
         magnet = {"filename": "Broken Torrent"}
         normalized = {
@@ -1648,15 +1651,16 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         with patch("services.manager_v2.get_db", fake_get_db):
             await mgr._apply_provider_update(row, magnet, normalized)
 
+        # No magnet → cannot re-upload → _notify_provider_error + _fail_torrent
         mgr._notify_provider_error.assert_awaited_once_with(
             "Broken Torrent",
-            reason="No peers found after 30 minutes — torrent removed",
-            context="AllDebrid reported the torrent as unavailable due to missing peers.",
+            reason="No peers found after 30 minutes — no magnet link stored for re-upload",
+            context="AllDebrid reported the torrent as unavailable. Add the magnet manually to retry.",
             alldebrid_id="516558854",
             status_code=8,
         )
         delete_magnet.assert_awaited_once_with("516558854")
-        mgr._set_deleted.assert_awaited_once_with(67, "Auto-removed: no peers after 30 minutes")
+        mgr._fail_torrent.assert_awaited_once()
 
 
 if __name__ == "__main__":

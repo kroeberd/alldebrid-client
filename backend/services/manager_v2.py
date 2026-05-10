@@ -502,7 +502,7 @@ class TorrentManager:
         # Fetch all torrents that have an alldebrid_id (any status)
         async with get_db() as db:
             rows = await db.fetchall(
-                """SELECT id, name, alldebrid_id, status, provider_status, provider_status_code, polling_failures
+                """SELECT id, name, alldebrid_id, status, provider_status, provider_status_code, polling_failures, magnet, source
                    FROM torrents
                    WHERE alldebrid_id IS NOT NULL AND alldebrid_id != ''"""
             )
@@ -592,7 +592,7 @@ class TorrentManager:
         async with get_db() as db:
             rows = await (
                 await db.execute(
-                    """SELECT id, name, alldebrid_id, status, provider_status, provider_status_code, polling_failures
+                    """SELECT id, name, alldebrid_id, status, provider_status, provider_status_code, polling_failures, magnet, source
                        FROM torrents
                        WHERE alldebrid_id IS NOT NULL AND alldebrid_id != ''
                          AND status NOT IN ('completed', 'deleted', 'queued', 'downloading', 'paused')
@@ -1118,23 +1118,38 @@ class TorrentManager:
             asyncio.create_task(self._start_download(row["id"], str(row["alldebrid_id"]), str(name)))
         elif provider_status == "error" and current_status != "error":
             error_message = f"AllDebrid error code {status_code}: {provider_message}".strip()
-            # statusCode 8 = "No peer after 30 minutes" — auto-remove from AllDebrid silently
+            # statusCode 8 = "No peer after 30 minutes" — re-upload if magnet stored,
+            # otherwise delete and notify.
             if status_code == 8 or "no peer" in provider_message.lower():
-                logger.info(
-                    "Auto-removing torrent %s (id=%s): no peers after 30 min",
-                    row["id"], row.get("alldebrid_id", "?"),
-                )
-                await self._notify_provider_error(
-                    str(row["name"] or magnet.get("filename") or magnet.get("name") or f"torrent {row['id']}"),
-                    reason="No peers found after 30 minutes — torrent removed",
-                    context="AllDebrid reported the torrent as unavailable due to missing peers.",
-                    alldebrid_id=str(row.get("alldebrid_id") or ""),
-                    status_code=status_code,
-                )
-                await self._log_event(row["id"], "warn",
-                    f"Auto-removed: no peers found after 30 minutes (code {status_code})")
-                await self.ad().delete_magnet(str(row["alldebrid_id"]))
-                await self._set_deleted(row["id"], "Auto-removed: no peers after 30 minutes")
+                magnet_link = str(row.get("magnet") or "").strip()
+                if magnet_link:
+                    # Re-upload via the same retry pipeline as statusCode 5
+                    logger.info(
+                        "No peers for torrent %s (id=%s) — scheduling re-upload attempt",
+                        row["id"], row.get("alldebrid_id", "?"),
+                    )
+                    asyncio.create_task(self._handle_upload_failed(row, error_message))
+                else:
+                    # No magnet stored (e.g. .torrent file upload) — cannot re-upload,
+                    # delete from AllDebrid and mark as error so the user can retry manually
+                    logger.info(
+                        "No peers for torrent %s (id=%s) — no magnet stored, removing",
+                        row["id"], row.get("alldebrid_id", "?"),
+                    )
+                    await self._notify_provider_error(
+                        str(row["name"] or magnet.get("filename") or magnet.get("name") or f"torrent {row['id']}"),
+                        reason="No peers found after 30 minutes — no magnet link stored for re-upload",
+                        context="AllDebrid reported the torrent as unavailable. Add the magnet manually to retry.",
+                        alldebrid_id=str(row.get("alldebrid_id") or ""),
+                        status_code=status_code,
+                    )
+                    await self._log_event(row["id"], "warn",
+                        f"No peers after 30 minutes (code {status_code}) — no magnet stored, removing from AllDebrid")
+                    try:
+                        await self.ad().delete_magnet(str(row["alldebrid_id"]))
+                    except Exception as exc:
+                        logger.debug("Could not delete no-peer magnet %s: %s", row["alldebrid_id"], exc)
+                    await self._fail_torrent(row["id"], "No peers after 30 minutes — no magnet stored for re-upload", notify=False)
             elif status_code == UPLOAD_FAILED_CODE:
                 # statusCode 5 = "Upload failed" — re-queue automatically if retries remain
                 asyncio.create_task(self._handle_upload_failed(row, error_message))
