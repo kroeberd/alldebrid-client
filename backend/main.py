@@ -416,8 +416,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AllDebrid-Client",
-    description="Automated torrent downloading via AllDebrid",
+    description=(
+        "Self-hosted torrent automation via AllDebrid.\n\n"
+        "## API structure\n\n"
+        "| Prefix | Description |\n"
+        "|--------|-------------|\n"
+        "| `/api/` | Native AllDebrid-Client REST API |\n"
+        "| `/api/v2/` | qBittorrent v4.3.2 Web API emulation (for Sonarr/Radarr) |\n\n"
+        "Interactive docs: `/docs` (Swagger UI) · `/redoc` (ReDoc) · `/openapi.json`"
+    ),
     version=read_version(),
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
     lifespan=lifespan,
 )
 

@@ -330,8 +330,9 @@ class TorrentManager:
         )
 
     def download_client_name(self) -> str:
-        # Direct download mode has been removed — aria2 is the only supported client
-        return "aria2"
+        cfg = get_settings()
+        client = str(getattr(cfg, "download_client", "aria2") or "aria2").strip().lower()
+        return client if client in ("aria2", "symlink") else "aria2"
 
     def _watch_error_dir(self, watch: Path) -> Path:
         return watch / "error"
@@ -1335,7 +1336,13 @@ class TorrentManager:
     async def _download(self, torrent_id: int, ad_id: str, name: str):
         cfg = get_settings()
         client_name = self.download_client_name()
-        initial_status = "queued"  # aria2 is the only download client
+
+        # Route to symlink downloader if configured
+        if client_name == "symlink":
+            await self._download_symlink(torrent_id, ad_id, name)
+            return
+
+        initial_status = "queued"  # aria2 is the only non-symlink client
 
         # ── Disk-space guard ─────────────────────────────────────────────────
         min_free_gb = float(getattr(cfg, "min_free_disk_gb", 0) or 0)
@@ -2545,6 +2552,105 @@ class TorrentManager:
                 torrent_id, ad_id,
             )
         return deleted
+
+    async def _download_symlink(self, torrent_id: int, ad_id: str, name: str):
+        """Symlink downloader: create symlinks pointing to AllDebrid CDN URLs.
+
+        Instead of downloading files via aria2, this mode creates a .strm-style
+        symlink (actually a plain text file with the unlocked URL) or a real OS
+        symlink when the rclone AllDebrid mount is available.
+
+        Behaviour:
+        - Fetches the ready-file list from AllDebrid (same as aria2 mode).
+        - Unlocks each link in parallel.
+        - Creates <symlink_path>/<torrent_name>/<filename>.url files containing
+          the unlocked HTTPS URL (compatible with Kodi, Plex via strm plugin, etc.)
+        - If ``symlink_path`` is empty, falls back to ``download_folder``.
+        - Marks the torrent as completed immediately — no aria2 involvement.
+        """
+        cfg = get_settings()
+        base_dir = Path(
+            str(getattr(cfg, "symlink_path", "") or "").strip()
+            or str(getattr(cfg, "download_folder", "/downloads") or "/downloads")
+        )
+        torrent_dir = base_dir / safe_name(name or f"torrent_{torrent_id}")
+
+        try:
+            file_infos = await self._fetch_ready_files(ad_id)
+        except TransientAllDebridStateError:
+            logger.info("_download_symlink: AllDebrid not yet ready for %s — resetting to ready", torrent_id)
+            async with get_db() as db:
+                await db.execute(
+                    "UPDATE torrents SET status='ready', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (torrent_id,),
+                )
+                await db.commit()
+            return
+        except Exception as exc:
+            await self._fail_torrent(torrent_id, f"Symlink: fetch failed: {_sanitize_error(exc)}", notify=True)
+            return
+
+        if not file_infos:
+            await self._fail_torrent(torrent_id, "Symlink: no downloadable files returned from AllDebrid", notify=True)
+            return
+
+        # Unlock all links in parallel (same concurrency as aria2 mode)
+        async def _unlock_one(fi: dict):
+            try:
+                result = await _retry_async(self.ad().unlock_link, str(fi.get("link", "")))
+                return fi, result.get("link") or result.get("data", {}).get("link", "")
+            except Exception as exc:
+                logger.warning("_download_symlink: unlock failed for %s: %s", fi.get("link", ""), exc)
+                return fi, None
+
+        unlock_results = await asyncio.gather(*[_unlock_one(fi) for fi in file_infos])
+
+        # Write .url files
+        errors = 0
+        created = 0
+        try:
+            torrent_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:
+            await self._fail_torrent(torrent_id, f"Symlink: cannot create directory {torrent_dir}: {exc}", notify=True)
+            return
+
+        for fi, unlocked_url in unlock_results:
+            raw_name = str(fi.get("filename") or fi.get("name") or f"file_{created}")
+            safe = safe_name(raw_name)
+            url_file = torrent_dir / (safe + ".url")
+            if unlocked_url:
+                try:
+                    url_file.write_text(unlocked_url, encoding="utf-8")
+                    created += 1
+                    logger.info("_download_symlink: created %s", url_file)
+                except Exception as exc:
+                    logger.warning("_download_symlink: cannot write %s: %s", url_file, exc)
+                    errors += 1
+            else:
+                errors += 1
+
+        if errors and not created:
+            await self._fail_torrent(torrent_id, f"Symlink: all {errors} file(s) failed to unlock", notify=True)
+            return
+
+        # Mark completed — no aria2 required
+        async with get_db() as db:
+            await db.execute(
+                """UPDATE torrents
+                   SET status='completed', local_path=?, progress=1.0, updated_at=CURRENT_TIMESTAMP
+                   WHERE id=?""",
+                (str(torrent_dir), torrent_id),
+            )
+            if errors:
+                await db.execute(
+                    "INSERT INTO events (torrent_id, level, message) VALUES (?, 'warn', ?)",
+                    (torrent_id, f"Symlink: {created} URL file(s) created, {errors} failed"),
+                )
+            await db.commit()
+
+        logger.info("_download_symlink: %d URL file(s) created for torrent %s → %s", created, torrent_id, torrent_dir)
+        await self._delete_magnet_after_completion(torrent_id, ad_id)
+        await self._mark_finished(torrent_id, name)
 
     async def _mark_finished(self, torrent_id: int, name: str = ""):
         await self._log_event(torrent_id, "info", "Finished")

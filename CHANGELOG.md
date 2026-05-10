@@ -1,5 +1,86 @@
 # Changelog
 
+## [1.6.1] — 2026-05-10
+
+### Added — Symlink downloader (P2.2), OpenAPI/Swagger (P2.4), Frontend split (P3.2), Hash-pinning (P3.3)
+
+#### P2.2 — Symlink / .url downloader
+
+A second delivery mode alongside aria2. Instead of downloading files, the
+client unlocks each AllDebrid CDN link and writes a `.url` file containing
+the unlocked HTTPS URL. Useful for setups with an rclone AllDebrid mount
+where the cloud storage is directly accessible (e.g. Plex/Jellyfin streaming
+without local disk usage).
+
+**Config:** `download_client: "symlink"` and optionally `symlink_path` (defaults
+to `download_folder`). Both settings are exposed in **Settings → Download Client →
+Delivery Mode**.
+
+**Behaviour:**
+- Fetches the ready-file list from AllDebrid (same as aria2 mode)
+- Unlocks all links in parallel via `ad().unlock_link()`
+- Writes `<symlink_path>/<torrent_name>/<filename>.url` text files
+- Marks the torrent `completed` immediately — no aria2 involvement
+- On failure: `_fail_torrent` with a clear message; torrent row kept for retry
+
+**Implementation:** `manager_v2._download_symlink()` is called from
+`_download()` when `download_client_name() == "symlink"`.
+`download_client_name()` now reads `cfg.download_client` instead of
+hardcoding `"aria2"`.
+
+#### P2.4 — OpenAPI / Swagger UI
+
+FastAPI's built-in interactive documentation is now enabled:
+
+| Path | Description |
+|------|-------------|
+| `/docs` | Swagger UI — try endpoints interactively |
+| `/redoc` | ReDoc — clean reference documentation |
+| `/openapi.json` | Machine-readable OpenAPI 3.1 schema |
+
+The `FastAPI()` constructor now passes explicit `docs_url`, `redoc_url`, and
+`openapi_url` parameters, and the app description includes a Markdown table
+describing the two API prefixes (`/api/` and `/api/v2/`).
+
+#### P3.2 — Frontend split into separate CSS and JS files
+
+The 5 248-line `index.html` has been split into three files:
+
+| File | Lines | Contents |
+|------|-------|---------|
+| `index.html` | 989 | HTML skeleton, `<link>` and `<script>` tags only |
+| `style.css` | 665 | All CSS (previously the `<style>` block) |
+| `app.js` | 3 596 | All JavaScript (previously the `<script>` block) |
+
+**Benefits:**
+- Browser caches CSS and JS independently — style changes don't invalidate
+  the JS cache and vice versa
+- Editors open `app.js` directly without scrolling through 1 600 lines of HTML
+- Enables `node --check app.js` in CI without HTML stripping
+- Clear separation of concerns (HTML structure / CSS styling / JS behaviour)
+
+No functionality changed. The `StaticFiles` mount at `/` serves all three
+files. The HTML references `/style.css` and `/app.js` (root-relative, matching
+the existing mount point).
+
+#### P3.3 — Requirements hash-pinning
+
+All production dependencies in `requirements.txt` now include a
+`--hash=sha256:...` annotation. This means:
+
+- `pip install --require-hashes -r requirements.txt` verifies the integrity
+  of every downloaded wheel before installation
+- Supply-chain attacks (compromised PyPI packages) are detected before the
+  package is executed
+- The installed versions are bit-for-bit reproducible
+
+Test-only packages (`pytest`, `pytest-asyncio`, `pytest-cov`) are not pinned —
+they are never installed in the Docker image.
+
+**Note:** platform-specific wheels (aiohttp, asyncpg, pycryptodome) include the
+x86-64 manylinux hash. For arm64 builds, regenerate hashes with
+`pip download --no-deps <pkg>==<ver> && pip hash <wheel>`.
+
 ## [1.6.0] — 2026-05-10
 
 ### Major release — Infrastructure hardening, Sonarr/Radarr integration, live UI

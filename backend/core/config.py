@@ -33,7 +33,12 @@ class AppSettings(BaseModel):
     aria2_max_upload_limit: int = 0    # bytes/s, 0=unlimited
 
     # Download delivery
-    download_client: str = "aria2"
+    download_client: str = "aria2"  # "aria2" or "symlink"
+    # Symlink downloader: instead of downloading files via aria2, create symlinks
+    # pointing to the AllDebrid CDN unlocked URLs inside symlink_path.
+    # Useful for setups with an rclone AllDebrid mount where the cloud storage is
+    # directly accessible. Leave empty to use the main download_folder.
+    symlink_path: str = ""
     aria2_mode: str = "builtin"  # built-in is the default; no extra setup required
     aria2_url: str = "http://127.0.0.1:6800/jsonrpc"
     aria2_secret: str = ""
