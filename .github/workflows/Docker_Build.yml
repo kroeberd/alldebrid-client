@@ -12,6 +12,7 @@ on:
       - '.dockerignore'
       - 'docker-compose.yml'
       - 'backend/requirements.txt'
+      - 'backend/requirements.in'
       - 'VERSION'
 
   schedule:

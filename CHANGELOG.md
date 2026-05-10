@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.6.2] — 2026-05-10
+
+### Fixed — Docker build dependency lock
+
+The Docker image build failed because `requirements.txt` mixed hashed and
+unhashed requirements. Pip automatically enabled hash-checking mode and then
+rejected the un-hashed test dependency `pytest==9.0.3`.
+
+This release fixes the install path by separating runtime and development
+dependencies:
+
+- `backend/requirements.in` lists direct runtime dependencies.
+- `backend/requirements.txt` is the generated runtime lock installed by Docker.
+- `backend/requirements-dev.in` lists test-only dependencies on top of runtime.
+- `backend/requirements-dev.txt` is used by CI tests.
+
+The redundant unpinned Docker install of `asyncpg>=0.29.0` was removed so the
+container now installs only the locked dependency set. The Docker image version
+label was also synchronized with the repository version.
+
 ## [1.6.1] — 2026-05-10
 
 ### Added — Symlink downloader (P2.2), OpenAPI/Swagger (P2.4), Frontend split (P3.2), Hash-pinning (P3.3)

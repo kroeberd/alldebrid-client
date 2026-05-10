@@ -3,7 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="AllDebrid-Client"
-LABEL org.opencontainers.image.version="1.5.34"
+LABEL org.opencontainers.image.version="1.6.2"
 LABEL org.opencontainers.image.description="Automated torrent downloading via AllDebrid with a branded web UI"
 
 # System deps + gosu (for PUID/PGID user-switching)
@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Python deps
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir "asyncpg>=0.29.0"
 
 # App
 COPY backend/ /app/
