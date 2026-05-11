@@ -92,7 +92,7 @@ jobs:
       # ── 9. Upload as GitHub Actions Artifact ─────────────────────────────────
       - name: Upload EXE as artifact
         if: ${{ github.event.inputs.upload_artifact != 'false' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: alldebrid-client-windows-v${{ steps.version.outputs.version }}
           path: |
