@@ -177,6 +177,11 @@ class AppSettings(BaseModel):
     jackett_api_key:    str  = ""
     jackett_webhook_url: str = ""  # falls leer → discord_webhook_url
 
+    # ── Prowlarr ──────────────────────────────────────────────────────────────
+    prowlarr_enabled:   bool = False
+    prowlarr_url:       str  = "http://localhost:9696"
+    prowlarr_api_key:   str  = ""
+
     # ── Statistics & Reporting ────────────────────────────────────────────────
     # How often to take a stats snapshot (minutes, 0 = disabled)
     stats_snapshot_interval_minutes: int = 60

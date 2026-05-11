@@ -1,4 +1,5 @@
 import asyncio
+import random
 import time
 import logging
 from core.config import get_settings
@@ -6,6 +7,17 @@ from services.manager_v2 import manager
 
 logger = logging.getLogger("alldebrid.scheduler")
 _tasks = []
+
+
+async def _jitter_sleep(base_seconds: float, jitter_fraction: float = 0.25) -> None:
+    """Sleep for base_seconds ± jitter_fraction*base_seconds.
+
+    Spreads startup spikes across the configured interval so all loops
+    don't fire simultaneously on container start, reducing burst API load.
+    Minimum sleep: 1 second.
+    """
+    jitter = base_seconds * jitter_fraction * (2 * random.random() - 1)
+    await asyncio.sleep(max(1.0, base_seconds + jitter))
 
 
 def _coerce_int_setting(value, default: int) -> int:
@@ -30,6 +42,7 @@ def _stats_report_window_hours(cfg) -> int:
 
 
 async def watch_folder_loop():
+    await _jitter_sleep(get_settings().watch_interval_seconds)
     while True:
         try:
             await manager.scan_watch_folder()
@@ -43,6 +56,7 @@ async def sync_status_loop():
     Regular AllDebrid poll: syncs active (non-terminal) torrents every poll_interval_seconds.
     Also runs cleanup tasks each cycle.
     """
+    await _jitter_sleep(get_settings().poll_interval_seconds)
     while True:
         try:
             await manager.sync_alldebrid_status()
@@ -66,7 +80,9 @@ async def full_sync_loop():
     and any status drift between local DB and AllDebrid.
     Also imports new magnets added directly on AllDebrid.
     """
-    await asyncio.sleep(10)  # short initial delay after startup
+    cfg = get_settings()
+    interval = max(1, _coerce_int_setting(getattr(cfg, "full_sync_interval_minutes", 5), 5))
+    await _jitter_sleep(interval * 60)  # spread startup across the full interval
     while True:
         cfg = get_settings()
         interval = max(0, _coerce_int_setting(getattr(cfg, "full_sync_interval_minutes", 5), 5))
@@ -85,6 +101,7 @@ async def full_sync_loop():
 
 
 async def sync_download_clients_loop():
+    await _jitter_sleep(max(2, get_settings().aria2_poll_interval_seconds))
     while True:
         try:
             await manager.sync_download_clients()

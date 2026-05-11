@@ -653,8 +653,76 @@ async def recover_all_ready():
         raise HTTPException(502, _sanitize_error(e))
 
 
-@router.get("/torrents/{torrent_id}")
-async def get_torrent(torrent_id: int):
+@router.get("/torrents/{torrent_id}/files-preview")
+async def torrent_files_preview(torrent_id: int):
+    """Preview downloadable files for a ready torrent (fetched live from AllDebrid).
+
+    Returns the file list without starting a download or changing torrent state.
+    For torrents already in downloading/queued/completed state, returns the
+    local download_files rows instead.
+    """
+    async with get_db() as db:
+        row = await db.fetchone(
+            "SELECT id, alldebrid_id, status, name FROM torrents WHERE id=?",
+            (torrent_id,),
+        )
+        if not row:
+            raise HTTPException(404, "Torrent not found")
+
+        # For torrents already processed, return local download_files
+        if row["status"] in ("queued", "downloading", "paused", "completed"):
+            files = await db.fetchall(
+                "SELECT id, filename, size_bytes, status, blocked, progress "
+                "FROM download_files WHERE torrent_id=? AND blocked=0 ORDER BY id",
+                (torrent_id,),
+            )
+            return {"source": "local", "files": [dict(f) for f in files]}
+
+    # For ready/processing torrents, fetch live from AllDebrid
+    if not row["alldebrid_id"]:
+        raise HTTPException(400, "Torrent has no AllDebrid ID — not ready yet")
+    try:
+        files_data = await manager.ad().get_magnet_files([str(row["alldebrid_id"])])
+        from services.alldebrid import flatten_files
+        for entry in files_data:
+            if str(entry.get("id", "")) == str(row["alldebrid_id"]):
+                flat = flatten_files(entry.get("files", []))
+                return {
+                    "source": "alldebrid",
+                    "files": [
+                        {
+                            "link":     f.get("link", ""),
+                            "filename": f.get("filename") or f.get("name") or f.get("link", ""),
+                            "size_bytes": int(f.get("size") or 0),
+                        }
+                        for f in flat
+                    ],
+                }
+        return {"source": "alldebrid", "files": []}
+    except Exception as exc:
+        raise HTTPException(502, _sanitize_error(exc))
+
+
+@router.post("/torrents/{torrent_id}/files/{file_id}/block")
+async def block_file(torrent_id: int, file_id: int, blocked: bool = True):
+    """Toggle the blocked flag on a download_files row.
+
+    Blocked files are skipped by aria2 dispatch and not counted toward
+    torrent completion. Use blocked=false to unblock.
+    """
+    async with get_db() as db:
+        row = await db.fetchone(
+            "SELECT id FROM download_files WHERE id=? AND torrent_id=?",
+            (file_id, torrent_id),
+        )
+        if not row:
+            raise HTTPException(404, "File not found")
+        await db.execute(
+            "UPDATE download_files SET blocked=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (1 if blocked else 0, file_id),
+        )
+        await db.commit()
+    return {"ok": True, "file_id": file_id, "blocked": blocked}
     async with get_db() as db:
         row = await db.fetchone("SELECT * FROM torrents WHERE id=?", (torrent_id,))
         if not row:
@@ -1399,6 +1467,42 @@ async def test_jackett():
 async def jackett_indexers():
     from services.jackett import get_indexers
     return await get_indexers()
+
+
+# ── Prowlarr ──────────────────────────────────────────────────────────────────
+
+@router.get("/prowlarr/indexers")
+async def prowlarr_indexers():
+    """List all Prowlarr indexers."""
+    from services.prowlarr import get_indexers as pr_indexers
+    return await pr_indexers()
+
+
+@router.get("/prowlarr/search")
+async def prowlarr_search(
+    q:          str         = Query(..., min_length=1),
+    indexerIds: str         = Query(""),
+    categories: str         = Query(""),
+    limit:      int         = Query(100, ge=1, le=500),
+):
+    """Search Prowlarr indexers and return normalised results."""
+    from services.prowlarr import search as pr_search
+    ids  = [int(i) for i in indexerIds.split(",") if i.strip().isdigit()] if indexerIds else None
+    cats = [int(c) for c in categories.split(",") if c.strip().isdigit()] if categories else None
+    try:
+        return await pr_search(q, indexer_ids=ids, categories=cats, limit=limit)
+    except Exception as exc:
+        raise HTTPException(502, _sanitize_error(exc))
+
+
+@router.post("/prowlarr/test")
+async def prowlarr_test():
+    """Verify Prowlarr connectivity and API key."""
+    from services.prowlarr import test_connection
+    result = await test_connection()
+    if not result["ok"]:
+        raise HTTPException(502, result.get("error", "Prowlarr connection failed"))
+    return result
 
 
 @router.post("/jackett/search")

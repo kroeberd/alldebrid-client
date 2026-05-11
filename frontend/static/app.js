@@ -1524,6 +1524,30 @@ function renderSettings() {
         </div>
       </div>
 
+
+      <div class="scard">
+        <div class="scard-header">&#128270; Prowlarr</div>
+        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Modern indexer manager. Alternative to Jackett with native *arr integration.</p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Enable Prowlarr</label>
+            <label class="toggle"><input type="checkbox" id="s-prowlarr_enabled" ${s.prowlarr_enabled?'checked':''}/><span class="slider"></span></label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Prowlarr URL</label>
+            <input class="input" id="s-prowlarr_url" value="${s.prowlarr_url||'http://localhost:9696'}" placeholder="http://localhost:9696"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="input" id="s-prowlarr_api_key" value="${s.prowlarr_api_key||''}" placeholder="Prowlarr Settings → General → API Key"/>
+            <span class="form-hint">Find it in Prowlarr → Settings → General. When enabled, Prowlarr results appear in the Search view alongside Jackett results.</span>
+          </div>
+          <div style="margin-top:8px">
+            <button class="btn btn-ghost btn-sm" onclick="testProwlarr()">&#128268; Test Connection</button>
+            <span id="prowlarr-test-result" style="margin-left:10px;font-size:12px;color:var(--text2)"></span>
+          </div>
+        </div>
+      </div>
       <div class="scard">
         <div class="scard-header">&#128276; Jackett Webhook</div>
         <div class="scard-body">
@@ -3248,6 +3272,17 @@ async function jackettAdd(idx) {
       toast('\u274c Failed to add: ' + sanitizeErrorMsg(_errMsg), 'error');
     }
   }
+
+async function testProwlarr() {
+  var el = document.getElementById('prowlarr-test-result');
+  if (el) el.textContent = 'Testing…';
+  try {
+    await api('POST','/prowlarr/test');
+    if (el) { el.textContent = '✓ Connected'; el.style.color = 'var(--green)'; }
+  } catch(e) {
+    if (el) { el.textContent = '✗ ' + sanitizeErrorMsg(e.message); el.style.color = 'var(--red)'; }
+  }
+}
 
 async function testJackett() {
   var el=document.getElementById('jackett-test-result');

@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import secrets
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request, Response
@@ -439,6 +440,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Request-ID Middleware ──────────────────────────────────────────────────────
+# Adds X-Request-ID to every response for log correlation.
+# Reuses the client-provided ID if present, otherwise generates a new UUID4.
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    req_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = req_id
+    return response
 
 # ── Optional HTTP Basic Auth ───────────────────────────────────────────────────
 # Enabled when auth_username AND auth_password are both set in config.

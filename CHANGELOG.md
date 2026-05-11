@@ -1,5 +1,101 @@
 # Changelog
 
+## [1.6.4] — 2026-05-11
+
+### Added — P1.6 Prowlarr, P2.1 File Selection, P3.4 Request-IDs, P3.5 Backoff-Jitter
+
+All remaining open items from the architecture analysis are now complete (19/19).
+
+#### P1.6 — Prowlarr integration
+
+Prowlarr is the modern successor to Jackett with native *arr integration.
+It can be used alongside or instead of Jackett.
+
+**New service:** `services/prowlarr.py`
+- `search(query, indexer_ids, categories, limit)` — searches via `GET /api/v1/search`
+- `get_indexers()` — lists configured indexers via `GET /api/v1/indexer`
+- `test_connection()` — checks `/api/v1/health`
+- Returns the same normalised result format as the Jackett integration
+
+**New API endpoints:**
+- `GET  /api/prowlarr/indexers` — list Prowlarr indexers
+- `GET  /api/prowlarr/search?q=...` — search (optional `indexerIds`, `categories`, `limit`)
+- `POST /api/prowlarr/test` — connectivity check
+
+**New settings:** `prowlarr_enabled`, `prowlarr_url` (default `http://localhost:9696`),
+`prowlarr_api_key` — all exposed in **Settings → Services → Prowlarr**.
+
+#### P2.1 — Per-file selection before download
+
+Two new API endpoints allow inspecting and blocking individual files within a
+torrent before or after download starts.
+
+**`GET /api/torrents/{id}/files-preview`**
+
+Returns the list of downloadable files for a torrent:
+- For `ready`/`processing` torrents: fetches the file list live from AllDebrid
+  via `get_magnet_files()` — no state change, no download started.
+- For `queued`/`downloading`/`completed` torrents: returns the local
+  `download_files` rows.
+
+Response: `{"source": "alldebrid"|"local", "files": [...]}`
+
+**`POST /api/torrents/{id}/files/{file_id}/block?blocked=true|false`**
+
+Toggles the `blocked` flag on a `download_files` row. Blocked files are skipped
+by `_dispatch_pending_aria2_queue` and not counted toward torrent completion.
+Use `blocked=false` to unblock. Works on already-queued files (the next dispatch
+cycle will skip them).
+
+#### P3.4 — Request-IDs for API correlation
+
+Every HTTP response now includes an `X-Request-ID` header. If the client sends
+`X-Request-ID: <value>`, that value is echoed back. Otherwise a UUID4 is
+generated server-side.
+
+Implemented as a lightweight `@app.middleware("http")` in `main.py` — zero
+overhead, no dependencies.
+
+#### P3.5 — Startup jitter for scheduler loops
+
+All scheduler loops previously started simultaneously at container boot,
+causing a burst of AllDebrid API calls in the first few seconds.
+
+**New helper:** `_jitter_sleep(base_seconds, jitter_fraction=0.25)` — sleeps
+for `base ± 25%` of the configured interval, minimum 1 second.
+
+Applied to: `watch_folder_loop`, `sync_status_loop`, `full_sync_loop` (replaces
+the hard-coded `asyncio.sleep(10)`), `sync_download_clients_loop`.
+
+With `poll_interval_seconds=30` (default), the four critical loops now start
+spread across a ±7.5-second window instead of firing simultaneously.
+
+---
+
+### Analysis completion — 19/19 items
+
+| # | Item | Version |
+|---|------|---------|
+| P0.1 | HTTP Basic Auth | v1.5.49 |
+| P0.2 | qBittorrent API emulation | v1.5.51 |
+| P1.1 | SSE live updates | v1.5.50 |
+| P1.2 | DB indexes | v1.5.48 |
+| P1.3 | Token-bucket rate limiter | v1.5.48 |
+| P1.4 | Events TTL | v1.5.48 |
+| P1.5 | Disk space guard | v1.5.49 |
+| P1.6 | Prowlarr integration | **v1.6.4** |
+| P2.1 | File selection (preview + block) | **v1.6.4** |
+| P2.2 | Symlink downloader | v1.6.1 |
+| P2.3 | Prometheus metrics | v1.5.50 |
+| P2.4 | OpenAPI / Swagger UI | v1.6.1 |
+| P2.5 | State machine | v1.5.51 |
+| P2.6 | Post-processing scripts | v1.5.49 |
+| P3.1 | Formal state machine | v1.5.51 |
+| P3.2 | Frontend CSS/JS split | v1.6.1 |
+| P3.3 | Requirements hash-pinning | v1.6.1 / v1.6.3 |
+| P3.4 | Request-IDs for correlation | **v1.6.4** |
+| P3.5 | Startup jitter for scheduler | **v1.6.4** |
+
 ## [1.6.3] — 2026-05-10
 
 ### Fixed — Docker release tags on VERSION pushes
