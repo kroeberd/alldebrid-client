@@ -1,5 +1,51 @@
 # Changelog
 
+## [1.6.5] — 2026-05-11
+
+### Maintenance — German text cleanup, Dependabot PRs, Unraid template update
+
+#### German text → English
+
+All remaining German-language strings in source files have been translated:
+
+| File | String |
+|------|--------|
+| `backend/core/config.py` | `# falls leer → discord_webhook_url` |
+| `backend/db/migration.py` | 2 German docstrings in migration functions |
+| `backend/tests/test_manager_v2.py` | 2 German inline comments |
+| `docs/discord-webhooks.md` | Heading and table cell |
+| `docs/migration.md` | H1 heading |
+| `frontend/static/app.js` | 6 German debug and comment strings |
+
+#### Dependabot PRs merged (#20–#25)
+
+All open Dependabot pull requests merged:
+
+| PR | Change |
+|----|--------|
+| #20 | `peter-evans/dockerhub-description` 4.0.2 → 5.0.0 |
+| #21 | `actions/upload-artifact` v4 → v7 |
+| #22 | `softprops/action-gh-release` 2.6.2 → 3.0.0 |
+| #23 | `docker/login-action` 3.7.0 → 4.1.0 |
+| #24 | `docker/setup-buildx-action` 3.12.0 → 4.0.0 |
+| #25 | `pydantic` 2.13.3 → 2.13.4, `pydantic-settings` 2.14.0 → 2.14.1, `python-multipart` 0.0.27 → 0.0.28, `prometheus-client` 0.21.1 → 0.25.0 |
+
+#### Unraid Community App template updated
+
+`kroeberd/unraid-templates` — `templates/alldebrid-client.xml`:
+
+- Version reference updated: v1.5.2 → v1.6.4
+- Features list rewritten to include qBit API, Prowlarr, SSE, Auth, Disk guard,
+  Post-processing, Symlink downloader, File selection, Prometheus metrics
+- Quick Setup updated: added Sonarr/Radarr qBit configuration step
+- Description updated
+- Date: 2026-05-11
+
+#### README
+
+- Added Prowlarr row to Features table
+- Added File Selection row to Features table
+
 ## [1.6.4] — 2026-05-11
 
 ### Added — P1.6 Prowlarr, P2.1 File Selection, P3.4 Request-IDs, P3.5 Backoff-Jitter

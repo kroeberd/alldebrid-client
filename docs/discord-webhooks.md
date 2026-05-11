@@ -1,6 +1,6 @@
-# Discord Webhook-Konfiguration
+# Discord Webhook Configuration
 
-## Standard-Webhook
+## Default Webhook
 
 For all notifications:
 
@@ -45,7 +45,7 @@ Hinweis:
 | Torrent Added | `send_added()` | Purple 🟣 | After successful upload to AllDebrid |
 | Download Complete | `send_complete()` | Green 🟢 | When all files are downloaded |
 | Error | `send_error()` | Red 🔴 | On AllDebrid or download error |
-| Teildownload | `send_partial()` | Orange 🟠 | Wenn Dateien gefiltert wurden |
+| Partial download | `send_partial()` | Orange 🟠 | When files were filtered |
 
 ## Metadaten in Embeds
 

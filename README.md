@@ -44,6 +44,7 @@ AllDebrid-Client automates the full torrent lifecycle via your AllDebrid account
 | **FIFO queue** | Oldest torrents always processed first (ORDER BY id ASC throughout all dispatch paths) |
 | **Discord webhooks** | Rich embeds per event type: added, complete, error, upload-failed, no-peers, extraction, stats |
 | **Jackett search** | Multi-indexer chip UI, category filters, per-row Add, Add Selected checkbox, Add All button |
+| **Prowlarr search** | Modern Jackett alternative;  — same result format as Jackett |
 | **FlexGet v3** | Schedule and trigger tasks from UI; per-event Discord notifications |
 | **Statistics** | Period selector (1h–all-time), rolling snapshots, Discord summary reports, JSON export |
 | **Prometheus metrics** | `GET /api/metrics` — torrent counts by status, active downloads, errors, SSE subscribers, bytes downloaded |

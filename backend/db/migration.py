@@ -55,7 +55,7 @@ async def migrate_sqlite_to_postgres(
     dry_run: bool = False,
 ) -> MigrationResult:
     """
-    Migriert Daten von SQLite nach PostgreSQL.
+    Migrates data from SQLite to PostgreSQL.
 
     Args:
         sqlite_path: Pfad zur SQLite-Datenbankdatei
@@ -83,7 +83,7 @@ async def migrate_postgres_to_sqlite(
     dry_run: bool = False,
 ) -> MigrationResult:
     """
-    Migriert Daten von PostgreSQL nach SQLite.
+    Migrates data from PostgreSQL to SQLite.
 
     Args:
         pg_dsn:      asyncpg DSN for PostgreSQL
@@ -379,7 +379,7 @@ async def _insert_rows_sqlite(db, table: str, rows: List[Dict[str, Any]]) -> int
         values = []
         for col in columns:
             val = row[col]
-            # asyncpg gibt returns datetime objects — convert to ISO string
+            # asyncpg returns datetime objects — convert to ISO string
             if hasattr(val, "isoformat"):
                 val = val.isoformat()
             values.append(val)

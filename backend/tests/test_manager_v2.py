@@ -379,7 +379,7 @@ class FinishedEntryTests(unittest.IsolatedAsyncioTestCase):
         notify_mock.send_complete = AsyncMock()
         mgr.notify = lambda: notify_mock
 
-        # dict-kompatible Zeile (Manager greift mit torrent["status"] zu)
+        # dict-compatible row (Manager accesses torrent["status"])
         torrent_row = {
             "id": 1, "status": "queued", "alldebrid_id": "ad-1", "name": "Test Torrent",
             "hash": None, "magnet": None, "size_bytes": 0, "progress": 0,
@@ -901,7 +901,7 @@ class NotificationTests(unittest.IsolatedAsyncioTestCase):
         field_names = [f["name"] for f in captured_fields]
         self.assertIn("Source", field_names)
         source_field = next(f for f in captured_fields if f["name"] == "Source")
-        # notifications.py mappt "watch_torrent" auf einen lesbaren Label
+        # notifications.py maps "watch_torrent" to a human-readable label
         self.assertIn("watch", source_field["value"].lower())
 
     async def test_deduplication_suppresses_duplicate_within_window(self):

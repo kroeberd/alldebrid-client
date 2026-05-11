@@ -2665,19 +2665,19 @@ async function testPostgres() {
   setDot('aria2', 'check', 'aria2: checking…');
   setDot('db',    'check', 'DB: checking…');
 
-  // Settings laden
+  // Load settings
   dbg('Lade Settings…');
   try {
     settingsData = await api('GET', '/settings');
     dbg('Settings OK');
   } catch(e) {
-    dbg('Settings FEHLER: ' + e.message);
+    dbg('Settings ERROR: ' + e.message);
   }
   renderTopbarActions();
   updateAria2ngLink();
   updateJackettNav();
 
-  // Stats laden mit sichtbarem Retry
+  // Load stats with visible retry
   dbg('Starte loadStats…');
   let statsLoaded = false;
   let statsAttempt = 0;
@@ -2687,7 +2687,7 @@ async function testPostgres() {
     statsLoaded = await loadStats();
     if (!statsLoaded) {
       const delay = Math.min(400 + statsAttempt * 400, 3000);
-      dbg('Fehler — warte ' + delay + 'ms…');
+      dbg('Error — retrying in ' + delay + 'ms…');
       await new Promise(r => setTimeout(r, delay));
       if (statsAttempt >= 10) { dbg('Aufgegeben nach 10 Versuchen'); break; }
     }
@@ -2698,11 +2698,11 @@ async function testPostgres() {
   checkPremiumStatus().catch(() => {});
 
   if (statsLoaded) {
-    dbg('Stats geladen ✓');
+    dbg('Stats loaded ✓');
     setTimeout(() => { const el = document.getElementById('debug-status'); if (el) el.style.display = 'none'; }, 5000);
   } else {
-    dbg('Stats konnten nicht geladen werden. Bitte Seite neu laden.');
-    setDot('api', 'error', 'AllDebrid: Fehler');
+    dbg('Stats failed to load. Please reload the page.');
+    setDot('api', 'error', 'AllDebrid: Error');
   }
 
   setInterval(checkPremiumStatus, 12 * 60 * 60 * 1000);

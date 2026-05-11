@@ -175,7 +175,7 @@ class AppSettings(BaseModel):
     jackett_enabled:    bool = False
     jackett_url:        str  = "http://localhost:9117"
     jackett_api_key:    str  = ""
-    jackett_webhook_url: str = ""  # falls leer → discord_webhook_url
+    jackett_webhook_url: str = ""  # if empty, falls back to discord_webhook_url
 
     # ── Prowlarr ──────────────────────────────────────────────────────────────
     prowlarr_enabled:   bool = False
