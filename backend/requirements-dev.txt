@@ -5,15 +5,15 @@
 #    pip-compile --output-file='backend\requirements-dev.txt' --strip-extras 'backend\requirements-dev.in'
 #
 aiofiles==25.1.0
-    # via -r backend/requirements.in
+    # via -r requirements.in
 aiohappyeyeballs==2.6.1
     # via aiohttp
 aiohttp==3.13.5
-    # via -r backend/requirements.in
+    # via -r requirements.in
 aiosignal==1.4.0
     # via aiohttp
 aiosqlite==0.22.1
-    # via -r backend/requirements.in
+    # via -r requirements.in
 annotated-doc==0.0.4
     # via fastapi
 annotated-types==0.7.0
@@ -23,22 +23,17 @@ anyio==4.13.0
     #   starlette
     #   watchfiles
 asyncpg==0.31.0
-    # via -r backend/requirements.in
+    # via -r requirements.in
 attrs==26.1.0
     # via aiohttp
 bencodepy==0.9.5
-    # via -r backend/requirements.in
+    # via -r requirements.in
 click==8.3.3
     # via uvicorn
-colorama==0.4.6
-    # via
-    #   click
-    #   pytest
-    #   uvicorn
 coverage==7.14.0
     # via pytest-cov
 fastapi==0.136.1
-    # via -r backend/requirements.in
+    # via -r requirements.in
 frozenlist==1.8.0
     # via
     #   aiohttp
@@ -63,40 +58,40 @@ pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
-prometheus-client==0.21.1
-    # via -r backend/requirements.in
+prometheus-client==0.25.0
+    # via -r requirements.in
 propcache==0.5.2
     # via
     #   aiohttp
     #   yarl
 pycryptodome==3.23.0
-    # via -r backend/requirements.in
-pydantic==2.13.3
+    # via -r requirements.in
+pydantic==2.13.4
     # via
-    #   -r backend/requirements.in
+    #   -r requirements.in
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.46.3
+pydantic-core==2.46.4
     # via pydantic
-pydantic-settings==2.14.0
-    # via -r backend/requirements.in
+pydantic-settings==2.14.1
+    # via -r requirements.in
 pygments==2.20.0
     # via pytest
 pytest==9.0.3
     # via
-    #   -r backend/requirements-dev.in
+    #   -r requirements-dev.in
     #   pytest-asyncio
     #   pytest-cov
 pytest-asyncio==1.3.0
-    # via -r backend/requirements-dev.in
+    # via -r requirements-dev.in
 pytest-cov==7.1.0
-    # via -r backend/requirements-dev.in
+    # via -r requirements-dev.in
 python-dotenv==1.2.2
     # via
     #   pydantic-settings
     #   uvicorn
-python-multipart==0.0.27
-    # via -r backend/requirements.in
+python-multipart==0.0.28
+    # via -r requirements.in
 pyyaml==6.0.3
     # via uvicorn
 starlette==1.0.0
@@ -117,7 +112,9 @@ typing-inspection==0.4.2
     #   pydantic
     #   pydantic-settings
 uvicorn==0.46.0
-    # via -r backend/requirements.in
+    # via -r requirements.in
+uvloop==0.22.1
+    # via uvicorn
 watchfiles==1.1.1
     # via uvicorn
 websockets==16.0
