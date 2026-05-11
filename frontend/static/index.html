@@ -205,9 +205,21 @@
             <input class="input" id="t-magnet" placeholder="magnet:?xt=urn:btih:…" />
             <button class="btn btn-primary" onclick="addMagnet()">Add Torrent</button>
             <button class="btn btn-ghost" onclick="importExisting()">⬇ Import from AllDebrid</button>
+            <button class="btn btn-warn" onclick="recoverAll()" title="Reset stuck/error torrents and restart from AllDebrid">⟳ Recover All</button>
           </div>
         </div>
       </div>
+
+      <!-- Bulk-action toolbar: class="bulk-bar" is required for .bulk-bar.visible CSS -->
+      <div class="bulk-bar" id="bulk-bar">
+        <span id="bulk-count"></span>
+        <button class="btn btn-danger btn-sm" onclick="bulkAction('delete')">✕ Delete</button>
+        <button class="btn btn-blue btn-sm"   onclick="bulkAction('reset')">↺ Reset</button>
+        <button class="btn btn-ghost btn-sm"  onclick="bulkAction('pause')">⏸ Pause</button>
+        <button class="btn btn-ghost btn-sm"  onclick="bulkAction('resume')">▶ Resume</button>
+        <button class="btn btn-ghost btn-sm"  onclick="clearSelection()" style="margin-left:auto;color:inherit;opacity:.7">✕ Clear</button>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <span class="card-title" id="torrent-card-title">All Torrents</span>

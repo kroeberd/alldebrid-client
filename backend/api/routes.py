@@ -723,13 +723,20 @@ async def block_file(torrent_id: int, file_id: int, blocked: bool = True):
         )
         await db.commit()
     return {"ok": True, "file_id": file_id, "blocked": blocked}
+
+
+@router.get("/torrents/{torrent_id}")
+async def get_torrent(torrent_id: int):
+    """Return a single torrent with its download files and recent events."""
     async with get_db() as db:
         row = await db.fetchone("SELECT * FROM torrents WHERE id=?", (torrent_id,))
         if not row:
             raise HTTPException(404, "Not found")
-        files  = await db.fetchall("SELECT * FROM download_files WHERE torrent_id=? ORDER BY id", (torrent_id,))
-        events = await db.fetchall("SELECT * FROM events WHERE torrent_id=? ORDER BY created_at DESC LIMIT 50", (torrent_id,))
-        return {**row, "files": files, "events": events}
+        files  = await db.fetchall(
+            "SELECT * FROM download_files WHERE torrent_id=? ORDER BY id", (torrent_id,))
+        events = await db.fetchall(
+            "SELECT * FROM events WHERE torrent_id=? ORDER BY created_at DESC LIMIT 50", (torrent_id,))
+        return {**dict(row), "files": [dict(f) for f in files], "events": [dict(e) for e in events]}
 
 
 @router.delete("/torrents/{torrent_id}")
@@ -887,6 +894,22 @@ async def bulk_action(body: BulkAction):
                         (tid,),
                     )
                     await db.commit()
+            elif body.action == "reset":
+                # Reset any stuck/error torrent back to 'ready' so the
+                # next sync cycle picks it up again
+                async with get_db() as db:
+                    await db.execute(
+                        """UPDATE torrents
+                           SET status='ready', error_message=NULL,
+                               polling_failures=0, updated_at=CURRENT_TIMESTAMP
+                           WHERE id=? AND alldebrid_id IS NOT NULL""",
+                        (tid,),
+                    )
+                    await db.commit()
+            elif body.action == "pause":
+                await manager.pause_torrent(tid)
+            elif body.action == "resume":
+                await manager.resume_torrent(tid)
             elif body.action == "remove_label":
                 async with get_db() as db:
                     await db.execute(

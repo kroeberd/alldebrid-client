@@ -1,0 +1,82 @@
+name: Update Unraid Template
+
+# Triggers whenever a new release is created (= after release.yml runs)
+# or manually via workflow_dispatch.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to write into the template (e.g. 1.6.5). Defaults to VERSION file."
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  update-template:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout alldebrid-client
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ -n "${{ github.event.release.tag_name }}" ]; then
+            # Strip leading 'v'
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="$(tr -d '\r\n' < VERSION)"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION"
+
+      - name: Checkout unraid-templates
+        uses: actions/checkout@v4
+        with:
+          repository: kroeberd/unraid-templates
+          token: ${{ secrets.UNRAID_TEMPLATES_PAT }}
+          path: unraid-templates
+
+      - name: Update version in XML template
+        shell: bash
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          FILE="unraid-templates/templates/alldebrid-client.xml"
+
+          # Replace whatever version string is in the Overview heading
+          # Pattern: [b]AllDebrid-Client vX.Y.Z[/b]
+          sed -i "s|\[b\]AllDebrid-Client v[0-9][0-9.]*\[/b\]|[b]AllDebrid-Client v${VERSION}[/b]|g" "$FILE"
+
+          # Update the <Date> field to today
+          TODAY="$(date +%Y-%m-%d)"
+          sed -i "s|<Date>.*</Date>|<Date>${TODAY}</Date>|g" "$FILE"
+
+          echo "Updated template to v${VERSION} (date: ${TODAY})"
+          grep -E "AllDebrid-Client v|<Date>" "$FILE"
+
+      - name: Commit and push
+        shell: bash
+        working-directory: unraid-templates
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add templates/alldebrid-client.xml
+          if git diff --cached --quiet; then
+            echo "No changes to commit (template already up to date)"
+          else
+            git commit -m "chore: update AllDebrid-Client template to v${VERSION}"
+            git push
+            echo "✓ Template pushed to unraid-templates"
+          fi

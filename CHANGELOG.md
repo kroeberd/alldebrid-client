@@ -1,5 +1,70 @@
 # Changelog
 
+## [1.6.6] — 2026-05-11
+
+### Fixed — Torrent details, bulk actions, error filter; Added — Unraid auto-update
+
+#### Fix — Torrent detail modal not opening
+
+`GET /api/torrents/{id}` did not exist as a registered FastAPI endpoint.
+The implementation code had been accidentally placed inside `block_file()`
+after its `return` statement — making it unreachable dead code.
+
+**Fix:** Extracted the torrent detail logic into a proper
+`@router.get("/torrents/{torrent_id}")` endpoint that returns the torrent
+row, its `download_files` and the 50 most recent `events`.
+
+#### Fix — Bulk-action toolbar not visible
+
+The `.bulk-bar` CSS class controls `display:none/flex` via `.bulk-bar.visible`.
+The Torrents view had no `bulk-bar` element at all — `onCheckboxChange()` was
+calling `getElementById('bulk-bar')` on a non-existent element, causing a
+silent JS error that also broke other interactions in the view.
+
+**Fix:** Added the `<div class="bulk-bar" id="bulk-bar">` element to the
+Torrents view HTML, containing:
+- Selected-count label
+- **✕ Delete** — bulk delete from AllDebrid and DB
+- **↺ Reset** — set status back to `ready` (re-queues for next AllDebrid sync)
+- **⏸ Pause** / **▶ Resume**
+- **✕ Clear** — deselect all
+
+Also added the **⟳ Recover All** button to the Torrents input bar.
+
+#### Fix — Bulk reset / pause / resume not implemented in backend
+
+`POST /api/torrents/bulk` handled `delete` and `retry` but not `reset`,
+`pause`, or `resume`. Added all three:
+
+- `reset` — sets `status='ready'`, clears `error_message` and `polling_failures`
+  for torrents that have an `alldebrid_id` (safe to re-queue)
+- `pause` — calls `manager.pause_torrent()`
+- `resume` — calls `manager.resume_torrent()`
+
+#### Fix — Error filter showing no results
+
+The Error filter tab (`setFilter(this,'error')`) was correct, and the backend
+`list_torrents` query (`WHERE t.status = 'error'`) was correct. The filter
+appeared empty because the JS runtime crashed silently on every `showDetail()`
+call attempt (due to the missing `GET /api/torrents/{id}` endpoint returning
+404), leaving the torrent list in a broken state. Fixed as a side-effect of
+the endpoint fix above.
+
+#### Added — Automatic Unraid template update on release
+
+New GitHub Actions workflow: `.github/workflows/update-unraid-template.yml`
+
+Triggers on every published GitHub Release (and manually via
+`workflow_dispatch`). Steps:
+
+1. Checks out `kroeberd/unraid-templates` using `UNRAID_TEMPLATES_PAT` secret
+2. Replaces `[b]AllDebrid-Client vX.Y.Z[/b]` with the new version
+3. Updates the `<Date>` field to the release date
+4. Commits and pushes to `unraid-templates`
+
+The `UNRAID_TEMPLATES_PAT` secret has been set in the repository. It uses the
+same PAT that has write access to `kroeberd/unraid-templates`.
+
 ## [1.6.5] — 2026-05-11
 
 ### Maintenance — German text cleanup, Dependabot PRs, Unraid template update
