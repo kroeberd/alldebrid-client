@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.8.6] — 2026-05-12
+
+### Fixed — Duplicate guard hardening and non-blocking Jackett search aborts
+
+Duplicate Intelligence now also checks existing AllDebrid IDs and `_add_magnet()`
+has its own final duplicate gate immediately before `upload_magnet()`. This
+prevents lower-level or legacy add paths from bypassing the central duplicate
+decision.
+
+`.torrent` uploads now always run through the duplicate service before contacting
+AllDebrid, including watch-folder torrent files. Duplicate warnings are preserved
+in the returned row, and duplicate watch-folder imports no longer send a false
+"added" notification.
+
+The qBittorrent-compatible torrent upload endpoint now passes the uploaded
+filename to `add_torrent_file_direct()`, fixing `.torrent` uploads through the
+qBit API emulation.
+
+Jackett search now wires its `AbortController` into the shared API helper, so a
+new search really aborts the previous request instead of only ignoring stale
+responses.
+
 ## [1.8.5] — 2026-05-12
 
 ### Fixed — PostgreSQL analytics duration query

@@ -422,14 +422,11 @@ class TorrentManager:
         content = path.read_bytes()
         if not content:
             raise ValueError("Empty torrent file")
-        async with self._upload_sem:
-            result = await self.ad().upload_torrent_file(content, path.name)
-        ad_id = str(result.get("id", ""))
-        name = result.get("name") or result.get("filename") or path.stem
-        hash_value = result.get("hash", ad_id).lower()
-        logger.info("Uploaded torrent %s (ad_id=%s)", name, ad_id)
-        await self._upsert(hash_value, None, name, ad_id, "watch_torrent")
-        if get_settings().discord_notify_added:
+        row = await self.add_torrent_file_direct(content, path.name, source="watch_torrent")
+        ad_id = str(row.get("alldebrid_id") or "")
+        name = str(row.get("name") or path.stem)
+        logger.info("Watch torrent processed %s (ad_id=%s)", name, ad_id or "duplicate")
+        if get_settings().discord_notify_added and not row.get("_duplicate"):
             await self.notify().send_added(name, source="watch_torrent", alldebrid_id=ad_id)
         shutil.move(str(path), str(processed / path.name))
 
@@ -508,27 +505,26 @@ class TorrentManager:
                 pass
 
         # ── Duplicate gate ──────────────────────────────────────────────────
-        if local_hash:
-            from services.duplicates import DuplicateCandidate, check_before_add
-            decision = await check_before_add(DuplicateCandidate(
-                source=source,
-                infohash=local_hash,
-                title=Path(filename or "").stem,
-            ))
-            if decision.action == "skip":
-                existing = decision.matches[0] if decision.matches else None
-                result: dict = {}
-                if existing:
-                    try:
-                        async with get_db() as db:
-                            row = await db.fetchone(
-                                "SELECT * FROM torrents WHERE id=?", (existing.torrent_id,)
-                            )
-                        result = dict(row) if row else {}
-                    except Exception:
-                        pass
-                result["_duplicate"] = decision.as_dict()
-                return result
+        from services.duplicates import DuplicateCandidate, check_before_add
+        decision = await check_before_add(DuplicateCandidate(
+            source=source,
+            infohash=local_hash,
+            title=Path(filename or "").stem,
+        ))
+        if decision.action == "skip":
+            existing = decision.matches[0] if decision.matches else None
+            result: dict = {}
+            if existing:
+                try:
+                    async with get_db() as db:
+                        row = await db.fetchone(
+                            "SELECT * FROM torrents WHERE id=?", (existing.torrent_id,)
+                        )
+                    result = dict(row) if row else {}
+                except Exception:
+                    pass
+            result["_duplicate"] = decision.as_dict()
+            return result
         # ───────────────────────────────────────────────────────────────────
 
         async with self._upload_sem:
@@ -539,11 +535,35 @@ class TorrentManager:
         hash_value = str(local_hash or result.get("hash", ad_id) or ad_id).strip().lower()
         logger.info("Torrent file uploaded %s (ad_id=%s)", name, ad_id)
         row = await self._upsert(hash_value, None, name, ad_id, source)
+        if decision.action == "warn":
+            row["_duplicate"] = decision.as_dict()
         if get_settings().discord_notify_added:
             await self.notify().send_added(name, source=source, alldebrid_id=ad_id)
         return row
 
     async def _add_magnet(self, magnet: str, hash_value: str, source: str) -> dict:
+        from services.duplicates import DuplicateCandidate, check_before_add
+
+        decision = await check_before_add(DuplicateCandidate(
+            source=source,
+            magnet=magnet,
+            infohash=hash_value,
+        ))
+        if decision.action == "skip":
+            existing = decision.matches[0] if decision.matches else None
+            result: dict = {}
+            if existing:
+                try:
+                    async with get_db() as db:
+                        row = await db.fetchone(
+                            "SELECT * FROM torrents WHERE id=?", (existing.torrent_id,)
+                        )
+                    result = dict(row) if row else {}
+                except Exception:
+                    pass
+            result["_duplicate"] = decision.as_dict()
+            return result
+
         async with get_db() as db:
             cur = await db.execute("SELECT * FROM torrents WHERE hash=?", (hash_value,))
             existing = await cur.fetchone()
@@ -580,6 +600,8 @@ class TorrentManager:
                 logger.debug("Rule engine evaluation error: %s", exc)
         # ──────────────────────────────────────────────────────────────────
         row = await self._upsert(normalized_hash, magnet, name, ad_id, source)
+        if decision.action == "warn":
+            row["_duplicate"] = decision.as_dict()
         if get_settings().discord_notify_added:
             await self.notify().send_added(name, source=source, alldebrid_id=ad_id)
         return row

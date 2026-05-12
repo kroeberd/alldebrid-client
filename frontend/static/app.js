@@ -68,22 +68,31 @@ function nav(el) {
 }
 
 // ── API ────────────────────────────────────────────────────────────────────
-async function api(method, path, body, timeoutMs) {
+async function api(method, path, body, timeoutMs, options) {
   const opts = {method, headers: {'Content-Type':'application/json'}};
   if (body) opts.body = JSON.stringify(body);
   const ms = timeoutMs || 8000; // default 8s; callers can pass longer for slow operations
   const controller = new AbortController();
-  const tid = setTimeout(() => controller.abort(), ms);
+  let timedOut = false;
+  const tid = setTimeout(() => { timedOut = true; controller.abort(); }, ms);
+  const externalSignal = options && options.signal;
+  const abortFromExternal = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener('abort', abortFromExternal, {once:true});
+  }
   opts.signal = controller.signal;
   try {
     const r = await fetch(API + path, opts);
     clearTimeout(tid);
+    if (externalSignal) externalSignal.removeEventListener('abort', abortFromExternal);
     const data = await r.json().catch(() => ({detail: r.statusText}));
     if (!r.ok) throw new Error(data.detail || r.statusText);
     return data;
   } catch(e) {
     clearTimeout(tid);
-    if (e.name === 'AbortError') throw new Error('Request timed out after ' + Math.round(ms/1000) + 's');
+    if (externalSignal) externalSignal.removeEventListener('abort', abortFromExternal);
+    if (e.name === 'AbortError' && timedOut) throw new Error('Request timed out after ' + Math.round(ms/1000) + 's');
     throw e;
   }
 }
@@ -3358,7 +3367,7 @@ async function jackettSearch() {
     if (epNum)    payload.ep     = epNum;
 
     // 150 s timeout — Jackett with many indexers can take a long time
-    var data = await api('POST', '/jackett/search', payload, 150000);
+    var data = await api('POST', '/jackett/search', payload, 150000, {signal: _jackettSearchController.signal});
 
     // ── Race-condition guard: ignore stale responses ──────────────────────
     if (_jackettSearchReqId !== myReqId) return;

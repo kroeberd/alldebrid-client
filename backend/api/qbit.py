@@ -268,7 +268,7 @@ async def qbit_torrents_add(
     if torrents:
         try:
             data = await torrents.read()
-            await manager.add_torrent_file_direct(data, source="qbit")
+            await manager.add_torrent_file_direct(data, torrents.filename or "upload.torrent", source="qbit")
             logger.info("qBit API: added torrent file %s", torrents.filename)
             return PlainTextResponse("Ok.")
         except Exception as exc:

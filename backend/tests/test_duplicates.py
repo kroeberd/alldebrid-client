@@ -28,6 +28,7 @@ from services.duplicates import (
     normalize_title,
     extract_release_tokens,
     _size_similar,
+    find_alldebrid_id_duplicate,
     find_hash_duplicate,
     find_semantic_duplicates,
     check_before_add,
@@ -214,6 +215,24 @@ class TestFindHashDuplicate:
 
 # ── check_before_add ─────────────────────────────────────────────────────────
 
+class TestFindAllDebridIdDuplicate:
+    @pytest.mark.asyncio
+    async def test_returns_match_for_existing_alldebrid_id(self):
+        fake_row = {"id": 77, "name": "Existing AD Item", "status": "ready", "hash": "ffee"}
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_ctx)
+        mock_ctx.__aexit__  = AsyncMock(return_value=False)
+        mock_ctx.fetchone   = AsyncMock(return_value=fake_row)
+
+        with patch("services.duplicates.get_db", return_value=mock_ctx):
+            match = await find_alldebrid_id_duplicate("123456")
+
+        assert match is not None
+        assert match.torrent_id == 77
+        assert match.reason == "same_alldebrid_id"
+        assert match.confidence == 1.0
+
+
 class TestCheckBeforeAdd:
     @pytest.mark.asyncio
     async def test_allow_when_no_duplicate(self):
@@ -270,6 +289,27 @@ class TestCheckBeforeAdd:
 
 
 # ── Regression: search must NEVER upload ────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_skip_on_existing_alldebrid_id(self):
+        fake_row = {"id": 9, "name": "Already Imported", "status": "ready", "hash": "bead"}
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_ctx)
+        mock_ctx.__aexit__  = AsyncMock(return_value=False)
+        mock_ctx.fetchone   = AsyncMock(return_value=fake_row)
+        mock_ctx.fetchall   = AsyncMock(return_value=[])
+
+        with patch("services.duplicates.get_db", return_value=mock_ctx):
+            decision = await check_before_add(DuplicateCandidate(
+                source="import_existing",
+                alldebrid_id="987654",
+                title="Already Imported",
+            ))
+
+        assert decision.action == "skip"
+        assert decision.reason == "same_alldebrid_id"
+        assert decision.confidence == 1.0
+
 
 class TestSearchReadOnly:
     """

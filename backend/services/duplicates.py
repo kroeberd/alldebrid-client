@@ -42,6 +42,7 @@ class DuplicateCandidate:
     magnet:        str            = ""
     torrent_url:   str            = ""
     infohash:      str            = ""       # normalised lowercase hex
+    alldebrid_id:  str            = ""
     size_bytes:    int            = 0
     indexer:       str            = ""
     category:      str            = ""
@@ -383,6 +384,31 @@ async def check_before_add(candidate: DuplicateCandidate) -> DuplicateDecision:
                 confidence=0.95,
                 action="warn",
                 reason="same_infohash_error_state",
+                matches=[match],
+            )
+
+    # -- Stage 2: AllDebrid ID -----------------------------------------------
+    ad_id = str(candidate.alldebrid_id or "").strip()
+    if ad_id:
+        match = await find_alldebrid_id_duplicate(ad_id)
+        if match:
+            if match.status in _ACTIVE_STATUSES:
+                logger.info(
+                    "Duplicate skip [AllDebrid ID]: '%s' matches existing torrent #%s (%s)",
+                    (candidate.title or ad_id)[:60], match.torrent_id, match.status,
+                )
+                return DuplicateDecision(
+                    is_duplicate=True,
+                    confidence=1.0,
+                    action="skip",
+                    reason="same_alldebrid_id",
+                    matches=[match],
+                )
+            return DuplicateDecision(
+                is_duplicate=True,
+                confidence=0.95,
+                action="warn",
+                reason="same_alldebrid_id_error_state",
                 matches=[match],
             )
 

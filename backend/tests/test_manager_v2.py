@@ -1397,6 +1397,73 @@ class AllDebridServiceTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_add_magnet_final_duplicate_guard_skips_alldebrid_upload(self):
+        from services.duplicates import DuplicateDecision, DuplicateMatch
+
+        mgr = TorrentManager()
+        fake_ad = types.SimpleNamespace(upload_magnet=AsyncMock())
+        mgr.ad = lambda: fake_ad
+
+        decision = DuplicateDecision(
+            is_duplicate=True,
+            confidence=1.0,
+            action="skip",
+            reason="same_infohash",
+            matches=[DuplicateMatch(5, "Existing", "completed", "abc", "same_infohash", 1.0)],
+        )
+
+        fake_db = AsyncMock()
+        fake_db.__aenter__ = AsyncMock(return_value=fake_db)
+        fake_db.__aexit__ = AsyncMock(return_value=False)
+        fake_db.fetchone = AsyncMock(return_value={"id": 5, "name": "Existing", "status": "completed"})
+
+        with patch("services.duplicates.check_before_add", AsyncMock(return_value=decision)), \
+             patch("services.manager_v2.get_db", return_value=fake_db):
+            row = await mgr._add_magnet(
+                "magnet:?xt=urn:btih:abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                "manual",
+            )
+
+        fake_ad.upload_magnet.assert_not_awaited()
+        self.assertEqual(row["id"], 5)
+        self.assertEqual(row["_duplicate"]["action"], "skip")
+
+    async def test_add_torrent_file_duplicate_skips_alldebrid_upload(self):
+        from services.duplicates import DuplicateDecision, DuplicateMatch
+
+        mgr = TorrentManager()
+        mgr.is_paused = lambda: False
+        fake_ad = types.SimpleNamespace(upload_torrent_file=AsyncMock())
+        mgr.ad = lambda: fake_ad
+
+        decision = DuplicateDecision(
+            is_duplicate=True,
+            confidence=1.0,
+            action="skip",
+            reason="same_infohash",
+            matches=[DuplicateMatch(6, "Existing File", "ready", "def", "same_infohash", 1.0)],
+        )
+
+        fake_db = AsyncMock()
+        fake_db.__aenter__ = AsyncMock(return_value=fake_db)
+        fake_db.__aexit__ = AsyncMock(return_value=False)
+        fake_db.fetchone = AsyncMock(return_value={"id": 6, "name": "Existing File", "status": "ready"})
+
+        with patch("services.manager_v2.get_settings", return_value=types.SimpleNamespace(alldebrid_api_key="key")), \
+             patch("services.duplicates.check_before_add", AsyncMock(return_value=decision)), \
+             patch("services.manager_v2.get_db", return_value=fake_db):
+            row = await mgr.add_torrent_file_direct(
+                b"not-a-real-torrent",
+                "existing.torrent",
+                source="manual",
+                preferred_hash="def",
+            )
+
+        fake_ad.upload_torrent_file.assert_not_awaited()
+        self.assertEqual(row["id"], 6)
+        self.assertEqual(row["_duplicate"]["reason"], "same_infohash")
+
     async def test_startup_reconcile_removes_duplicate_aria2_jobs(self):
         mgr = TorrentManager()
         keep = types.SimpleNamespace(
