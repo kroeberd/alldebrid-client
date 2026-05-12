@@ -95,6 +95,17 @@ function toast(msg, type = 'info') {
   setTimeout(() => el.remove(), 3400);
 }
 
+
+function syncMaxDlFields(val) {
+  // Keep both max_concurrent_downloads and aria2_max_active_downloads in sync.
+  // They represent the same setting — how many files download simultaneously.
+  var n = parseInt(val) || 3;
+  var a = document.getElementById('s-max_concurrent_downloads');
+  var b = document.getElementById('s-aria2_max_active_downloads');
+  if (a && a !== document.activeElement) a.value = n;
+  if (b && b !== document.activeElement) b.value = n;
+}
+
 function toggleSymlinkSettings(val) {
   var el = document.getElementById('symlink-settings');
   if (el) el.style.display = (val === 'symlink') ? 'block' : 'none';
@@ -1052,7 +1063,7 @@ function renderSettings() {
         </div>
         <div class="form-group">
           <label class="form-label">Max Concurrent Downloads</label>
-          <input class="input" type="number" id="s-max_concurrent_downloads" value="${s.max_concurrent_downloads??3}" min="1" max="20"/>
+          <input class="input" type="number" id="s-max_concurrent_downloads" value="${s.max_concurrent_downloads??3}" min="1" max="20" onchange="syncMaxDlFields(this.value)"/>
           <span class="form-hint">How many torrents are processed in parallel (unlocked + dispatched to aria2). Default: 3. Higher values increase throughput but also RAM and bandwidth usage. Separate from the aria2 <em>max active downloads</em> setting below.</span>
         </div>
       </div>
@@ -1241,7 +1252,7 @@ function renderSettings() {
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Simultaneous Downloads</label>
-          <input class="input" type="number" id="s-aria2_max_active_downloads" value="${s.aria2_max_active_downloads??s.max_concurrent_downloads??3}" min="1" max="50"/>
+          <input class="input" type="number" id="s-aria2_max_active_downloads" value="${s.aria2_max_active_downloads??s.max_concurrent_downloads??3}" min="1" max="50" onchange="syncMaxDlFields(this.value)"/>
           <span class="form-hint">Only this many files are handed to aria2 at once. Remaining files stay pending until a slot becomes free.</span>
         </div>
         <div class="form-group">
@@ -2044,6 +2055,9 @@ async function saveSettings() {
     toast('Settings saved!','success');
     checkConnections();
     checkFlexgetRunning();
+    // Sync Downloads panel — PUT /settings may have updated aria2 limits,
+    // so reload them from aria2 to keep both views consistent.
+    loadAria2SpeedLimit();
   } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
@@ -3538,39 +3552,61 @@ async function aria2QueueAction(gid, action) {
 async function loadAria2SpeedLimit() {
   try {
     var data = await api('GET', '/aria2/global-options', null, 10000);
-    var bps  = parseInt(data.max_download_speed||0);
-    var maxDl = parseInt(data.max_concurrent_downloads||0) || (settingsData && settingsData.aria2_max_active_downloads) || 3;
-    var sel  = document.getElementById('aria2-speed-preset');
-    var st   = document.getElementById('aria2-speed-status');
-    if (!sel) return;
-    // Match speed preset
-    var found = false;
-    for (var i = 0; i < sel.options.length; i++) {
-      if (sel.options[i].value !== 'custom' && parseInt(sel.options[i].value||0) === bps) {
-        sel.value = sel.options[i].value;
-        found = true; break;
+    var bps   = parseInt(data.max_download_speed || 0);
+    var maxDl = parseInt(data.max_concurrent_downloads || 0)
+                || (settingsData && settingsData.aria2_max_active_downloads)
+                || 3;
+
+    // ── Sync settingsData so PUT /settings uses the live value ───────────
+    if (settingsData) {
+      settingsData.aria2_max_active_downloads = maxDl;
+      settingsData.max_concurrent_downloads   = maxDl;
+      settingsData.aria2_max_download_limit   = bps;
+    }
+    // ── Sync Settings-page inputs (Downloads → Settings, bidirectional) ──
+    var inMcd = document.getElementById('s-max_concurrent_downloads');
+    var inMad = document.getElementById('s-aria2_max_active_downloads');
+    if (inMcd) inMcd.value = maxDl;
+    if (inMad) inMad.value = maxDl;
+
+    // ── Sync speed preset in Downloads panel ─────────────────────────────
+    var sel = document.getElementById('aria2-speed-preset');
+    var st  = document.getElementById('aria2-speed-status');
+    if (sel) {
+      var found = false;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value !== 'custom' && parseInt(sel.options[i].value || 0) === bps) {
+          sel.value = sel.options[i].value;
+          found = true; break;
+        }
       }
+      if (!found) {
+        sel.value = 'custom';
+        var ci = document.getElementById('aria2-speed-custom');
+        var cb = document.getElementById('aria2-speed-apply');
+        if (ci) { ci.style.display = ''; ci.value = Math.round(bps / 1024); }
+        if (cb)   cb.style.display = '';
+      }
+      if (st) st.textContent = bps > 0 ? '(' + fmtSpeed(bps) + ')' : '(unlimited)';
     }
-    if (!found) {
-      sel.value = 'custom';
-      var ci = document.getElementById('aria2-speed-custom');
-      var cb = document.getElementById('aria2-speed-apply');
-      if (ci) { ci.style.display=''; ci.value = Math.round(bps/1024); }
-      if (cb) cb.style.display='';
-    }
-    if (st) st.textContent = bps > 0 ? '(' + fmtSpeed(bps) + ')' : '(unlimited)';
-    // Sync Max DL preset
+
+    // ── Sync Max DL preset in Downloads panel ─────────────────────────────
     var msel = document.getElementById('aria2-maxdl-preset');
     if (msel) {
       var mfound = false;
       for (var j = 0; j < msel.options.length; j++) {
-        if (parseInt(msel.options[j].value) === maxDl) { msel.value = msel.options[j].value; mfound = true; break; }
+        if (parseInt(msel.options[j].value) === maxDl) {
+          msel.value = msel.options[j].value;
+          mfound = true; break;
+        }
       }
       if (!mfound) msel.value = '3';
     }
-    // Update topbar badge limit + max
-    updateAria2TopbarBadge({limitBps: bps, maxDl: maxDl});
-  } catch(e) { /* aria2 might not be connected */ }
+
+    // ── Update topbar badge ───────────────────────────────────────────────
+    updateAria2TopbarBadge({ limitBps: bps, maxDl: maxDl });
+
+  } catch (e) { /* aria2 not connected — silently ignore */ }
 }
 
 async function applyAria2SpeedPreset(val) {

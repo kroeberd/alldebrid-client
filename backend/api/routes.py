@@ -219,6 +219,18 @@ async def update_settings(new: AppSettings):
     if env_db_type == "postgres_internal":
         new = new.model_copy(update={"db_type": "postgres"})
     clean = validate_and_sanitise(new)
+    # ── Sync derived fields before saving ───────────────────────────────────
+    # max_concurrent_downloads is the single source of truth for "how many
+    # parallel downloads".  Keep aria2_max_active_downloads in sync so that
+    # aria2_global_options() (which reads aria2_max_active_downloads) always
+    # sends the correct value to aria2 via apply_aria2_memory_tuning().
+    if getattr(clean, "max_concurrent_downloads", None) is not None:
+        try:
+            clean = clean.model_copy(update={
+                "aria2_max_active_downloads": clean.max_concurrent_downloads
+            })
+        except Exception:
+            pass
     save_settings(clean)
     apply_settings(clean)
     manager.reset_services()

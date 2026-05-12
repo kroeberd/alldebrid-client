@@ -1,5 +1,72 @@
 # Changelog
 
+## [1.6.10] — 2026-05-12
+
+### Fixed — Bidirectional max-downloads sync, Design improvements, Mobile
+
+#### 1. Bidirectional max-downloads synchronization (main bug)
+
+**Root cause:** `max_concurrent_downloads` (Manager Semaphore) and
+`aria2_max_active_downloads` (aria2 RPC option) were two separate config
+fields that could diverge silently.
+
+**Symptom reported:** Changing *max downloads* in **Settings** → **Download
+Client** overwrote the value set in the **Downloads panel** quick-setter.
+The reverse direction (Downloads → Settings) did not propagate back.
+
+**Fix — four coordinated changes:**
+
+1. **`PUT /settings` (backend)** now runs
+   `clean.model_copy(update={"aria2_max_active_downloads": clean.max_concurrent_downloads})`
+   before saving. Every Save always writes both fields to the same value,
+   so `aria2_global_options()` (which reads `aria2_max_active_downloads`)
+   sends the correct limit to aria2.
+
+2. **`loadAria2SpeedLimit()` (frontend)** now also:
+   - writes `settingsData.max_concurrent_downloads` and
+     `settingsData.aria2_max_active_downloads` from the live aria2 value
+   - sets the `s-max_concurrent_downloads` and `s-aria2_max_active_downloads`
+     form inputs so the Settings tab always shows the live value
+
+3. **`saveSettings()` (frontend)** calls `loadAria2SpeedLimit()` after a
+   successful PUT, so the Downloads panel immediately reflects any change
+   made in Settings without requiring a manual refresh.
+
+4. **`syncMaxDlFields(val)` (new frontend function)** — attached as
+   `onchange` to both `s-max_concurrent_downloads` and
+   `s-aria2_max_active_downloads`. Typing in either field instantly mirrors
+   the value to the other, preventing the fields from diverging before Save.
+
+**max speed**: `aria2_max_download_limit` (bytes/s, persisted by
+`POST /aria2/global-options`) and `max_speed_mbps` (legacy field, always 0)
+are handled separately. `loadAria2SpeedLimit` now also writes
+`settingsData.aria2_max_download_limit` from the live aria2 value, keeping
+the speed preset consistent after reload.
+
+#### 2. CSS improvements
+
+| Item | Change |
+|------|--------|
+| `form-hint` | `body.light .form-hint` uses `var(--text2)` for better readability |
+| `.btn:focus-visible` | Added 2px accent outline for keyboard accessibility |
+| `.aria2-err-banner` | CSS class added (was only inline style in HTML) |
+| `settings-grid` | `minmax(min(340px,100%),1fr)` — fills full width on narrow viewports |
+| `.t-name` max-width | `clamp(140px,30vw,380px)` — responsive, not hard-coded 240px |
+
+#### 3. Mobile improvements
+
+- **Settings grid** — collapses to single column at 700px (was two-column regardless)
+- **Downloads view header** — stacks vertically on narrow screens
+- **Filter tabs** — `flex-wrap: wrap` allows tabs to wrap on small screens
+- **Event search row** — stacks vertically on mobile
+
+#### 4. Parallel downloads — confirmed working
+
+The Manager Semaphore now always matches aria2's `max-concurrent-downloads`
+because both fields are kept in sync at save time and at aria2 startup
+(`aria2_global_options()` reads `aria2_max_active_downloads`, which equals
+`max_concurrent_downloads` after this fix).
+
 ## [1.6.9] — 2026-05-12
 
 ### Fixed & Improved — aria2 parallel downloads, Settings race conditions, Dashboard, UI
