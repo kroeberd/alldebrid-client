@@ -1,5 +1,68 @@
 # Changelog
 
+## [1.6.8] — 2026-05-12
+
+### Fixed & Improved — aria2 panel timeout, settings race condition, UI contrast
+
+#### 1 — aria2 Download panel: timeout + auto-recovery
+
+**Root cause:** `api()` has an 8-second default timeout. The `GET /aria2/downloads`
+call can exceed that when aria2 has many completed items to enumerate. On timeout
+the catch block replaced the entire table body with an error message and — crucially —
+did **not** reschedule the polling timer, so the panel went permanently blank.
+
+**Fixes:**
+- `api('GET', '/aria2/downloads', null, 20000)` — explicit 20 s timeout.
+- **Non-destructive error banner** (`#aria2q-err-banner`, added to HTML) — shown
+  on failure without clearing existing table rows, so previously fetched downloads
+  remain visible during a temporary outage.
+- **Always reschedule**, even after errors — `setTimeout(loadAria2QueueView, delay)`
+  runs in every code path (success and failure alike).
+- **Exponential back-off** — 2 s on success, 3 s after 1–3 consecutive errors,
+  10 s after 4+ errors (aria2 restarting).
+- Error counter `_aria2qErrCount` resets to 0 on the next successful response.
+
+#### 2 — Settings: hardcoded values clobbering saved configuration
+
+Two fields in `getFormSettings()` were hardcoded regardless of what the user had
+saved, causing silent data loss on every **Save Settings** click:
+
+| Field | Old value | Fix |
+|-------|-----------|-----|
+| `max_speed_mbps` | always `0` | reads from `settingsData.max_speed_mbps` |
+| `download_client` | always `'aria2'` | reads from the `s-download_client` form field (preserves `'symlink'`) |
+
+Additionally, `applyAria2MaxDlPreset()` wrote the new max-concurrent-downloads
+value into `settingsData.aria2_max_active_downloads` but did **not** sync the
+`s-max_concurrent_downloads` form input. A subsequent **Save Settings** would
+then read the stale input value and overwrite the change. Fixed by syncing both
+the `s-max_concurrent_downloads` and `s-aria2_max_active_downloads` inputs when
+the quick-setter is used.
+
+#### 3 — Config page: missing descriptions
+
+Added `form-hint` descriptions for:
+- **Max Concurrent Downloads** — explains the difference from aria2's own
+  max-active-downloads, recommends default of 3, mentions RAM/bandwidth trade-off.
+- **aria2 Poll Interval** — clarifies unit (seconds), typical range, and effect
+  on UI responsiveness.
+
+#### 5 — Dark / Light mode contrast
+
+| Item | Change |
+|------|--------|
+| `badge-queued` | `#93c5fd` → `var(--blue)` — `#93c5fd` is near-white in light mode |
+| `badge-completed` | `#4ade80` → `var(--green)` — consistent with other badges |
+| `:disabled` opacity | `.5` → `.45` (dark) / `.55` (light) — better visibility in both modes |
+| `form-hint` text | light mode now uses `var(--text2)` for improved readability |
+| `::placeholder` | light mode boosts opacity slightly for better contrast |
+
+#### 6 — Quality assurance
+
+- 228/228 backend tests passing
+- JS syntax verified (`node --check`)
+- All existing functions preserved
+
 ## [1.6.7] — 2026-05-11
 
 ### Fixed — No-peer (code 8) errors not being cleaned up

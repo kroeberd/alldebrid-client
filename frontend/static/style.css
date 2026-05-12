@@ -246,7 +246,8 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 .btn-blue { background: rgba(59,130,246,.15); color: var(--blue); border: 1px solid rgba(59,130,246,.25); }
 .btn-blue:hover { background: rgba(59,130,246,.25); }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+body.light :disabled { opacity: .55; }
 
 /* ── Views ── */
 .view { display: none !important; }
@@ -382,6 +383,7 @@ body.light .changelog-shell {
   outline: none; transition: border-color .15s, box-shadow .15s, background .15s; width: 100%; }
 .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,140,66,.16); background: var(--surface); }
 .input::placeholder { color: var(--text3); }
+body.light .input::placeholder { color: var(--text2); opacity: .7; }
 .input-row { display: flex; gap: 8px; }
 .input-row .input { flex: 1; }
 
@@ -403,11 +405,11 @@ td { padding: 11px 16px; vertical-align: middle; }
 .badge-pending    { background: rgba(100,116,139,.12); color: var(--text2); }
 .badge-uploading  { background: rgba(59,130,246,.14); color: var(--blue); }
 .badge-processing { background: rgba(168,85,247,.14); color: var(--purple); }
-.badge-queued     { background: rgba(59,130,246,.12); color: #93c5fd; }
+.badge-queued     { background: rgba(59,130,246,.14); color: var(--blue); }
 .badge-paused     { background: rgba(234,179,8,.14); color: var(--yellow); }
 .badge-downloading{ background: rgba(34,197,94,.12);  color: var(--green); }
 .badge-ready      { background: rgba(234,179,8,.12);  color: var(--yellow); }
-.badge-completed  { background: rgba(34,197,94,.16);  color: #4ade80; }
+.badge-completed  { background: rgba(34,197,94,.16);  color: var(--green); }
 .badge-error      { background: rgba(239,68,68,.14);  color: var(--red); }
 .badge-partial    { background: rgba(234,179,8,.14);  color: var(--yellow); }
 .badge-deleted    { background: rgba(100,116,139,.08);color: var(--text3); }

@@ -1053,6 +1053,7 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">Max Concurrent Downloads</label>
           <input class="input" type="number" id="s-max_concurrent_downloads" value="${s.max_concurrent_downloads??3}" min="1" max="20"/>
+          <span class="form-hint">How many torrents are processed in parallel (unlocked + dispatched to aria2). Default: 3. Higher values increase throughput but also RAM and bandwidth usage. Separate from the aria2 <em>max active downloads</em> setting below.</span>
         </div>
       </div>
     </div>
@@ -1924,8 +1925,9 @@ function getFormSettings() {
     alldebrid_agent:   t('alldebrid_agent')||'AllDebrid-Client',
     watch_folder: t('watch_folder'), processed_folder: t('processed_folder'),
     download_folder: t('download_folder'), max_concurrent_downloads: n('max_concurrent_downloads', 3),
-    max_speed_mbps: 0,
-    download_client: 'aria2',
+    max_speed_mbps: (settingsData && settingsData.max_speed_mbps != null)
+                   ? settingsData.max_speed_mbps : 0,
+    download_client: t('download_client') || (settingsData && settingsData.download_client) || 'aria2',
     aria2_mode: t('aria2_mode') || 'builtin',
     aria2_url: (t('aria2_mode') || 'external') === 'builtin' ? (settingsData.aria2_url || 'http://127.0.0.1:6800/jsonrpc') : t('aria2_url'),
     aria2_secret: (t('aria2_mode') || 'external') === 'builtin' ? (settingsData.aria2_secret || '') : t('aria2_secret'),
@@ -3356,40 +3358,92 @@ function updateJackettNav() {
 
 var _aria2qTimer = null;
 
+// Consecutive error counter for the aria2 download panel — used to
+// back off the polling interval after repeated failures so we don't
+// flood logs when aria2 is restarting or temporarily unreachable.
+var _aria2qErrCount = 0;
+
 async function loadAria2QueueView() {
   clearTimeout(_aria2qTimer);
-  // Event-Delegation für Action-Buttons (einmalig registrieren)
+  var isActive = !!(document.getElementById('view-aria2queue')
+                    ?.classList.contains('active'));
+
+  // Event-delegation for action buttons (register once per tbody lifetime)
   var tb2 = document.getElementById('aria2q-tbody');
   if (tb2 && !tb2._delegated) {
     tb2._delegated = true;
     tb2.addEventListener('click', function(e) {
       var btn = e.target.closest('[data-gid]');
       if (!btn) return;
-      var gid = decodeURIComponent(btn.getAttribute('data-gid')||'');
-      var act = btn.getAttribute('data-act')||'';
+      var gid = decodeURIComponent(btn.getAttribute('data-gid') || '');
+      var act = btn.getAttribute('data-act') || '';
       if (gid && act) aria2QueueAction(gid, act);
     });
   }
+
   try {
-    var data = await api('GET', '/aria2/downloads');
+    // Use a 20 s timeout — aria2 can be slow when it has many completed items.
+    // The default 8 s is too short and causes spurious "Request timed out" errors
+    // that blank the panel and stop the poll loop.
+    var data = await api('GET', '/aria2/downloads', null, 20000);
+    _aria2qErrCount = 0;                 // reset error streak on success
+
+    // Hide error banner (if shown from a previous failure)
+    var errBanner = document.getElementById('aria2q-err-banner');
+    if (errBanner) errBanner.style.display = 'none';
+
     renderAria2QueueView(data);
+
     // Refresh sidebar badge
     var badge = document.getElementById('nb-aria2-active');
-    var cnt = (data.summary || {}).active || 0;
+    var cnt   = (data.summary || {}).active || 0;
     if (badge) { badge.textContent = cnt; badge.style.display = cnt > 0 ? '' : 'none'; }
+
     // Update topbar badge: active count + live speed
-    var liveBps = (data.summary || {}).download_speed || 0;
-    updateAria2TopbarBadge({active: cnt, liveBps: liveBps});
-    // Auto-refresh every 4s while view is active
-    if (document.getElementById('view-aria2queue') &&
-        document.getElementById('view-aria2queue').classList.contains('active')) {
-      _aria2qTimer = setTimeout(loadAria2QueueView, 1000);
-    }
-    // Read current speed limit
+    updateAria2TopbarBadge({
+      active:  cnt,
+      liveBps: (data.summary || {}).download_speed || 0,
+    });
+
+    // Sync speed / max-concurrent controls
     loadAria2SpeedLimit();
+
   } catch(e) {
-    var tb = document.getElementById('aria2q-tbody');
-    if (tb) tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--red);padding:24px">Error: ' + esc(e.message) + '</td></tr>';
+    _aria2qErrCount++;
+
+    // Show a non-destructive error banner above the existing table rows
+    // so previously fetched rows stay visible during a temporary outage.
+    var errBanner = document.getElementById('aria2q-err-banner');
+    if (errBanner) {
+      errBanner.style.display = '';
+      errBanner.innerHTML =
+        '<span style="color:var(--red)">&#9888; aria2 unreachable</span>'
+        + ' <span style="color:var(--text2);font-size:11px">('
+        + esc(e.message || 'unknown error') + ')'
+        + ' — retrying in ' + (_aria2qErrCount > 3 ? '10' : '3') + ' s</span>';
+    } else {
+      // Fallback: only replace tbody when it contains no real rows yet
+      var tb = document.getElementById('aria2q-tbody');
+      var hasRows = tb && tb.querySelector('tr[data-gid]');
+      if (tb && !hasRows) {
+        tb.innerHTML =
+          '<tr><td colspan="7" style="text-align:center;padding:32px">'
+          + '<div style="color:var(--red);margin-bottom:6px">&#9888; aria2 unreachable</div>'
+          + '<div style="color:var(--text2);font-size:12px">' + esc(e.message || '') + '</div>'
+          + '<div style="color:var(--text3);font-size:11px;margin-top:6px">Retrying automatically…</div>'
+          + '</td></tr>';
+      }
+    }
+  }
+
+  // Always reschedule while the view is active — even after errors.
+  // Use an exponential back-off: 2 s on success, 3 s after 1–3 errors,
+  // 10 s after 4+ consecutive errors (aria2 likely restarting).
+  if (isActive) {
+    var delay = _aria2qErrCount === 0 ? 2000
+               : _aria2qErrCount < 4  ? 3000
+               :                        10000;
+    _aria2qTimer = setTimeout(loadAria2QueueView, delay);
   }
 }
 
@@ -3585,6 +3639,12 @@ async function applyAria2MaxDlPreset(val) {
     // Keep settingsData in sync so subsequent PUT /settings calls don't
     // overwrite this value with the stale cached number.
     if (settingsData) settingsData.aria2_max_active_downloads = n;
+    // Also sync the Settings-page input so a subsequent PUT /settings does not
+    // clobber this value with a stale number from the form field.
+    var maxDlInput = document.getElementById('s-max_concurrent_downloads');
+    if (maxDlInput) maxDlInput.value = n;
+    var maxDlInput2 = document.getElementById('s-aria2_max_active_downloads');
+    if (maxDlInput2) maxDlInput2.value = n;
     if (st) { st.style.color='var(--green)'; st.textContent=n+' active'; }
     setTimeout(function(){ if(st) st.style.color='var(--text2)'; st.textContent=''; }, 3000);
     updateAria2TopbarBadge({maxDl: n});

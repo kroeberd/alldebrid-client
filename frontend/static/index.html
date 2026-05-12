@@ -558,6 +558,12 @@
         <span style="font-size:12px;color:var(--text2)">Loading&#8230;</span>
       </div>
 
+      <!-- Non-destructive error banner: shown on temporary aria2 failures -->
+      <div id="aria2q-err-banner"
+           style="display:none;padding:8px 14px;background:rgba(239,68,68,.1);
+                  border:1px solid rgba(239,68,68,.25);border-radius:var(--radius);
+                  margin-bottom:10px;font-size:12px;line-height:1.5"></div>
+
       <!-- Queue table -->
       <div class="card" style="padding:0;overflow-x:auto">
         <table class="t-table" id="aria2q-table" style="min-width:660px">
