@@ -40,3 +40,4 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+backend/tests/_tmp_watch_scan/
