@@ -356,3 +356,28 @@ class TestSearchReadOnly:
                     infohash="abc123",
                 ))
                 mock_upload.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_preview_route_does_not_upload_to_alldebrid(self):
+        from api.routes import check_torrent_duplicate
+
+        duplicate = {
+            "is_duplicate": False,
+            "confidence": 0.0,
+            "action": "allow",
+            "reason": "no_duplicate_found",
+            "matches": [],
+        }
+        decision = MagicMock()
+        decision.as_dict.return_value = duplicate
+
+        with patch("services.duplicates.check_before_add", AsyncMock(return_value=decision)) as mock_check:
+            with patch("services.alldebrid.AllDebridService.upload_magnet") as mock_upload:
+                result = await check_torrent_duplicate({
+                    "title": "Preview Only",
+                    "hash": "abcdef1234567890abcdef1234567890abcdef12",
+                })
+
+        mock_check.assert_awaited_once()
+        mock_upload.assert_not_called()
+        assert result["duplicate"]["action"] == "allow"

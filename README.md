@@ -192,6 +192,7 @@ Available metrics: `alldebrid_torrents_by_status`, `alldebrid_active_downloads`,
 |--------|------|-------------|
 | `GET` | `/api/torrents` | List torrents (status filter, search, pagination) |
 | `POST` | `/api/torrents/add-magnet` | Add magnet link |
+| `POST` | `/api/torrents/check-duplicate` | Read-only duplicate preview before adding |
 | `POST` | `/api/torrents/import-existing` | Import all AllDebrid magnets not yet in local DB |
 | `POST` | `/api/torrents/recover-all` | Reset stuck torrents and dispatch all ready AllDebrid magnets |
 | `GET` | `/api/torrents/diagnose` | Status breakdown and sample of non-terminal torrents |

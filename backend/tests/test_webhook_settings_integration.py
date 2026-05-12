@@ -166,6 +166,12 @@ class _FakeDb:
         self.fetchone_calls.append((sql, list(params)))
         return {"cnt": self.total}
 
+    async def execute(self, sql, params=()):
+        return None
+
+    async def commit(self):
+        return None
+
 
 @asynccontextmanager
 async def _fake_db_context(db):
@@ -228,6 +234,7 @@ class JackettRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result["results"][0]["already_added"])
         self.assertEqual(result["results"][0]["existing_torrent_id"], 7)
         self.assertEqual(result["results"][0]["existing_status"], "completed")
+        self.assertEqual(result["results"][0]["duplicate"]["action"], "skip")
         self.assertFalse(result["results"][1]["already_added"])
 
     async def test_jackett_search_can_hide_dead_torrents(self):
@@ -392,6 +399,67 @@ class JackettRouteTests(unittest.IsolatedAsyncioTestCase):
         add_torrent_mock.assert_not_awaited()
         add_magnet_mock.assert_awaited_once()
         self.assertEqual(result["added_via"], "magnet_fallback")
+
+    async def test_check_duplicate_endpoint_is_read_only(self):
+        duplicate = {
+            "is_duplicate": True,
+            "confidence": 1.0,
+            "action": "skip",
+            "reason": "same_infohash",
+            "matches": [],
+        }
+        decision = SimpleNamespace(as_dict=lambda: duplicate)
+        with patch("services.duplicates.check_before_add", AsyncMock(return_value=decision)) as check_mock, \
+             patch("services.alldebrid.AllDebridService.upload_magnet", AsyncMock()) as upload_mock:
+            result = await routes.check_torrent_duplicate({
+                "hash": "abcdef1234567890abcdef1234567890abcdef12",
+                "title": "Example",
+                "source": "test",
+            })
+
+        check_mock.assert_awaited_once()
+        upload_mock.assert_not_awaited()
+        self.assertEqual(result["duplicate"]["action"], "skip")
+
+    async def test_saved_search_auto_add_prefers_jackett_torrent_file(self):
+        search = {
+            "id": 42,
+            "query": "example",
+            "auto_add": True,
+            "min_seeders": 1,
+            "max_size_gb": 0,
+            "min_size_gb": 0,
+            "regex_filter": "",
+        }
+        cfg = SimpleNamespace(prowlarr_enabled=False, jackett_enabled=True)
+        db = _FakeDb(rows=[], total=0)
+        result_row = {"id": 9, "status": "uploading"}
+        with patch("core.config.get_settings", return_value=cfg), \
+             patch("services.jackett.search", AsyncMock(return_value={
+                 "results": [{
+                     "title": "Example",
+                     "source": "jackett",
+                     "torrent_url": "http://jackett/item.torrent",
+                     "magnet": "magnet:?xt=urn:btih:abcdef1234567890abcdef1234567890abcdef12",
+                     "hash": "abcdef1234567890abcdef1234567890abcdef12",
+                     "seeders": 5,
+                     "size_bytes": 123,
+                 }]
+             })), \
+             patch("services.jackett.download_torrent_file", AsyncMock(return_value={
+                 "filename": "item.torrent",
+                 "content": b"torrent-data",
+                 "infohash": "abcdef1234567890abcdef1234567890abcdef12",
+             })) as download_mock, \
+             patch.object(routes.manager, "add_torrent_file_direct", AsyncMock(return_value=result_row)) as add_torrent_mock, \
+             patch.object(routes.manager, "add_magnet_direct", AsyncMock()) as add_magnet_mock, \
+             patch("db.database.get_db", return_value=_fake_db_context(db)):
+            result = await routes._execute_saved_search(search)
+
+        download_mock.assert_awaited_once()
+        add_torrent_mock.assert_awaited_once()
+        add_magnet_mock.assert_not_awaited()
+        self.assertEqual(result["added_count"], 1)
 
 
 class FlexGetRouteTests(unittest.IsolatedAsyncioTestCase):

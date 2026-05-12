@@ -112,6 +112,25 @@ def _jackett_title_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", stem)
 
 
+def _duplicate_candidate_from_payload(payload: dict, source: str = "preview"):
+    """Build a read-only duplicate-check candidate from API/search payload data."""
+    from services.duplicates import DuplicateCandidate
+
+    return DuplicateCandidate(
+        source=source,
+        title=str(payload.get("title") or payload.get("name") or "").strip(),
+        magnet=str(payload.get("magnet") or "").strip(),
+        torrent_url=str(payload.get("torrent_url") or "").strip(),
+        infohash=str(payload.get("hash") or payload.get("infohash") or "").strip().lower(),
+        alldebrid_id=str(payload.get("alldebrid_id") or "").strip(),
+        size_bytes=int(payload.get("size_bytes") or payload.get("size") or 0),
+        indexer=str(payload.get("indexer") or "").strip(),
+        category=str(payload.get("category") or "").strip(),
+        imdb_id=str(payload.get("imdb_id") or payload.get("imdbid") or "").strip(),
+        tmdb_id=str(payload.get("tmdb_id") or payload.get("tmdbid") or "").strip(),
+    )
+
+
 def _public_base_url(request: Request) -> str:
     """Return the externally reachable base URL for generated links."""
     configured = (os.getenv("PUBLIC_BASE_URL", "") or "").strip().rstrip("/")
@@ -566,6 +585,18 @@ async def add_magnet(body: dict):
         return row
     except Exception as e:
         raise HTTPException(400, _sanitize_error(e))
+
+
+@router.post("/torrents/check-duplicate")
+async def check_torrent_duplicate(body: dict):
+    """Read-only duplicate preview. Never uploads/imports anything to AllDebrid."""
+    from services.duplicates import check_before_add
+
+    candidate = _duplicate_candidate_from_payload(body, source=str(body.get("source") or "preview"))
+    if not (candidate.infohash or candidate.magnet or candidate.title or candidate.alldebrid_id):
+        raise HTTPException(400, "title, magnet, hash, infohash, or alldebrid_id is required")
+    decision = await check_before_add(candidate)
+    return {"ok": True, "duplicate": decision.as_dict()}
 
 
 @router.post("/torrents/import-existing")
@@ -1634,6 +1665,33 @@ async def jackett_search(body: dict):
         item["already_added"] = bool(existing)
         item["existing_torrent_id"] = existing["id"] if existing else None
         item["existing_status"] = existing["status"] if existing else ""
+        if existing:
+            item["duplicate"] = {
+                "is_duplicate": True,
+                "confidence": 1.0,
+                "action": "skip",
+                "reason": "existing_search_match",
+                "matches": [{
+                    "torrent_id": existing["id"],
+                    "name": existing["name"],
+                    "status": existing["status"],
+                    "hash": existing["hash"],
+                    "reason": "existing_search_match",
+                    "confidence": 1.0,
+                }],
+            }
+        else:
+            try:
+                from services.duplicates import check_before_add
+                decision = await check_before_add(_duplicate_candidate_from_payload(item, source="jackett_search"))
+                item["duplicate"] = decision.as_dict()
+                if decision.action == "skip" and decision.matches:
+                    match = decision.matches[0]
+                    item["already_added"] = True
+                    item["existing_torrent_id"] = match.torrent_id
+                    item["existing_status"] = match.status
+            except Exception as exc:
+                logger.debug("Jackett duplicate preview failed: %s", sanitize_exception(exc))
     return result
 
 
@@ -2083,7 +2141,8 @@ async def _execute_saved_search(search: dict) -> dict:
         if getattr(cfg, "prowlarr_enabled", False):
             try:
                 from services.prowlarr import search as pr_search
-                raw_results = await pr_search(query, limit=50)
+                pr_payload = await pr_search(query, limit=50)
+                raw_results = pr_payload.get("results", []) if isinstance(pr_payload, dict) else (pr_payload or [])
             except Exception as exc:
                 logger.debug("saved_search: Prowlarr failed: %s", exc)
 
@@ -2091,7 +2150,8 @@ async def _execute_saved_search(search: dict) -> dict:
         if not raw_results and getattr(cfg, "jackett_enabled", False):
             try:
                 from services.jackett import search as jk_search
-                raw_results = await jk_search(query)
+                jk_payload = await jk_search(query)
+                raw_results = jk_payload.get("results", []) if isinstance(jk_payload, dict) else (jk_payload or [])
             except Exception as exc:
                 logger.debug("saved_search: Jackett failed: %s", exc)
 
@@ -2125,6 +2185,29 @@ async def _execute_saved_search(search: dict) -> dict:
         if search.get("auto_add") and filtered:
             for result in filtered[:10]:  # max 10 per run to avoid spam
                 magnet = result.get("magnet", "")
+                torrent_url = (result.get("torrent_url") or "").strip()
+                added = False
+                if torrent_url and str(result.get("source") or "").lower() == "jackett":
+                    try:
+                        from services.jackett import download_torrent_file
+                        from services.manager_v2 import manager
+                        payload = await download_torrent_file(torrent_url)
+                        await manager.add_torrent_file_direct(
+                            payload["content"],
+                            payload.get("filename") or f"{result.get('title') or 'saved-search'}.torrent",
+                            source="saved_search",
+                            preferred_hash=(
+                                str(result.get("hash") or "").strip().lower()
+                                or str(payload.get("infohash") or "").strip().lower()
+                                or None
+                            ),
+                        )
+                        added_count += 1
+                        added = True
+                    except Exception as exc:
+                        logger.debug("saved_search torrent-file auto-add failed: %s", sanitize_exception(exc))
+                if added:
+                    continue
                 if not magnet:
                     continue
                 try:
@@ -2132,7 +2215,7 @@ async def _execute_saved_search(search: dict) -> dict:
                     await manager.add_magnet_direct(magnet, source="saved_search")
                     added_count += 1
                 except Exception as exc:
-                    logger.debug("saved_search auto-add failed: %s", exc)
+                    logger.debug("saved_search auto-add failed: %s", sanitize_exception(exc))
 
         # Update last_run_at
         from db.database import get_db as _gdb
@@ -2144,7 +2227,7 @@ async def _execute_saved_search(search: dict) -> dict:
             await db.commit()
 
     except Exception as exc:
-        logger.error("saved_search execution error: %s", exc)
+        logger.error("saved_search execution error: %s", sanitize_exception(exc))
 
     return {"results_count": results_count, "added_count": added_count}
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.8.8] - 2026-05-12
+
+### Added - Read-only duplicate preview and safer saved-search adding
+
+Added `POST /api/torrents/check-duplicate`, a read-only duplicate preview
+endpoint that uses the central Duplicate Intelligence service without uploading
+or importing anything to AllDebrid.
+
+Jackett search results now include a `duplicate` decision payload alongside the
+existing `already_added` fields, so the UI can surface the same duplicate state
+that add flows use.
+
+Saved Search auto-add now normalizes Jackett/Prowlarr result payloads correctly
+and prefers Jackett `.torrent` downloads before falling back to magnet links.
+This keeps automated searches aligned with the manual Jackett add flow and keeps
+the duplicate gate in front of every real AllDebrid upload.
+
 ## [1.8.7] - 2026-05-12
 
 ### Fixed - Docker-safe logging and startup output
