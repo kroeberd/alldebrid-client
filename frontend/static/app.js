@@ -1276,6 +1276,7 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">aria2 Split Connections</label>
           <input class="input" type="number" id="s-aria2_split" value="${s.aria2_split??8}" min="1" max="64"/>
+          <span class="form-hint">Parallel connections per file. Default: 8. Higher = faster single-file downloads. Capped by <em>Max connections per server</em>.</span>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Min Split Size</label>
@@ -1288,6 +1289,7 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">aria2 Disk Cache</label>
           <input class="input" id="s-aria2_disk_cache" value="${s.aria2_disk_cache||'64M'}" placeholder="64M"/>
+          <span class="form-hint">Write buffer size. Format: <code>0</code>, <code>64M</code>, <code>128M</code>. Default: 64M. A small cache reduces disk I/O on HDD or FUSE mounts.</span>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 File Allocation</label>
@@ -1692,6 +1694,7 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">AllDebrid Poll Interval (seconds)</label>
             <input class="input" type="number" id="s-poll_interval_seconds" value="${s.poll_interval_seconds??30}" min="10"/>
+          <span class="form-hint">How often to ask AllDebrid for torrent status. Default: 30 s. Minimum: 10 s. Lower = faster detection but more API calls.</span>
         </div>
         <div class="form-group">
           <label class="form-label">Watch Folder Scan (seconds)</label>
@@ -2000,7 +2003,6 @@ function getFormSettings() {
     stats_snapshot_interval_minutes: n('stats_snapshot_interval_minutes'),
     stats_snapshot_keep_days: n('stats_snapshot_keep_days'),
     stats_report_interval_hours: n('stats_report_interval_hours'),
-    stats_report_window_hours:    n('stats_report_window_hours'),
     // Jackett
     jackett_enabled:     c('jackett_enabled'),
     jackett_url:         t('jackett_url'),
@@ -3535,7 +3537,7 @@ async function aria2QueueAction(gid, action) {
 
 async function loadAria2SpeedLimit() {
   try {
-    var data = await api('GET', '/aria2/global-options');
+    var data = await api('GET', '/aria2/global-options', null, 10000);
     var bps  = parseInt(data.max_download_speed||0);
     var maxDl = parseInt(data.max_concurrent_downloads||0) || (settingsData && settingsData.aria2_max_active_downloads) || 3;
     var sel  = document.getElementById('aria2-speed-preset');
@@ -3638,9 +3640,13 @@ async function applyAria2MaxDlPreset(val) {
     await api('POST', '/aria2/global-options', {max_concurrent_downloads: n});
     // Keep settingsData in sync so subsequent PUT /settings calls don't
     // overwrite this value with the stale cached number.
-    if (settingsData) settingsData.aria2_max_active_downloads = n;
-    // Also sync the Settings-page input so a subsequent PUT /settings does not
-    // clobber this value with a stale number from the form field.
+    if (settingsData) {
+      // Keep BOTH config fields in sync so a subsequent PUT /settings and a
+      // Manager Semaphore reset both use the updated value.
+      settingsData.aria2_max_active_downloads = n;
+      settingsData.max_concurrent_downloads   = n;
+    }
+    // Sync Settings-page inputs so a subsequent Save Settings does not clobber.
     var maxDlInput = document.getElementById('s-max_concurrent_downloads');
     if (maxDlInput) maxDlInput.value = n;
     var maxDlInput2 = document.getElementById('s-aria2_max_active_downloads');

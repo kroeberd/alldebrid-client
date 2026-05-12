@@ -1459,7 +1459,12 @@ async def aria2_set_global_options(body: dict):
     if "max_concurrent_downloads" in body:
         val = max(1, int(body["max_concurrent_downloads"]))
         options["max-concurrent-downloads"] = str(val)
+        # Persist in BOTH fields so aria2 startup and the Manager Semaphore
+        # use the same value.  Previously only aria2_max_active_downloads was
+        # written, causing the Manager Semaphore (which reads max_concurrent_downloads)
+        # to diverge from aria2 after a quick-setter change.
         cfg_updates["aria2_max_active_downloads"] = val
+        cfg_updates["max_concurrent_downloads"] = val
     if not options:
         raise HTTPException(400, "No valid options provided")
     try:
@@ -1470,6 +1475,10 @@ async def aria2_set_global_options(body: dict):
             for k, v in cfg_updates.items():
                 setattr(current, k, v)
             save_settings(current)
+        # If max_concurrent_downloads changed, reset the Manager Semaphore so
+        # the next _start_download picks up the new limit immediately.
+        if "max_concurrent_downloads" in cfg_updates:
+            manager.reset_services()
         return {"ok": True, "applied": options}
     except Exception as e:
         raise HTTPException(502, _sanitize_error(e))

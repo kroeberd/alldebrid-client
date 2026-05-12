@@ -1,5 +1,74 @@
 # Changelog
 
+## [1.6.9] — 2026-05-12
+
+### Fixed & Improved — aria2 parallel downloads, Settings race conditions, Dashboard, UI
+
+#### 1. Code cleanup
+
+- **`stats_report_window_hours` duplicate removed** — `getFormSettings()` had an
+  early `n('stats_report_window_hours')` entry that was immediately overwritten by
+  the correct `reportWindowHours` value later in the same object literal. The dead
+  first entry has been removed.
+- **Config form-hints added** for `aria2 Split Connections` (parallel connections
+  per file, capped by max-connections-per-server), `aria2 Disk Cache` (write buffer
+  with format examples), and `AllDebrid Poll Interval` (min/default/effect).
+- `loadAria2SpeedLimit` timeout raised from 8 s (default) to 10 s for consistency
+  with other aria2 calls.
+
+#### 2. aria2 parallel downloads — three-layer fix
+
+**Root cause:** changing max concurrent downloads via the Downloads panel
+quick-setter (`↕ Max DL`) updated aria2 via RPC and persisted
+`aria2_max_active_downloads` to settings.json, but **not**
+`max_concurrent_downloads`. The Manager Semaphore (which gates how many torrents
+are dispatched to aria2 at once) reads `max_concurrent_downloads` and was never
+reset, so it kept the old limit until the next container restart.
+
+**Fix — three coordinated changes:**
+
+1. **Backend `POST /aria2/global-options`** now persists **both**
+   `aria2_max_active_downloads` and `max_concurrent_downloads` when
+   `max_concurrent_downloads` is included in the body. Previously only the aria2
+   field was written.
+
+2. **Backend** calls `manager.reset_services()` after persisting the new
+   `max_concurrent_downloads` so the lazy-initialised Semaphore is discarded
+   immediately. The next `_start_download` call recreates it with the new limit.
+
+3. **Frontend `applyAria2MaxDlPreset`** now updates
+   `settingsData.max_concurrent_downloads` (in addition to
+   `aria2_max_active_downloads`) so a subsequent **Save Settings** PUT does not
+   clobber the live-applied value.
+
+#### 3. Dashboard & Torrents — Button layout
+
+The **⬇ Import from AllDebrid** and **⟳ Recover All** buttons were cramped into
+the same `input-row` as the magnet-link input and primary Add button, causing
+horizontal overflow on narrow screens and making Recover All look like a standard
+input action.
+
+Both views (Dashboard and Torrents) now place Import and Recover All in a
+separate `flex-wrap` row below the Add input, using `btn-sm` sizing. This matches
+the pattern used in the Jackett Search view and improves clarity on all screen widths.
+
+#### 4. CSS — `btn-warn` added
+
+`btn-warn` was referenced throughout the HTML (Dashboard, Torrents view) but had
+no CSS rule — the button rendered as an unstyled browser default. Added:
+
+```css
+.btn-warn   { background: rgba(234,179,8,.12);  color: var(--yellow);
+              border: 1px solid rgba(234,179,8,.25); }
+.btn-warn:hover { background: rgba(234,179,8,.2); border-color: rgba(234,179,8,.5); }
+```
+
+#### 5. Light Mode improvements
+
+- **`insight-card`** (Dashboard KPI grid): `rgba(255,255,255,.04)` was near-invisible
+  on a white background. Light mode now uses `var(--surface2)` for a visible card.
+- **`input-row`**: added `flex-wrap: wrap` so buttons don't overflow on narrow viewports.
+
 ## [1.6.8] — 2026-05-12
 
 ### Fixed & Improved — aria2 panel timeout, settings race condition, UI contrast

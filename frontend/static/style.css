@@ -242,6 +242,8 @@ nav { flex: 1; padding: 10px 0; overflow-y: auto; }
 .btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
 .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
 .btn-danger { background: rgba(239,68,68,.12); color: var(--red); border: 1px solid rgba(239,68,68,.25); }
+.btn-warn   { background: rgba(234,179,8,.12);  color: var(--yellow); border: 1px solid rgba(234,179,8,.25); }
+.btn-warn:hover { background: rgba(234,179,8,.2); border-color: rgba(234,179,8,.5); }
 .btn-danger:hover { background: rgba(239,68,68,.22); }
 .btn-blue { background: rgba(59,130,246,.15); color: var(--blue); border: 1px solid rgba(59,130,246,.25); }
 .btn-blue:hover { background: rgba(59,130,246,.25); }
@@ -293,6 +295,7 @@ body.light :disabled { opacity: .55; }
 .hero-copy { color:var(--text2); font-size:13px; line-height:1.5; max-width:58ch; }
 .insight-grid { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap:12px; margin-top:18px; }
 .insight-card { background: rgba(255,255,255,.04); border:1px solid var(--border); border-radius: 10px; padding:12px; }
+body.light .insight-card { background: var(--surface2); }
 .insight-k { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:.1em; font-weight:700; margin-bottom:6px; }
 .insight-v { font-size:22px; font-weight:800; color:var(--text); }
 .insight-s { font-size:11px; color:var(--text2); margin-top:4px; }
@@ -384,7 +387,7 @@ body.light .changelog-shell {
 .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,140,66,.16); background: var(--surface); }
 .input::placeholder { color: var(--text3); }
 body.light .input::placeholder { color: var(--text2); opacity: .7; }
-.input-row { display: flex; gap: 8px; }
+.input-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .input-row .input { flex: 1; }
 
 /* ── Table ── */
