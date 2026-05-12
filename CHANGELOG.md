@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.5] — 2026-05-12
+
+### Fixed — PostgreSQL analytics duration query
+
+Queue Analytics now uses PostgreSQL `EXTRACT(EPOCH FROM (completed_at -
+created_at))` for average download duration instead of SQLite-only
+`JULIANDAY(...)`.
+
+This fixes PostgreSQL errors like:
+
+`function julianday(timestamp with time zone) does not exist`
+
 ## [1.8.4] — 2026-05-12
 
 ### Fixed — PostgreSQL analytics and transient AllDebrid file exposure

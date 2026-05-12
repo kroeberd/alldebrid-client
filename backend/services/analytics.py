@@ -63,13 +63,23 @@ async def get_queue_analytics(window_hours: int = 24) -> dict:
             no_peer_count = int((no_peer_row or {}).get("c") or 0)
 
             # Average duration (only for completed torrents with both timestamps)
-            duration_row = await db.fetchone(
+            duration_sql = (
+                "SELECT AVG("
+                "  EXTRACT(EPOCH FROM (completed_at - created_at))"
+                ") AS avg_sec "
+                "FROM torrents "
+                "WHERE status='completed' AND completed_at >= ? "
+                "  AND completed_at IS NOT NULL AND created_at IS NOT NULL"
+            ) if is_postgres else (
                 "SELECT AVG("
                 "  (JULIANDAY(completed_at) - JULIANDAY(created_at)) * 86400"
                 ") AS avg_sec "
                 "FROM torrents "
                 "WHERE status='completed' AND completed_at >= ? "
-                "  AND completed_at IS NOT NULL AND created_at IS NOT NULL",
+                "  AND completed_at IS NOT NULL AND created_at IS NOT NULL"
+            )
+            duration_row = await db.fetchone(
+                duration_sql,
                 (since,),
             )
             avg_sec = float((duration_row or {}).get("avg_sec") or 0)

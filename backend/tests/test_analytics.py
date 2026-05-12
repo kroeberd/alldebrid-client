@@ -52,5 +52,7 @@ async def test_queue_analytics_uses_datetime_params_and_postgres_hourly_sql():
     ]
     assert all_params
     assert all(isinstance(params[0], datetime) for params in all_params)
+    assert any("EXTRACT(EPOCH FROM (completed_at - created_at))" in sql for sql, _ in fake_db.fetchone_calls)
+    assert not any("JULIANDAY" in sql for sql, _ in fake_db.fetchone_calls)
     assert any("DATE_TRUNC('hour', completed_at)" in sql for sql, _ in fake_db.fetchall_calls)
     assert not any("STRFTIME" in sql for sql, _ in fake_db.fetchall_calls)
