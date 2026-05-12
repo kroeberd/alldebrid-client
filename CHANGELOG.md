@@ -1,5 +1,141 @@
 # Changelog
 
+## [1.8.0] — 2026-05-12
+
+### Smart Queue & Automation — Phase 1: Duplicate Intelligence, Logging, Search UX
+
+---
+
+#### 1. Duplicate Intelligence — `services/duplicates.py`
+
+New central duplicate-detection service.  Every add-flow now calls
+`check_before_add()` **before any AllDebrid contact**.
+
+**Service functions:**
+
+| Function | Purpose |
+|----------|---------|
+| `check_before_add(candidate)` | Main gate — returns `allow` / `warn` / `skip` |
+| `find_hash_duplicate(infohash)` | Stage 1 — exact BTIH match against `torrents.hash` |
+| `find_alldebrid_id_duplicate(ad_id)` | Stage 2 — AllDebrid ID check |
+| `find_semantic_duplicates(candidate)` | Stages 4–6 — fuzzy title + episode + size |
+| `normalize_title(title)` | Removes quality/codec/group tags, unifies separators |
+| `extract_release_tokens(title)` | Parses S01E02, year, quality, release group |
+| `extract_btih(magnet)` | Extracts BTIH hash from magnet URI (tracker-param agnostic) |
+
+**Decision logic:**
+
+- Exact hash match + active/completed status → `skip` (confidence 1.0)
+- Exact hash match + error/pending status → `warn` (allow retry)
+- Semantic match ≥ 85 % confidence + active → `warn`
+- No match → `allow`
+
+**Conservative defaults:**  semantic matching is advisory only; only hard-blocks
+on confidence 1.0 (exact hash).  Deleted torrents do not block re-adds.
+
+**Add-flows secured:**
+
+- `add_magnet_direct()` — duplicate check before `_add_magnet()`
+- `add_torrent_file_direct()` — local hash extracted from `.torrent` bytes via
+  `extract_hash_from_torrent()` before any AllDebrid upload
+
+**API responses** include `_duplicate` field when action is `skip` or `warn`.
+
+---
+
+#### 2. `extract_hash_from_torrent()` — `services/alldebrid.py`
+
+New utility function that extracts the SHA-1 info-hash from raw `.torrent` file
+bytes locally (no AllDebrid contact needed).  Uses `bencodepy` when available,
+falls back to a manual bencoded-data scanner.
+
+**Key invariant enforced:**
+> Erst lokal prüfen. Dann entscheiden. Erst danach AllDebrid kontaktieren.
+
+---
+
+#### 3. Logging overhaul
+
+**New log format:**
+```
+2026-05-12 18:42:10 | INFO  | alldebrid.manager       | Torrent ready: Example.Name.2024
+```
+
+- Aligned columns: timestamp | level | module (20 chars) | message
+- Noisy library loggers (`uvicorn.access`, `httpx`, `asyncpg`) downgraded to WARNING
+- All service loggers renamed to consistent `alldebrid.*` namespace:
+  `alldebrid.manager`, `alldebrid.routes`, `alldebrid.jackett`,
+  `alldebrid.prowlarr`, `alldebrid.aria2`, `alldebrid.db`,
+  `alldebrid.duplicates`, `alldebrid.scheduler`, …
+- Logger name shortened: `alldebrid.aria2.runtime` → `alldebrid.aria2`
+
+**Startup banner** (printed once at container start):
+```
+──────────────────────────────────────────────────
+  AllDebrid Client  vX.Y.Z
+──────────────────────────────────────────────────
+  Database:         SQLite
+  Download client:  aria2 builtin
+  Auth:             disabled
+  Web UI:           http://0.0.0.0:8080
+  GitHub:           https://github.com/kroeberd/alldebrid-client
+  Support:          https://ko-fi.com/kroeberd
+──────────────────────────────────────────────────
+```
+
+---
+
+#### 4. Jackett Search UX — non-blocking, AbortController, race-condition-safe
+
+**Problems fixed:**
+
+1. **Global UI block** — while a Jackett search was in flight, navigating away
+   or starting a new search could leave the UI in a broken state.
+2. **Race condition** — if search B completed before search A, search A's stale
+   results could overwrite B's results.
+3. **Old results erased on new search start** — table was cleared before new
+   results arrived, leaving a blank panel during long searches.
+
+**Solution:**
+
+```javascript
+var _jackettSearchInFlight   = false;
+var _jackettSearchController = null;   // AbortController
+var _jackettSearchReqId      = 0;      // monotonic request ID
+```
+
+- Every new search aborts the previous via `AbortController.abort()`
+- `myReqId` guard: stale responses are silently dropped
+- Old results **stay visible** until new results are ready
+- `finally` block always resets `_jackettSearchInFlight` and re-enables the button
+- Search remains isolated — navigation, Dashboard, Torrents, aria2 queue all
+  continue to work during a long Jackett search
+
+---
+
+#### 5. Tests
+
+34 new unit tests in `tests/test_duplicates.py`:
+
+- `TestExtractBtih` — BTIH extraction from magnets (6 tests)
+- `TestNormalizeTitle` — title normalisation (7 tests)
+- `TestExtractReleaseTokens` — S01E02, year, quality, group (6 tests)
+- `TestSizeSimilar` — size comparison logic (5 tests)
+- `TestFindHashDuplicate` — DB lookup with mocked DB (3 tests)
+- `TestCheckBeforeAdd` — allow/warn/skip decisions (3 tests)
+- `TestSearchReadOnly` — regression: search never calls `upload_magnet` (3 tests)
+
+Total: **262 tests passing** (was 228).
+
+---
+
+#### Backward compatibility
+
+- No DB schema changes required — `torrents.hash` already exists
+- All new config fields have defaults — existing `config.json` loads unchanged
+- `_duplicate` field in API responses is optional — old clients ignore it
+- Duplicate detection defaults to `allow` on any internal error — never fails hard
+
 ## [1.7.0] — 2026-05-12
 
 ### Release — Security hardening, repo cleanup, Dashboard redesign

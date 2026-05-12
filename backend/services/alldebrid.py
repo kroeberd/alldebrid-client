@@ -242,3 +242,57 @@ def flatten_files(nodes: List[Dict], prefix: str = "") -> List[Dict]:
         elif "e" in node and isinstance(node["e"], list):
             result.extend(flatten_files(node["e"], current))
     return result
+
+
+def extract_hash_from_torrent(data: bytes) -> str:
+    """
+    Extract the info-hash from raw .torrent file bytes without uploading to AllDebrid.
+    Returns lowercase hex string, or '' on failure.
+    """
+    try:
+        import hashlib
+        import re as _re
+        # Find the 'info' dictionary in the bencoded data using a simple scan.
+        # We look for b"4:info" and then hash the bencoded value that follows.
+        marker = b"4:info"
+        idx = data.find(marker)
+        if idx < 0:
+            return ""
+        info_start = idx + len(marker)
+        # The info value ends where the outer dict ends ('e' byte),
+        # but we need to properly track nested structures.  Use bencodepy if available.
+        try:
+            import bencodepy  # type: ignore
+            decoded = bencodepy.decode(data)
+            # bencodepy returns bytes keys
+            info = decoded.get(b"info") or decoded.get("info")
+            if info is None:
+                return ""
+            info_bytes = bencodepy.encode(info)
+            return hashlib.sha1(info_bytes).hexdigest()  # noqa: S324
+        except ImportError:
+            pass
+        # Fallback: rough slice — works for most well-formed .torrent files
+        # Find closing 'e' at the outermost level
+        depth, i = 0, info_start
+        while i < len(data):
+            b = chr(data[i]) if isinstance(data[i], int) else data[i]
+            if b == 'd' or b == 'l':
+                depth += 1; i += 1
+            elif b == 'e':
+                if depth == 0:
+                    break
+                depth -= 1; i += 1
+            elif b == 'i':
+                j = data.index(ord('e') if isinstance(data[i+1], int) else b'e', i + 1)
+                i = j + 1
+            elif b.isdigit() if isinstance(b, str) else chr(b).isdigit():
+                colon = data.index(ord(':') if isinstance(data[i+1], int) else b':', i)
+                length = int(data[i:colon])
+                i = colon + 1 + length
+            else:
+                break
+        info_bytes = data[info_start:i]
+        return hashlib.sha1(info_bytes).hexdigest()  # noqa: S324
+    except Exception:
+        return ""

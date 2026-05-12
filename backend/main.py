@@ -19,9 +19,13 @@ from services.manager_v2 import manager
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    format="%(asctime)s | %(levelname)-5s | %(name)-20s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = logging.getLogger("alldebrid-client")
+# Shorten noisy library loggers
+for _lib in ("uvicorn.access", "uvicorn.error", "httpx", "aiosqlite", "asyncpg"):
+    logging.getLogger(_lib).setLevel(logging.WARNING)
+logger = logging.getLogger("alldebrid.main")
 
 # PostgreSQL connection attempts on startup
 _PG_CONNECT_RETRIES = 15
@@ -306,7 +310,25 @@ async def _reset_stuck_downloads_postgres():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting AllDebrid-Client...")
+    from core.version import read_version
+    from core.config import get_settings as _gs
+    _cfg = _gs()
+    _db  = "PostgreSQL" if _is_postgres() else "SQLite"
+    _dl  = "aria2 builtin" if getattr(_cfg, "aria2_mode", "builtin") == "builtin" else "aria2 external"
+    _au  = "enabled" if (getattr(_cfg, "auth_username", "") and getattr(_cfg, "auth_password", "")) else "disabled"
+    _ver = read_version()
+    _sep = "─" * 46
+    print(f"\n{_sep}")
+    print(f"  AllDebrid Client  v{_ver}")
+    print(_sep)
+    print(f"  Database:         {_db}")
+    print(f"  Download client:  {_dl}")
+    print(f"  Auth:             {_au}")
+    print(f"  Web UI:           http://0.0.0.0:{getattr(_cfg, 'port', 8080)}")
+    print(f"  GitHub:           https://github.com/kroeberd/alldebrid-client")
+    print(f"  Support:          https://ko-fi.com/kroeberd")
+    print(f"{_sep}\n")
+    logger.info("Starting AllDebrid-Client v%s", _ver)
 
     # 0. Validate and sanitise config — fix obvious misconfigurations before anything else
     try:

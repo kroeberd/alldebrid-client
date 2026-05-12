@@ -455,7 +455,34 @@ class TorrentManager:
         hash_value = extract_hash(magnet)
         if not hash_value:
             raise ValueError("Invalid magnet: no btih hash found")
-        return await self._add_magnet(magnet, hash_value, source)
+
+        # ── Duplicate gate (before any AllDebrid contact) ──────────────────
+        from services.duplicates import DuplicateCandidate, check_before_add
+        decision = await check_before_add(DuplicateCandidate(
+            source=source,
+            magnet=magnet,
+            infohash=hash_value,
+        ))
+        if decision.action == "skip":
+            existing = decision.matches[0] if decision.matches else None
+            result = {}
+            if existing:
+                try:
+                    async with get_db() as db:
+                        row = await db.fetchone(
+                            "SELECT * FROM torrents WHERE id=?", (existing.torrent_id,)
+                        )
+                    result = dict(row) if row else {}
+                except Exception:
+                    pass
+            result["_duplicate"] = decision.as_dict()
+            return result
+        # ──────────────────────────────────────────────────────────────────
+
+        result = await self._add_magnet(magnet, hash_value, source)
+        if decision.action == "warn":
+            result["_duplicate"] = decision.as_dict()
+        return result
 
     async def add_torrent_file_direct(
         self,
@@ -471,12 +498,45 @@ class TorrentManager:
         if not file_bytes:
             raise ValueError("Empty torrent file")
 
+        # ── Extract infohash locally before contacting AllDebrid ────────────
+        local_hash = preferred_hash or ""
+        if not local_hash:
+            try:
+                from services.alldebrid import extract_hash_from_torrent
+                local_hash = extract_hash_from_torrent(file_bytes) or ""
+            except Exception:
+                pass
+
+        # ── Duplicate gate ──────────────────────────────────────────────────
+        if local_hash:
+            from services.duplicates import DuplicateCandidate, check_before_add
+            decision = await check_before_add(DuplicateCandidate(
+                source=source,
+                infohash=local_hash,
+                title=Path(filename or "").stem,
+            ))
+            if decision.action == "skip":
+                existing = decision.matches[0] if decision.matches else None
+                result: dict = {}
+                if existing:
+                    try:
+                        async with get_db() as db:
+                            row = await db.fetchone(
+                                "SELECT * FROM torrents WHERE id=?", (existing.torrent_id,)
+                            )
+                        result = dict(row) if row else {}
+                    except Exception:
+                        pass
+                result["_duplicate"] = decision.as_dict()
+                return result
+        # ───────────────────────────────────────────────────────────────────
+
         async with self._upload_sem:
             result = await self.ad().upload_torrent_file(file_bytes, filename or "upload.torrent")
 
         ad_id = str(result.get("id", ""))
         name = result.get("name") or result.get("filename") or Path(filename or "upload.torrent").stem
-        hash_value = str(preferred_hash or result.get("hash", ad_id) or ad_id).strip().lower()
+        hash_value = str(local_hash or result.get("hash", ad_id) or ad_id).strip().lower()
         logger.info("Torrent file uploaded %s (ad_id=%s)", name, ad_id)
         row = await self._upsert(hash_value, None, name, ad_id, source)
         if get_settings().discord_notify_added:

@@ -3196,6 +3196,11 @@ function clearSearchAdv() {
   idxPickerCommit();
 }
 
+// ── Jackett Search state (isolated — never blocks global UI) ─────────────────
+var _jackettSearchInFlight  = false;
+var _jackettSearchController = null;   // AbortController for the current search
+var _jackettSearchReqId      = 0;      // monotonically increasing; old responses are ignored
+
 async function jackettSearch() {
   var query = (document.getElementById('jackett-query')||{value:''}).value.trim();
   if (!query) { toast('Please enter a search query', 'warn'); return; }
@@ -3218,21 +3223,34 @@ async function jackettSearch() {
   var tbody = document.getElementById('jackett-tbody');
   var count = document.getElementById('jackett-result-count');
 
-  if (btn)   { btn.disabled=true; btn.textContent='Searching…'; }
-  if (state) { state.style.display='block'; state.textContent='Searching…'; }
-  if (wrap)  wrap.style.display='none';
-  if (tbody) tbody.innerHTML='';
-  // Show a "still searching" hint after 8s (Jackett with many indexers can take 30s+)
+  // Abort any in-flight search — prevents stale responses from overwriting
+  if (_jackettSearchController) {
+    _jackettSearchController.abort();
+  }
+  _jackettSearchController = new AbortController();
+  _jackettSearchReqId++;
+  var myReqId = _jackettSearchReqId;
+  _jackettSearchInFlight = true;
+
+  // ── Show busy state (search-scoped only) ──────────────────────────────────
+  if (btn)   { btn.disabled = true; btn.textContent = 'Searching…'; }
+  if (state) { state.style.display = 'block'; state.textContent = 'Searching Jackett indexers…'; }
+  // Keep old results visible while new search is in progress
+  // (only hide them when we have fresh results to show)
+
+  // "Still searching" hint after 8 s — Jackett with many indexers can take 30–120 s
   var _slowHint = setTimeout(function() {
-    if (state && state.style.display !== 'none' && (state.textContent||'').startsWith('Search')) {
-      state.innerHTML = 'Searching… <span style="color:var(--text3);font-size:11px">(Jackett is querying all indexers — this can take up to 60s)</span>';
+    if (_jackettSearchReqId === myReqId && _jackettSearchInFlight) {
+      if (state) state.innerHTML =
+        'Searching… <span style="color:var(--text3);font-size:11px">' +
+        '(querying all indexers — this can take up to 2 minutes)</span>';
     }
   }, 8000);
 
   try {
     var payload = {
-      query:query, category:parseInt(cat,10), trackers:trackers,
-      hide_dead:hideDead, search_type:searchType,
+      query: query, category: parseInt(cat, 10), trackers: trackers,
+      hide_dead: hideDead, search_type: searchType,
     };
     if (genreVal) payload.genre  = genreVal;
     if (imdbid)   payload.imdbid = imdbid;
@@ -3240,31 +3258,50 @@ async function jackettSearch() {
     if (season)   payload.season = season;
     if (epNum)    payload.ep     = epNum;
 
-    var data = await api('POST', '/jackett/search', payload, 150000); // 150s — Jackett with many indexers can take 60–90s
+    // 150 s timeout — Jackett with many indexers can take a long time
+    var data = await api('POST', '/jackett/search', payload, 150000);
+
+    // ── Race-condition guard: ignore stale responses ──────────────────────
+    if (_jackettSearchReqId !== myReqId) return;
+
     if (data.error) {
-      if (state) { state.style.display='block'; state.textContent='Error: '+data.error; }
+      if (state) { state.style.display = 'block'; state.textContent = 'Error: ' + data.error; }
       return;
     }
     if (!data.results || !data.results.length) {
-      var hint = searchType !== 'search' ? ' (indexer may not support '+searchType+' mode)' : '';
-      if (state) { state.style.display='block'; state.textContent='No results for: '+query+hint; }
+      var hint = searchType !== 'search' ? ' (indexer may not support ' + searchType + ' mode)' : '';
+      if (state) { state.style.display = 'block'; state.textContent = 'No results for: ' + query + hint; }
+      // Clear stale results from a previous search
+      if (tbody) tbody.innerHTML = '';
+      if (wrap)  wrap.style.display = 'none';
       return;
     }
-    var parts = ['"'+query+'"'];
-    if (searchType !== 'search') parts.push('mode: '+searchType);
-    if (genreVal)  parts.push('genre: '+genreVal);
-    if (imdbid)    parts.push('IMDb: '+imdbid);
+    var parts = ['"' + query + '"'];
+    if (searchType !== 'search') parts.push('mode: ' + searchType);
+    if (genreVal)  parts.push('genre: ' + genreVal);
+    if (imdbid)    parts.push('IMDb: ' + imdbid);
     if (year)      parts.push(year);
     if (hideDead)  parts.push('seeded only');
-    if (count) count.textContent = data.total+' result(s) for '+parts.join(' · ');
+    if (count) count.textContent = data.total + ' result(s) for ' + parts.join(' · ');
     window._jackettResults = data.results;
+    // Only now replace old results
+    if (wrap) wrap.style.display = '';
+    if (state) state.style.display = 'none';
     renderJackettResults();
   } catch(e) {
-    if (state) { state.style.display='block'; state.textContent='Error: '+e.message; }
+    if (_jackettSearchReqId !== myReqId) return;  // aborted — ignore
+    if (e && e.name === 'AbortError') return;      // intentional abort
+    if (state) { state.style.display = 'block'; state.textContent = 'Search error: ' + (e.message || 'Unknown error'); }
+    // Leave existing results visible on error
   } finally {
+    // Always reset — even on abort or error
+    if (_jackettSearchReqId === myReqId) {
+      _jackettSearchInFlight = false;
+    }
     clearTimeout(_slowHint);
-    if (btn) { btn.disabled=false; btn.textContent='Search'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Search'; }
   }
+
 }
 
 async function jackettAdd(idx) {
