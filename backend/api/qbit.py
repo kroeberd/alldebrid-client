@@ -39,6 +39,7 @@ from fastapi import APIRouter, File, Form, Query, Request, UploadFile
 from fastapi.responses import PlainTextResponse, Response
 
 from core.config import get_settings
+from core.logging_utils import sanitize_exception
 from db.database import get_db
 from services.manager_v2 import manager
 
@@ -262,7 +263,7 @@ async def qbit_torrents_add(
             logger.info("qBit API: added magnet via URLs/magnet param")
             return PlainTextResponse("Ok.")
         except Exception as exc:
-            logger.warning("qBit API: magnet add failed: %s", exc)
+            logger.warning("qBit API: magnet add failed: %s", sanitize_exception(exc))
             return PlainTextResponse("Fails.", status_code=400)
 
     if torrents:
@@ -272,7 +273,7 @@ async def qbit_torrents_add(
             logger.info("qBit API: added torrent file %s", torrents.filename)
             return PlainTextResponse("Ok.")
         except Exception as exc:
-            logger.warning("qBit API: torrent file add failed: %s", exc)
+            logger.warning("qBit API: torrent file add failed: %s", sanitize_exception(exc))
             return PlainTextResponse("Fails.", status_code=400)
 
     # Fallback: try to read raw body as magnet

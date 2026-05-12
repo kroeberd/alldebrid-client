@@ -17,6 +17,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+from core.logging_utils import sanitize_log_value
 
 logger = logging.getLogger("alldebrid.aria2")
 
@@ -261,7 +262,7 @@ class Aria2Service:
             for attempt in range(1, max_retries + 1):
                 try:
                     gid = await self._call("aria2.addUri", [[normalized_uri], rpc_options])
-                    logger.info("aria2: queued download %s (%s)", normalized_uri, gid)
+                    logger.info("aria2: queued download %s (%s)", sanitize_log_value(normalized_uri, max_length=120), gid)
                     return gid
                 except Aria2ConnectionError as exc:
                     last_error = exc

@@ -25,6 +25,8 @@ import aiohttp
 import logging
 from typing import Optional, List, Dict, Any
 
+from core.logging_utils import sanitize_exception
+
 logger = logging.getLogger("alldebrid.api")
 
 API_V4  = "https://api.alldebrid.com/v4"
@@ -206,7 +208,7 @@ class AllDebridService:
             await self._post(API_V4, "magnet/delete", {"id": str(magnet_id)})
             return True
         except Exception as e:
-            logger.error(f"Delete magnet {magnet_id}: {e}")
+            logger.error("Delete magnet %s: %s", magnet_id, sanitize_exception(e))
             return False
 
     async def restart_magnet(self, magnet_id: str) -> bool:
@@ -214,7 +216,7 @@ class AllDebridService:
             await self._post(API_V4, "magnet/restart", {"id": str(magnet_id)})
             return True
         except Exception as e:
-            logger.error(f"Restart magnet {magnet_id}: {e}")
+            logger.error("Restart magnet %s: %s", magnet_id, sanitize_exception(e))
             return False
 
     async def unlock_link(self, link: str) -> Dict:

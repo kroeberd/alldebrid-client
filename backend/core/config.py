@@ -12,6 +12,11 @@ class AppSettings(BaseModel):
     alldebrid_api_key: str = ""
     alldebrid_agent: str = "AllDebrid-Client"
 
+    # Logging
+    log_level: str = "INFO"
+    log_pretty: bool = False
+    log_format: str = "plain"
+
     # Database
     db_type: str = "sqlite"
     postgres_host: str = "alldebrid-postgres"

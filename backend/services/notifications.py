@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+from core.logging_utils import sanitize_exception
 from core.version import read_version
 
 logger = logging.getLogger("alldebrid.notify")
@@ -509,7 +510,7 @@ class NotificationService:
             logger.debug("Discord notification sent: %s", title[:60])
             return True
         except Exception as exc:
-            detail = str(exc).strip() or repr(exc)
+            detail = sanitize_exception(exc, max_length=240)
             logger.error(
                 "Discord notification failed (%s) [%s]: %s",
                 title[:60],

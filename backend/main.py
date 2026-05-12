@@ -11,20 +11,20 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router
 from api.qbit import router as qbit_router
+from core.config import get_settings as _get_log_settings
+from core.logging_utils import configure_logging, log_startup_banner, sanitize_exception, sanitize_log_value
 from core.scheduler import start_scheduler, stop_scheduler
 from core.version import read_version
 from db.database import init_db, _is_postgres, DB_PATH
 from services.aria2_runtime import runtime as aria2_runtime
 from services.manager_v2 import manager
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-5s | %(name)-20s | %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
+_log_cfg = _get_log_settings()
+configure_logging(
+    getattr(_log_cfg, "log_level", "INFO"),
+    bool(getattr(_log_cfg, "log_pretty", False)),
+    getattr(_log_cfg, "log_format", "plain"),
 )
-# Shorten noisy library loggers
-for _lib in ("uvicorn.access", "uvicorn.error", "httpx", "aiosqlite", "asyncpg"):
-    logging.getLogger(_lib).setLevel(logging.WARNING)
 logger = logging.getLogger("alldebrid.main")
 
 # PostgreSQL connection attempts on startup
@@ -53,7 +53,7 @@ async def _sync_sqlite_to_pg_on_startup() -> int:
     try:
         pg = await asyncpg.connect(dsn, timeout=10)
     except Exception as exc:
-        logger.warning("Startup sync: cannot connect to PostgreSQL: %s", exc)
+        logger.warning("Startup sync: cannot connect to PostgreSQL: %s", sanitize_exception(exc))
         return 0
 
     total_synced = 0
@@ -89,7 +89,7 @@ async def _sync_sqlite_to_pg_on_startup() -> int:
                         total_synced += 1
                         logger.debug("Startup sync: copied torrent hash=%s", row["hash"])
                     except Exception as exc:
-                        logger.debug("Startup sync: skip torrent %s: %s", row["hash"], exc)
+                        logger.debug("Startup sync: skip torrent %s: %s", row["hash"], sanitize_exception(exc))
 
             # ── events ──────────────────────────────────────────────────────
             # Events are append-only — copy any not yet in PG
@@ -119,7 +119,7 @@ async def _sync_sqlite_to_pg_on_startup() -> int:
                         logger.debug("Startup sync: skip event %s: %s", ev["id"], exc)
 
     except Exception as exc:
-        logger.warning("Startup sync error: %s", exc)
+        logger.warning("Startup sync error: %s", sanitize_exception(exc))
     finally:
         await pg.close()
 
@@ -151,12 +151,12 @@ async def _wait_for_postgres() -> bool:
             if remaining == 0:
                 logger.warning(
                     "PostgreSQL not reachable after %d attempts: %s",
-                    _PG_CONNECT_RETRIES, exc,
+                    _PG_CONNECT_RETRIES, sanitize_exception(exc),
                 )
                 return False
             logger.warning(
                 "Waiting for PostgreSQL (attempt %d/%d, %d remaining): %s",
-                attempt, _PG_CONNECT_RETRIES, remaining, exc,
+                attempt, _PG_CONNECT_RETRIES, remaining, sanitize_exception(exc),
             )
             await asyncio.sleep(_PG_CONNECT_DELAY)
     return False
@@ -170,7 +170,7 @@ def _fallback_to_sqlite():
     from core.config import get_settings, apply_settings
     cfg = get_settings()
     logger.warning(
-        "⚠️  PostgreSQL unreachable — falling back to SQLite. "
+        "PostgreSQL unreachable - falling back to SQLite. "
         "Data will be stored in %s. "
         "Restart with a reachable PostgreSQL instance to use PG.",
         DB_PATH,
@@ -258,7 +258,7 @@ async def _startup_sync_sqlite_to_postgres() -> dict:
         finally:
             await pg_conn.close()
     except Exception as exc:
-        logger.warning("Startup sync: count check failed: %s", exc)
+        logger.warning("Startup sync: count check failed: %s", sanitize_exception(exc))
         return {}
 
     if not needs_migration:
@@ -274,7 +274,7 @@ async def _startup_sync_sqlite_to_postgres() -> dict:
         else:
             logger.error("Startup sync migration failed: %s", result.error)
     except Exception as exc:
-        logger.error("Startup sync migration error: %s", exc)
+        logger.error("Startup sync migration error: %s", sanitize_exception(exc))
 
     return results
 
@@ -317,17 +317,15 @@ async def lifespan(app: FastAPI):
     _dl  = "aria2 builtin" if getattr(_cfg, "aria2_mode", "builtin") == "builtin" else "aria2 external"
     _au  = "enabled" if (getattr(_cfg, "auth_username", "") and getattr(_cfg, "auth_password", "")) else "disabled"
     _ver = read_version()
-    _sep = "─" * 46
-    print(f"\n{_sep}")
-    print(f"  AllDebrid Client  v{_ver}")
-    print(_sep)
-    print(f"  Database:         {_db}")
-    print(f"  Download client:  {_dl}")
-    print(f"  Auth:             {_au}")
-    print(f"  Web UI:           http://0.0.0.0:{getattr(_cfg, 'port', 8080)}")
-    print(f"  GitHub:           https://github.com/kroeberd/alldebrid-client")
-    print(f"  Support:          https://ko-fi.com/kroeberd")
-    print(f"{_sep}\n")
+    log_startup_banner(
+        logger,
+        version=_ver,
+        mode="Docker / Unraid",
+        database=_db,
+        download_client=_dl,
+        web_ui=f"http://0.0.0.0:{getattr(_cfg, 'port', 8080)}",
+        auth=_au,
+    )
     logger.info("Starting AllDebrid-Client v%s", _ver)
 
     # 0. Validate and sanitise config — fix obvious misconfigurations before anything else
@@ -342,7 +340,7 @@ async def lifespan(app: FastAPI):
             apply_settings(_clean_cfg)
             logger.info("Config sanitised and saved — check warnings above for details")
     except Exception as _ve:
-        logger.warning("Config validation skipped due to error: %s", _ve)
+        logger.warning("Config validation skipped due to error: %s", sanitize_exception(_ve))
 
     # 1. PostgreSQL: wait for readiness, fall back to SQLite if needed
     if _is_postgres():
@@ -359,7 +357,7 @@ async def lifespan(app: FastAPI):
         logger.info("Database schema initialised (SQLite + %s)",
                     "PostgreSQL" if _is_postgres() else "SQLite only")
     except Exception as e:
-        logger.error("Database initialisation failed: %s", e)
+        logger.error("Database initialisation failed: %s", sanitize_exception(e))
         if _is_postgres():
             # Last resort: fall back to SQLite
             _fallback_to_sqlite()
@@ -373,7 +371,7 @@ async def lifespan(app: FastAPI):
             if synced:
                 logger.info("Startup sync: %d row(s) copied from SQLite to PostgreSQL", synced)
         except Exception as exc:
-            logger.warning("Startup SQLite→PG sync failed (non-fatal): %s", exc)
+            logger.warning("Startup SQLite to PostgreSQL sync failed (non-fatal): %s", sanitize_exception(exc))
 
     # 3b. Secondary startup sync: verify row counts match between SQLite and PostgreSQL
     if _is_postgres():
@@ -387,7 +385,7 @@ async def lifespan(app: FastAPI):
                             table, counts["sqlite"], counts["postgres"],
                         )
         except Exception as e:
-            logger.warning("Startup sync failed (non-fatal): %s", e)
+            logger.warning("Startup sync failed (non-fatal): %s", sanitize_exception(e))
 
     # 4. Reset stuck downloads
     try:
@@ -401,31 +399,31 @@ async def lifespan(app: FastAPI):
                     manager._start_download(row["id"], str(row["alldebrid_id"]), str(row["name"] or ""))
                 )
     except Exception as e:
-        logger.warning("Startup stuck-download cleanup failed: %s", e)
+        logger.warning("Startup stuck-download cleanup failed: %s", sanitize_exception(e))
 
     # 5. Import existing AllDebrid magnets
     try:
         await manager.import_existing_magnets()
     except Exception as e:
-        logger.warning("Initial AllDebrid import skipped: %s", e)
+        logger.warning("Initial AllDebrid import skipped: %s", sanitize_exception(e))
 
     # 6. Reconcile aria2 state on startup
     try:
         await aria2_runtime.ensure_started()
     except Exception as e:
-        logger.warning("Built-in aria2 startup skipped: %s", e)
+        logger.warning("Built-in aria2 startup skipped: %s", sanitize_exception(e))
 
     try:
         await manager.reconcile_aria2_on_startup()
     except Exception as e:
-        logger.warning("Startup aria2 reconciliation failed: %s", e)
+        logger.warning("Startup aria2 reconciliation failed: %s", sanitize_exception(e))
 
     # 7. Apply aria2 memory tuning immediately on startup and run one cleanup pass
     try:
         await manager.run_aria2_housekeeping()
         logger.info("Startup aria2 housekeeping completed")
     except Exception as e:
-        logger.warning("Startup aria2 housekeeping failed: %s", e)
+        logger.warning("Startup aria2 housekeeping failed: %s", sanitize_exception(e))
 
     await start_scheduler()
     yield
@@ -434,7 +432,7 @@ async def lifespan(app: FastAPI):
     try:
         await aria2_runtime.stop()
     except Exception as e:
-        logger.warning("Built-in aria2 shutdown failed: %s", e)
+        logger.warning("Built-in aria2 shutdown failed: %s", sanitize_exception(e))
 
 
 app = FastAPI(
@@ -545,5 +543,5 @@ if _static is None:
         "Fix your Docker build or set STATIC_DIR."
     )
 
-logger.info("Serving static files from: %s", _static)
+logger.info("Serving static files from: %s", sanitize_log_value(_static))
 app.mount("/", StaticFiles(directory=str(_static), html=True), name="static")

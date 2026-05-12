@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
 import aiohttp
+from core.logging_utils import sanitize_exception, sanitize_log_value
 
 logger = logging.getLogger("alldebrid.flexget")
 
@@ -601,11 +602,16 @@ async def _emit_flexget_webhook(event: str, payload: Dict[str, Any]) -> None:
                 async with s.post(url, json=body, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status >= 400:
                         text = await resp.text()
-                        logger.warning("FlexGet webhook (%s) returned %s: %s", event, resp.status, text[:200])
+                        logger.warning(
+                            "FlexGet webhook (%s) returned %s: %s",
+                            event,
+                            resp.status,
+                            sanitize_log_value(text, max_length=200),
+                        )
                     else:
-                        logger.info("FlexGet webhook sent: event=%s status=%s url=%s", event, resp.status, url[:60])
+                        logger.info("FlexGet webhook sent: event=%s status=%s", event, resp.status)
     except Exception as exc:
-        logger.warning("FlexGet webhook failed (%s): %s", event, exc)
+        logger.warning("FlexGet webhook failed (%s): %s", event, sanitize_exception(exc))
 
 
 async def _persist_run(results: List[Dict[str, Any]], triggered_by: str) -> None:

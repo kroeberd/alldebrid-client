@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.8.7] - 2026-05-12
+
+### Fixed - Docker-safe logging and startup output
+
+Container startup now emits the compact AllDebrid Client summary through the
+standard logger instead of raw `print()` calls, avoiding broken box-drawing
+characters in Docker and Unraid logs. The startup block includes the GitHub
+project link and Buy Me a Coffee support link once per boot.
+
+Logging now has safe defaults for `log_level`, `log_pretty`, and `log_format`.
+Sensitive values are redacted before they reach logs or API error responses,
+including magnet links, Discord webhook URLs, PostgreSQL passwords, API keys,
+tokens, and long Debrid download URLs.
+
+FlexGet webhook logging no longer prints webhook URL fragments, Discord
+notification failures sanitize response details, PostgreSQL connection/migration
+errors are returned without leaking DSNs, and aria2 queue logs no longer include
+full private download URLs.
+
 ## [1.8.6] — 2026-05-12
 
 ### Fixed — Duplicate guard hardening and non-blocking Jackett search aborts

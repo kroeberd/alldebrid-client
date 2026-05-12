@@ -29,11 +29,9 @@ from core.config import (
     save_settings,
 )
 from core.config_validator import validate_and_sanitise
+from core.logging_utils import sanitize_exception
 from core.version import read_version
 from db.database import DB_PATH, _is_postgres, get_db
-
-_MAGNET_RE = re.compile(r"magnet:[?]xt=urn:btih:[0-9a-fA-F]{40,}\S*", re.IGNORECASE)
-_LONG_URL_RE = re.compile(r"https?://\S{80,}")
 
 
 def _sanitize_error(exc: Exception) -> str:
@@ -44,10 +42,7 @@ def _sanitize_error(exc: Exception) -> str:
     error payload, or when a download_torrent_file exception includes the URL.
     Truncates the result to 200 characters.
     """
-    msg = str(exc)
-    msg = _MAGNET_RE.sub("<magnet>", msg)
-    msg = _LONG_URL_RE.sub("<url>", msg)
-    return (msg[:200] + "\u2026") if len(msg) > 200 else msg
+    return sanitize_exception(exc, max_length=200)
 
 
 # ── SQL dialect helpers ────────────────────────────────────────────────────────
@@ -486,7 +481,7 @@ async def test_postgres():
             "version":  (version or "").split(",")[0],
         }
     except Exception as e:
-        raise HTTPException(502, f"PostgreSQL connection failed: {e}")
+        raise HTTPException(502, f"PostgreSQL connection failed: {_sanitize_error(e)}")
 
 
 @router.post("/settings/test-sonarr")
@@ -1197,7 +1192,7 @@ async def run_migration(req: dict):
             f"?sslmode={ssl}"
         )
     except Exception as e:
-        raise HTTPException(500, f"PostgreSQL configuration not available: {e}")
+        raise HTTPException(500, f"PostgreSQL configuration not available: {_sanitize_error(e)}")
 
     from db.migration import migrate_postgres_to_sqlite, migrate_sqlite_to_postgres
     try:
@@ -1206,7 +1201,7 @@ async def run_migration(req: dict):
         else:
             result = await migrate_postgres_to_sqlite(pg_dsn, DB_PATH, force=force, dry_run=dry_run)
     except Exception as e:
-        raise HTTPException(500, f"Migration failed: {e}")
+        raise HTTPException(500, f"Migration failed: {_sanitize_error(e)}")
 
     if not result.success:
         raise HTTPException(500, result.error or "Migration failed")
@@ -1675,7 +1670,11 @@ async def jackett_add(body: dict):
             except Exception as torrent_exc:
                 if not magnet:
                     raise
-                logger.warning("Jackett add: torrent URL failed for %s, falling back to magnet: %s", title, torrent_exc)
+                logger.warning(
+                    "Jackett add: torrent URL failed for %s, falling back to magnet: %s",
+                    title,
+                    sanitize_exception(torrent_exc),
+                )
                 row = await manager.add_magnet_direct(magnet, source="jackett")
                 added_via = "magnet_fallback"
         else:

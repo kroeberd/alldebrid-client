@@ -105,6 +105,7 @@ All settings are in the **Settings** page of the web UI. The most important ones
 | Sonarr / Radarr URL + API key | Settings → Services | Optional |
 | Auth username / password | Settings → Access Control | Optional — leave either empty to disable |
 | Min free disk space (GB) | Settings → Download Client | 0 = disabled |
+| `log_level` / `log_pretty` / `log_format` | `config.json` | Optional Docker-safe logging controls; defaults are `INFO`, `false`, `plain` |
 
 See **Help → Settings Reference** in the web UI for a full description of every setting.
 

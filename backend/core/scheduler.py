@@ -3,6 +3,7 @@ import random
 import time
 import logging
 from core.config import get_settings
+from core.logging_utils import sanitize_exception
 from services.manager_v2 import manager
 
 logger = logging.getLogger("alldebrid.scheduler")
@@ -92,7 +93,7 @@ async def full_sync_loop():
         try:
             await manager.import_existing_magnets()
         except Exception as e:
-            logger.error(f"Existing magnet import failed: {e}")
+            logger.error("Existing magnet import failed: %s", sanitize_exception(e))
         try:
             await manager.full_alldebrid_sync()
         except Exception as e:
