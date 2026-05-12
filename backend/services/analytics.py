@@ -32,9 +32,10 @@ async def get_queue_analytics(window_hours: int = 24) -> dict:
     """
     try:
         from db.database import get_db
-        since = (datetime.now(timezone.utc) - timedelta(hours=window_hours)).isoformat()
+        since = datetime.now(timezone.utc) - timedelta(hours=window_hours)
 
         async with get_db() as db:
+            is_postgres = getattr(db, "backend", "sqlite") == "postgres"
             # Completed in window
             completed_row = await db.fetchone(
                 "SELECT COUNT(*) AS c, COALESCE(SUM(size_bytes),0) AS total_bytes "
@@ -99,15 +100,30 @@ async def get_queue_analytics(window_hours: int = 24) -> dict:
 
             # Hourly completed (last 24 h only to keep response small)
             if window_hours <= 48:
-                hourly_rows = await db.fetchall(
+                hourly_sql = (
+                    "SELECT DATE_TRUNC('hour', completed_at) AS hour, COUNT(*) AS cnt "
+                    "FROM torrents "
+                    "WHERE status='completed' AND completed_at >= ? "
+                    "GROUP BY hour ORDER BY hour ASC"
+                ) if is_postgres else (
                     "SELECT STRFTIME('%Y-%m-%dT%H:00:00', completed_at) AS hour, COUNT(*) AS cnt "
                     "FROM torrents "
                     "WHERE status='completed' AND completed_at >= ? "
-                    "GROUP BY hour ORDER BY hour ASC",
+                    "GROUP BY hour ORDER BY hour ASC"
+                )
+                hourly_rows = await db.fetchall(
+                    hourly_sql,
                     (since,),
                 )
                 hourly_completed = [
-                    {"hour": str(r["hour"]), "count": int(r["cnt"])}
+                    {
+                        "hour": (
+                            r["hour"].isoformat()
+                            if hasattr(r.get("hour"), "isoformat")
+                            else str(r["hour"])
+                        ),
+                        "count": int(r["cnt"]),
+                    }
                     for r in (hourly_rows or [])
                 ]
             else:

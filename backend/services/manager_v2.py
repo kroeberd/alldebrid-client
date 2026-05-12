@@ -1681,7 +1681,9 @@ class TorrentManager:
                 raise Exception(
                     f"AllDebrid reported magnet error {status_code}: {provider_message}".strip()
                 )
-        return []
+        raise TransientAllDebridStateError(
+            "AllDebrid did not return downloadable files and magnet status could not be confirmed yet"
+        )
 
     def _remote_aria2_path(self, local_path: Path) -> str:
         cfg = get_settings()

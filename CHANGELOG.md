@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.8.4] — 2026-05-12
+
+### Fixed — PostgreSQL analytics and transient AllDebrid file exposure
+
+Queue Analytics now passes real `datetime` values to PostgreSQL instead of ISO
+strings, fixing asyncpg errors like:
+
+`expected a datetime.date or datetime.datetime instance, got 'str'`
+
+The hourly analytics query now uses PostgreSQL `DATE_TRUNC` when running on
+PostgreSQL and keeps SQLite `STRFTIME` for SQLite.
+
+The download starter no longer marks a torrent as failed when AllDebrid returns
+no downloadable file list and the magnet status cannot be confirmed. That state
+is treated as transient and the torrent is reset to `ready` for a later retry.
+
 ## [1.8.3] — 2026-05-12
 
 ### Fixed — PostgreSQL saved searches schema

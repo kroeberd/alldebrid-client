@@ -781,6 +781,18 @@ class AllDebridFileFetchSafetyTests(unittest.IsolatedAsyncioTestCase):
         update_sql = [sql for sql, _ in executed if "UPDATE torrents SET status='ready'" in sql]
         self.assertEqual(len(update_sql), 1)
 
+    async def test_fetch_ready_files_raises_transient_when_status_unavailable(self):
+        mgr = TorrentManager()
+        fake_ad = types.SimpleNamespace(
+            get_magnet_files=AsyncMock(return_value=[]),
+            get_magnet_status=AsyncMock(return_value=[]),
+        )
+        mgr.ad = lambda: fake_ad
+
+        with patch("services.manager_v2.asyncio.sleep", new=AsyncMock()):
+            with self.assertRaises(TransientAllDebridStateError):
+                await mgr._fetch_ready_files("ad-missing")
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Dashboard data flow
