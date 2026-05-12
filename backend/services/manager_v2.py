@@ -12,8 +12,8 @@ import aiofiles
 import aiohttp
 
 from core.config import AppSettings, get_settings
-import aiosqlite  # used by tests via patch; kept for compatibility
-from db.database import DB_PATH, _is_postgres, get_db
+import aiosqlite  # noqa: F401 — used by tests via unittest.mock.patch
+from db.database import _is_postgres, get_db
 from services.alldebrid import AllDebridService, flatten_files
 from services.aria2 import Aria2Service
 from services.aria2_runtime import aria2_global_options, effective_rpc_config, is_builtin_mode
@@ -79,7 +79,6 @@ class _TokenBucketRateLimiter:
 
 # Singleton limiter — shared across all manager instances
 _ad_rate_limiter: _TokenBucketRateLimiter = _TokenBucketRateLimiter(rate=60, window=60.0)
-_ad_rate_lock = asyncio.Lock()
 
 
 async def _get_ad_rate_limiter() -> _TokenBucketRateLimiter:
@@ -2796,7 +2795,7 @@ class TorrentManager:
                 if attempt > max_retries
                 else "Upload failed: no magnet link stored for re-upload"
             )
-            logger.error("Upload failed permanently for torrent %s: %s", torrent_id, msg)
+            logger.error("Upload failed permanently for torrent %s (source=%s): %s", torrent_id, source, msg)
             await self._log_event(torrent_id, "error",
                 f"Upload failed permanently (code 5, {attempt-1} retries exhausted): {error_message}")
             # Clear alldebrid_id so a manual retry can re-upload cleanly

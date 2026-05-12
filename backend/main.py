@@ -483,7 +483,7 @@ async def basic_auth_middleware(request: Request, call_next):
             pass_ok = secrets.compare_digest(provided_pass.encode(), password.encode())
             if user_ok and pass_ok:
                 return await call_next(request)
-        except Exception:
+        except Exception:  # noqa: BLE001 — malformed auth header; fall through to 401
             pass
 
     return Response(

@@ -400,31 +400,23 @@ async def _init_db_sqlite():
     async with aiosqlite.connect(DB_PATH) as idx_db:
         for ddl in [
             # download_files: all sync/finalize queries filter on (torrent_id, status, blocked)
-            "CREATE INDEX IF NOT EXISTS idx_dlfiles_torrent_status"
-            " ON download_files (torrent_id, status, blocked)",
+            "CREATE INDEX IF NOT EXISTS idx_dlfiles_torrent_status ON download_files (torrent_id, status, blocked)",
             # torrents: alldebrid_id lookup (full_alldebrid_sync, individual poll)
-            "CREATE INDEX IF NOT EXISTS idx_torrents_alldebrid_id"
-            " ON torrents (alldebrid_id)",
+            "CREATE INDEX IF NOT EXISTS idx_torrents_alldebrid_id ON torrents (alldebrid_id)",
             # torrents: status-only scan (import_existing_magnets, diagnose)
-            "CREATE INDEX IF NOT EXISTS idx_torrents_status"
-            " ON torrents (status)",
+            "CREATE INDEX IF NOT EXISTS idx_torrents_status ON torrents (status)",
             # torrents: composite (status, alldebrid_id) — the hot path in
             # sync_alldebrid_status which filters by both simultaneously
-            "CREATE INDEX IF NOT EXISTS idx_torrents_status_alldebrid"
-            " ON torrents (status, alldebrid_id)",
+            "CREATE INDEX IF NOT EXISTS idx_torrents_status_alldebrid ON torrents (status, alldebrid_id)",
             # torrents: (status, updated_at) — cleanup_stuck_downloads compares
             # updated_at against a time cutoff for rows in specific statuses
-            "CREATE INDEX IF NOT EXISTS idx_torrents_status_updated"
-            " ON torrents (status, updated_at)",
+            "CREATE INDEX IF NOT EXISTS idx_torrents_status_updated ON torrents (status, updated_at)",
             # torrents: completed_at — stats queries filter heavily on this column
-            "CREATE INDEX IF NOT EXISTS idx_torrents_completed_at"
-            " ON torrents (completed_at)",
+            "CREATE INDEX IF NOT EXISTS idx_torrents_completed_at ON torrents (completed_at)",
             # events: lookup by torrent_id (detail view, event log)
-            "CREATE INDEX IF NOT EXISTS idx_events_torrent_id"
-            " ON events (torrent_id)",
+            "CREATE INDEX IF NOT EXISTS idx_events_torrent_id ON events (torrent_id)",
             # events: TTL cleanup — pruning old events scans created_at
-            "CREATE INDEX IF NOT EXISTS idx_events_created_at"
-            " ON events (created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_events_created_at ON events (created_at)",
         ]:
             await idx_db.execute(ddl)
         await idx_db.commit()
@@ -527,26 +519,18 @@ async def _init_db_postgres():
                 await _ensure_column_pg(conn, "download_files", col, defn)
             # Performance indexes (idempotent)
             for ddl in [
-                "CREATE INDEX IF NOT EXISTS idx_dlfiles_torrent_status"
-                " ON download_files (torrent_id, status, blocked)",
-                "CREATE INDEX IF NOT EXISTS idx_torrents_alldebrid_id"
-                " ON torrents (alldebrid_id)",
-                "CREATE INDEX IF NOT EXISTS idx_torrents_status"
-                " ON torrents (status)",
+                "CREATE INDEX IF NOT EXISTS idx_dlfiles_torrent_status ON download_files (torrent_id, status, blocked)",
+                "CREATE INDEX IF NOT EXISTS idx_torrents_alldebrid_id ON torrents (alldebrid_id)",
+                "CREATE INDEX IF NOT EXISTS idx_torrents_status ON torrents (status)",
                 # composite — hot path in sync_alldebrid_status
-                "CREATE INDEX IF NOT EXISTS idx_torrents_status_alldebrid"
-                " ON torrents (status, alldebrid_id)",
+                "CREATE INDEX IF NOT EXISTS idx_torrents_status_alldebrid ON torrents (status, alldebrid_id)",
                 # cleanup_stuck_downloads: filters status + updated_at
-                "CREATE INDEX IF NOT EXISTS idx_torrents_status_updated"
-                " ON torrents (status, updated_at)",
+                "CREATE INDEX IF NOT EXISTS idx_torrents_status_updated ON torrents (status, updated_at)",
                 # stats queries filter heavily on completed_at
-                "CREATE INDEX IF NOT EXISTS idx_torrents_completed_at"
-                " ON torrents (completed_at)",
-                "CREATE INDEX IF NOT EXISTS idx_events_torrent_id"
-                " ON events (torrent_id)",
+                "CREATE INDEX IF NOT EXISTS idx_torrents_completed_at ON torrents (completed_at)",
+                "CREATE INDEX IF NOT EXISTS idx_events_torrent_id ON events (torrent_id)",
                 # TTL cleanup scans created_at
-                "CREATE INDEX IF NOT EXISTS idx_events_created_at"
-                " ON events (created_at)",
+                "CREATE INDEX IF NOT EXISTS idx_events_created_at ON events (created_at)",
             ]:
                 await conn.execute(ddl)
 

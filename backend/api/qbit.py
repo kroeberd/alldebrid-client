@@ -33,8 +33,6 @@ Unimplemented endpoints return a safe stub so *arr doesn't abort on them.
 from __future__ import annotations
 
 import logging
-import time
-from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, Query, Request, UploadFile
@@ -287,8 +285,8 @@ async def qbit_torrents_add(
             if raw_urls:
                 await manager.add_magnet_direct(raw_urls[0].strip(), source="qbit")
                 return PlainTextResponse("Ok.")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("qBit add: %s", exc)
 
     return PlainTextResponse("Fails.", status_code=400)
 
@@ -391,7 +389,7 @@ async def qbit_torrents_delete(
                 await manager.delete_torrent(row["id"], delete_files=deleteFiles)
                 deleted += 1
         except Exception as exc:
-            logger.warning("qBit API: delete failed for %s: %s", hash_val, exc)
+            logger.warning("qBit API: delete failed for %s: %s", hash_val[:64].replace("\n",""), exc)
     return PlainTextResponse("Ok.")
 
 
@@ -405,7 +403,7 @@ async def qbit_torrents_pause(hashes: str = Form(...)):
             if row:
                 await manager.pause_torrent(row["id"])
         except Exception as exc:
-            logger.warning("qBit API: pause failed for %s: %s", hash_val, exc)
+            logger.warning("qBit API: pause failed for %s: %s", hash_val[:64].replace("\n",""), exc)
     return PlainTextResponse("Ok.")
 
 
@@ -419,7 +417,7 @@ async def qbit_torrents_resume(hashes: str = Form(...)):
             if row:
                 await manager.resume_torrent(row["id"])
         except Exception as exc:
-            logger.warning("qBit API: resume failed for %s: %s", hash_val, exc)
+            logger.warning("qBit API: resume failed for %s: %s", hash_val[:64].replace("\n",""), exc)
     return PlainTextResponse("Ok.")
 
 

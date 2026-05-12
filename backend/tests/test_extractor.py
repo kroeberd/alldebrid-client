@@ -3,9 +3,7 @@ import asyncio
 import gzip
 import io
 import os
-import shutil
 import tarfile
-import tempfile
 import zipfile
 from pathlib import Path
 
@@ -245,9 +243,6 @@ async def test_concurrency_semaphore_respected(tmp_path):
 @pytest.mark.asyncio
 async def test_concurrency_parallel(tmp_path):
     """Tasks are created with asyncio.create_task so they run concurrently."""
-    import asyncio as _asyncio
-    timings = []
-
     for i in range(3):
         make_zip(tmp_path / f"p{i}.zip", f"data{i}".encode())
 

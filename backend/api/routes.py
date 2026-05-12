@@ -229,8 +229,8 @@ async def update_settings(new: AppSettings):
             clean = clean.model_copy(update={
                 "aria2_max_active_downloads": clean.max_concurrent_downloads
             })
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("Could not sync aria2_max_active_downloads: %s", _e)
     save_settings(clean)
     apply_settings(clean)
     manager.reset_services()
@@ -1545,8 +1545,11 @@ async def prowlarr_test():
     from services.prowlarr import test_connection
     result = await test_connection()
     if not result["ok"]:
-        raise HTTPException(502, result.get("error", "Prowlarr connection failed"))
-    return result
+        # Sanitise the error message — avoid leaking internal stack traces
+        err = str(result.get("error") or "Prowlarr connection failed")[:200]
+        raise HTTPException(502, err)
+    # Return only non-sensitive fields
+    return {"ok": True, "issues": result.get("issues", [])}
 
 
 @router.post("/jackett/search")

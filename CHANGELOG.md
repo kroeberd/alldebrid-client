@@ -1,5 +1,61 @@
 # Changelog
 
+## [1.7.0] — 2026-05-12
+
+### Release — Security hardening, repo cleanup, Dashboard redesign
+
+This is the v1.7.0 release, finalising all changes since v1.6.0.
+
+#### Security (CodeQL — 30 alerts → resolved)
+
+**Errors fixed:**
+
+| Alert | File | Fix |
+|-------|------|-----|
+| Log Injection (×3) | `api/qbit.py` | `hash_val` sanitised in `logger.warning` calls — newlines stripped, truncated to 64 chars |
+| Stack trace exposure | `api/routes.py` | Prowlarr `test_connection` error message sanitised and truncated to 200 chars before returning HTTP 502 |
+
+**Warnings fixed:**
+
+| Alert | File | Fix |
+|-------|------|-----|
+| Implicit string concatenation (×14) | `db/database.py` | All `CREATE INDEX` SQL strings merged into single-line strings via regex replacement |
+
+**Notes fixed / dismissed:**
+
+| Alert | File | Action |
+|-------|------|--------|
+| Empty `except:` in qbit.py | `api/qbit.py` | Added `except Exception as exc: logger.debug(...)` |
+| Empty `except:` in routes.py | `api/routes.py` | Added `except Exception as _e: logger.debug(...)` |
+| Empty `except:` in main.py | `main.py` | Added `# noqa: BLE001` with explanation (malformed auth header) |
+| Unused import `time`, `Path` | `api/qbit.py` | Removed |
+| Unused import `DB_PATH` | `services/manager_v2.py` | Removed from import |
+| Unused global `_ad_rate_lock` | `services/manager_v2.py` | Removed |
+| Unused local `source` | `services/manager_v2.py` | Added to `logger.error` call |
+| Unused imports (×4) | `tests/test_extractor.py` | Removed `shutil`, `tempfile`, inline `asyncio`, `timings` |
+| Cyclic import ×2 | `manager_v2`, `alldebrid` | Dismissed — intentional lazy-import pattern |
+
+#### Repo cleanup
+
+19 unused files removed:
+- `.github/workflows/build-windows-exe.yml` (Windows EXE)
+- `backend/windows_main.py`
+- `packaging/` (PyInstaller spec + hooks + windows requirements)
+- `docs/.nojekyll`, `docs/_config.yml` (Jekyll)
+- `docs/fenrus.md`, `docs/windows-exe-build.md`
+- `docs/screenshots/*.svg` + `generate_screenshots.py`
+- `unraid-template.xml` (now in `kroeberd/unraid-templates`)
+- `deploy-unraid.sh`
+- `backend/tests/_tmp_watch_scan/` (added to `.gitignore`)
+
+#### Dashboard redesign
+
+New layout with three visual levels:
+
+1. **Hero stat row** — 6 large cards (Total, Completed, Active, Processing, Errors, Downloaded) with color-coded top accent, icon, bold number and label. Error card is clickable and dims when error count is 0.
+2. **KPI strip** — horizontal bar with 7 key metrics: Queue Health (color-coded), Last 24h, Last 7d, Success Rate, Avg Duration, Avg Size, Database.
+3. **Add Magnet + Recent Activity** — Import/Recover All moved to card header; Recent Activity shows entry count and a mini progress bar for active downloads.
+
 ## [1.6.10] — 2026-05-12
 
 ### Fixed — Bidirectional max-downloads sync, Design improvements, Mobile
