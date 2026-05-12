@@ -2201,8 +2201,8 @@ class TorrentManager:
                         touched.add(row["torrent_id"])
                         continue
                     logger.info(
-                        "Startup reconcile: GID %s not in aria2 for torrent %s (path=%s, url=%s) -> resetting",
-                        gid, row["torrent_id"], remote_path or "-", url or "-",
+                        "Startup reconcile: GID %s not in aria2 for torrent %s → resetting",
+                        gid, row["torrent_id"],
                     )
                     reset_torrents.add(row["torrent_id"])
                     await self._reset_torrent_for_redownload(

@@ -184,7 +184,7 @@ async def qbit_preferences():
 
 
 @router.post("/app/setPreferences")
-async def qbit_set_preferences(json: Optional[str] = Form(None)):
+async def qbit_set_preferences(json_data: Optional[str] = Form(None, alias="json")):
     """Silently accept preference changes — we don't apply them."""
     return PlainTextResponse("Ok.")
 

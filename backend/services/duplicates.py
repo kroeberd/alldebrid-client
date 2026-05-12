@@ -283,7 +283,7 @@ async def find_semantic_duplicates(candidate: DuplicateCandidate) -> list[Duplic
                    WHERE status IN ('uploading','processing','ready','queued',
                                     'downloading','paused','completed','error')
                      AND name IS NOT NULL AND name != ''
-                   ORDER BY id DESC LIMIT 2000""",
+                   ORDER BY id DESC LIMIT 500""",
             )
     except Exception as exc:
         logger.debug("find_semantic_duplicates DB error: %s", exc)

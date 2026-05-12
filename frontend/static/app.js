@@ -124,8 +124,10 @@ function fmtSpeed(bps) {
 function fmtDate(d) {
   if (!d) return '—';
   const x = new Date(d);
-  return x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' '+
-         x.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  // Use en-GB for consistent DD.MM HH:MM format regardless of browser locale
+  const dateStr = x.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit'}).replace('/','.').replace('/','.');
+  const timeStr = x.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false});
+  return dateStr + ' ' + timeStr;
 }
 function pct(part, total) {
   if (!total) return 0;
@@ -527,12 +529,23 @@ async function loadRecent() {
 async function quickAdd() {
   const v = document.getElementById('q-magnet').value.trim();
   if (!v) return;
+  const btn = document.querySelector('#view-dashboard button.btn-primary');
+  if (btn) btn.disabled = true;
   try {
-    await api('POST', '/torrents/add-magnet', {magnet: v});
-    toast('Magnet added!', 'success');
-    document.getElementById('q-magnet').value = '';
-    loadStats(); loadRecent();
-  } catch(e) { toast(e.message, 'error'); }
+    const res = await api('POST', '/torrents/add-magnet', {magnet: v}, 30000);
+    if (res && res._duplicate && res._duplicate.action === 'skip') {
+      toast('Already in queue: ' + (res.name || res._duplicate.reason), 'warn');
+    } else if (res && res._duplicate && res._duplicate.action === 'warn') {
+      toast('Added (possible duplicate)', 'warn');
+      document.getElementById('q-magnet').value = '';
+      loadStats(); loadRecent();
+    } else {
+      toast('Magnet added!', 'success');
+      document.getElementById('q-magnet').value = '';
+      loadStats(); loadRecent();
+    }
+  } catch(e) { toast(sanitizeErrorMsg(e.message), 'error'); }
+  finally { if (btn) btn.disabled = false; }
 }
 
 // ── Torrents ───────────────────────────────────────────────────────────────
@@ -598,10 +611,14 @@ async function addMagnet() {
   const v = document.getElementById('t-magnet').value.trim();
   if (!v) return;
   try {
-    await api('POST','/torrents/add-magnet',{magnet:v});
-    toast('Added!','success');
-    document.getElementById('t-magnet').value='';
-    loadTorrents();
+    const res = await api('POST','/torrents/add-magnet',{magnet:v}, 30000);
+    if (res && res._duplicate && res._duplicate.action === 'skip') {
+      toast('Already in queue: ' + (res.name || res._duplicate.reason), 'warn');
+    } else {
+      toast(res && res._duplicate ? 'Added (possible duplicate)' : 'Added!','success');
+      document.getElementById('t-magnet').value='';
+      loadTorrents();
+    }
   } catch(e) { toast(sanitizeErrorMsg(e.message),'error'); }
 }
 
