@@ -1943,3 +1943,217 @@ async def prometheus_metrics():
         content="\n".join(lines) + "\n",
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
+
+# ── Priority Queue ────────────────────────────────────────────────────────────
+
+@router.patch("/torrents/{torrent_id}/priority")
+async def set_torrent_priority(torrent_id: int, body: dict):
+    """Set the dispatch priority for a torrent.
+    Higher priority = dispatched sooner.  Default: 0.
+    Body: {"priority": <int>}
+    """
+    priority = int(body.get("priority") or 0)
+    async with get_db() as db:
+        row = await db.fetchone("SELECT id FROM torrents WHERE id=?", (torrent_id,))
+        if not row:
+            raise HTTPException(404, "Torrent not found")
+        await db.execute(
+            "UPDATE torrents SET priority=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (priority, torrent_id),
+        )
+        await db.commit()
+    _sse_broadcast("torrent_updated", {"torrent_id": torrent_id, "priority": priority})
+    return {"ok": True, "torrent_id": torrent_id, "priority": priority}
+
+
+# ── Rule Engine ───────────────────────────────────────────────────────────────
+
+@router.post("/rules/test")
+async def test_rules(body: dict):
+    """Dry-run the rule engine against a test context without affecting any torrent.
+    Body: {"name": "...", "source": "...", "size_bytes": 0, "label": "..."}
+    """
+    from services.rules import evaluate as rules_evaluate, _load_rules
+    rules = _load_rules()
+    actions = rules_evaluate({
+        "name":       str(body.get("name") or ""),
+        "source":     str(body.get("source") or ""),
+        "size_bytes": int(body.get("size_bytes") or 0),
+        "label":      str(body.get("label") or ""),
+        "priority":   int(body.get("priority") or 0),
+    })
+    return {"rules_count": len(rules), "actions": actions}
+
+
+# ── Saved Searches ────────────────────────────────────────────────────────────
+
+@router.get("/saved-searches")
+async def list_saved_searches():
+    async with get_db() as db:
+        rows = await db.fetchall("SELECT * FROM saved_searches ORDER BY id DESC")
+    return [dict(r) for r in rows]
+
+
+@router.post("/saved-searches")
+async def create_saved_search(body: dict):
+    name  = (body.get("name") or "").strip()
+    query = (body.get("query") or "").strip()
+    if not name or not query:
+        raise HTTPException(400, "name and query are required")
+    async with get_db() as db:
+        row_id = await db.execute_returning_id(
+            """INSERT INTO saved_searches
+               (name, query, indexer, category, min_seeders, max_size_gb,
+                min_size_gb, regex_filter, auto_add, enabled, interval_minutes)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                name, query,
+                body.get("indexer", ""), body.get("category", ""),
+                int(body.get("min_seeders") or 1),
+                float(body.get("max_size_gb") or 0),
+                float(body.get("min_size_gb") or 0),
+                body.get("regex_filter", ""),
+                1 if body.get("auto_add") else 0,
+                1 if body.get("enabled", True) else 0,
+                int(body.get("interval_minutes") or 60),
+            ),
+        )
+        await db.commit()
+    return {"ok": True, "id": row_id}
+
+
+@router.put("/saved-searches/{search_id}")
+async def update_saved_search(search_id: int, body: dict):
+    async with get_db() as db:
+        row = await db.fetchone("SELECT id FROM saved_searches WHERE id=?", (search_id,))
+        if not row:
+            raise HTTPException(404, "Saved search not found")
+        await db.execute(
+            """UPDATE saved_searches SET
+               name=?, query=?, indexer=?, category=?, min_seeders=?,
+               max_size_gb=?, min_size_gb=?, regex_filter=?,
+               auto_add=?, enabled=?, interval_minutes=?
+               WHERE id=?""",
+            (
+                body.get("name", ""), body.get("query", ""),
+                body.get("indexer", ""), body.get("category", ""),
+                int(body.get("min_seeders") or 1),
+                float(body.get("max_size_gb") or 0),
+                float(body.get("min_size_gb") or 0),
+                body.get("regex_filter", ""),
+                1 if body.get("auto_add") else 0,
+                1 if body.get("enabled", True) else 0,
+                int(body.get("interval_minutes") or 60),
+                search_id,
+            ),
+        )
+        await db.commit()
+    return {"ok": True, "id": search_id}
+
+
+@router.delete("/saved-searches/{search_id}")
+async def delete_saved_search(search_id: int):
+    async with get_db() as db:
+        await db.execute("DELETE FROM saved_searches WHERE id=?", (search_id,))
+        await db.commit()
+    return {"ok": True}
+
+
+@router.post("/saved-searches/{search_id}/run")
+async def run_saved_search(search_id: int):
+    """Manually trigger a saved search run."""
+    async with get_db() as db:
+        row = await db.fetchone("SELECT * FROM saved_searches WHERE id=?", (search_id,))
+        if not row:
+            raise HTTPException(404, "Saved search not found")
+    results = await _execute_saved_search(dict(row))
+    return {"ok": True, "results": results}
+
+
+async def _execute_saved_search(search: dict) -> dict:
+    """Execute a single saved search via Jackett/Prowlarr and optionally auto-add."""
+    query = search.get("query", "")
+    results_count = 0
+    added_count = 0
+    try:
+        from core.config import get_settings
+        cfg = get_settings()
+        raw_results: list = []
+
+        # Try Prowlarr first if enabled
+        if getattr(cfg, "prowlarr_enabled", False):
+            try:
+                from services.prowlarr import search as pr_search
+                raw_results = await pr_search(query, limit=50)
+            except Exception as exc:
+                logger.debug("saved_search: Prowlarr failed: %s", exc)
+
+        # Fallback to Jackett
+        if not raw_results and getattr(cfg, "jackett_enabled", False):
+            try:
+                from services.jackett import search as jk_search
+                raw_results = await jk_search(query)
+            except Exception as exc:
+                logger.debug("saved_search: Jackett failed: %s", exc)
+
+        # Filter results
+        import re
+        min_seeders = int(search.get("min_seeders") or 1)
+        max_size = float(search.get("max_size_gb") or 0) * 1024 ** 3
+        min_size = float(search.get("min_size_gb") or 0) * 1024 ** 3
+        regex_filter = search.get("regex_filter") or ""
+
+        filtered = []
+        for r in raw_results:
+            if int(r.get("seeders") or 0) < min_seeders:
+                continue
+            size = int(r.get("size_bytes") or 0)
+            if max_size > 0 and size > max_size:
+                continue
+            if min_size > 0 and size < min_size:
+                continue
+            if regex_filter:
+                try:
+                    if not re.search(regex_filter, r.get("title", ""), re.I):
+                        continue
+                except re.error:
+                    pass
+            filtered.append(r)
+
+        results_count = len(filtered)
+
+        # Auto-add if configured
+        if search.get("auto_add") and filtered:
+            for result in filtered[:10]:  # max 10 per run to avoid spam
+                magnet = result.get("magnet", "")
+                if not magnet:
+                    continue
+                try:
+                    from services.manager_v2 import manager
+                    await manager.add_magnet_direct(magnet, source="saved_search")
+                    added_count += 1
+                except Exception as exc:
+                    logger.debug("saved_search auto-add failed: %s", exc)
+
+        # Update last_run_at
+        from db.database import get_db as _gdb
+        async with _gdb() as db:
+            await db.execute(
+                "UPDATE saved_searches SET last_run_at=CURRENT_TIMESTAMP WHERE id=?",
+                (search["id"],),
+            )
+            await db.commit()
+
+    except Exception as exc:
+        logger.error("saved_search execution error: %s", exc)
+
+    return {"results_count": results_count, "added_count": added_count}
+
+
+# ── Queue Analytics ───────────────────────────────────────────────────────────
+
+@router.get("/analytics")
+async def get_analytics(window_hours: int = Query(24, ge=1, le=720)):
+    """Return queue performance metrics for the last *window_hours* hours."""
+    from services.analytics import get_queue_analytics
+    return await get_queue_analytics(window_hours)

@@ -1,5 +1,131 @@
 # Changelog
 
+## [1.8.2] — 2026-05-12
+
+### Added — Priority Queue, Rule Engine, Saved Searches, Queue Analytics
+
+---
+
+#### Priority Queue
+
+The dispatch loop now processes torrents in **priority order** instead of pure FIFO.
+
+- `ORDER BY priority DESC, id ASC` in `_dispatch_pending_aria2_queue()` and
+  `full_alldebrid_sync()` — higher `priority` value = processed sooner
+- New endpoint: `PATCH /api/torrents/{id}/priority` — body `{"priority": <int>}`
+- Default priority is 0; negative values defer a torrent behind others
+- Starvation prevention: lower-priority torrents are still eventually dispatched
+  (no strict pre-emption — active downloads are not cancelled)
+
+---
+
+#### Rule Engine — `services/rules.py`
+
+Evaluate configurable rules against every newly added torrent.
+
+**Enable:** Settings → Automation → Enable Rule Engine
+
+**Rule format** (JSON in `rules_list` config field):
+```json
+[
+  {"if": {"title_contains": "REMUX"},      "then": {"priority": -10}},
+  {"if": {"size_gb_gt": 80},               "then": {"pause": true}},
+  {"if": {"label_contains": "anime"},      "then": {"download_path": "/anime"}},
+  {"if": {"title_matches": ".*4K.*REMUX"}, "then": {"priority": 10}},
+  {"if": {"source_is": "jackett"},         "then": {"block": false}}
+]
+```
+
+**Supported conditions:**
+- `title_contains` — case-insensitive substring
+- `title_matches` — regex (re.search)
+- `size_gb_gt` / `size_gb_lt` — size threshold in GB
+- `label_contains` — label/category substring
+- `source_is` — exact source (manual, jackett, watch, qbit, saved_search…)
+
+**Supported actions:**
+- `priority` — added to current priority (accumulated across all matching rules)
+- `pause` — torrent starts in paused state
+- `download_path` — override download folder
+- `label` — set or override label
+- `block` — skip upload to AllDebrid entirely (logged as INFO)
+
+**Test endpoint:** `POST /api/rules/test` — dry-run without affecting any torrent.
+**UI:** Settings → Automation → test button + JSON formatter.
+
+---
+
+#### Saved Searches — DB + Scheduler + API + UI
+
+Recurring searches via Jackett or Prowlarr that can optionally auto-add results.
+
+**New DB table:** `saved_searches` (idempotent `CREATE TABLE IF NOT EXISTS`)
+
+**Scheduler loop:** `saved_searches_loop()` runs enabled searches according to
+their `interval_minutes` setting; respects `last_run_at` to avoid redundant runs.
+
+**New API endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/saved-searches` | List all saved searches |
+| `POST` | `/api/saved-searches` | Create a saved search |
+| `PUT` | `/api/saved-searches/{id}` | Update |
+| `DELETE` | `/api/saved-searches/{id}` | Delete |
+| `POST` | `/api/saved-searches/{id}/run` | Manual trigger |
+
+**Filter options per search:** min seeders, max/min size GB, regex filter, auto-add.
+
+**UI:** Settings → Automation → Saved Searches section.
+
+---
+
+#### Queue Analytics — `services/analytics.py`
+
+New read-only analytics endpoint and dedicated view.
+
+**Endpoint:** `GET /api/analytics?window_hours=<1-720>`
+
+**Metrics returned:**
+
+| Field | Description |
+|-------|-------------|
+| `completed_count` | Torrents completed in window |
+| `error_count` | Torrents that failed in window |
+| `no_peer_count` | No-peer errors in window |
+| `success_rate` | completed / (completed + errors) |
+| `avg_duration_seconds` | Mean time from added to completed |
+| `throughput_gb` | Total GB downloaded in window |
+| `total_active` | Currently active (all non-terminal) |
+| `total_error` | Currently in error state |
+| `top_error_reasons` | [{reason, count}] top 5 |
+| `hourly_completed` | [{hour, count}] per-hour breakdown (≤48h windows) |
+
+**UI:** New **Analytics** nav item with 1h / 24h / 7d / 30d time-window selector,
+KPI strip, and top-error-reasons breakdown.
+
+---
+
+#### Settings — Automation Tab
+
+New **🤖 Automation** tab in Settings between Services and Advanced:
+- Rule Engine: enable toggle + JSON editor + Test button + Format JSON button
+- Saved Searches: interval setting + add/run/delete UI + last-run timestamp
+
+---
+
+#### Config — new fields (all with safe defaults)
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `rules_enabled` | `false` | Rule Engine opt-in |
+| `rules_list` | `"[]"` | JSON rules definition |
+| `saved_searches_interval_minutes` | `60` | Saved search scheduler interval |
+
+Existing `config.json` files load without changes.
+
+---
+
 ## [1.8.0] — 2026-05-12
 
 ### Smart Queue & Automation — Phase 1: Duplicate Intelligence, Logging, Search UX

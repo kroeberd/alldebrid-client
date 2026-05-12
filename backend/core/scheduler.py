@@ -299,6 +299,41 @@ async def events_ttl_loop() -> None:
         await asyncio.sleep(86400)  # run once every 24 hours
 
 
+async def saved_searches_loop():
+    """Periodically run all enabled saved searches."""
+    cfg = get_settings()
+    interval = max(5, int(getattr(cfg, "saved_searches_interval_minutes", 60) or 60)) * 60
+    await _jitter_sleep(interval)
+    while True:
+        try:
+            cfg = get_settings()
+            interval = max(5, int(getattr(cfg, "saved_searches_interval_minutes", 60) or 60)) * 60
+            if interval > 0:
+                from db.database import get_db
+                from api.routes import _execute_saved_search
+                async with get_db() as db:
+                    searches = await db.fetchall(
+                        "SELECT * FROM saved_searches WHERE enabled=1"
+                    )
+                for search in (searches or []):
+                    try:
+                        cfg_now = get_settings()
+                        intvl = int(search.get("interval_minutes") or 60)
+                        last_run = search.get("last_run_at")
+                        if last_run:
+                            import datetime as _dt
+                            last = _dt.datetime.fromisoformat(str(last_run).replace('Z',''))
+                            due = last + _dt.timedelta(minutes=intvl)
+                            if _dt.datetime.utcnow() < due:
+                                continue
+                        await _execute_saved_search(dict(search))
+                    except Exception as e:
+                        logger.debug("saved_search run error: %s", e)
+        except Exception as e:
+            logger.error("saved_searches_loop error: %s", e)
+        await asyncio.sleep(interval)
+
+
 async def start_scheduler():
     _tasks.append(asyncio.create_task(watch_folder_loop()))
     _tasks.append(asyncio.create_task(sync_status_loop()))
@@ -313,6 +348,7 @@ async def start_scheduler():
     _tasks.append(asyncio.create_task(aria2_restart_loop()))
     _tasks.append(asyncio.create_task(update_check_loop()))
     _tasks.append(asyncio.create_task(events_ttl_loop()))
+    _tasks.append(asyncio.create_task(saved_searches_loop()))
     logger.info("Scheduler started")
 
 

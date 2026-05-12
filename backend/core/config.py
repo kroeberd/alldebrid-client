@@ -225,6 +225,17 @@ class AppSettings(BaseModel):
     # Leave empty to disable.
     on_torrent_complete: str = ""
 
+    # ── Rule Engine ───────────────────────────────────────────────────────────
+    # JSON-serialised list of rules.  Each rule has an "if" condition dict and
+    # a "then" action dict.  See services/rules.py for supported keys.
+    # Example: [{"if":{"title_contains":"REMUX"},"then":{"priority":-10}}]
+    rules_enabled: bool = False
+    rules_list:    str  = "[]"
+
+    # ── Saved Searches ────────────────────────────────────────────────────────
+    # Interval in minutes for running saved searches (0 = disabled).
+    saved_searches_interval_minutes: int = 60
+
 
 _settings: AppSettings = AppSettings()
 

@@ -556,6 +556,29 @@ class TorrentManager:
         name = result.get("name") or result.get("filename") or hash_value[:16]
         normalized_hash = result.get("hash", hash_value).lower()
         logger.info("Magnet uploaded %s (ad_id=%s)", name, ad_id)
+
+        # ── Rule Engine ────────────────────────────────────────────────────
+        rule_actions: dict = {}
+        cfg = get_settings()
+        if getattr(cfg, "rules_enabled", False):
+            try:
+                from services.rules import evaluate as rules_evaluate
+                rule_actions = rules_evaluate({
+                    "name":       name,
+                    "source":     source,
+                    "size_bytes": int(result.get("size") or 0),
+                    "priority":   0,
+                })
+                if rule_actions.get("block"):
+                    logger.info("Rule engine: blocking torrent '%s' (rules_list match)", name[:60])
+                    try:
+                        await self.ad().delete_magnet(ad_id)
+                    except Exception:
+                        pass
+                    return {"_blocked_by_rule": True, "name": name}
+            except Exception as exc:
+                logger.debug("Rule engine evaluation error: %s", exc)
+        # ──────────────────────────────────────────────────────────────────
         row = await self._upsert(normalized_hash, magnet, name, ad_id, source)
         if get_settings().discord_notify_added:
             await self.notify().send_added(name, source=source, alldebrid_id=ad_id)
@@ -709,7 +732,7 @@ class TorrentManager:
                        FROM torrents
                        WHERE alldebrid_id IS NOT NULL AND alldebrid_id != ''
                          AND status NOT IN ('completed', 'deleted', 'queued', 'downloading', 'paused')
-                       ORDER BY id ASC"""
+                       ORDER BY priority DESC, id ASC"""
                 )
             ).fetchall()
 
@@ -1778,7 +1801,7 @@ class TorrentManager:
                              AND f.blocked=0
                              AND f.status='pending'
                              AND t.status NOT IN ('completed','deleted','error')
-                           ORDER BY t.id ASC, f.id ASC
+                           ORDER BY t.priority DESC, t.id ASC
                            LIMIT ?""",
                         (available_slots,),
                     )

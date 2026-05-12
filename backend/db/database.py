@@ -390,6 +390,24 @@ async def _init_db_sqlite():
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS saved_searches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                query TEXT NOT NULL,
+                indexer TEXT DEFAULT '',
+                category TEXT DEFAULT '',
+                min_seeders INTEGER DEFAULT 1,
+                max_size_gb REAL DEFAULT 0,
+                min_size_gb REAL DEFAULT 0,
+                regex_filter TEXT DEFAULT '',
+                auto_add INTEGER DEFAULT 0,
+                enabled INTEGER DEFAULT 1,
+                interval_minutes INTEGER DEFAULT 60,
+                last_run_at DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         for col, defn in _SCHEMA_COLUMNS_TORRENTS:
             await _ensure_column(db, "torrents", col, defn)
         for col, defn in _SCHEMA_COLUMNS_FILES:

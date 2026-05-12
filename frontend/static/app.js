@@ -23,6 +23,15 @@ function renderTopbarActions() {
 }
 
 // ── Nav ────────────────────────────────────────────────────────────────────
+var _analyticsWindow = 24;
+
+function setAnalyticsWindow(el, hours) {
+  document.querySelectorAll('#view-analytics .ftab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  _analyticsWindow = hours;
+  loadAnalytics(hours);
+}
+
 function nav(el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
@@ -37,6 +46,7 @@ function nav(el) {
     torrents:'Torrents',
     events:'Event Log',
     stats:'Statistics',
+    analytics:'Analytics',
     changelog:'Changelog',
     github:'GitHub',
     coffee:'Coffee',
@@ -48,8 +58,9 @@ function nav(el) {
   if (v === 'torrents')  loadTorrents();
   if (v === 'events')    loadEvents();
   if (v === 'stats')     loadDetailedStats();
+  if (v === 'analytics') loadAnalytics(_analyticsWindow || 24);
   if (v === 'changelog') loadChangelog();
-  if (v === 'settings')  loadSettings();
+  if (v === 'settings')  { loadSettings(); setTimeout(loadSavedSearches, 200); }
   if (v === 'search')    initSearchView();
   if (v === 'aria2queue') loadAria2QueueView();
   if (v === 'help') switchHelpTab(document.querySelector('#help-tabs .stab'));
@@ -1036,6 +1047,7 @@ function renderSettings() {
     { id:'tab-extract',       label:'📦 Extract' },
     { id:'tab-notifications', label:'🔔 Notifications' },
     { id:'tab-services',      label:'🔌 Services' },
+    { id:'tab-automation',    label:'🤖 Automation' },
     { id:'tab-advanced',      label:'🛠️ Advanced' },
   ];
   document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
@@ -1703,6 +1715,73 @@ function renderSettings() {
     </div>`);
   _sf.insertAdjacentHTML('beforeend', `</div>
 
+    <div class="stab-panel" id="tab-automation">
+
+      <!-- Rule Engine -->
+      <div class="scard">
+        <div class="scard-header">🤖 Rule Engine</div>
+        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">
+          Automatically set priority, pause, override download path or block torrents based on title, size, label or source.
+          Rules are evaluated in order — all matching rules are applied.
+        </p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Enable Rule Engine</label>
+            <label class="toggle"><input type="checkbox" id="s-rules_enabled" ${s.rules_enabled?'checked':''}/><span class="slider"></span></label>
+            <span class="form-hint">When disabled, no rules are evaluated and all torrents proceed normally.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rules (JSON)</label>
+            <textarea class="input" id="s-rules_list" rows="10" style="font-family:var(--mono);font-size:11px;resize:vertical">${esc(s.rules_list||'[]')}</textarea>
+            <span class="form-hint">
+              JSON array of rules. Each rule: <code>{"if": {...}, "then": {...}}</code><br>
+              Conditions: <code>title_contains</code>, <code>title_matches</code> (regex), <code>size_gb_gt</code>, <code>size_gb_lt</code>, <code>label_contains</code>, <code>source_is</code><br>
+              Actions: <code>priority</code> (int, added to current), <code>pause</code> (bool), <code>download_path</code> (str), <code>label</code> (str), <code>block</code> (bool — skips upload)
+            </span>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="testRuleEngine()">▷ Test Rules</button>
+            <button class="btn btn-ghost btn-sm" onclick="formatRulesJson()">⟳ Format JSON</button>
+          </div>
+          <div id="rules-test-output" style="display:none;margin-top:10px;padding:10px;background:var(--surface2);border-radius:var(--radius);font-size:12px;font-family:var(--mono)"></div>
+        </div>
+      </div>
+
+      <!-- Saved Searches -->
+      <div class="scard">
+        <div class="scard-header">🔍 Saved Searches</div>
+        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">
+          Recurring searches via Jackett or Prowlarr. Results can be auto-added to the queue.
+        </p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Run interval (minutes)</label>
+            <input class="input" type="number" id="s-saved_searches_interval_minutes" value="${s.saved_searches_interval_minutes??60}" min="5" max="1440"/>
+            <span class="form-hint">How often to run all enabled saved searches. Default: 60 min. Set to 0 to disable the scheduler.</span>
+          </div>
+        </div>
+        <div id="saved-searches-list" style="padding:0 14px 14px">
+          <div style="color:var(--text3);font-size:12px">Loading saved searches…</div>
+        </div>
+        <div style="padding:0 14px 14px">
+          <button class="btn btn-ghost btn-sm" onclick="showAddSavedSearch()">+ Add Saved Search</button>
+        </div>
+        <div id="saved-search-form" style="display:none;padding:0 14px 14px;border-top:1px solid var(--border);margin-top:4px">
+          <div style="font-weight:600;margin-bottom:10px;font-size:13px">New Saved Search</div>
+          <div class="form-group"><label class="form-label">Name</label><input class="input" id="ss-name" placeholder="e.g. New Anime Releases"/></div>
+          <div class="form-group"><label class="form-label">Search Query</label><input class="input" id="ss-query" placeholder="e.g. Attack on Titan S04"/></div>
+          <div class="form-group"><label class="form-label">Min Seeders</label><input class="input" type="number" id="ss-min-seeders" value="1" min="0"/></div>
+          <div class="form-group"><label class="form-label">Regex Filter (optional)</label><input class="input" id="ss-regex" placeholder="e.g. 1080p"/></div>
+          <div class="form-group"><label class="form-label">Auto-add matching results</label><label class="toggle"><input type="checkbox" id="ss-auto-add"/><span class="slider"></span></label></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-primary btn-sm" onclick="saveSavedSearch()">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('saved-search-form').style.display='none'">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
     <div class="stab-panel" id="tab-advanced">
       <div class="scard">
       <div class="scard-header">🚫 File Filters</div>
@@ -2144,6 +2223,9 @@ function switchSettingsTab(id) {
   }
   if (id === 'tab-advanced') {
     loadDatabaseBackupList();
+  }
+  if (id === 'tab-automation') {
+    loadSavedSearches();
   }
   if (id === 'tab-services') {
     flexgetListTasks();
@@ -3615,6 +3697,159 @@ async function aria2QueueAction(gid, action) {
     await loadAria2QueueView();
   } catch(e) {
     toast('aria2 ' + action + ': ' + e.message, 'error');
+  }
+}
+
+// ── Automation (Rule Engine + Saved Searches) ─────────────────────────────
+
+async function testRuleEngine() {
+  const name  = prompt('Torrent name to test against rules:');
+  if (name === null) return;
+  const size  = parseFloat(prompt('Size in GB (0 = unknown):', '0') || '0');
+  const out   = document.getElementById('rules-test-output');
+  if (out) out.style.display = '';
+  try {
+    const res = await api('POST', '/rules/test', {
+      name, size_bytes: Math.round(size * 1024**3), source: 'manual',
+    });
+    if (out) out.innerHTML =
+      `<b>Rules evaluated:</b> ${res.rules_count}<br>` +
+      `<b>Actions applied:</b> ${JSON.stringify(res.actions, null, 2)}`;
+  } catch(e) {
+    if (out) out.innerHTML = '<span style="color:var(--red)">Error: ' + esc(e.message) + '</span>';
+  }
+}
+
+function formatRulesJson() {
+  const ta = document.getElementById('s-rules_list');
+  if (!ta) return;
+  try {
+    ta.value = JSON.stringify(JSON.parse(ta.value), null, 2);
+  } catch(e) {
+    toast('Invalid JSON: ' + e.message, 'error');
+  }
+}
+
+var _savedSearches = [];
+
+async function loadSavedSearches() {
+  const el = document.getElementById('saved-searches-list');
+  if (!el) return;
+  try {
+    _savedSearches = await api('GET', '/saved-searches');
+    if (!_savedSearches.length) {
+      el.innerHTML = '<div style="color:var(--text3);font-size:12px">No saved searches yet.</div>';
+      return;
+    }
+    el.innerHTML = _savedSearches.map(ss => `
+      <div class="saved-search-row" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${esc(ss.name)}</div>
+          <div style="font-size:11px;color:var(--text3)">${esc(ss.query)}${ss.regex_filter?` · filter: ${esc(ss.regex_filter)}`:''} · every ${ss.interval_minutes} min · ${ss.auto_add?'auto-add':'manual'}</div>
+          ${ss.last_run_at ? `<div style="font-size:10px;color:var(--text3)">Last run: ${fmtDate(ss.last_run_at)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-ghost btn-sm" onclick="runSavedSearch(${ss.id})">▷ Run</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSavedSearch(${ss.id})">✕</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red);font-size:12px">Failed to load: ' + esc(e.message) + '</div>';
+  }
+}
+
+function showAddSavedSearch() {
+  const form = document.getElementById('saved-search-form');
+  if (form) form.style.display = form.style.display === 'none' ? '' : 'none';
+}
+
+async function saveSavedSearch() {
+  const name  = (document.getElementById('ss-name')?.value || '').trim();
+  const query = (document.getElementById('ss-query')?.value || '').trim();
+  if (!name || !query) { toast('Name and query are required', 'warn'); return; }
+  try {
+    await api('POST', '/saved-searches', {
+      name, query,
+      min_seeders: parseInt(document.getElementById('ss-min-seeders')?.value || '1'),
+      regex_filter: document.getElementById('ss-regex')?.value || '',
+      auto_add: document.getElementById('ss-auto-add')?.checked || false,
+      enabled: true,
+      interval_minutes: 60,
+    });
+    toast('Saved search created!', 'success');
+    document.getElementById('saved-search-form').style.display = 'none';
+    await loadSavedSearches();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function runSavedSearch(id) {
+  try {
+    const res = await api('POST', `/saved-searches/${id}/run`, {}, 60000);
+    toast(`Search done: ${res.results?.results_count||0} result(s), ${res.results?.added_count||0} added`, 'success');
+    await loadSavedSearches();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteSavedSearch(id) {
+  if (!confirm('Delete this saved search?')) return;
+  try {
+    await api('DELETE', `/saved-searches/${id}`);
+    toast('Deleted', 'success');
+    await loadSavedSearches();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Priority Queue ─────────────────────────────────────────────────────────
+
+async function setTorrentPriority(torrentId, priority) {
+  try {
+    await api('PATCH', `/torrents/${torrentId}/priority`, {priority});
+    loadTorrents();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Queue Analytics ────────────────────────────────────────────────────────
+
+async function loadAnalytics(windowHours) {
+  const h = windowHours || 24;
+  const el = document.getElementById('analytics-body');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--text3);padding:20px">Loading analytics…</div>';
+  try {
+    const a = await api('GET', `/analytics?window_hours=${h}`);
+    if (a.error) { el.innerHTML = `<div style="color:var(--red)">${esc(a.error)}</div>`; return; }
+    const dur = a.avg_duration_seconds > 3600
+      ? (a.avg_duration_seconds/3600).toFixed(1)+'h'
+      : a.avg_duration_seconds > 60
+      ? Math.round(a.avg_duration_seconds/60)+'m'
+      : Math.round(a.avg_duration_seconds)+'s';
+    el.innerHTML = `
+      <div class="dash-kpi-strip" style="margin-bottom:16px">
+        <div class="dash-kpi"><div class="dash-kpi-val" style="color:var(--green)">${a.completed_count}</div><div class="dash-kpi-lbl">Completed</div><div class="dash-kpi-sub">in ${h}h</div></div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi"><div class="dash-kpi-val" style="color:var(--red)">${a.error_count}</div><div class="dash-kpi-lbl">Errors</div><div class="dash-kpi-sub">in ${h}h</div></div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi"><div class="dash-kpi-val" style="color:var(--yellow)">${a.no_peer_count}</div><div class="dash-kpi-lbl">No Peer</div><div class="dash-kpi-sub">in ${h}h</div></div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi"><div class="dash-kpi-val" style="color:${a.success_rate>0.9?'var(--green)':a.success_rate>0.7?'var(--yellow)':'var(--red)'}">${Math.round(a.success_rate*100)}%</div><div class="dash-kpi-lbl">Success Rate</div><div class="dash-kpi-sub">of finished</div></div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi"><div class="dash-kpi-val">${dur||'—'}</div><div class="dash-kpi-lbl">Avg Duration</div><div class="dash-kpi-sub">per torrent</div></div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi"><div class="dash-kpi-val">${a.throughput_gb.toFixed(1)} GB</div><div class="dash-kpi-lbl">Downloaded</div><div class="dash-kpi-sub">in ${h}h</div></div>
+      </div>
+      ${a.top_error_reasons.length ? `
+        <div class="card" style="padding:14px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:8px;color:var(--text2)">TOP ERROR REASONS</div>
+          ${a.top_error_reasons.map(r => `
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span style="color:var(--text2)">${esc(r.reason.substring(0,80))}</span>
+              <span style="color:var(--red);font-weight:600">${r.count}</span>
+            </div>`).join('')}
+        </div>` : ''}
+    `;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red)">Analytics error: ${esc(e.message)}</div>`;
   }
 }
 

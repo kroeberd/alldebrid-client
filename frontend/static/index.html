@@ -41,6 +41,9 @@
     <div class="nav-item" data-view="stats" onclick="nav(this)">
       <span class="icon">&#128202;</span><span class="nav-label">Statistics</span>
     </div>
+    <div class="nav-item" data-view="analytics" onclick="nav(this)">
+      <span class="icon">&#128200;</span><span class="nav-label">Analytics</span>
+    </div>
     <div class="nav-item" data-view="changelog" onclick="nav(this)">
       <span class="icon">&#128214;</span><span class="nav-label">Changelog</span>
     </div>
@@ -365,6 +368,27 @@
       </div>
     </div>
     <!-- Changelog -->
+    <div class="view" id="view-analytics">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📈 Queue Analytics</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:11px;color:var(--text3)">Window:</span>
+            <div class="filter-tabs">
+              <div class="ftab active" onclick="setAnalyticsWindow(this,1)">1h</div>
+              <div class="ftab active" onclick="setAnalyticsWindow(this,24)">24h</div>
+              <div class="ftab" onclick="setAnalyticsWindow(this,168)">7d</div>
+              <div class="ftab" onclick="setAnalyticsWindow(this,720)">30d</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="loadAnalytics(_analyticsWindow||24)">↻</button>
+          </div>
+        </div>
+        <div style="padding:14px" id="analytics-body">
+          <div style="color:var(--text3)">Select a time window to load analytics.</div>
+        </div>
+      </div>
+    </div>
+
     <div class="view" id="view-changelog">
       <div class="card">
         <div class="card-header">
