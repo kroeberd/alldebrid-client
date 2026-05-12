@@ -259,7 +259,111 @@ body.light :disabled { opacity: .55; }
 .view { display: none !important; }
 .view.active { display: block !important; }
 
-/* ── Stat Cards ── */
+/* ── Dashboard ── */
+
+/* Hero stat row — 6 large cards in a horizontal strip */
+.dash-hero {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0,1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.dash-hero-stat {
+  background: linear-gradient(160deg, var(--surface2), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 14px 14px;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow .2s, border-color .2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dash-hero-stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: var(--c);
+}
+.dash-hero-stat[data-c="orange"] { --c: var(--accent); }
+.dash-hero-stat[data-c="green"]  { --c: var(--green);  }
+.dash-hero-stat[data-c="blue"]   { --c: var(--blue);   }
+.dash-hero-stat[data-c="yellow"] { --c: var(--yellow);  }
+.dash-hero-stat[data-c="red"]    { --c: var(--red);     }
+.dash-hero-stat[data-c="purple"] { --c: var(--purple);  }
+.dash-hero-stat:hover { box-shadow: 0 4px 20px rgba(0,0,0,.25); border-color: var(--border2); }
+.dhs-icon {
+  font-size: 22px;
+  opacity: .6;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.dhs-body { min-width: 0; }
+.dhs-val {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--c);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.dhs-val--sm { font-size: 18px; }
+.dhs-label { font-size: 10px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; margin-top: 4px; }
+.dhs-sub { font-size: 10px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
+
+/* KPI strip — horizontal metrics bar */
+.dash-kpi-strip {
+  display: flex;
+  align-items: stretch;
+  background: linear-gradient(180deg, var(--surface2), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.dash-kpi {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 10px;
+  text-align: center;
+}
+.dash-kpi-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.dash-kpi-lbl {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin-top: 4px;
+}
+.dash-kpi-sub {
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+.dash-kpi-sep {
+  width: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 8px 0;
+}
+
+/* Light mode overrides */
+body.light .dash-hero-stat { background: var(--surface2); }
+body.light .dash-kpi-strip { background: var(--surface2); }
+
+/* Stat Cards ── */
+/* Dashboard row mini progress bar */
+.dash-row-bar { height: 2px; background: var(--border); border-radius: 1px; margin-top: 4px; overflow: hidden; }
+.dash-row-bar-fill { height: 100%; border-radius: 1px; transition: width .4s ease; }
+
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: 14px; margin-bottom: 22px; }
 .stat-card {
   background: linear-gradient(180deg, var(--surface2), var(--surface)); border: 1px solid var(--border); border-radius: var(--radius);
@@ -626,6 +730,15 @@ textarea.input { resize: vertical; }
   #topbar { padding: 8px 12px !important; }
   #topbar h1 { font-size: 15px; }
 
+  /* Dashboard hero */
+  .dash-hero { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .dhs-val { font-size: 22px !important; }
+  .dhs-icon { font-size: 18px !important; }
+  /* KPI strip: wrap on mobile */
+  .dash-kpi-strip { flex-wrap: wrap; }
+  .dash-kpi { flex: 0 0 calc(50% - 1px); border-bottom: 1px solid var(--border); }
+  .dash-kpi-sep { display: none; }
+  .dash-kpi:last-child, .dash-kpi:nth-last-child(2) { border-bottom: none; }
   /* Dashboard */
   .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
   .stat-card { padding: 10px 12px !important; }

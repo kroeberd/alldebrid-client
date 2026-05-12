@@ -115,87 +115,144 @@
 
     <!-- Dashboard -->
     <div class="view active" id="view-dashboard">
-      <div class="insight-grid" style="margin-bottom:18px">
-        <div class="insight-card">
-          <div class="insight-k">Queue Health</div>
-          <div class="insight-v" id="i-queue-health">—</div>
-          <div class="insight-s" id="i-queue-copy">Waiting for stats</div>
+
+      <!-- ── Hero Status Row ──────────────────────────────────────────────── -->
+      <div class="dash-hero" id="dash-hero">
+        <div class="dash-hero-stat" data-c="orange">
+          <div class="dhs-icon">📦</div>
+          <div class="dhs-body">
+            <div class="dhs-val" id="s-total">—</div>
+            <div class="dhs-label">Total Torrents</div>
+          </div>
         </div>
-        <div class="insight-card">
-          <div class="insight-k">Last 24h</div>
-          <div class="insight-v" id="i-last-day">—</div>
-          <div class="insight-s">Completed torrents</div>
+        <div class="dash-hero-stat" data-c="green">
+          <div class="dhs-icon">✅</div>
+          <div class="dhs-body">
+            <div class="dhs-val" id="s-completed">—</div>
+            <div class="dhs-label">Completed</div>
+          </div>
         </div>
-        <div class="insight-card">
-          <div class="insight-k">Last 7 days</div>
-          <div class="insight-v" id="i-last-week">—</div>
-          <div class="insight-s">Completed torrents</div>
+        <div class="dash-hero-stat" data-c="blue">
+          <div class="dhs-icon">⬇</div>
+          <div class="dhs-body">
+            <div class="dhs-val" id="s-active">—</div>
+            <div class="dhs-label">Active Now</div>
+          </div>
         </div>
-        <div class="insight-card">
-          <div class="insight-k">Success Rate</div>
-          <div class="insight-v" id="i-success-rate">—</div>
-          <div class="insight-s">Of all finished</div>
+        <div class="dash-hero-stat" data-c="yellow">
+          <div class="dhs-icon">⚙</div>
+          <div class="dhs-body">
+            <div class="dhs-val" id="s-processing">—</div>
+            <div class="dhs-label">Processing</div>
+          </div>
         </div>
-        <div class="insight-card">
-          <div class="insight-k">Avg Duration</div>
-          <div class="insight-v" id="i-avg-duration">—</div>
-          <div class="insight-s">Per torrent</div>
+        <div class="dash-hero-stat" data-c="red" id="dash-error-card" onclick="nav(document.querySelector('[data-view=torrents]'));setTimeout(()=>setFilter(document.querySelector('.ftab[onclick*=error]'),'error'),100)" style="cursor:pointer">
+          <div class="dhs-icon">⚠</div>
+          <div class="dhs-body">
+            <div class="dhs-val" id="s-error">—</div>
+            <div class="dhs-label">Errors</div>
+          </div>
         </div>
-        <div class="insight-card">
-          <div class="insight-k">Avg Size</div>
-          <div class="insight-v" id="i-avg-size">—</div>
-          <div class="insight-s">Per completed torrent</div>
-        </div>
-        <div class="insight-card">
-          <div class="insight-k">Database</div>
-          <div class="insight-v" id="i-db-type" style="font-size:13px;padding-top:6px">—</div>
-          <div class="insight-s">Active backend</div>
+        <div class="dash-hero-stat" data-c="purple">
+          <div class="dhs-icon">💾</div>
+          <div class="dhs-body">
+            <div class="dhs-val dhs-val--sm" id="s-size">—</div>
+            <div class="dhs-label">Total Downloaded</div>
+            <div class="dhs-sub" id="s-blocked"></div>
+          </div>
         </div>
       </div>
-        
 
-      <div class="stats-grid">
-        <div class="stat-card" data-c="orange"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>
-        <div class="stat-card" data-c="green"><div class="stat-label">Completed</div><div class="stat-value" id="s-completed">—</div></div>
-        <div class="stat-card" data-c="blue"><div class="stat-label">Active</div><div class="stat-value" id="s-active">—</div></div>
-        <div class="stat-card" data-c="yellow"><div class="stat-label">Processing</div><div class="stat-value" id="s-processing">—</div></div>
-        <div class="stat-card" data-c="red"><div class="stat-label">Errors</div><div class="stat-value" id="s-error">—</div></div>
-        <div class="stat-card" data-c="purple">
-          <div class="stat-label">Downloaded</div>
-          <div class="stat-value" id="s-size" style="font-size:20px;padding-top:4px">—</div>
-          <div class="stat-sub" id="s-blocked">— blocked files</div>
+      <!-- ── KPI Strip ─────────────────────────────────────────────────────── -->
+      <div class="dash-kpi-strip">
+        <div class="dash-kpi">
+          <div class="dash-kpi-val" id="i-queue-health">—</div>
+          <div class="dash-kpi-lbl">Queue Health</div>
+          <div class="dash-kpi-sub" id="i-queue-copy"></div>
+        </div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-val" id="i-last-day">—</div>
+          <div class="dash-kpi-lbl">Last 24 h</div>
+          <div class="dash-kpi-sub">completed</div>
+        </div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-val" id="i-last-week">—</div>
+          <div class="dash-kpi-lbl">Last 7 Days</div>
+          <div class="dash-kpi-sub">completed</div>
+        </div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-val" id="i-success-rate">—</div>
+          <div class="dash-kpi-lbl">Success Rate</div>
+          <div class="dash-kpi-sub">of all finished</div>
+        </div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-val" id="i-avg-duration">—</div>
+          <div class="dash-kpi-lbl">Avg Duration</div>
+          <div class="dash-kpi-sub">per torrent</div>
+        </div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-val" id="i-avg-size">—</div>
+          <div class="dash-kpi-lbl">Avg Size</div>
+          <div class="dash-kpi-sub">per completed</div>
+        </div>
+        <div class="dash-kpi-sep"></div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-val" id="i-db-type" style="font-size:12px">—</div>
+          <div class="dash-kpi-lbl">Database</div>
+          <div class="dash-kpi-sub">active backend</div>
         </div>
       </div>
 
       <div id="debug-status" style="display:none;padding:10px 16px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:11px;color:var(--text2)"></div>
 
-      <div class="card">
+      <!-- ── Add Magnet ─────────────────────────────────────────────────────── -->
+      <div class="card" style="margin-bottom:14px">
         <div class="card-header">
           <span class="card-title">🧲 Add Magnet Link</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="importExisting()" title="Import all AllDebrid magnets not yet in the local database">⬇ Import</button>
+            <button class="btn btn-warn btn-sm" onclick="recoverAll()" title="Reset stuck or errored torrents — re-dispatches from AllDebrid">⟳ Recover All</button>
+          </div>
         </div>
-        <div style="padding:14px 16px">
-          <div class="input-row">
-            <input class="input" id="q-magnet" placeholder="magnet:?xt=urn:btih:…" />
-            <button class="btn btn-primary" onclick="quickAdd()">Add</button>
-            <button class="btn btn-ghost" onclick="importExisting()" title="Import all magnets on AllDebrid">⬇ Import Existing</button>
-            <button class="btn btn-warn" onclick="recoverAll()" title="Reset stuck/error torrents and restart them from AllDebrid">⟳ Recover All</button>
+        <div style="padding:12px 16px">
+          <div style="display:flex;gap:8px">
+            <input class="input" id="q-magnet" placeholder="magnet:?xt=urn:btih:… or paste multiple lines" style="flex:1" onkeydown="if(event.key==='Enter')quickAdd()"/>
+            <button class="btn btn-primary" onclick="quickAdd()" style="padding:9px 20px">Add</button>
           </div>
         </div>
       </div>
 
+      <!-- ── Recent Activity ───────────────────────────────────────────────── -->
       <div class="card">
         <div class="card-header">
           <span class="card-title">Recent Activity</span>
-          <button class="btn btn-ghost btn-sm" onclick="nav(document.querySelector('[data-view=torrents]'))">All →</button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="dash-activity-count" style="font-size:11px;color:var(--text3)"></span>
+            <button class="btn btn-ghost btn-sm" onclick="nav(document.querySelector('[data-view=torrents]'))">View All →</button>
+          </div>
         </div>
         <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-        <table class="t-table" style="min-width:500px">
-          <thead><tr><th>Name</th><th>Status</th><th>Progress</th><th>Size</th><th>Added</th></tr></thead>
+        <table class="t-table" style="min-width:520px">
+          <thead>
+            <tr>
+              <th style="width:40%">Name</th>
+              <th>Status</th>
+              <th>Progress</th>
+              <th class="sz">Size</th>
+              <th class="sz">Added</th>
+            </tr>
+          </thead>
           <tbody id="dash-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
         </table>
         </div>
       </div>
     </div>
+
 
     <!-- Torrents -->
     <div class="view" id="view-torrents">

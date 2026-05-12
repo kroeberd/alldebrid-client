@@ -311,10 +311,17 @@ async function loadStats() {
       document.getElementById('s-completed').textContent = completed;
       document.getElementById('s-active').textContent = s.active_downloads||0;
       document.getElementById('s-processing').textContent = s.paused ? 'Paused' : (bs.processing||0)+(bs.uploading||0);
-      document.getElementById('s-error').textContent = s.error_count ?? bs.error ?? 0;
+      const errCount = s.error_count ?? bs.error ?? 0;
+      document.getElementById('s-error').textContent = errCount;
+      const errCard = document.getElementById('dash-error-card');
+      if (errCard) errCard.style.opacity = errCount > 0 ? '1' : '.6';
       document.getElementById('s-size').textContent = fmtSize(s.total_completed_bytes);
       document.getElementById('s-blocked').textContent = `${s.total_blocked_files||0} blocked files`;
-      document.getElementById('i-queue-health').textContent = `${queuePct}%`;
+      const healthEl = document.getElementById('i-queue-health');
+      if (healthEl) {
+        healthEl.textContent = `${queuePct}%`;
+        healthEl.style.color = queuePct >= 90 ? 'var(--green)' : queuePct >= 70 ? 'var(--accent)' : 'var(--red)';
+      }
       document.getElementById('i-queue-copy').textContent = `${s.active_downloads||0} active / ${s.queued_downloads||0} queued`;
       document.getElementById('i-last-day').textContent = s.completed_last_24h||0;
       document.getElementById('i-last-week').textContent = s.completed_last_7d||0;
@@ -497,13 +504,23 @@ async function loadRecent() {
       tb.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">🧲</div>No torrents yet. Add a magnet link to start.</div></td></tr>';
       return;
     }
-    tb.innerHTML = items.map(t => `<tr onclick="showDetail(${t.id})" style="cursor:pointer">
-      <td><div class="t-name">${esc(t.name)||'(unnamed)'}</div></td>
-      <td>${badge(t.status)}</td>
-      <td>${progress(t.progress,t.status)}</td>
-      <td class="sz">${fmtSize(t.size_bytes)}</td>
-      <td class="sz">${fmtDate(t.created_at)}</td>
-    </tr>`).join('');
+    // Update activity count
+    const countEl = document.getElementById('dash-activity-count');
+    if (countEl) countEl.textContent = items.length + ' most recent';
+    tb.innerHTML = items.map(t => {
+      const pct_val = t.progress != null ? Math.round(t.progress) : 0;
+      const is_active = ['downloading','queued'].includes(t.status);
+      return `<tr onclick="showDetail(${t.id})" style="cursor:pointer">
+        <td>
+          <div class="t-name" title="${esc(t.name)||''}">${esc(t.name)||'(unnamed)'}</div>
+          ${is_active ? `<div class="dash-row-bar"><div class="dash-row-bar-fill" style="width:${pct_val}%;background:var(--blue)"></div></div>` : ''}
+        </td>
+        <td>${badge(t.status)}</td>
+        <td>${progress(t.progress,t.status)}</td>
+        <td class="sz">${fmtSize(t.size_bytes)}</td>
+        <td class="sz">${fmtDate(t.created_at)}</td>
+      </tr>`;
+    }).join('');
   } catch(e) { console.error(e); }
 }
 
