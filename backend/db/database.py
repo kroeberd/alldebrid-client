@@ -531,6 +531,24 @@ async def _init_db_postgres():
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS saved_searches (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    query TEXT NOT NULL,
+                    indexer TEXT DEFAULT '',
+                    category TEXT DEFAULT '',
+                    min_seeders INTEGER DEFAULT 1,
+                    max_size_gb DOUBLE PRECISION DEFAULT 0,
+                    min_size_gb DOUBLE PRECISION DEFAULT 0,
+                    regex_filter TEXT DEFAULT '',
+                    auto_add INTEGER DEFAULT 0,
+                    enabled INTEGER DEFAULT 1,
+                    interval_minutes INTEGER DEFAULT 60,
+                    last_run_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
             for col, defn in _SCHEMA_COLUMNS_TORRENTS:
                 await _ensure_column_pg(conn, "torrents", col, defn)
             for col, defn in _SCHEMA_COLUMNS_FILES:

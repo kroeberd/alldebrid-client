@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.8.3] — 2026-05-12
+
+### Fixed — PostgreSQL saved searches schema
+
+PostgreSQL initialisation now creates the `saved_searches` table that was added
+for recurring Jackett/Prowlarr searches in v1.8.2. Previously only SQLite
+created the table, so PostgreSQL users hit:
+
+`asyncpg.exceptions.UndefinedTableError: relation "saved_searches" does not exist`
+
+when opening or polling the saved searches endpoint.
+
+The table is also included in bidirectional SQLite/PostgreSQL migrations so
+saved search definitions are preserved during database moves.
+
+The dependency lock now keeps `uvloop` behind its Linux/macOS platform marker
+so Windows-based verification can install the locked requirements without
+trying to build a package that does not support Windows.
+
 ## [1.8.2] — 2026-05-12
 
 ### Added — Priority Queue, Rule Engine, Saved Searches, Queue Analytics

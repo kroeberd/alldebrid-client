@@ -91,7 +91,7 @@ typing-inspection==0.4.2
     #   pydantic-settings
 uvicorn==0.46.0
     # via -r requirements.in
-uvloop==0.22.1
+uvloop==0.22.1 ; sys_platform != "win32"
     # via uvicorn
 watchfiles==1.1.1
     # via uvicorn
