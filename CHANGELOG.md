@@ -1,5 +1,54 @@
 # Changelog
 
+## [1.6.7] — 2026-05-11
+
+### Fixed — No-peer (code 8) errors not being cleaned up
+
+Two related bugs caused torrents stuck in `error` state with "No peer after
+30 minutes" (AllDebrid statusCode 8) to persist indefinitely instead of being
+automatically removed.
+
+#### Bug 1 — `cleanup_no_peer_errors` missed NULL error_message
+
+The cleanup SQL used `LOWER(error_message) LIKE '%no peer%'` as the primary
+match condition. In SQLite, `LOWER(NULL) LIKE '%..%'` evaluates to NULL (not
+TRUE), so any torrent whose `error_message` was NULL — e.g. freshly imported
+via `import_existing_magnets` before `_apply_provider_update` ran — was
+silently skipped even though `provider_status_code = 8` was set.
+
+**Fix:** Replaced `LOWER(error_message)` with
+`LOWER(COALESCE(error_message, ''))` so NULL is treated as an empty string.
+Also reordered the conditions to check `provider_status_code` first (cheaper
+index scan) before the LIKE patterns.
+
+#### Bug 2 — Already-error torrents with code 8 were never re-processed
+
+`_apply_provider_update` handled no-peer only inside:
+
+```python
+elif provider_status == "error" and current_status != "error":
+```
+
+If a torrent was already in `error` state (from a previous cycle or from
+`import_existing_magnets`), this branch was skipped entirely. The only
+fallback was `cleanup_no_peer_errors`, but that required `error_message` to
+be set (Bug 1) or `provider_status_code = 8` to be in the DB.
+
+**Fix:** Added a new branch:
+
+```python
+elif provider_status == "error" and current_status == "error" and status_code in (7, 8):
+```
+
+This branch writes the AllDebrid error message to `error_message` via
+`COALESCE(NULLIF(error_message, ''), ?)` — only filling in the field if it
+was previously empty. This ensures the cleanup SQL's LIKE condition matches
+on the next cycle even if the torrent was imported without an error message.
+
+The actual deletion still happens in `cleanup_no_peer_errors` (called
+immediately after `sync_alldebrid_status` in `sync_status_loop`), which
+removes the magnet from AllDebrid and sets `status='deleted'`.
+
 ## [1.6.6] — 2026-05-11
 
 ### Fixed — Torrent details, bulk actions, error filter; Added — Unraid auto-update
