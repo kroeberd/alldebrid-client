@@ -138,7 +138,7 @@ async def _enforce_smart_scheduler():
         logger.debug("smart_scheduler: aria2 apply failed: %s", exc)
 
 
-
+async def full_sync_loop():
     """
     Full AllDebrid reconciliation: runs every full_sync_interval_minutes (default 5).
     Catches torrents in 'error'/'queued' that are actually 'ready' on AllDebrid,
