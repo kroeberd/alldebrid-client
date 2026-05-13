@@ -143,7 +143,7 @@ class AppSettings(BaseModel):
     # Post-download extraction
     extract_enabled: bool = False          # auto-extract archives after download
     extract_delete_archive: bool = True    # delete archive after successful extraction
-    extract_max_concurrent: int = 2        # max parallel extractions
+    extract_max_concurrent: int = 1        # max parallel extractions
     discord_notify_extract: bool = True    # Discord notification after extraction
 
     # AllDebrid upload retry (statusCode 5 = upload failed)

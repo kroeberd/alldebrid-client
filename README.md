@@ -139,7 +139,7 @@ Click **Test** — it should show a green checkmark. See **Help → Sonarr/Radar
 
 ## Auto-Extraction
 
-Enable in **Settings → Extract**. Archives are extracted automatically after every successful download.
+Enable in **Settings → Auto-Extraction**. Archives are extracted automatically after every successful download. Auto-extract uses the completed file list recorded by the downloader, so it does not recursively scan large media folders.
 
 | Format | Extension(s) | Engine |
 |--------|-------------|--------|

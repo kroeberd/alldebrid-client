@@ -15,6 +15,7 @@ After successful extraction the source archive is deleted.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import logging
 import os
 import re
@@ -23,7 +24,7 @@ import subprocess
 import tarfile
 import zipfile
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 logger = logging.getLogger("alldebrid.extractor")
 
@@ -90,6 +91,28 @@ def find_archives(folder: Path) -> List[Path]:
     return archives
 
 
+def archive_paths_from_downloads(paths: Iterable[str | Path]) -> List[Path]:
+    """Return extractable archives from known downloaded file paths.
+
+    This is intentionally non-recursive. Auto-extract already knows every file
+    that belongs to a torrent via download_files, so walking the full download
+    tree is wasted I/O on large media folders.
+    """
+    archives: List[Path] = []
+    seen: set[str] = set()
+    for raw in paths:
+        if not raw:
+            continue
+        p = Path(raw)
+        key = str(p)
+        if key in seen:
+            continue
+        seen.add(key)
+        if is_archive(p):
+            archives.append(p)
+    return archives
+
+
 # ---------------------------------------------------------------------------
 # Extraction helpers
 # ---------------------------------------------------------------------------
@@ -101,11 +124,16 @@ def _tool_available(name: str) -> bool:
 def _run_tool(cmd: List[str], timeout: int = 3600) -> Tuple[int, str]:
     """Run an external command synchronously (called from asyncio via executor)."""
     try:
+        kwargs = {}
+        if os.name == "posix":
+            # Keep extraction from starving the API/event loop on small NAS boxes.
+            kwargs["preexec_fn"] = lambda: os.nice(10)
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=timeout,
+            **kwargs,
         )
         return result.returncode, (result.stdout + result.stderr).strip()
     except subprocess.TimeoutExpired:
@@ -153,7 +181,7 @@ def _extract_7z(archive: Path, dest: Path) -> None:
     """Use system `7z` binary (p7zip-full)."""
     for binary in ("7z", "7za", "7zz"):
         if _tool_available(binary):
-            rc, out = _run_tool([binary, "x", str(archive), f"-o{dest}", "-y"])
+            rc, out = _run_tool([binary, "x", "-mmt=1", str(archive), f"-o{dest}", "-y"])
             if rc == 0:
                 return
             raise RuntimeError(f"{binary} exited {rc}: {out}")
@@ -170,7 +198,7 @@ def _extract_rar(archive: Path, dest: Path) -> None:
     # Primary: 7z handles RAR3 and RAR5
     for binary in ("7z", "7za", "7zz"):
         if _tool_available(binary):
-            rc, out = _run_tool([binary, "x", str(archive), f"-o{dest}", "-y"])
+            rc, out = _run_tool([binary, "x", "-mmt=1", str(archive), f"-o{dest}", "-y"])
             if rc == 0:
                 return
             # 7z present but failed — try unrar tools before giving up
@@ -235,11 +263,26 @@ def _extract_sync(archive: Path, dest: Path) -> None:
 class Extractor:
     """Async extraction service with concurrency limit."""
 
-    def __init__(self, max_concurrent: int = 2) -> None:
-        self._sem = asyncio.Semaphore(max_concurrent)
+    def __init__(self, max_concurrent: int = 1) -> None:
+        self._max_concurrent = max(1, int(max_concurrent or 1))
+        self._sem = asyncio.Semaphore(self._max_concurrent)
+        self._executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=self._max_concurrent,
+            thread_name_prefix="extract",
+        )
 
     def update_max_concurrent(self, n: int) -> None:
-        self._sem = asyncio.Semaphore(max(1, n))
+        new_limit = max(1, int(n or 1))
+        if new_limit == self._max_concurrent:
+            return
+        old_executor = self._executor
+        self._max_concurrent = new_limit
+        self._sem = asyncio.Semaphore(new_limit)
+        self._executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=new_limit,
+            thread_name_prefix="extract",
+        )
+        old_executor.shutdown(wait=False, cancel_futures=False)
 
     async def extract_archive(
         self,
@@ -257,7 +300,7 @@ class Extractor:
             loop = asyncio.get_running_loop()  # get_event_loop() is deprecated in 3.10+
             try:
                 logger.info("Extracting %s → %s", archive, dest)
-                await loop.run_in_executor(None, _extract_sync, archive, dest)
+                await loop.run_in_executor(self._executor, _extract_sync, archive, dest)
                 if delete_after and archive.exists():
                     archive.unlink()
                     logger.debug("Deleted archive: %s", archive)
@@ -307,6 +350,35 @@ class Extractor:
                 results.append((archive, ok, msg))
         return results
 
+    async def extract_archives(
+        self,
+        archives: Iterable[Path],
+        *,
+        delete_after: bool = True,
+    ) -> List[Tuple[Path, bool, str]]:
+        """Extract a known archive list without walking the filesystem."""
+        unique_archives = archive_paths_from_downloads(archives)
+        if not unique_archives:
+            return []
+        scheduled = [archive for archive in unique_archives if archive.exists()]
+        tasks = [
+            asyncio.create_task(
+                self.extract_archive(archive, archive.parent, delete_after=delete_after)
+            )
+            for archive in scheduled
+        ]
+        if not tasks:
+            return []
+        results_raw = await asyncio.gather(*tasks, return_exceptions=True)
+        results: List[Tuple[Path, bool, str]] = []
+        for archive, raw in zip(scheduled, results_raw):
+            if isinstance(raw, Exception):
+                results.append((archive, False, f"Extraction failed for {archive.name}: {raw}"))
+            else:
+                ok, msg = raw
+                results.append((archive, ok, msg))
+        return results
+
 
 # Module-level singleton — replaced by manager on startup
 _extractor: Optional[Extractor] = None
@@ -315,7 +387,7 @@ _extractor: Optional[Extractor] = None
 def get_extractor() -> Extractor:
     global _extractor
     if _extractor is None:
-        _extractor = Extractor(max_concurrent=2)
+        _extractor = Extractor(max_concurrent=1)
     return _extractor
 
 

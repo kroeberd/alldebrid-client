@@ -1460,8 +1460,8 @@ function renderSettings() {
           </div>
           <div class="form-group">
             <label class="form-label">Max Concurrent Extractions</label>
-            <input class="input" type="number" id="s-extract_max_concurrent" value="${s.extract_max_concurrent??2}" min="1" max="10"/>
-            <span class="form-hint">Maximum number of archives extracted in parallel. Default: 2.</span>
+            <input class="input" type="number" id="s-extract_max_concurrent" value="${s.extract_max_concurrent??1}" min="1" max="10"/>
+            <span class="form-hint">Maximum number of archives extracted in parallel. Default: 1 to keep the app responsive on NAS and Unraid systems.</span>
           </div>
           <div class="form-group">
             <label class="form-label toggle-label"><span>Discord Notification on Extraction</span>
@@ -2150,7 +2150,7 @@ function getFormSettings() {
       upload_fail_retry_delay_minutes: n('upload_fail_retry_delay_minutes', 5),
       extract_enabled:          c('extract_enabled'),
       extract_delete_archive:   c('extract_delete_archive', true),
-      extract_max_concurrent:   n('extract_max_concurrent', 2),
+      extract_max_concurrent:   n('extract_max_concurrent', 1),
       discord_notify_extract:   c('discord_notify_extract', true),
     aria2_error_retry_delay_seconds: n('aria2_error_retry_delay_seconds'),
     flexget_enabled: c('flexget_enabled'),

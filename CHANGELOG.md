@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.8.10] - 2026-05-13
+
+### Fixed - Auto-extract resource usage
+
+Auto-extract now uses the completed file paths already stored in `download_files`
+instead of recursively scanning the full torrent download folder after every
+download. This prevents large media packs from keeping disks and CPU busy just
+to discover whether archives exist.
+
+Archive extraction now runs in a dedicated bounded executor instead of the
+shared default executor, and `7z` extraction is limited to one worker thread per
+archive. The default concurrent extraction count is now `1` for safer Docker,
+NAS, and Unraid behavior while still allowing users to raise it explicitly.
+
 ## [1.8.9] - 2026-05-13
 
 ### Fixed - Settings layout, reporting export, and aria2 log rotation

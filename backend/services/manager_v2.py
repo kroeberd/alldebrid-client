@@ -17,7 +17,7 @@ from db.database import _is_postgres, get_db
 from services.alldebrid import AllDebridService, flatten_files
 from services.aria2 import Aria2Service
 from services.aria2_runtime import aria2_global_options, effective_rpc_config, is_builtin_mode
-from services.extractor import get_extractor, init_extractor
+from services.extractor import archive_paths_from_downloads, get_extractor, init_extractor
 from services.notifications import NotificationService
 from services.torrent_state import (
     TorrentStatus,
@@ -3013,43 +3013,41 @@ class TorrentManager:
 
         name = str(torrent_dict.get("name") or f"torrent {torrent_id}")
 
-        # Build download folder path — same logic as _download()
-        download_folder = str(getattr(cfg, "download_folder", "/download")).rstrip("/")
-        folder_name = safe_name(name)
-        from pathlib import Path as _Path
-        folder = _Path(download_folder) / folder_name
-        if not folder.exists():
-            # Try to find from local_path of any completed file
-            try:
-                async with get_db() as db:
-                    row = await (await db.execute(
-                        "SELECT local_path FROM download_files "
-                        "WHERE torrent_id=? AND local_path IS NOT NULL LIMIT 1",
-                        (torrent_id,),
-                    )).fetchone()
-                if row and row["local_path"]:
-                    folder = _Path(row["local_path"]).parent
-                else:
-                    logger.warning("Extract: no folder found for torrent %s", torrent_id)
-                    return
-            except Exception as exc:
-                logger.error("Extract: DB lookup failed for torrent %s: %s", torrent_id, exc)
-                return
+        # Auto-extract should use the files the downloader already recorded.
+        # Walking the full torrent folder is expensive for large media packs and
+        # can keep disks/CPU busy long after the download itself completed.
+        try:
+            async with get_db() as db:
+                rows = await (await db.execute(
+                    "SELECT local_path FROM download_files "
+                    "WHERE torrent_id=? AND status='completed' AND local_path IS NOT NULL",
+                    (torrent_id,),
+                )).fetchall()
+        except Exception as exc:
+            logger.error("Extract: DB lookup failed for torrent %s: %s", torrent_id, exc)
+            return
+
+        local_paths = [row["local_path"] for row in rows if row["local_path"]]
+        archives = archive_paths_from_downloads(local_paths)
+        if not archives:
+            logger.debug("Auto-extract: no downloaded archives found for torrent %s", torrent_id)
+            return
+        folder = archives[0].parent
 
         # Update extractor concurrency from config
-        max_concurrent = max(1, int(getattr(cfg, "extract_max_concurrent", 2) or 2))
+        max_concurrent = max(1, int(getattr(cfg, "extract_max_concurrent", 1) or 1))
         extractor = get_extractor()
         extractor.update_max_concurrent(max_concurrent)
 
         delete_after = bool(getattr(cfg, "extract_delete_archive", True))
 
-        logger.info("Auto-extract: scanning %s (torrent %s)", folder, torrent_id)
-        await self._log_event(torrent_id, "info", f"Auto-extract: scanning {folder}")
+        logger.info("Auto-extract: extracting %s archive(s) for torrent %s", len(archives), torrent_id)
+        await self._log_event(torrent_id, "info", f"Auto-extract: extracting {len(archives)} archive(s)")
 
-        results = await extractor.extract_folder(folder, delete_after=delete_after)
+        results = await extractor.extract_archives(archives, delete_after=delete_after)
 
         if not results:
-            logger.debug("Auto-extract: no archives found in %s", folder)
+            logger.debug("Auto-extract: no existing archive files found for torrent %s", torrent_id)
             return
 
         ok_list   = [(p, msg) for p, ok, msg in results if ok]

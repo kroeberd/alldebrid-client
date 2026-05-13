@@ -11,6 +11,7 @@ import pytest
 
 from services.extractor import (
     Extractor,
+    archive_paths_from_downloads,
     find_archives,
     is_archive,
     _suffix,
@@ -129,6 +130,19 @@ def test_find_archives_empty(tmp_path):
 def test_find_archives_skips_nonexistent(tmp_path):
     result = find_archives(tmp_path / "does_not_exist")
     assert result == []
+
+
+def test_archive_paths_from_downloads_filters_known_files(tmp_path):
+    archive = tmp_path / "archive.zip"
+    movie = tmp_path / "movie.mkv"
+    non_first_part = tmp_path / "archive.part2.rar"
+    archive.write_bytes(b"")
+    movie.write_bytes(b"")
+    non_first_part.write_bytes(b"")
+
+    result = archive_paths_from_downloads([archive, archive, movie, non_first_part])
+
+    assert result == [archive]
 
 
 # ---------------------------------------------------------------------------

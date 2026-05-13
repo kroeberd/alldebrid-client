@@ -1768,6 +1768,54 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
         delete_magnet.assert_awaited_once_with("516558854")
         mgr._fail_torrent.assert_awaited_once()
 
+    async def test_auto_extract_uses_completed_download_paths_without_folder_scan(self):
+        mgr = TorrentManager()
+        mgr._log_event = AsyncMock()
+        archive = Path("/download/Example/archive.zip")
+        movie = Path("/download/Example/movie.mkv")
+
+        class FakeCursor:
+            async def fetchall(self):
+                return [
+                    {"local_path": str(movie)},
+                    {"local_path": str(archive)},
+                ]
+
+        fake_db = types.SimpleNamespace(
+            execute=AsyncMock(return_value=FakeCursor()),
+        )
+
+        @asynccontextmanager
+        async def fake_get_db():
+            yield fake_db
+
+        fake_extractor = types.SimpleNamespace(
+            update_max_concurrent=MagicMock(),
+            extract_archives=AsyncMock(return_value=[(archive, True, "Extracted archive.zip")]),
+            extract_folder=AsyncMock(),
+        )
+        fake_notify = types.SimpleNamespace(send_extract_complete=AsyncMock())
+        mgr.notify = lambda: fake_notify
+
+        with patch("services.manager_v2.get_db", fake_get_db), \
+             patch("services.manager_v2.get_extractor", return_value=fake_extractor), \
+             patch("services.manager_v2.get_settings", return_value=types.SimpleNamespace(
+                 extract_enabled=True,
+                 extract_max_concurrent=1,
+                 extract_delete_archive=False,
+                 discord_notify_extract=True,
+             )):
+            await mgr._extract_torrent(123, {"name": "Example"})
+
+        fake_extractor.update_max_concurrent.assert_called_once_with(1)
+        fake_extractor.extract_archives.assert_awaited_once_with([archive], delete_after=False)
+        fake_extractor.extract_folder.assert_not_awaited()
+        fake_notify.send_extract_complete.assert_awaited_once_with(
+            "Example",
+            archive_count=1,
+            dest=str(archive.parent),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
