@@ -44,6 +44,9 @@
     <div class="nav-item" data-view="analytics" onclick="nav(this)">
       <span class="icon">&#128200;</span><span class="nav-label">Analytics</span>
     </div>
+    <div class="nav-item" data-view="saved-searches" onclick="nav(this)">
+      <span class="icon">&#128270;</span><span class="nav-label">Saved Searches</span>
+    </div>
     <div class="nav-item" data-view="changelog" onclick="nav(this)">
       <span class="icon">&#128214;</span><span class="nav-label">Changelog</span>
     </div>
@@ -368,6 +371,33 @@
       </div>
     </div>
     <!-- Changelog -->
+    <div class="view" id="view-saved-searches">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🔍 Saved Searches</span>
+          <button class="btn btn-ghost btn-sm" onclick="showAddSavedSearch()">+ Add</button>
+        </div>
+        <div id="saved-search-form-view" style="display:none;padding:14px 16px;border-bottom:1px solid var(--border)">
+          <div style="font-weight:600;margin-bottom:10px">New Saved Search</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group"><label class="form-label">Name</label><input class="input" id="ss2-name" placeholder="e.g. Anime Releases"/></div>
+            <div class="form-group"><label class="form-label">Search Query</label><input class="input" id="ss2-query" placeholder="e.g. Attack on Titan S04"/></div>
+            <div class="form-group"><label class="form-label">Min Seeders</label><input class="input" type="number" id="ss2-min-seeders" value="1" min="0"/></div>
+            <div class="form-group"><label class="form-label">Regex Filter</label><input class="input" id="ss2-regex" placeholder="e.g. 1080p"/></div>
+            <div class="form-group"><label class="form-label">Run every (min)</label><input class="input" type="number" id="ss2-interval" value="60" min="5"/></div>
+            <div class="form-group"><label class="form-label">Auto-add results</label><label class="toggle"><input type="checkbox" id="ss2-auto-add"/><span class="slider"></span></label></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-primary btn-sm" onclick="saveSavedSearch2()">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('saved-search-form-view').style.display='none'">Cancel</button>
+          </div>
+        </div>
+        <div id="saved-searches-view-list" style="padding:0 16px 16px">
+          <div style="color:var(--text3);padding:20px 0;font-size:12px">Loading…</div>
+        </div>
+      </div>
+    </div>
+
     <div class="view" id="view-analytics">
       <div class="card">
         <div class="card-header">

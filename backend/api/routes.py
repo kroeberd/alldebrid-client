@@ -2270,3 +2270,59 @@ async def get_analytics(window_hours: int = Query(24, ge=1, le=720)):
     """Return queue performance metrics for the last *window_hours* hours."""
     from services.analytics import get_queue_analytics
     return await get_queue_analytics(window_hours)
+
+# ── Download Profiles ─────────────────────────────────────────────────────────
+
+@router.get("/download-profiles")
+async def list_download_profiles():
+    """Return the list of configured download profiles."""
+    import json as _json
+    cfg = load_settings()
+    try:
+        profiles = _json.loads(getattr(cfg, "download_profiles", None) or "[]")
+    except Exception:
+        profiles = []
+    return {
+        "profiles":       profiles if isinstance(profiles, list) else [],
+        "active_profile": getattr(cfg, "active_profile", "") or "",
+    }
+
+
+@router.post("/download-profiles/activate")
+async def activate_download_profile(body: dict):
+    """Activate a profile by name ("" to clear)."""
+    name = str(body.get("name") or "")
+    current = load_settings()
+    updated = current.model_copy(update={"active_profile": name})
+    save_settings(updated)
+    apply_settings(updated)
+    return {"ok": True, "active_profile": name}
+
+
+# ── Recovery ──────────────────────────────────────────────────────────────────
+
+@router.post("/recovery/run")
+async def run_recovery():
+    """Manually trigger an auto-recovery pass."""
+    from services.recovery import run_recovery_checks
+    result = await run_recovery_checks()
+    return {"ok": True, "result": result}
+
+
+# ── Priority ──────────────────────────────────────────────────────────────────
+
+@router.patch("/torrents/{torrent_id}/priority")
+async def set_torrent_priority(torrent_id: int, body: dict):
+    """Set dispatch priority for a torrent. Higher = processed sooner. Default: 0."""
+    priority = int(body.get("priority") or 0)
+    async with get_db() as db:
+        row = await db.fetchone("SELECT id FROM torrents WHERE id=?", (torrent_id,))
+        if not row:
+            raise HTTPException(404, "Torrent not found")
+        await db.execute(
+            "UPDATE torrents SET priority=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (priority, torrent_id),
+        )
+        await db.commit()
+    _sse_broadcast("torrent_updated", {"torrent_id": torrent_id, "priority": priority})
+    return {"ok": True, "torrent_id": torrent_id, "priority": priority}

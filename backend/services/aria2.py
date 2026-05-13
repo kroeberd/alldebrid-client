@@ -101,6 +101,11 @@ def aria2_download_to_dict(download: Aria2DownloadStatus) -> Dict[str, Any]:
         "error_code": getattr(download, "error_code", ""),
         "error_message": getattr(download, "error_message", ""),
         "files": files,
+        "eta_seconds": (
+            int((total - completed) / max(int(getattr(download, "download_speed", 0) or 0), 1))
+            if int(getattr(download, "download_speed", 0) or 0) > 0 and total > completed
+            else None
+        ),
     }
 
 

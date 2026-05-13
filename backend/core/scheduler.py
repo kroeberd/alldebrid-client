@@ -352,6 +352,61 @@ async def saved_searches_loop():
         await asyncio.sleep(interval)
 
 
+async def priority_aging_loop():
+    """
+    Starvation prevention: periodically bump priority of long-waiting torrents.
+
+    Config keys (all with safe defaults):
+      priority_aging_interval_minutes  (int, default 15)
+      priority_aging_threshold_minutes (int, default 60)
+      priority_aging_step              (int, default 1)
+    """
+    await asyncio.sleep(90)          # let startup settle
+    while True:
+        try:
+            cfg      = get_settings()
+            interval  = max(1, int(getattr(cfg, "priority_aging_interval_minutes",  15) or 15))
+            threshold = max(1, int(getattr(cfg, "priority_aging_threshold_minutes", 60) or 60))
+            step      = max(1, int(getattr(cfg, "priority_aging_step",              1)  or 1))
+            if interval > 0:
+                from db.database import get_db
+                async with get_db() as db:
+                    result = await db.execute(
+                        """UPDATE torrents
+                              SET priority   = MIN(priority + ?, 900),
+                                  updated_at = CURRENT_TIMESTAMP
+                            WHERE status IN ('ready','uploading','processing')
+                              AND priority < 900
+                              AND (JULIANDAY('now') - JULIANDAY(created_at)) * 1440 > ?""",
+                        (step, threshold),
+                    )
+                    aged = getattr(result, "rowcount", 0) or 0
+                    if aged:
+                        await db.commit()
+                        logger.debug("priority_aging: bumped %d torrent(s) by +%d", aged, step)
+        except Exception as exc:
+            logger.debug("priority_aging_loop error: %s", exc)
+        await asyncio.sleep(
+            max(1, int(getattr(get_settings(), "priority_aging_interval_minutes", 15) or 15)) * 60
+        )
+
+
+async def recovery_loop():
+    """Auto-recovery: detect and heal stuck states every 5 minutes."""
+    await asyncio.sleep(120)         # wait for full startup before first check
+    while True:
+        try:
+            from services.recovery import run_recovery_checks
+            result = await run_recovery_checks()
+            if any([result["orphaned_queued_files"],
+                    result["missed_completions"],
+                    result["deadlock_reset"]]):
+                logger.info("recovery: %s", result)
+        except Exception as exc:
+            logger.debug("recovery_loop error: %s", exc)
+        await asyncio.sleep(300)
+
+
 async def start_scheduler():
     _tasks.append(asyncio.create_task(watch_folder_loop()))
     _tasks.append(asyncio.create_task(sync_status_loop()))
@@ -368,6 +423,8 @@ async def start_scheduler():
     _tasks.append(asyncio.create_task(update_check_loop()))
     _tasks.append(asyncio.create_task(events_ttl_loop()))
     _tasks.append(asyncio.create_task(saved_searches_loop()))
+    _tasks.append(asyncio.create_task(priority_aging_loop()))
+    _tasks.append(asyncio.create_task(recovery_loop()))
     logger.info("Scheduler started")
 
 

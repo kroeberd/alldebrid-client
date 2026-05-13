@@ -243,6 +243,29 @@ class AppSettings(BaseModel):
     # Interval in minutes for running saved searches (0 = disabled).
     saved_searches_interval_minutes: int = 60
 
+    # ── Priority Queue — Starvation Prevention ────────────────────────────────
+    # Every `priority_aging_interval_minutes` minutes, long-waiting torrents get
+    # their priority bumped by `priority_aging_step` so they are never starved.
+    # Set interval=0 to disable.
+    priority_aging_interval_minutes:  int = 15
+    priority_aging_threshold_minutes: int = 60   # min wait before aging kicks in
+    priority_aging_step:              int = 1    # priority bump per aging cycle
+
+    # ── Download Profiles ─────────────────────────────────────────────────────
+    # JSON list of named download profiles.
+    # Each: {"name":"...", "download_path":"...", "priority":0, "label":"..."}
+    download_profiles: str = "[]"
+    active_profile:    str = ""   # name of the active profile ("" = none)
+
+    # ── Smart Scheduler ───────────────────────────────────────────────────────
+    # Night-mode: reduce max downloads and apply a speed limit during off-hours.
+    # Format: "HH:MM-HH:MM" in 24-h local time, e.g. "08:00-23:00" (day window).
+    # Downloads outside this window are considered "night" and use night settings.
+    bandwidth_day_window:     str = ""   # e.g. "08:00-23:00"; "" = always day
+    bandwidth_night_max_dl:   int = 1    # max concurrent downloads at night
+    bandwidth_night_speed_mbps: float = 0.0  # speed limit at night (0 = unlimited)
+
+
 
 _settings: AppSettings = AppSettings()
 

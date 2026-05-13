@@ -49,6 +49,7 @@ function nav(el) {
     events:'Event Log',
     stats:'Statistics',
     analytics:'Analytics',
+    'saved-searches':'Saved Searches',
     changelog:'Changelog',
     github:'GitHub',
     coffee:'Coffee',
@@ -61,6 +62,7 @@ function nav(el) {
   if (v === 'events')    loadEvents();
   if (v === 'stats')     loadDetailedStats();
   if (v === 'analytics') loadAnalytics(_analyticsWindow || 24);
+  if (v === 'saved-searches') loadSavedSearchesView();
   if (v === 'changelog') loadChangelog();
   if (v === 'settings')  { loadSettings(); setTimeout(loadSavedSearches, 200); }
   if (v === 'search')    initSearchView();
@@ -142,6 +144,14 @@ function fmtSize(b) {
 }
 function fmtSpeed(bps) {
   return bps > 0 ? fmtSize(bps) + '/s' : '—';
+}
+function fmtEta(secs) {
+  if (!secs || secs <= 0) return '';
+  if (secs < 60)   return secs + 's';
+  if (secs < 3600) return Math.floor(secs/60) + 'm ' + (secs%60) + 's';
+  var h = Math.floor(secs/3600);
+  var m = Math.floor((secs%3600)/60);
+  return h + 'h ' + m + 'm';
 }
 function fmtDate(d) {
   if (!d) return '—';
@@ -619,6 +629,7 @@ async function loadTorrents() {
       <td>
         <div class="actions">
           <button class="btn btn-ghost btn-sm" onclick="showDetail(${t.id})">Details</button>
+          ${t.status==='ready' || t.status==='pending' ? `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();downloadNow(${t.id})" title="Move to front of queue">⬇ Now</button>` : ''}
           ${t.status==='downloading' || t.status==='queued' ? `<button class="btn btn-blue btn-sm" onclick="pauseT(${t.id})">⏸</button>` : ''}
           ${t.status==='paused' ? `<button class="btn btn-blue btn-sm" onclick="resumeT(${t.id})">▶</button>` : ''}
           ${t.status==='error'?`<button class="btn btn-blue btn-sm" onclick="retryT(${t.id})">↻</button>`:''}
@@ -1799,6 +1810,73 @@ function renderSettings() {
         </div>
       </div>
 
+      <!-- Download Profiles -->
+      <div class="scard">
+        <div class="scard-header">🎯 Download Profiles</div>
+        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">
+          Named presets that bundle download path, priority and label. Activate one to apply it to all new downloads.
+        </p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Profiles (JSON)</label>
+            <textarea class="input" id="s-download_profiles" rows="6" style="font-family:var(--mono);font-size:11px;resize:vertical">${esc(s.download_profiles||'[]')}</textarea>
+            <span class="form-hint">
+              JSON array: <code>[{"name":"HQ","download_path":"/media/hq","priority":10,"label":"hq"},…]</code>
+            </span>
+          </div>
+          <div id="profiles-list" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- Smart Scheduler -->
+      <div class="scard">
+        <div class="scard-header">🌙 Smart Scheduler</div>
+        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">
+          Reduce activity outside the configured day window (night mode) to avoid conflicts with streaming or work hours.
+        </p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Day window (HH:MM-HH:MM, 24h local)</label>
+            <input class="input" id="s-bandwidth_day_window" value="${esc(s.bandwidth_day_window||'')}" placeholder="e.g. 08:00-23:00  (leave empty to disable)"/>
+            <span class="form-hint">Downloads INSIDE this window use normal settings. Outside = night mode.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Night mode — max concurrent downloads</label>
+            <input class="input" type="number" id="s-bandwidth_night_max_dl" value="${s.bandwidth_night_max_dl??1}" min="0" max="20"/>
+            <span class="form-hint">Set to 0 to pause all downloads at night.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Night mode — speed limit (Mbps, 0 = unlimited)</label>
+            <input class="input" type="number" id="s-bandwidth_night_speed_mbps" value="${s.bandwidth_night_speed_mbps??0}" min="0" step="0.5"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auto-Recovery -->
+      <div class="scard">
+        <div class="scard-header">🔧 Priority Aging & Auto-Recovery</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Priority aging — interval (minutes)</label>
+            <input class="input" type="number" id="s-priority_aging_interval_minutes" value="${s.priority_aging_interval_minutes??15}" min="0"/>
+            <span class="form-hint">How often to bump priority of waiting torrents. 0 = disabled. Default: 15.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority aging — threshold (minutes)</label>
+            <input class="input" type="number" id="s-priority_aging_threshold_minutes" value="${s.priority_aging_threshold_minutes??60}" min="1"/>
+            <span class="form-hint">A torrent must be waiting at least this long before its priority is bumped. Default: 60.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority aging — step</label>
+            <input class="input" type="number" id="s-priority_aging_step" value="${s.priority_aging_step??1}" min="1" max="10"/>
+            <span class="form-hint">Priority increment per aging cycle. Default: 1.</span>
+          </div>
+          <div style="margin-top:10px">
+            <button class="btn btn-ghost btn-sm" onclick="runRecovery()">🔧 Run Auto-Recovery now</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <div class="stab-panel" id="tab-advanced">
@@ -2264,6 +2342,7 @@ function switchSettingsTab(id) {
   }
   if (id === 'tab-automation') {
     loadSavedSearches();
+    loadDownloadProfiles();
   }
   if (id === 'tab-services') {
     flexgetListTasks();
@@ -3736,7 +3815,7 @@ function renderAria2QueueView(data) {
       '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(job.name||'') + '">' + nameLabel + '</td>' +
       '<td>' + progressBar + '</td>' +
       '<td style="font-size:12px;white-space:nowrap">' + fmtSize(job.total_length||0) + '</td>' +
-      '<td style="font-size:12px;white-space:nowrap;color:var(--accent)">' + (isActive ? fmtSpeed(job.download_speed||0) : '—') + '</td>' +
+      '<td style="font-size:12px;white-space:nowrap;color:var(--accent)">' + (isActive ? (fmtSpeed(job.download_speed||0) + (job.eta_seconds ? '<br><span style="font-size:10px;color:var(--text2)">ETA ' + fmtEta(job.eta_seconds) + '</span>' : '')) : '—') + '</td>' +
       '<td style="font-size:12px;white-space:nowrap">' + aria2StatusLabel(job.status) + '</td>' +
       '<td style="white-space:nowrap">' + actions + '</td>' +
     '</tr>';
@@ -3815,6 +3894,25 @@ async function loadSavedSearches() {
 function showAddSavedSearch() {
   const form = document.getElementById('saved-search-form');
   if (form) form.style.display = form.style.display === 'none' ? '' : 'none';
+}
+
+async function saveSavedSearch2() {
+  var name  = (document.getElementById('ss2-name')?.value || '').trim();
+  var query = (document.getElementById('ss2-query')?.value || '').trim();
+  if (!name || !query) { toast('Name and query are required', 'warn'); return; }
+  try {
+    await api('POST', '/saved-searches', {
+      name, query,
+      min_seeders:      parseInt(document.getElementById('ss2-min-seeders')?.value || '1'),
+      regex_filter:     document.getElementById('ss2-regex')?.value || '',
+      auto_add:         document.getElementById('ss2-auto-add')?.checked || false,
+      enabled:          true,
+      interval_minutes: parseInt(document.getElementById('ss2-interval')?.value || '60'),
+    });
+    toast('Saved search created!', 'success');
+    document.getElementById('saved-search-form-view').style.display = 'none';
+    loadSavedSearchesView();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 async function saveSavedSearch() {
@@ -3904,6 +4002,83 @@ async function loadAnalytics(windowHours) {
   } catch(e) {
     el.innerHTML = `<div style="color:var(--red)">Analytics error: ${esc(e.message)}</div>`;
   }
+}
+
+// ── Download Now / Priority Queue ────────────────────────────────────────────
+
+async function downloadNow(torrentId) {
+  // Set priority very high so this torrent is dispatched next
+  try {
+    await api('PATCH', '/torrents/' + torrentId + '/priority', {priority: 100}, 10000);
+    toast('Moved to front of queue', 'success');
+    loadTorrents();
+  } catch(e) { toast(sanitizeErrorMsg(e.message), 'error'); }
+}
+
+async function setTorrentPriority(torrentId, priority) {
+  try {
+    await api('PATCH', '/torrents/' + torrentId + '/priority', {priority: parseInt(priority)||0}, 10000);
+    loadTorrents();
+  } catch(e) { toast(sanitizeErrorMsg(e.message), 'error'); }
+}
+
+// ── Download Profiles ─────────────────────────────────────────────────────────
+
+var _profiles = [];
+var _activeProfile = '';
+
+async function loadDownloadProfiles() {
+  try {
+    var res = await api('GET', '/download-profiles');
+    _profiles = res.profiles || [];
+    _activeProfile = res.active_profile || '';
+    renderDownloadProfiles();
+  } catch(e) { /* silently ignore */ }
+}
+
+function renderDownloadProfiles() {
+  var el = document.getElementById('profiles-list');
+  if (!el) return;
+  if (!_profiles.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px">No profiles configured. Add one in Settings → Automation.</div>';
+    return;
+  }
+  el.innerHTML = _profiles.map(function(p) {
+    var active = p.name === _activeProfile;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0">' +
+      '<div style="flex:1;font-size:13px">' + esc(p.name) +
+        (active ? ' <span class="badge badge-completed" style="font-size:10px">Active</span>' : '') +
+        (p.label ? ' <span class="badge" style="font-size:10px">' + esc(p.label) + '</span>' : '') +
+      '</div>' +
+      '<button class="btn btn-ghost btn-sm" onclick="activateProfile(' + JSON.stringify(p.name) + ')">' +
+        (active ? 'Deactivate' : 'Activate') + '</button>' +
+    '</div>';
+  }).join('');
+}
+
+async function activateProfile(name) {
+  var newName = _activeProfile === name ? '' : name;
+  try {
+    await api('POST', '/download-profiles/activate', {name: newName});
+    toast(newName ? 'Profile "' + name + '" activated' : 'Profile deactivated', 'success');
+    await loadDownloadProfiles();
+  } catch(e) { toast(sanitizeErrorMsg(e.message), 'error'); }
+}
+
+// ── Auto-Recovery ─────────────────────────────────────────────────────────────
+
+async function runRecovery() {
+  try {
+    var res = await api('POST', '/recovery/run', {}, 30000);
+    var r = res.result || {};
+    toast(
+      'Recovery done — ' +
+      r.orphaned_queued_files + ' orphaned, ' +
+      r.missed_completions + ' completions fixed, ' +
+      (r.deadlock_reset ? 'deadlock reset' : 'no deadlock'),
+      'success'
+    );
+  } catch(e) { toast(sanitizeErrorMsg(e.message), 'error'); }
 }
 
 // ── Speed Limit ───────────────────────────────────────────────────────────────
