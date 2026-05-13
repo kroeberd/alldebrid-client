@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.8.19] - 2026-05-13
+
+### Fixed - UI stability, Saved Searches, and PostgreSQL Learning
+
+- Fixed a broken Dashboard debug/status fragment that rendered raw CSS text in the UI.
+- Reset main content scroll position when changing pages so Changelog and other views open at the top.
+- Preserved settings scroll position when switching settings tabs to prevent the UI from jumping on Extract, Notifications, and related tabs.
+- Restored the standalone Saved Searches view loader so it no longer stays on "Loading..." and can create, run, and delete saved searches.
+- Fixed Historical Learning PostgreSQL queries by replacing SQLite-only date expressions with datetime parameters and PostgreSQL-safe string functions.
+- Synchronized the Docker image version label with the repository version.
+
 ## [1.8.18] - 2026-05-13
 
 ### Added — Plex/Jellyfin, Extraction Password, Learning Score in Search

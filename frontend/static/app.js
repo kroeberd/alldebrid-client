@@ -33,6 +33,7 @@ function setAnalyticsWindow(el, hours) {
 }
 
 function nav(el) {
+  if (!el) return;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
   const v = el.dataset.view;
@@ -40,6 +41,8 @@ function nav(el) {
   const activeView = document.getElementById('view-' + v);
   if (!activeView) { console.error('nav: view not found:', v); return; }
   activeView.classList.add('active');
+  const content = document.getElementById('content');
+  if (content) content.scrollTop = 0;
 
   const titles = {
     dashboard:'Dashboard',
@@ -2419,6 +2422,8 @@ function _updatePremiumLabel(r) {
 }
 
 function switchSettingsTab(id) {
+  const content = document.getElementById('content');
+  const currentTop = content ? content.scrollTop : 0;
   document.querySelectorAll('.stab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
   document.querySelectorAll('.stab-panel').forEach(p => p.classList.toggle('active', p.id === id));
   if (aria2DownloadsTimer) {
@@ -2443,6 +2448,7 @@ function switchSettingsTab(id) {
       if (panel && panel.classList.contains('active')) loadAria2Downloads().catch(()=>{});
     }, 5000);
   }
+  if (content) requestAnimationFrame(() => { content.scrollTop = currentTop; });
 }
 
 async function testAria2() {
@@ -3980,8 +3986,39 @@ async function loadSavedSearches() {
   }
 }
 
+async function loadSavedSearchesView() {
+  const el = document.getElementById('saved-searches-view-list');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--text3);padding:20px 0;font-size:12px">Loading saved searches…</div>';
+  try {
+    _savedSearches = await api('GET', '/saved-searches');
+    if (!_savedSearches.length) {
+      el.innerHTML = '<div style="color:var(--text3);padding:20px 0;font-size:12px">No saved searches yet.</div>';
+      return;
+    }
+    el.innerHTML = _savedSearches.map(ss => `
+      <div class="saved-search-row" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">${esc(ss.name || 'Untitled search')}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">
+            ${esc(ss.query || '')}${ss.regex_filter ? ` · filter: ${esc(ss.regex_filter)}` : ''} · every ${ss.interval_minutes || 60} min · ${ss.auto_add ? 'auto-add' : 'manual'}
+          </div>
+          ${ss.last_run_at ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">Last run: ${fmtDate(ss.last_run_at)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-ghost btn-sm" onclick="runSavedSearch(${ss.id})">▷ Run</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSavedSearch(${ss.id})">✕ Delete</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red);padding:20px 0;font-size:12px">Failed to load saved searches: ' + esc(e.message) + '</div>';
+  }
+}
+
 function showAddSavedSearch() {
-  const form = document.getElementById('saved-search-form');
+  const viewVisible = document.getElementById('view-saved-searches')?.classList.contains('active');
+  const form = document.getElementById(viewVisible ? 'saved-search-form-view' : 'saved-search-form');
   if (form) form.style.display = form.style.display === 'none' ? '' : 'none';
 }
 
@@ -4028,6 +4065,7 @@ async function runSavedSearch(id) {
     const res = await api('POST', `/saved-searches/${id}/run`, {}, 60000);
     toast(`Search done: ${res.results?.results_count||0} result(s), ${res.results?.added_count||0} added`, 'success');
     await loadSavedSearches();
+    await loadSavedSearchesView();
   } catch(e) { toast(e.message, 'error'); }
 }
 
@@ -4037,6 +4075,7 @@ async function deleteSavedSearch(id) {
     await api('DELETE', `/saved-searches/${id}`);
     toast('Deleted', 'success');
     await loadSavedSearches();
+    await loadSavedSearchesView();
   } catch(e) { toast(e.message, 'error'); }
 }
 
