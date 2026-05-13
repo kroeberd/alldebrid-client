@@ -107,6 +107,15 @@ class AppSettings(BaseModel):
     block_samples:    bool = False   # block files matching common sample patterns
     block_extras:     bool = False   # block extras / featurettes / behind-the-scenes
 
+    # ── Generic Webhook Actions ───────────────────────────────────────────────
+    # A generic HTTP webhook called on various torrent lifecycle events.
+    # Payload is a JSON object with event type + torrent metadata.
+    # Separate from Discord notifications.
+    webhook_on_complete:    str = ""   # URL called when a torrent completes
+    webhook_on_error:       str = ""   # URL called when a torrent errors
+    webhook_on_added:       str = ""   # URL called when a torrent is added
+    webhook_secret:         str = ""   # Optional Bearer token / secret header value
+
     # Deep aria2 filesystem sync
     # Interval in minutes (0 = disabled). Checks actual file presence on disk
     # independently of aria2 GID/status, resolving same-filename-different-folder issues.

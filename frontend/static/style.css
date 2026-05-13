@@ -360,6 +360,11 @@ body.light .dash-hero-stat { background: var(--surface2); }
 body.light .dash-kpi-strip { background: var(--surface2); }
 
 /* Stat Cards ── */
+/* Drag & Drop reordering */
+.drag-over { background: rgba(var(--accent-rgb, 255,140,66),.12) !important; outline: 2px dashed var(--accent); }
+tr[draggable="true"] { cursor: grab; }
+tr[draggable="true"]:active { cursor: grabbing; }
+
 /* Dashboard row mini progress bar */
 .dash-row-bar { height: 2px; background: var(--border); border-radius: 1px; margin-top: 4px; overflow: hidden; }
 .dash-row-bar-fill { height: 100%; border-radius: 1px; transition: width .4s ease; }

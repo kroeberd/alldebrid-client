@@ -2347,3 +2347,33 @@ async def get_mediainfo_endpoint(path: str = Query(..., description="Local file 
         raise HTTPException(404, "File not found")
     from services.mediainfo import get_mediainfo
     return await get_mediainfo(resolved)
+
+# ── Generic Webhook ───────────────────────────────────────────────────────────
+
+@router.post("/webhooks/test")
+async def test_webhook(body: dict):
+    """
+    Send a test POST to a webhook URL and return the HTTP status.
+    Body: {"url": "https://...", "secret": "..."}
+    Read-only — does not modify any torrent data.
+    """
+    url    = str(body.get("url") or "")
+    secret = str(body.get("secret") or "")
+    if not url:
+        raise HTTPException(400, "url is required")
+    from services.webhook_actions import fire, EVENT_COMPLETE
+    ok = await fire(
+        EVENT_COMPLETE,
+        {"id": 0, "name": "Test Torrent", "status": "completed", "source": "manual", "size_bytes": 0},
+        url=url, secret=secret or None,
+    )
+    return {"ok": ok, "url": url}
+
+
+# ── Historical Learning ───────────────────────────────────────────────────────
+
+@router.get("/stats/learning")
+async def get_learning():
+    """Return indexer + release-group performance stats from the last 90 days."""
+    from services.learning import get_learning_stats
+    return await get_learning_stats()

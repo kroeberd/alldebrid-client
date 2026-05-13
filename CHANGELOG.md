@@ -1,5 +1,76 @@
 # Changelog
 
+## [1.8.16] - 2026-05-13
+
+### Added — Webhook Actions, Historical Learning, Advanced Extraction, Drag & Drop, Health Dashboard
+
+#### Generic Webhook Action System — `services/webhook_actions.py`
+
+Fire HTTP POST webhooks on torrent lifecycle events, independent of Discord notifications.
+
+**New config fields:**
+
+| Field | Description |
+|-------|-------------|
+| `webhook_on_added` | URL called when a torrent is accepted |
+| `webhook_on_complete` | URL called on successful download |
+| `webhook_on_error` | URL called when a torrent errors |
+| `webhook_secret` | Optional `Authorization: Bearer <secret>` header |
+
+**Payload** (JSON):
+```json
+{"event":"torrent.completed","torrent_id":42,"name":"…","status":"completed",
+ "source":"jackett","label":"","size_bytes":4294967296,"hash":"…",
+ "alldebrid_id":"…","error_message":null,"local_path":"/download/…"}
+```
+
+- Fire-and-forget via `asyncio.create_task` — never blocks the add/finalize path
+- **`POST /api/webhooks/test`** — sends a test payload to any URL without touching DB data
+- **Settings → Reporting → Webhook Actions** — configure URLs + test button
+
+#### Historical Learning — `services/learning.py`
+
+Derives success metrics from the last 90 days of torrent history.
+
+**`GET /api/stats/learning`** returns:
+- `indexers` — `[{indexer, total, completed, errors, no_peer, success_rate, score}]`
+  Score is a weighted sum of success rate + low error rate + volume bonus (0.0–1.0)
+- `release_groups` — top release groups by success rate
+- `no_peer_rate` — overall fraction of uploads that received no-peer errors
+- `top_labels` — most-used labels
+
+**New `🧠 Learning` navigation view** — table of indexer performance scores,
+colour-coded (green ≥ 80 %, amber ≥ 50 %, red < 50 %), and a tag cloud of
+reliable release groups.
+
+#### Advanced Extraction Pipeline
+
+- **Nested archive support** — after extracting an archive, sub-directories of
+  the destination are scanned for further `.rar`/`.zip`/`.7z` files and
+  extracted automatically (up to 10 nested archives per parent, capped to avoid
+  unbounded recursion). Only sub-directory archives are considered; sibling
+  archives in the same folder are intentionally excluded.
+- **Retry on transient failures** — each archive is attempted twice before
+  reporting an error, with a WARNING log on the first failure.
+
+#### Drag & Drop Priority Reordering
+
+Torrent table rows are now `draggable`. Dropping a row above another torrent
+adjusts its `priority` via `PATCH /api/torrents/{id}/priority`, moving it to
+the front or back of the dispatch queue. Visual `drag-over` highlight added via
+CSS (`.drag-over` class with dashed accent border).
+
+#### System Health Bar (Dashboard)
+
+A collapsible banner below the KPI strip shows live auto-recovery results:
+orphaned files reset, missed completions recovered, deadlock clears. The bar is
+hidden when the system is healthy and appears only when `recovery_loop` finds
+something to fix.
+
+#### `🧠 Learning` navigation entry
+
+New top-level nav item pointing to the Historical Learning view.
+
 ## [1.8.15] - 2026-05-13
 
 ### Added — Analytics Chart, Smart Scheduler, Smart File Selection, MediaInfo

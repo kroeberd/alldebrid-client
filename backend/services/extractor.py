@@ -294,21 +294,58 @@ class Extractor:
         """
         Extract *archive* into *dest* (async, respects concurrency semaphore).
 
+        Supports:
+          - Nested archives (archives inside extracted archives, up to 2 levels)
+          - Retry on transient failures (1 retry by default)
+
         Returns (success, message).
         """
         async with self._sem:
             loop = asyncio.get_running_loop()  # get_event_loop() is deprecated in 3.10+
-            try:
-                logger.info("Extracting %s → %s", archive, dest)
-                await loop.run_in_executor(self._executor, _extract_sync, archive, dest)
-                if delete_after and archive.exists():
-                    archive.unlink()
-                    logger.debug("Deleted archive: %s", archive)
-                return True, f"Extracted {archive.name}"
-            except Exception as exc:
-                msg = f"Extraction failed for {archive.name}: {exc}"
-                logger.error(msg)
-                return False, msg
+            retries = 1
+            last_err: str = ""
+            for attempt in range(retries + 1):
+                try:
+                    if attempt > 0:
+                        logger.info("Retrying extraction of %s (attempt %d)", archive, attempt + 1)
+                    logger.info("Extracting %s → %s", archive, dest)
+                    await loop.run_in_executor(self._executor, _extract_sync, archive, dest)
+                    # Nested archive support: scan sub-directories of dest for more archives.
+                    # We only scan SUBDIRECTORIES (not dest itself) to avoid treating
+                    # sibling archives in the same folder as "nested" archives.
+                    try:
+                        nested_archives = []
+                        for subdir in [d for d in dest.iterdir() if d.is_dir()]:
+                            nested_archives.extend(subdir.rglob("*.rar"))
+                            nested_archives.extend(subdir.rglob("*.zip"))
+                            nested_archives.extend(subdir.rglob("*.7z"))
+                        nested_archives = [a for a in nested_archives if a != archive]
+                        if nested_archives:
+                            logger.info("Found %d nested archive(s) inside %s",
+                                        len(nested_archives), archive.name)
+                            for nested in nested_archives[:10]:
+                                try:
+                                    await loop.run_in_executor(
+                                        self._executor, _extract_sync, nested, nested.parent
+                                    )
+                                    if delete_after:
+                                        nested.unlink(missing_ok=True)
+                                        logger.debug("Removed nested archive %s", nested)
+                                except Exception as ne:
+                                    logger.warning(
+                                        "Nested extraction failed for %s: %s", nested, ne
+                                    )
+                    except Exception as ne_scan:
+                        logger.debug("Nested archive scan failed: %s", ne_scan)
+                    if delete_after and archive.exists():
+                        archive.unlink()
+                        logger.debug("Deleted archive: %s", archive)
+                    return True, f"Extracted {archive.name}"
+                except Exception as exc:
+                    last_err = f"Extraction failed for {archive.name}: {exc}"
+                    logger.warning(last_err)
+            logger.error(last_err)
+            return False, last_err
 
     async def extract_folder(
         self,

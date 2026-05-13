@@ -50,6 +50,7 @@ function nav(el) {
     stats:'Statistics',
     analytics:'Analytics',
     'saved-searches':'Saved Searches',
+    learning:'Learning',
     changelog:'Changelog',
     github:'GitHub',
     coffee:'Coffee',
@@ -62,6 +63,7 @@ function nav(el) {
   if (v === 'events')    loadEvents();
   if (v === 'stats')     loadDetailedStats();
   if (v === 'analytics') loadAnalytics(_analyticsWindow || 24);
+  if (v === 'learning')  loadLearningStats();
   if (v === 'saved-searches') loadSavedSearchesView();
   if (v === 'changelog') loadChangelog();
   if (v === 'settings')  { loadSettings(); setTimeout(loadSavedSearches, 200); }
@@ -612,7 +614,7 @@ async function loadTorrents() {
       tb.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">&#129522;</div>${currentTorrentSearch || currentFilter ? 'No torrents match the current filter or search.' : 'No torrents found.'}</div></td></tr>`;
       return;
     }
-    tb.innerHTML = items.map(t => `<tr>
+    tb.innerHTML = items.map(t => `<tr data-torrent-id="${t.id}" draggable="true" ondragstart="onTorrentDragStart(event,${t.id})" ondragend="onTorrentDragEnd(event)" ondragover="onTorrentDragOver(event,${t.id})" ondrop="onTorrentDrop(event,${t.id})">
       <td onclick="event.stopPropagation()"><input type="checkbox" class="t-chk" data-id="${t.id}" onchange="onCheckboxChange()"/></td>
       <td onclick="showDetail(${t.id})" style="cursor:pointer">
         <div class="t-name">${esc(t.name)||'(unnamed)'}</div>
@@ -1979,6 +1981,37 @@ function renderSettings() {
     </div>
 
     <div class="stab-panel" id="tab-reporting">
+      <!-- Generic Webhook Actions (shown at top of Reporting tab for discoverability) -->
+      <div class="scard">
+        <div class="scard-header">🪝 Webhook Actions</div>
+        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">
+          Send an HTTP POST with JSON payload to external services (Home Assistant, n8n, Node-RED, …) on torrent lifecycle events.
+          Separate from Discord notifications.
+        </p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">On torrent added</label>
+            <input class="input" id="s-webhook_on_added" value="${esc(s.webhook_on_added||'')}" placeholder="https://…"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">On download completed</label>
+            <input class="input" id="s-webhook_on_complete" value="${esc(s.webhook_on_complete||'')}" placeholder="https://…"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">On torrent error</label>
+            <input class="input" id="s-webhook_on_error" value="${esc(s.webhook_on_error||'')}" placeholder="https://…"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Webhook secret (Bearer token)</label>
+            <input class="input" id="s-webhook_secret" value="${esc(s.webhook_secret||'')}" placeholder="optional"/>
+            <span class="form-hint">Sent as <code>Authorization: Bearer &lt;secret&gt;</code> header. Leave empty to disable.</span>
+          </div>
+          <div style="margin-top:8px">
+            <button class="btn btn-ghost btn-sm" onclick="testWebhookFromSettings()">▷ Test webhook</button>
+          </div>
+        </div>
+      </div>
+
       <div class="scard" style="border-color:rgba(59,130,246,.3)">
       <div class="scard-header">ℹ️ About Reporting</div>
       <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Periodic statistics snapshots and optional Discord-based statistics reports.</p>
@@ -4060,6 +4093,114 @@ async function setTorrentPriority(torrentId, priority) {
     await api('PATCH', '/torrents/' + torrentId + '/priority', {priority: parseInt(priority)||0}, 10000);
     loadTorrents();
   } catch(e) { toast(sanitizeErrorMsg(e.message), 'error'); }
+}
+
+
+
+// ── Webhook Settings Test ─────────────────────────────────────────────────────
+
+async function testWebhookFromSettings() {
+  var url    = (document.getElementById('s-webhook_on_complete')?.value || '').trim();
+  var secret = (document.getElementById('s-webhook_secret')?.value || '').trim();
+  if (!url) { toast('Enter a webhook URL first', 'warn'); return; }
+  try {
+    var res = await api('POST', '/webhooks/test', {url, secret}, 15000);
+    toast(res.ok ? 'Webhook delivered successfully' : 'Webhook responded with error', res.ok ? 'success' : 'warn');
+  } catch(e) { toast(sanitizeErrorMsg(e.message), 'error'); }
+}
+
+// ── System Health Bar (Dashboard) ─────────────────────────────────────────────
+
+async function updateHealthBar() {
+  var bar = document.getElementById('dash-health-bar');
+  if (!bar) return;
+  try {
+    var res = await api('POST', '/recovery/run', {}, 15000);
+    var r = res.result || {};
+    var items = [];
+    if (r.orphaned_queued_files)  items.push('🔧 ' + r.orphaned_queued_files + ' orphaned file(s) reset');
+    if (r.missed_completions)     items.push('✅ ' + r.missed_completions + ' completion(s) recovered');
+    if (r.deadlock_reset)         items.push('⚡ Queue deadlock cleared');
+    if (items.length) {
+      bar.style.display = '';
+      document.getElementById('dash-health-recovery').innerHTML = items.join(' &nbsp;·&nbsp; ');
+    } else {
+      bar.style.display = 'none';
+    }
+  } catch(e) { /* silently ignore */ }
+}
+
+// ── Historical Learning View ───────────────────────────────────────────────────
+
+async function loadLearningStats() {
+  var el = document.getElementById('learning-body');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--text3);padding:20px">Loading…</div>';
+  try {
+    var d = await api('GET', '/stats/learning');
+    if (d.error) { el.innerHTML = '<div style="color:var(--red)">' + esc(d.error) + '</div>'; return; }
+    el.innerHTML =
+      '<div style="font-weight:700;font-size:12px;color:var(--text2);margin-bottom:8px">INDEXER PERFORMANCE — last ' + d.window_days + ' days</div>' +
+      (d.indexers.length ? '<table class="t-table" style="width:100%;margin-bottom:16px"><thead><tr><th>Source</th><th>Total</th><th>Completed</th><th>Errors</th><th>No Peer</th><th>Success %</th><th>Score</th></tr></thead><tbody>' +
+        d.indexers.map(function(ix) {
+          var col = ix.score >= 0.8 ? 'var(--green)' : ix.score >= 0.5 ? 'var(--accent)' : 'var(--red)';
+          return '<tr><td>' + esc(ix.indexer) + '</td><td class="sz">' + ix.total + '</td><td class="sz">' + ix.completed + '</td><td class="sz">' + ix.errors + '</td><td class="sz">' + ix.no_peer + '</td><td class="sz">' + Math.round(ix.success_rate*100) + '%</td><td style="color:' + col + ';font-weight:700">' + Math.round(ix.score*100) + '</td></tr>';
+        }).join('') + '</tbody></table>' : '<div style="color:var(--text3);font-size:12px">No data yet.</div>') +
+      (d.release_groups.length ? '<div style="font-weight:700;font-size:12px;color:var(--text2);margin-bottom:8px">RELIABLE RELEASE GROUPS</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+        d.release_groups.slice(0,20).map(function(g) {
+          var col = g.success_rate >= 0.9 ? 'var(--green)' : g.success_rate >= 0.7 ? 'var(--yellow)' : 'var(--text3)';
+          return '<span class="lbl-badge" style="color:' + col + '">' + esc(g.group) + ' ' + Math.round(g.success_rate*100) + '%</span>';
+        }).join('') + '</div>' : '');
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red)">Error: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── Drag & Drop Priority Reordering ───────────────────────────────────────────
+
+var _dragSrcId = null;
+
+function onTorrentDragStart(e, torrentId) {
+  _dragSrcId = torrentId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(torrentId));
+  e.currentTarget.style.opacity = '0.5';
+}
+
+function onTorrentDragEnd(e) {
+  e.currentTarget.style.opacity = '';
+  document.querySelectorAll('#t-tbody tr').forEach(function(r) {
+    r.classList.remove('drag-over');
+  });
+}
+
+function onTorrentDragOver(e, torrentId) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('#t-tbody tr').forEach(function(r) {
+    r.classList.remove('drag-over');
+  });
+  e.currentTarget.classList.add('drag-over');
+}
+
+async function onTorrentDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!_dragSrcId || _dragSrcId === targetId) return;
+  // Move dragged item above the target: boost its priority by 1 relative to target
+  try {
+    // Get current rows to compute new priority
+    var rows = Array.from(document.querySelectorAll('#t-tbody tr[data-torrent-id]'));
+    var srcIdx  = rows.findIndex(function(r) { return parseInt(r.dataset.torrentId) === _dragSrcId; });
+    var tgtIdx  = rows.findIndex(function(r) { return parseInt(r.dataset.torrentId) === targetId; });
+    var newPriority = tgtIdx < srcIdx ? 10 : -10;
+    await api('PATCH', '/torrents/' + _dragSrcId + '/priority', {priority: newPriority}, 10000);
+    loadTorrents();
+  } catch(e) {
+    toast(sanitizeErrorMsg(e.message), 'error');
+  }
+  _dragSrcId = null;
 }
 
 // ── Download Profiles ─────────────────────────────────────────────────────────

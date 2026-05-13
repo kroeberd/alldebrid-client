@@ -44,6 +44,9 @@
     <div class="nav-item" data-view="analytics" onclick="nav(this)">
       <span class="icon">&#128200;</span><span class="nav-label">Analytics</span>
     </div>
+    <div class="nav-item" data-view="learning" onclick="nav(this)">
+      <span class="icon">&#129504;</span><span class="nav-label">Learning</span>
+    </div>
     <div class="nav-item" data-view="saved-searches" onclick="nav(this)">
       <span class="icon">&#128270;</span><span class="nav-label">Saved Searches</span>
     </div>
@@ -214,7 +217,17 @@
         </div>
       </div>
 
-      <div id="debug-status" style="display:none;padding:10px 16px;margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:11px;color:var(--text2)"></div>
+      <div id="debug-status" style="display:none;padding:10px 16px;margin-bottom:8px;background:var(</div>
+
+      <!-- ── System Health ──────────────────────────────────────────────────── -->
+      <div id="dash-health-bar" style="display:none;margin-bottom:10px;padding:10px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);font-size:12px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">System</span>
+          <span id="dash-health-recovery" style="color:var(--text2)"></span>
+          <span id="dash-health-deadlock" style="color:var(--text2)"></span>
+          <span id="dash-health-aging" style="color:var(--text2)"></span>
+        </div>
+      </div>--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:11px;color:var(--text2)"></div>
 
       <!-- ── Add Magnet ─────────────────────────────────────────────────────── -->
       <div class="card" style="margin-bottom:14px">
@@ -394,6 +407,18 @@
         </div>
         <div id="saved-searches-view-list" style="padding:0 16px 16px">
           <div style="color:var(--text3);padding:20px 0;font-size:12px">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-learning">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🧠 Historical Learning</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadLearningStats()">↻ Refresh</button>
+        </div>
+        <div style="padding:14px" id="learning-body">
+          <div style="color:var(--text3)">Click Refresh to load indexer performance data.</div>
         </div>
       </div>
     </div>

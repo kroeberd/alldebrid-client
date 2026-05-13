@@ -555,6 +555,13 @@ class TorrentManager:
             row["_duplicate"] = decision.as_dict()
         if get_settings().discord_notify_added:
             await self.notify().send_added(name, source=source, alldebrid_id=ad_id)
+        # Generic webhook — on_added
+        try:
+            import asyncio as _asyncio
+            from services.webhook_actions import fire_from_config, EVENT_ADDED
+            _asyncio.create_task(fire_from_config(EVENT_ADDED, row))
+        except Exception:
+            pass
         return row
 
     async def _add_magnet(self, magnet: str, hash_value: str, source: str) -> dict:
@@ -2524,6 +2531,13 @@ class TorrentManager:
                 size_bytes=total_size,
                 download_client="aria2",
             )
+
+        # Generic webhook — fire-and-forget, never raises
+        try:
+            from services.webhook_actions import fire_from_config, EVENT_COMPLETE
+            asyncio.create_task(fire_from_config(EVENT_COMPLETE, torrent_dict))
+        except Exception:
+            pass
 
         # Purge completed download metadata from aria2's in-memory result list
         # immediately after finalisation instead of waiting for the housekeeping
