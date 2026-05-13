@@ -287,6 +287,56 @@ class TestCheckBeforeAdd:
         assert decision.action == "warn"
         assert decision.is_duplicate is True
 
+    @pytest.mark.asyncio
+    async def test_skip_on_same_episode_same_quality_and_similar_size(self):
+        fake_rows = [{
+            "id": 44,
+            "name": "Example.Show.S01E02.1080p.WEB-DL-GROUP",
+            "status": "completed",
+            "hash": "existinghash",
+            "size_bytes": 1_000_000_000,
+        }]
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_ctx)
+        mock_ctx.__aexit__  = AsyncMock(return_value=False)
+        mock_ctx.fetchall   = AsyncMock(return_value=fake_rows)
+
+        with patch("services.duplicates.get_db", return_value=mock_ctx):
+            decision = await check_before_add(DuplicateCandidate(
+                source="jackett",
+                title="Example Show S01E02 1080p WEB DL OTHER",
+                size_bytes=1_010_000_000,
+            ))
+
+        assert decision.action == "skip"
+        assert decision.reason == "same_episode"
+        assert decision.matches[0].torrent_id == 44
+
+    @pytest.mark.asyncio
+    async def test_skip_on_same_movie_year_same_quality_and_similar_size(self):
+        fake_rows = [{
+            "id": 45,
+            "name": "Example.Movie.2024.2160p.BluRay-GROUP",
+            "status": "ready",
+            "hash": "moviehash",
+            "size_bytes": 8_000_000_000,
+        }]
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_ctx)
+        mock_ctx.__aexit__  = AsyncMock(return_value=False)
+        mock_ctx.fetchall   = AsyncMock(return_value=fake_rows)
+
+        with patch("services.duplicates.get_db", return_value=mock_ctx):
+            decision = await check_before_add(DuplicateCandidate(
+                source="saved_search",
+                title="Example Movie (2024) 2160p BluRay OTHER",
+                size_bytes=8_050_000_000,
+            ))
+
+        assert decision.action == "skip"
+        assert decision.reason == "same_movie_year"
+        assert decision.matches[0].torrent_id == 45
+
 
 # ── Regression: search must NEVER upload ────────────────────────────────────
 

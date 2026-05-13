@@ -201,6 +201,10 @@ def _size_similar(a: int, b: int) -> bool:
     return diff / avg < 0.02 or diff < 100 * 1024 * 1024
 
 
+def _quality_matches(a: str, b: str) -> bool:
+    return bool(a and b and a.lower() == b.lower())
+
+
 # ── Core check functions ───────────────────────────────────────────────────────
 
 async def find_hash_duplicate(infohash: str) -> Optional[DuplicateMatch]:
@@ -301,23 +305,39 @@ async def find_semantic_duplicates(candidate: DuplicateCandidate) -> list[Duplic
         if not words_c or not words_r:
             continue
         overlap = len(words_c & words_r) / max(len(words_c), len(words_r))
-        if overlap < 0.60:
+        exact_normalized = norm_candidate == norm_row
+        if overlap < 0.60 and not exact_normalized:
             continue
 
         row_tokens = extract_release_tokens(row["name"])
+        row_quality = row_tokens["quality"]
+        similar_size = _size_similar(candidate.size_bytes, row["size_bytes"] or 0)
+        same_quality = _quality_matches(candidate.quality, row_quality)
         confidence = overlap * 0.6  # base
+        reason = "similar_title"
 
         # Same episode?
         if (candidate.season is not None and row_tokens["season"] == candidate.season
                 and candidate.episode is not None and row_tokens["episode"] == candidate.episode):
+            reason = "same_episode"
             confidence += 0.3
+            if same_quality or similar_size:
+                confidence += 0.1
+                confidence = max(confidence, 0.97)
         # Same year for films?
         elif (candidate.season is None and row_tokens["year"] is not None
               and cand_tokens["year"] == row_tokens["year"]):
+            reason = "same_movie_year"
             confidence += 0.2
+            if same_quality or similar_size:
+                confidence += 0.1
+                confidence = max(confidence, 0.96)
+        elif exact_normalized:
+            reason = "same_normalized_title"
+            confidence += 0.25
 
         # Similar size?
-        if _size_similar(candidate.size_bytes, row["size_bytes"] or 0):
+        if similar_size:
             confidence += 0.1
 
         confidence = min(confidence, 0.99)  # never 1.0 from semantics alone
@@ -329,7 +349,7 @@ async def find_semantic_duplicates(candidate: DuplicateCandidate) -> list[Duplic
             name=row["name"],
             status=row["status"],
             hash=row["hash"] or "",
-            reason="similar_title",
+            reason=reason,
             confidence=round(confidence, 2),
         ))
 
@@ -353,6 +373,7 @@ async def check_before_add(candidate: DuplicateCandidate) -> DuplicateDecision:
       - Exact hash match in active/completed status → skip (confidence 1.0)
       - Exact hash match in error/pending status → warn (allow retry)
       - AllDebrid-ID match → skip
+      - Semantic match (confidence ≥ 0.95) → skip
       - Semantic match (confidence ≥ 0.85) → warn
       - No match → allow
     """
@@ -416,6 +437,19 @@ async def check_before_add(candidate: DuplicateCandidate) -> DuplicateDecision:
     sem_matches = await find_semantic_duplicates(candidate)
     if sem_matches:
         top = sem_matches[0]
+        if top.confidence >= 0.95 and top.status in _ACTIVE_STATUSES:
+            logger.info(
+                "Duplicate skip [semantic %.0f%%]: '%s' matches #%s '%s'",
+                top.confidence * 100, (candidate.title or "?")[:60],
+                top.torrent_id, top.name[:50],
+            )
+            return DuplicateDecision(
+                is_duplicate=True,
+                confidence=top.confidence,
+                action="skip",
+                reason=top.reason,
+                matches=sem_matches,
+            )
         if top.confidence >= 0.85 and top.status in _ACTIVE_STATUSES:
             logger.info(
                 "Duplicate warn [semantic %.0f%%]: '%s' similar to #%s '%s'",
@@ -426,7 +460,7 @@ async def check_before_add(candidate: DuplicateCandidate) -> DuplicateDecision:
                 is_duplicate=True,
                 confidence=top.confidence,
                 action="warn",
-                reason="similar_title",
+                reason=top.reason,
                 matches=sem_matches,
             )
 

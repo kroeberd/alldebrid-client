@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.11] - 2026-05-13
+
+### Added - Stronger semantic duplicate decisions
+
+Duplicate Intelligence now treats same-episode or same-movie-year matches with
+the same quality or a very similar size as confident duplicates. These matches
+return `skip` before any AllDebrid upload, preventing duplicate downloads even
+when the magnet link or torrent hash differs across indexers.
+
+Semantic duplicate reasons now distinguish `same_episode`, `same_movie_year`,
+`same_normalized_title`, and `similar_title`, so API/UI consumers can explain
+why a result was flagged.
+
 ## [1.8.10] - 2026-05-13
 
 ### Fixed - Auto-extract resource usage
