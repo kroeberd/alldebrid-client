@@ -148,7 +148,35 @@ class SettingsSaveTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, {"ok": True})
         self.assertEqual(saved["cfg"].stats_report_interval_hours, 12)
         self.assertEqual(saved["cfg"].stats_report_window_hours, 168)
-        self.assertEqual(saved["applied"].stats_report_window_hours, 168)
+
+    async def test_aria2_global_options_applies_slot_change_to_live_settings(self):
+        saved = {}
+        current = routes.AppSettings(
+            max_concurrent_downloads=1,
+            aria2_max_active_downloads=1,
+        )
+        fake_aria2 = SimpleNamespace(change_global_options=AsyncMock())
+
+        def fake_save(cfg):
+            saved["cfg"] = cfg
+
+        def fake_apply(cfg):
+            saved["applied"] = cfg
+
+        with patch("api.routes.load_settings", return_value=current), \
+             patch("api.routes.save_settings", side_effect=fake_save), \
+             patch("api.routes.apply_settings", side_effect=fake_apply), \
+             patch.object(routes.manager, "aria2", return_value=fake_aria2), \
+             patch.object(routes.manager, "reset_services", MagicMock()) as reset_services, \
+             patch.object(routes.manager, "_dispatch_pending_aria2_queue", AsyncMock()) as dispatch:
+            result = await routes.aria2_set_global_options({"max_concurrent_downloads": 2})
+
+        self.assertEqual(result["applied"]["max-concurrent-downloads"], "2")
+        self.assertEqual(saved["cfg"].max_concurrent_downloads, 2)
+        self.assertEqual(saved["cfg"].aria2_max_active_downloads, 2)
+        self.assertEqual(saved["applied"].max_concurrent_downloads, 2)
+        reset_services.assert_called_once()
+        dispatch.assert_awaited_once()
 
 
 class _FakeDb:

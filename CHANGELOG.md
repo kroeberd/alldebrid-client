@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.8.12] - 2026-05-13
+
+### Fixed - Live download slot changes
+
+Changing the Downloads view slot selector now applies to the running process
+immediately. The quick aria2 global-options endpoint now updates the in-memory
+settings object after persisting `max_concurrent_downloads` and
+`aria2_max_active_downloads`, resets the manager semaphore, and triggers a
+pending aria2 dispatch pass so increased slots can fill without requiring an
+extra Settings save.
+
 ## [1.8.11] - 2026-05-13
 
 ### Added - Stronger semantic duplicate decisions

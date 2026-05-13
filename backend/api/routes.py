@@ -1538,10 +1538,15 @@ async def aria2_set_global_options(body: dict):
             for k, v in cfg_updates.items():
                 setattr(current, k, v)
             save_settings(current)
+            apply_settings(current)
         # If max_concurrent_downloads changed, reset the Manager Semaphore so
         # the next _start_download picks up the new limit immediately.
         if "max_concurrent_downloads" in cfg_updates:
             manager.reset_services()
+            try:
+                await manager._dispatch_pending_aria2_queue()
+            except Exception as exc:
+                logger.debug("aria2 quick slot dispatch skipped: %s", sanitize_exception(exc))
         return {"ok": True, "applied": options}
     except Exception as e:
         raise HTTPException(502, _sanitize_error(e))
