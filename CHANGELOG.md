@@ -1,5 +1,44 @@
 # Changelog
 
+## v1.8.14 — ETA, Starvation Prevention, Auto-Recovery, Download Profiles
+
+### ETA Calculation
+- `aria2_download_to_dict()` now provides `eta_seconds`
+- `fmtEta()` in the frontend: Downloads panel displays ETA next to download speed
+
+### Starvation Prevention
+- `priority_aging_loop()` in the scheduler increases priority for waiting torrents over time
+- Config options:
+  - `priority_aging_interval_minutes` (15)
+  - `priority_aging_threshold_minutes` (60)
+  - `priority_aging_step` (1)
+
+### Auto-Recovery — `services/recovery.py`
+- Automatically detects and resolves stuck states every 5 minutes
+- Orphaned queued files → reset to pending
+- Stuck downloading/queued items with all files completed → mark as completed
+- Queue deadlock (0 active, N ready) → `reset_services()`
+- `POST /recovery/run` endpoint for manual triggering (Settings → Automation)
+
+### Download Now Button
+- `PATCH /api/torrents/{id}/priority` sets priority to `100`
+- Button added to the torrents table for `ready` / `pending` torrents
+
+### Saved Searches — Dedicated View
+- New navigation entry: `🔍 Saved Searches`
+- Table with Run button and last-run timestamp
+
+### Download Profiles (Settings → Automation)
+- JSON editor for named profiles (`name`, `download_path`, `priority`, `label`)
+- Activation UI via button
+
+### Smart Scheduler Config
+- `bandwidth_day_window`
+- `bandwidth_night_max_dl`
+- `bandwidth_night_speed_mbps`
+
+**Tests: 291/291 passing**
+
 ## [1.8.13] - 2026-05-13
 
 ### Added - Duplicate checks against completed files
