@@ -116,6 +116,20 @@ class AppSettings(BaseModel):
     webhook_on_added:       str = ""   # URL called when a torrent is added
     webhook_secret:         str = ""   # Optional Bearer token / secret header value
 
+    # ── Plex / Jellyfin Post-Import ───────────────────────────────────────────
+    # Trigger a library scan after a torrent is completed, so the media server
+    # picks up the new files without manual intervention.
+    plex_url:            str = ""   # e.g. http://192.168.1.10:32400
+    plex_token:          str = ""   # Plex X-Plex-Token
+    plex_library_id:     str = ""   # Library section ID (empty = all libs)
+    jellyfin_url:        str = ""   # e.g. http://192.168.1.10:8096
+    jellyfin_api_key:    str = ""   # Jellyfin API key
+
+    # ── Advanced Extraction ───────────────────────────────────────────────────
+    # Optional password applied to all archive extractions (7z -p and unrar -p).
+    # Leave empty if archives are not password-protected.
+    extraction_password: str = ""
+
     # Deep aria2 filesystem sync
     # Interval in minutes (0 = disabled). Checks actual file presence on disk
     # independently of aria2 GID/status, resolving same-filename-different-folder issues.

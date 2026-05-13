@@ -178,10 +178,16 @@ def _extract_xz_single(archive: Path, dest: Path) -> None:
 
 
 def _extract_7z(archive: Path, dest: Path) -> None:
-    """Use system `7z` binary (p7zip-full)."""
+    """Use system `7z` binary (p7zip-full). Supports optional archive password via config."""
+    from core.config import get_settings
+    cfg = get_settings()
+    password = str(getattr(cfg, "extraction_password", "") or "").strip()
     for binary in ("7z", "7za", "7zz"):
         if _tool_available(binary):
-            rc, out = _run_tool([binary, "x", "-mmt=1", str(archive), f"-o{dest}", "-y"])
+            cmd = [binary, "x", "-mmt=1", str(archive), f"-o{dest}", "-y"]
+            if password:
+                cmd.insert(-1, f"-p{password}")
+            rc, out = _run_tool(cmd)
             if rc == 0:
                 return
             raise RuntimeError(f"{binary} exited {rc}: {out}")
@@ -194,11 +200,19 @@ def _extract_rar(archive: Path, dest: Path) -> None:
     7z from p7zip-full handles both RAR3 and RAR5 and is always present in
     the Docker image.  unrar-free (LGPL) is a last-resort fallback for RAR3.
     Note: unrar-free uses '-x' flag, not 'x' like the non-free unrar.
+    Supports optional archive password via the `extraction_password` config field.
     """
+    from core.config import get_settings
+    cfg = get_settings()
+    password = str(getattr(cfg, "extraction_password", "") or "").strip()
+
     # Primary: 7z handles RAR3 and RAR5
     for binary in ("7z", "7za", "7zz"):
         if _tool_available(binary):
-            rc, out = _run_tool([binary, "x", "-mmt=1", str(archive), f"-o{dest}", "-y"])
+            cmd = [binary, "x", "-mmt=1", str(archive), f"-o{dest}", "-y"]
+            if password:
+                cmd.insert(-1, f"-p{password}")
+            rc, out = _run_tool(cmd)
             if rc == 0:
                 return
             # 7z present but failed — try unrar tools before giving up
@@ -206,7 +220,10 @@ def _extract_rar(archive: Path, dest: Path) -> None:
 
     # Fallback: unrar (non-free, 'x' subcommand)
     if _tool_available("unrar"):
-        rc, out = _run_tool(["unrar", "x", "-y", str(archive), str(dest) + "/"])
+        cmd = ["unrar", "x", "-y", str(archive), str(dest) + "/"]
+        if password:
+            cmd.insert(2, f"-p{password}")
+        rc, out = _run_tool(cmd)
         if rc == 0:
             return
 

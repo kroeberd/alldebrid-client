@@ -1600,6 +1600,37 @@ function renderSettings() {
         </div>
       </div>
 
+      <!-- Plex + Jellyfin -->
+      <div class="scard">
+        <div class="scard-header">🎬 Media Servers</div>
+        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">
+          Automatically trigger a library scan after each download completes.
+        </p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Plex URL</label>
+            <input class="input" id="s-plex_url" value="${esc(s.plex_url||'')}" placeholder="http://192.168.1.10:32400"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Plex Token (X-Plex-Token)</label>
+            <input class="input" id="s-plex_token" value="${esc(s.plex_token||'')}" placeholder="xxxxxxxxxxxxxxxxxxxx"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Plex Library Section ID (empty = all)</label>
+            <input class="input" id="s-plex_library_id" value="${esc(s.plex_library_id||'')}" placeholder="1"/>
+            <span class="form-hint">Find your library IDs at <code>http://plex-ip:32400/library/sections</code></span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jellyfin URL</label>
+            <input class="input" id="s-jellyfin_url" value="${esc(s.jellyfin_url||'')}" placeholder="http://192.168.1.10:8096"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jellyfin API Key</label>
+            <input class="input" id="s-jellyfin_api_key" value="${esc(s.jellyfin_api_key||'')}" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"/>
+          </div>
+        </div>
+      </div>
+
       <div class="scard">
         <div class="scard-header">&#128269; Jackett Integration</div>
         <div class="scard-body">
@@ -1934,6 +1965,16 @@ function renderSettings() {
         </div>
       </div>
     </div>
+      <div class="scard">
+      <div class="scard-header">🔐 Extraction</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Archive password (optional)</label>
+          <input class="input" id="s-extraction_password" value="${esc(s.extraction_password||'')}" placeholder="Leave empty if archives are not password-protected"/>
+          <span class="form-hint">Applied to all 7z and RAR extractions (<code>-p&lt;password&gt;</code> flag). Leave empty if not needed.</span>
+        </div>
+      </div>
+      </div>
       <div class="scard">
       <div class="scard-header">⏱ Polling Intervals</div>
       <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">How often AllDebrid and your watch folder are checked for new activity.</p>
@@ -3281,6 +3322,7 @@ function renderJackettResults() {
       '<td style="text-align:center;color:'+sc+';font-weight:600">'+(r.seeders || 0)+'</td>'+
       '<td style="text-align:center;color:var(--text2)">'+(r.leechers || 0)+'</td>'+
       '<td style="font-size:11px;color:var(--text2)">'+esc(r.pub_date)+'</td>'+
+      '<td style="text-align:center">'+(r._score != null ? '<span style="font-size:10px;font-weight:700;color:'+(r._score>=0.7?'var(--green)':r._score>=0.5?'var(--accent)':'var(--text3)')+'">'+Math.round((r._score||0)*100)+'</span>' : '')+'</td>'+
       '<td>'+statusBadge+'</td>'+
       '<td>'+addBtn+'</td>';
     // Row click → toggle selection

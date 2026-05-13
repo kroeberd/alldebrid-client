@@ -1722,6 +1722,25 @@ async def jackett_search(body: dict):
                     item["existing_status"] = match.status
             except Exception as exc:
                 logger.debug("Jackett duplicate preview failed: %s", sanitize_exception(exc))
+
+    # ── Learning Score: annotate results with indexer trust score ─────────────
+    try:
+        from services.learning import score_result, get_learning_stats
+        learning = await get_learning_stats()
+        indexer_scores = {
+            ix["indexer"].lower(): ix["score"]
+            for ix in learning.get("indexers", [])
+        }
+        for item in result.get("results", []):
+            item["_score"] = score_result(item, indexer_scores)
+        # Sort by score descending, then seeders descending as tiebreaker
+        result["results"].sort(
+            key=lambda x: (-(x.get("_score") or 0), -int(x.get("seeders") or 0))
+        )
+        result["total"] = len(result["results"])
+    except Exception as exc:
+        logger.debug("Learning score annotation failed: %s", exc)
+
     return result
 
 

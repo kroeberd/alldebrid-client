@@ -2539,6 +2539,13 @@ class TorrentManager:
         except Exception:
             pass
 
+        # Plex / Jellyfin library scan — fire-and-forget
+        try:
+            from services.media_server import trigger_from_config as _media_trigger
+            asyncio.create_task(_media_trigger())
+        except Exception:
+            pass
+
         # Purge completed download metadata from aria2's in-memory result list
         # immediately after finalisation instead of waiting for the housekeeping
         # interval — keeps aria2's RAM footprint low over long sessions.

@@ -1,5 +1,52 @@
 # Changelog
 
+## [1.8.18] - 2026-05-13
+
+### Added — Plex/Jellyfin, Extraction Password, Learning Score in Search
+
+#### Plex / Jellyfin Post-Import Trigger — `services/media_server.py`
+
+After every successful torrent completion, a library refresh is automatically
+triggered on configured media servers. Both execute as fire-and-forget tasks
+and never block the finalisation path.
+
+**Plex:** `GET /library/sections/<id>/refresh` (or `/sections/all/refresh`
+when no library ID is set). Auth via `X-Plex-Token` header.
+
+**Jellyfin:** `POST /Library/Refresh`. Auth via `X-MediaBrowser-Token` header.
+
+**New config fields:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `plex_url` | `""` | e.g. `http://192.168.1.10:32400` |
+| `plex_token` | `""` | Plex X-Plex-Token |
+| `plex_library_id` | `""` | Library section ID (empty = all) |
+| `jellyfin_url` | `""` | e.g. `http://192.168.1.10:8096` |
+| `jellyfin_api_key` | `""` | Jellyfin API key |
+
+**Settings → Services → 🎬 Media Servers** — new configuration panel.
+
+#### Archive Extraction Password — `extraction_password` config field
+
+A single password applied to all 7z and RAR extractions (`-p<password>` flag).
+Useful for torrent packs distributed with a known password. Leave empty for
+unencrypted archives (default).
+
+**New config field:** `extraction_password: str = ""`
+
+**Settings → Advanced → 🔐 Extraction** — new configuration panel.
+
+#### Learning Score in Jackett Search
+
+Jackett search results are now annotated with a `_score` field (0.0–1.0)
+derived from the `GET /api/stats/learning` endpoint:
+
+- Score = 0.4 × indexer_trust + 0.4 × seeder_score (log-scale) + 0.2 × size_score
+- Results are sorted by score descending, then seeder count as tie-breaker
+- A colour-coded score badge (green ≥ 70, amber ≥ 50, grey < 50) appears in
+  the new **Score** column in the results table header
+
 ## [1.8.16] - 2026-05-13
 
 ### Added — Webhook Actions, Historical Learning, Advanced Extraction, Drag & Drop, Health Dashboard
