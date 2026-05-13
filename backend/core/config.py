@@ -100,6 +100,13 @@ class AppSettings(BaseModel):
     blocked_keywords: List[str] = []
     min_file_size_mb: int = 0
 
+    # ── Smart File Selection ──────────────────────────────────────────────────
+    # Automatically block sample files, extras, and featurettes.
+    # Works alongside blocked_keywords — enabling this adds the most common
+    # sample/extra patterns without requiring manual keyword configuration.
+    block_samples:    bool = False   # block files matching common sample patterns
+    block_extras:     bool = False   # block extras / featurettes / behind-the-scenes
+
     # Deep aria2 filesystem sync
     # Interval in minutes (0 = disabled). Checks actual file presence on disk
     # independently of aria2 GID/status, resolving same-filename-different-folder issues.

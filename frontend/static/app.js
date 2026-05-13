@@ -1915,6 +1915,20 @@ function renderSettings() {
             <label class="form-label">Minimum File Size (MB, 0 = no limit)</label>
             <input class="input" type="number" id="s-min_file_size_mb" value="${s.min_file_size_mb??0}" min="0"/>
           </div>
+          <div class="toggle-row" style="margin-top:10px">
+            <div class="toggle-info">
+              <div class="tl">Block sample / trailer files</div>
+              <div class="td">Automatically skip files matching sample, trailer, or teaser patterns.</div>
+            </div>
+            <label class="toggle"><input type="checkbox" id="s-block_samples" ${s.block_samples?'checked':''}/><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="tl">Block extras / featurettes</div>
+              <div class="td">Automatically skip files in /Extras/, /Featurettes/, /Behind the Scenes/ sub-folders.</div>
+            </div>
+            <label class="toggle"><input type="checkbox" id="s-block_extras" ${s.block_extras?'checked':''}/><span class="slider"></span></label>
+          </div>
         </div>
       </div>
     </div>
@@ -3998,10 +4012,36 @@ async function loadAnalytics(windowHours) {
               <span style="color:var(--red);font-weight:600">${r.count}</span>
             </div>`).join('')}
         </div>` : ''}
+      ${a.hourly_completed && a.hourly_completed.length ? renderHourlyChart(a.hourly_completed) : ''}
     `;
   } catch(e) {
     el.innerHTML = `<div style="color:var(--red)">Analytics error: ${esc(e.message)}</div>`;
   }
+}
+
+function renderHourlyChart(hourlyData) {
+  if (!hourlyData || !hourlyData.length) return '';
+  var maxCount = Math.max(...hourlyData.map(function(h) { return h.count; }), 1);
+  var w = 600; var h = 120; var pad = 30; var barW = Math.max(2, Math.floor((w - pad * 2) / hourlyData.length) - 1);
+  var bars = hourlyData.map(function(item, i) {
+    var barH = Math.max(2, Math.round((item.count / maxCount) * (h - pad)));
+    var x = pad + i * Math.floor((w - pad * 2) / hourlyData.length);
+    var y = h - pad - barH;
+    var hour = item.hour ? item.hour.substring(11, 16) : '';
+    return '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH +
+           '" fill="var(--accent)" rx="2" opacity="0.85">' +
+           '<title>' + hour + ': ' + item.count + ' completed</title></rect>' +
+           (i % Math.max(1, Math.floor(hourlyData.length / 8)) === 0 ?
+             '<text x="' + (x + barW/2) + '" y="' + (h - pad + 12) + '" text-anchor="middle" font-size="9" fill="var(--text3)">' + hour + '</text>' : '');
+  }).join('');
+  return '<div class="card" style="padding:14px;margin-top:12px">' +
+    '<div style="font-weight:700;font-size:12px;margin-bottom:8px;color:var(--text2)">COMPLETIONS PER HOUR</div>' +
+    '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:120px">' +
+      '<line x1="' + pad + '" y1="' + (h-pad) + '" x2="' + (w-pad) + '" y2="' + (h-pad) + '" stroke="var(--border)" stroke-width="1"/>' +
+      bars +
+      '<text x="' + (pad-4) + '" y="' + (h-pad) + '" text-anchor="end" font-size="9" fill="var(--text3)">0</text>' +
+      '<text x="' + (pad-4) + '" y="' + pad + '" text-anchor="end" font-size="9" fill="var(--text3)">' + maxCount + '</text>' +
+    '</svg></div>';
 }
 
 // ── Download Now / Priority Queue ────────────────────────────────────────────

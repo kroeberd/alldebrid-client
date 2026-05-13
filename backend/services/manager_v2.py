@@ -147,6 +147,22 @@ def is_blocked(filename: str, cfg: AppSettings, size_bytes: int = 0) -> Tuple[bo
             return True, f"keyword '{keyword}'"
     if cfg.min_file_size_mb > 0 and size_bytes > 0 and size_bytes < cfg.min_file_size_mb * 1024 * 1024:
         return True, f"smaller than {cfg.min_file_size_mb} MB"
+    # Smart File Selection: block common sample patterns
+    if getattr(cfg, "block_samples", False):
+        _sample_patterns = ["sample", "-sample.", ".sample.", "_sample_", "trailer", "-trailer.", "teaser"]
+        fname_lower = filename.lower()
+        if any(p in fname_lower for p in _sample_patterns):
+            return True, "sample/trailer file"
+    # Smart File Selection: block extras / featurettes
+    if getattr(cfg, "block_extras", False):
+        _extras_patterns = [
+            "/extras/", "/featurettes/", "/behind the scenes/", "/deleted scenes/",
+            "/interviews/", "/scenes/", "/shorts/", "/trailers/", "/specials/",
+            "\\extras\\", "\\featurettes\\",
+        ]
+        fname_lower = filename.lower()
+        if any(p in fname_lower for p in _extras_patterns):
+            return True, "extras/featurette"
     return False, ""
 
 

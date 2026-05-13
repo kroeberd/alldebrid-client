@@ -2326,3 +2326,24 @@ async def set_torrent_priority(torrent_id: int, body: dict):
         await db.commit()
     _sse_broadcast("torrent_updated", {"torrent_id": torrent_id, "priority": priority})
     return {"ok": True, "torrent_id": torrent_id, "priority": priority}
+
+# ── MediaInfo ─────────────────────────────────────────────────────────────────
+
+@router.get("/mediainfo")
+async def get_mediainfo_endpoint(path: str = Query(..., description="Local file path")):
+    """
+    Return technical metadata (codec, resolution, HDR, audio) for a local file.
+    Uses ffprobe (preferred) or pymediainfo as fallback.
+    Result is cached in-process per file path.
+    """
+    from pathlib import Path as _Path
+    # Security: only allow paths inside configured download folder
+    cfg = load_settings()
+    dl_root = str(_Path(getattr(cfg, "download_folder", "/download")).resolve())
+    resolved = str(_Path(path).resolve())
+    if not resolved.startswith(dl_root):
+        raise HTTPException(403, "Path outside download folder")
+    if not _Path(resolved).is_file():
+        raise HTTPException(404, "File not found")
+    from services.mediainfo import get_mediainfo
+    return await get_mediainfo(resolved)

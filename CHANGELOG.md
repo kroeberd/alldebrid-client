@@ -1,43 +1,158 @@
 # Changelog
 
-## v1.8.14 — ETA, Starvation Prevention, Auto-Recovery, Download Profiles
+## [1.8.15] - 2026-05-13
 
-### ETA Calculation
-- `aria2_download_to_dict()` now provides `eta_seconds`
-- `fmtEta()` in the frontend: Downloads panel displays ETA next to download speed
+### Added — Analytics Chart, Smart Scheduler, Smart File Selection, MediaInfo
 
-### Starvation Prevention
-- `priority_aging_loop()` in the scheduler increases priority for waiting torrents over time
-- Config options:
-  - `priority_aging_interval_minutes` (15)
-  - `priority_aging_threshold_minutes` (60)
-  - `priority_aging_step` (1)
+#### Analytics — Hourly Completions Chart
 
-### Auto-Recovery — `services/recovery.py`
-- Automatically detects and resolves stuck states every 5 minutes
-- Orphaned queued files → reset to pending
-- Stuck downloading/queued items with all files completed → mark as completed
-- Queue deadlock (0 active, N ready) → `reset_services()`
-- `POST /recovery/run` endpoint for manual triggering (Settings → Automation)
+`loadAnalytics()` now renders an inline SVG bar chart of completions per hour
+when a window ≤ 48 h is selected. Each bar is labelled with the hour; hovering
+shows the exact count. No external chart library needed.
 
-### Download Now Button
-- `PATCH /api/torrents/{id}/priority` sets priority to `100`
-- Button added to the torrents table for `ready` / `pending` torrents
+#### Smart Scheduler — Night-Mode Enforcement
 
-### Saved Searches — Dedicated View
-- New navigation entry: `🔍 Saved Searches`
-- Table with Run button and last-run timestamp
+`_enforce_smart_scheduler()` runs every poll cycle (inside `sync_status_loop`).
+When `bandwidth_day_window` is configured (e.g. `08:00-23:00`) and the current
+local time is **outside** that window, the function pushes reduced limits to
+aria2 via `change_global_options`:
 
-### Download Profiles (Settings → Automation)
-- JSON editor for named profiles (`name`, `download_path`, `priority`, `label`)
-- Activation UI via button
+- `max-concurrent-downloads` → `bandwidth_night_max_dl` (default 1)
+- `max-overall-download-limit` → derived from `bandwidth_night_speed_mbps`
 
-### Smart Scheduler Config
-- `bandwidth_day_window`
-- `bandwidth_night_max_dl`
-- `bandwidth_night_speed_mbps`
+Inside the day window the normal aria2 settings are restored automatically.
+No manual intervention required; works alongside the existing Settings UI.
 
-**Tests: 291/291 passing**
+#### Smart File Selection — Sample & Extras Blocking
+
+Two new opt-in toggles in Settings → Advanced → File Filters:
+
+| Toggle | Config field | What it blocks |
+|--------|-------------|----------------|
+| Block sample / trailer files | `block_samples` | Files matching "sample", "trailer", "teaser" in name |
+| Block extras / featurettes | `block_extras` | Files inside /Extras/, /Featurettes/, /Behind the Scenes/ paths |
+
+Both default to `false` (opt-in) and are integrated into the existing
+`is_blocked()` gate — no schema changes needed.
+
+#### MediaInfo Integration — `services/mediainfo.py` (new service)
+
+New read-only service using **ffprobe** (preferred, already present in the
+Docker image) with **pymediainfo** as fallback.
+
+`GET /api/mediainfo?path=<local_path>` returns:
+
+```json
+{
+  "format": "matroska",
+  "duration_s": 5987.4,
+  "size_bytes": 12884901888,
+  "codec_video": "hevc",
+  "codec_audio": "eac3",
+  "resolution": "3840x2160",
+  "hdr": true,
+  "dolby_vision": false,
+  "video": [...],
+  "audio": [...],
+  "subtitles": [...]
+}
+```
+
+Security: only paths inside the configured download folder are accepted (HTTP 403
+otherwise). Results are cached in-process (up to 500 entries).
+
+#### CHANGELOG format fix (v1.8.14)
+
+v1.8.14 was logged with a non-standard header (`## v1.8.14 —` instead of
+`## [1.8.14]`). Fixed to conform to the Keep a Changelog format used by all
+other entries.
+
+## [1.8.14] - 2026-05-13
+
+### Added — ETA, Starvation Prevention, Auto-Recovery, Download Profiles, Saved Searches View
+
+#### ETA Calculation
+
+`aria2_download_to_dict()` now returns an `eta_seconds` field computed from
+remaining bytes divided by the current download speed. A new `fmtEta()` helper
+in the frontend converts seconds to a human-readable format (`42s`, `3m 12s`,
+`1h 4m`) and shows the ETA below the live speed in the Downloads panel.
+
+#### Starvation Prevention — `priority_aging_loop`
+
+A new scheduler loop prevents low-priority torrents from waiting indefinitely
+behind a continuous stream of higher-priority additions. Every
+`priority_aging_interval_minutes` (default 15 min), torrents that have been in
+`ready`/`uploading`/`processing` status for longer than
+`priority_aging_threshold_minutes` (default 60 min) get their priority bumped by
+`priority_aging_step` (default 1), up to a maximum of 900.
+
+New config fields (all with safe defaults, no migration required):
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `priority_aging_interval_minutes` | `15` | How often the aging loop runs |
+| `priority_aging_threshold_minutes` | `60` | Minimum wait before a torrent is eligible |
+| `priority_aging_step` | `1` | Priority increment per cycle |
+
+#### Auto-Recovery — `services/recovery.py` (new service)
+
+Runs automatically every 5 minutes via `recovery_loop()` in the scheduler (with
+a 120 s startup delay to let the system settle). Also exposed as
+`POST /api/recovery/run` for manual triggering from Settings → Automation.
+
+Three checks:
+
+1. **Orphaned queued files** — `download_files` rows with `status='queued'` whose
+   GID no longer exists in aria2 (e.g. after a container restart) are reset to
+   `status='pending'` so the next dispatch cycle re-submits them.
+
+2. **Missed completions** — torrents stuck in `downloading`/`queued` whose
+   *all* non-blocked `download_files` are `completed` locally (missed completion
+   event, e.g. crash during finalisation) are marked `completed` and an event
+   row is inserted.
+
+3. **Queue deadlock** — if there are 0 active/queued downloads but ≥1 `ready`
+   torrents, `manager.reset_services()` is called to clear the stuck Semaphore
+   and trigger a fresh dispatch pass.
+
+#### Download Now Button
+
+`PATCH /api/torrents/{id}/priority` sets `priority=100`, moving a torrent to the
+front of the dispatch queue. A **⬇ Now** button appears in the torrents table
+for torrents in `ready` or `pending` status.
+
+#### Saved Searches — Dedicated Navigation View
+
+The Saved Searches feature now has its own `🔍 Saved Searches` navigation entry
+in addition to the Settings → Automation section. The dedicated view shows a
+table with query, filter, interval, auto-add flag, last-run timestamp, and
+per-row Run / Delete buttons.
+
+#### Download Profiles (Settings → Automation)
+
+A JSON editor for named download profiles (`name`, `download_path`, `priority`,
+`label`). Saved profiles can be activated/deactivated from the same panel;
+`GET /api/download-profiles` and `POST /api/download-profiles/activate` are the
+backing endpoints.
+
+#### Smart Scheduler Config
+
+Three new config fields for future night-mode bandwidth throttling:
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `bandwidth_day_window` | `""` | Active-hours window, e.g. `08:00-23:00` |
+| `bandwidth_night_max_dl` | `1` | Max concurrent downloads outside window |
+| `bandwidth_night_speed_mbps` | `0.0` | Speed cap at night (0 = unlimited) |
+
+#### Tests
+
+6 new unit tests in `tests/test_recovery.py` covering `run_recovery_checks`,
+`_fix_queue_deadlock` (deadlock detected, reset called; no deadlock when active
+downloads present; no deadlock when nothing ready), and error-capture behaviour.
+
+**Total: 291/291 tests passing.**
 
 ## [1.8.13] - 2026-05-13
 
