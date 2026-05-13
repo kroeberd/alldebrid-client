@@ -161,6 +161,23 @@ async def aria2_housekeeping_loop():
             logger.error(f"aria2 housekeeping error: {e}")
 
 
+async def aria2_log_rotation_loop():
+    """Rotate the built-in aria2 log file before it grows without bound."""
+    from services.aria2_runtime import runtime, is_builtin_mode
+
+    await asyncio.sleep(180)
+    while True:
+        try:
+            cfg = get_settings()
+            if is_builtin_mode(cfg):
+                result = await runtime.ensure_log_rotation()
+                if result.get("rotated"):
+                    logger.info("aria2 log rotation completed")
+        except Exception as e:
+            logger.error("aria2 log rotation error: %s", e)
+        await asyncio.sleep(900)
+
+
 
 async def aria2_restart_loop():
     """
@@ -342,6 +359,7 @@ async def start_scheduler():
     _tasks.append(asyncio.create_task(sync_download_clients_loop()))
     _tasks.append(asyncio.create_task(deep_sync_loop()))
     _tasks.append(asyncio.create_task(aria2_housekeeping_loop()))
+    _tasks.append(asyncio.create_task(aria2_log_rotation_loop()))
     _tasks.append(asyncio.create_task(backup_loop()))
     _tasks.append(asyncio.create_task(flexget_loop()))
     _tasks.append(asyncio.create_task(stats_snapshot_loop()))

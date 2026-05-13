@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import date, datetime
+from pathlib import Path
+import sys
 from unittest.mock import patch
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 class _FakeAnalyticsDb:
@@ -56,3 +60,13 @@ async def test_queue_analytics_uses_datetime_params_and_postgres_hourly_sql():
     assert not any("JULIANDAY" in sql for sql, _ in fake_db.fetchone_calls)
     assert any("DATE_TRUNC('hour', completed_at)" in sql for sql, _ in fake_db.fetchall_calls)
     assert not any("STRFTIME" in sql for sql, _ in fake_db.fetchall_calls)
+
+
+def test_stats_export_payload_accepts_date_values():
+    import json
+    from fastapi.encoders import jsonable_encoder
+
+    payload = {"daily_trend": [{"date": date(2026, 5, 12), "cnt": 1}]}
+    encoded = jsonable_encoder(payload)
+    json.dumps(encoded)
+    assert encoded["daily_trend"][0]["date"] == "2026-05-12"

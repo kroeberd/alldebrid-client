@@ -342,6 +342,31 @@ async def test_discord():
     return {"ok": True}
 
 
+@router.post("/settings/test-jackett-webhook")
+async def test_jackett_webhook():
+    cfg = get_settings()
+    webhook_url = (cfg.jackett_webhook_url or cfg.discord_webhook_url or "").strip()
+    if not webhook_url:
+        raise HTTPException(400, "No Jackett or Discord webhook configured")
+    from services.notifications import NotificationService, COLOR_ADDED, _now_utc
+    svc = NotificationService(webhook_url)
+    sent = await svc._send(
+        url=webhook_url,
+        title="📥 Jackett Webhook Test",
+        description="**AllDebrid-Client** can send Jackett notifications.",
+        color=COLOR_ADDED,
+        fields=[
+            {"name": "Source", "value": "Jackett Search", "inline": True},
+            {"name": "Indexer", "value": "Test", "inline": True},
+            {"name": "Time", "value": _now_utc(), "inline": True},
+        ],
+        bypass_dedup=True,
+    )
+    if not sent:
+        raise HTTPException(502, "Jackett webhook test failed — check webhook URL")
+    return {"ok": True}
+
+
 @router.post("/settings/test-alldebrid")
 async def test_alldebrid():
     cfg = get_settings()
@@ -1818,10 +1843,11 @@ async def list_stats_snapshots(limit: int = Query(30, le=100)):
 async def export_stats(hours: int = Query(24, ge=1, le=8760)):
     """Export comprehensive stats as JSON."""
     from services.stats import collect_all_metrics
+    from fastapi.encoders import jsonable_encoder
     from fastapi.responses import JSONResponse
     data = await collect_all_metrics(hours=hours)
     return JSONResponse(
-        content=data,
+        content=jsonable_encoder(data),
         headers={"Content-Disposition": f"attachment; filename=stats_{hours}h.json"},
     )
 

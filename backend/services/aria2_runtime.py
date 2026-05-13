@@ -91,6 +91,37 @@ class BuiltinAria2Runtime:
         session_file.touch(exist_ok=True)
         return log_file, session_file
 
+    def _log_rotation_settings(self) -> tuple[int, int]:
+        cfg = get_settings()
+        max_mb = int(getattr(cfg, "aria2_builtin_log_max_mb", 25) or 25)
+        backups = int(getattr(cfg, "aria2_builtin_log_backups", 3) or 0)
+        return max(1, max_mb) * 1024 * 1024, max(0, backups)
+
+    def _rotate_log_file(self) -> bool:
+        log_file, _ = self._runtime_paths()
+        max_bytes, backups = self._log_rotation_settings()
+        try:
+            if not log_file.exists() or log_file.stat().st_size <= max_bytes:
+                return False
+            if backups <= 0:
+                log_file.write_text("", encoding="utf-8")
+                logger.info("Built-in aria2 log truncated after reaching rotation limit")
+                return True
+            for index in range(backups, 0, -1):
+                src = log_file.with_name(f"{log_file.name}.{index}")
+                dst = log_file.with_name(f"{log_file.name}.{index + 1}")
+                if index == backups and src.exists():
+                    src.unlink(missing_ok=True)
+                elif src.exists():
+                    src.replace(dst)
+            log_file.replace(log_file.with_name(f"{log_file.name}.1"))
+            log_file.touch(exist_ok=True)
+            logger.info("Built-in aria2 log rotated after reaching rotation limit")
+            return True
+        except Exception as exc:
+            logger.warning("Built-in aria2 log rotation failed: %s", exc)
+            return False
+
     def _download_dir(self) -> Path:
         cfg = get_settings()
         # Built-in aria2 runs in the same container as the app, so it must use
@@ -161,6 +192,7 @@ class BuiltinAria2Runtime:
                 logger.warning("Built-in aria2 start skipped: %s", self._last_error)
                 return await self.status()
             try:
+                self._rotate_log_file()
                 import os as _os
                 # MALLOC_ARENA_MAX=1 prevents glibc from creating multiple
                 # memory arenas for different threads, which causes RSS to grow
@@ -215,6 +247,26 @@ class BuiltinAria2Runtime:
     async def restart(self) -> Dict[str, Any]:
         await self.stop()
         return await self.start()
+
+    async def ensure_log_rotation(self) -> Dict[str, Any]:
+        cfg = get_settings()
+        if not is_builtin_mode(cfg):
+            return {"ok": True, "enabled": False, "rotated": False}
+        log_file, _ = self._runtime_paths()
+        max_bytes, _ = self._log_rotation_settings()
+        try:
+            size = log_file.stat().st_size if log_file.exists() else 0
+        except Exception:
+            size = 0
+        if size <= max_bytes:
+            return {"ok": True, "enabled": True, "rotated": False, "size_bytes": size}
+        if self._is_process_alive():
+            # aria2 keeps the log file handle open. Restarting after rotation is
+            # the reliable way to make it write into the fresh log file.
+            await self.restart()
+            return {"ok": True, "enabled": True, "rotated": True, "restarted": True, "size_bytes": size}
+        rotated = self._rotate_log_file()
+        return {"ok": True, "enabled": True, "rotated": rotated, "restarted": False, "size_bytes": size}
 
     async def apply_options(self) -> Dict[str, Any]:
         if not is_builtin_mode():

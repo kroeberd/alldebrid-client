@@ -1556,6 +1556,8 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
                 download_folder=str(download_dir),
                 aria2_download_path="/external/downloads",
                 aria2_builtin_log_file=str(Path(tmp) / "aria2.log"),
+                aria2_builtin_log_max_mb=25,
+                aria2_builtin_log_backups=3,
                 aria2_builtin_session_file=str(Path(tmp) / "aria2.session"),
                 aria2_builtin_port=6800,
                 aria2_max_download_result=50,
@@ -1573,6 +1575,31 @@ class ManagerDedupeTests(unittest.IsolatedAsyncioTestCase):
                 command = BuiltinAria2Runtime()._command()
         self.assertIn(f"--dir={download_dir}", command)
         self.assertNotIn("--dir=/external/downloads", command)
+
+    def test_builtin_runtime_rotates_oversized_log_file(self):
+        from services.aria2_runtime import BuiltinAria2Runtime
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            log_file = Path(tmp) / "aria2.log"
+            log_file.write_bytes(b"x" * 2048)
+            cfg = types.SimpleNamespace(
+                aria2_builtin_log_file=str(log_file),
+                aria2_builtin_log_max_mb=1,
+                aria2_builtin_log_backups=2,
+                aria2_builtin_session_file=str(Path(tmp) / "aria2.session"),
+            )
+            with patch("services.aria2_runtime.get_settings", return_value=cfg):
+                rotated = BuiltinAria2Runtime()._rotate_log_file()
+            self.assertFalse(rotated)
+            self.assertTrue(log_file.exists())
+
+            log_file.write_bytes(b"x" * (1024 * 1024 + 1))
+            with patch("services.aria2_runtime.get_settings", return_value=cfg):
+                rotated = BuiltinAria2Runtime()._rotate_log_file()
+            self.assertTrue(rotated)
+            self.assertTrue(log_file.exists())
+            self.assertTrue((Path(tmp) / "aria2.log.1").exists())
 
     def test_aria2_download_payload_reports_progress_and_files(self):
         from services.aria2 import aria2_download_to_dict

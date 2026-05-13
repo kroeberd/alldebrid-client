@@ -44,6 +44,8 @@ function nav(el) {
   const titles = {
     dashboard:'Dashboard',
     torrents:'Torrents',
+    search:'Search',
+    aria2queue:'Downloads',
     events:'Event Log',
     stats:'Statistics',
     analytics:'Analytics',
@@ -789,14 +791,14 @@ function renderFlexgetTaskSchedules() {
     return;
   }
   host.innerHTML = flexgetTaskSchedules.map((item, index) => `
-    <div style="display:grid;grid-template-columns:2fr 90px 90px 80px auto;gap:8px;align-items:end;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-      <div class="form-group" style="margin:0">
+    <div class="flexget-schedule-row">
+      <div class="form-group flexget-task-cell">
         <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
           <span>Task</span>
           <span style="font-size:10px;font-weight:400;color:var(--text2)">enabled</span>
         </label>
         <div style="display:flex;align-items:center;gap:6px">
-          <input class="input" list="flexget-task-options" value="${item.task}" onchange="updateFlexgetTaskSchedule(${index}, 'task', this.value)" style="flex:1" />
+          <input class="input" list="flexget-task-options" value="${item.task}" onchange="updateFlexgetTaskSchedule(${index}, 'task', this.value)" />
           <label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0">
             <input type="checkbox" style="opacity:0;width:0;height:0;position:absolute" ${item.enabled ? 'checked' : ''} onchange="updateFlexgetTaskSchedule(${index}, 'enabled', this.checked)">
             <span style="position:absolute;inset:0;background:${item.enabled?'var(--accent)':'var(--border2)'};border-radius:10px;cursor:pointer;transition:background .2s"></span>
@@ -804,21 +806,21 @@ function renderFlexgetTaskSchedules() {
           </label>
         </div>
       </div>
-      <div class="form-group" style="margin:0">
+      <div class="form-group">
         <label class="form-label">Interval (min)</label>
         <input class="input" type="number" min="0" max="720" value="${item.interval_minutes}" onchange="updateFlexgetTaskSchedule(${index}, 'interval_minutes', this.value)" />
       </div>
-      <div class="form-group" style="margin:0">
+      <div class="form-group">
         <label class="form-label">Jitter (sec)</label>
         <input class="input" type="number" min="0" max="3600" value="${item.jitter_seconds}" onchange="updateFlexgetTaskSchedule(${index}, 'jitter_seconds', this.value)" />
       </div>
-      <div class="form-group" style="margin:0">
+      <div class="form-group">
         <label class="form-label">Run</label>
-        <button onclick="flexgetRunSingleTask('${item.task.replace(/'/g,"\\'")}', this)" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--accent);padding:5px 0;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">▶ Run</button>
+        <button class="btn btn-ghost btn-sm flexget-row-btn" onclick="flexgetRunSingleTask('${item.task.replace(/'/g,"\\'")}', this)">▶ Run</button>
       </div>
-      <div class="form-group" style="margin:0">
+      <div class="form-group">
         <label class="form-label" style="visibility:hidden">x</label>
-        <button onclick="removeFlexgetTaskSchedule(${index})" style="width:100%;background:transparent;border:1px solid var(--red);color:var(--red);padding:5px 0;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;transition:all .15s" onmouseover="this.style.background='rgba(239,68,68,.1)'" onmouseout="this.style.background='transparent'">✕ Del</button>
+        <button class="btn btn-danger btn-sm flexget-row-btn" onclick="removeFlexgetTaskSchedule(${index})">Remove</button>
       </div>
     </div>
   `).join('');
@@ -830,6 +832,7 @@ function updateFlexgetTaskSchedule(index, field, value) {
   if (field === 'enabled') current.enabled = !!value;
   else if (field === 'interval_minutes' || field === 'jitter_seconds') current[field] = Math.max(0, parseInt(value || 0, 10) || 0);
   else current[field] = String(value || '').trim();
+  if (field === 'enabled') renderFlexgetTaskSchedules();
 }
 
 function addFlexgetTaskSchedule(task = '') {
@@ -1056,7 +1059,10 @@ function renderSettings() {
     { id:'tab-extract',       label:'📦 Extract' },
     { id:'tab-notifications', label:'🔔 Notifications' },
     { id:'tab-services',      label:'🔌 Services' },
+    { id:'tab-flexget',       label:'🤖 FlexGet' },
     { id:'tab-automation',    label:'🤖 Automation' },
+    { id:'tab-reporting',     label:'📊 Reporting' },
+    { id:'tab-database',      label:'🗄 Database' },
     { id:'tab-advanced',      label:'🛠️ Advanced' },
   ];
   document.getElementById('settings-tabs').innerHTML = tabs.map((t,i)=>
@@ -1186,6 +1192,7 @@ function renderSettings() {
           </div>
         </div>
       </div>
+    </div>
     </div>`);
   _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-download">
       <div class="scard">
@@ -1284,6 +1291,16 @@ function renderSettings() {
           <label class="form-label">Built-in aria2 Port</label>
           <input class="input" type="number" id="s-aria2_builtin_port" value="${s.aria2_builtin_port??6800}" min="1" max="65535"/>
           <span class="form-hint">The internal RPC secret is managed by the app and cannot be changed from the UI.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Built-in aria2 Log Rotation Size (MB)</label>
+          <input class="input" type="number" id="s-aria2_builtin_log_max_mb" value="${s.aria2_builtin_log_max_mb??25}" min="1" max="1024"/>
+          <span class="form-hint">When the aria2 log reaches this size, the client rotates it. Running built-in aria2 is restarted only when needed so the new log file is used.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Built-in aria2 Log Backups</label>
+          <input class="input" type="number" id="s-aria2_builtin_log_backups" value="${s.aria2_builtin_log_backups??3}" min="0" max="20"/>
+          <span class="form-hint">How many rotated aria2 log files to keep. 0 truncates the log instead of keeping backups.</span>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 RPC URL</label>
@@ -1454,6 +1471,7 @@ function renderSettings() {
           </div>
         </div>
       </div>
+    </div>
     </div>`);
   _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-notifications">
       <div class="scard">
@@ -1527,7 +1545,7 @@ function renderSettings() {
             <label class="form-label">Sonarr URL</label>
             <div class="test-row">
               <input class="input" id="s-sonarr_url" value="${s.sonarr_url||''}" placeholder="http://sonarr:8989"/>
-              <button class="btn btn-blue btn-sm" onclick="testSonarr()">Test</button>
+              <button class="btn btn-blue btn-sm" onclick="testSonarr()">Test Sonarr</button>
             </div>
           </div>
           <div class="form-group">
@@ -1548,7 +1566,7 @@ function renderSettings() {
             <label class="form-label">Radarr URL</label>
             <div class="test-row">
               <input class="input" id="s-radarr_url" value="${s.radarr_url||''}" placeholder="http://radarr:7878"/>
-              <button class="btn btn-blue btn-sm" onclick="testRadarr()">Test</button>
+              <button class="btn btn-blue btn-sm" onclick="testRadarr()">Test Radarr</button>
             </div>
           </div>
           <div class="form-group">
@@ -1622,11 +1640,16 @@ function renderSettings() {
         <div class="scard-body">
           <div class="form-group">
             <label class="form-label">Webhook URL <span style="font-weight:400;color:var(--text2)">(optional)</span></label>
-            <input class="input" id="s-jackett_webhook_url" value="${s.jackett_webhook_url||''}" placeholder="https://discord.com/api/webhooks/&hellip;"/>
+            <div class="test-row">
+              <input class="input" id="s-jackett_webhook_url" value="${s.jackett_webhook_url||''}" placeholder="https://discord.com/api/webhooks/&hellip;"/>
+              <button class="btn btn-blue btn-sm" onclick="testJackettWebhook()">Test</button>
+            </div>
             <span class="form-hint">Dedicated webhook for torrents added via Jackett. Falls back to the main Discord webhook if empty.</span>
           </div>
         </div>
       </div>
+    </div>
+    <div class="stab-panel" id="tab-flexget">
       <div class="scard" style="border-color:rgba(59,130,246,.3)">
       <div class="scard-header">ℹ️ FlexGet Setup</div>
       <div class="scard-body">
@@ -1707,24 +1730,11 @@ function renderSettings() {
       <div class="scard-header">📋 Recent FlexGet Runs</div>
       <div class="scard-body">
         <button class="btn btn-ghost btn-sm" onclick="loadFlexgetHistory()" style="margin-bottom:8px">↻ Refresh</button>
-        <div id="flexget-history" style="font-size:12px;color:var(--text2)">Click refresh to load history.</div>
+      <div id="flexget-history" style="font-size:12px;color:var(--text2)">Click refresh to load history.</div>
       </div>
     </div>
-      <div class="scard">
-        <div class="scard-header">🏷 Labels</div>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Predefined Labels <span style="font-weight:400;color:var(--text2)">(comma-separated)</span></label>
-            <input class="input" id="s-torrent_labels_raw" value="${(s.torrent_labels||[]).join(', ')}" placeholder="Movies, Series, 4K, Anime"/>
-            <span class="form-hint">Leave empty — labels are optional per torrent.</span>
-          </div>
-        </div>
-      </div>
-      
     </div>`);
-  _sf.insertAdjacentHTML('beforeend', `</div>
-
-    <div class="stab-panel" id="tab-automation">
+  _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-automation">
 
       <!-- Rule Engine -->
       <div class="scard">
@@ -1792,6 +1802,16 @@ function renderSettings() {
     </div>
 
     <div class="stab-panel" id="tab-advanced">
+      <div class="scard">
+        <div class="scard-header">🏷 Labels</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Predefined Labels <span style="font-weight:400;color:var(--text2)">(comma-separated)</span></label>
+            <input class="input" id="s-torrent_labels_raw" value="${(s.torrent_labels||[]).join(', ')}" placeholder="Movies, Series, 4K, Anime"/>
+            <span class="form-hint">Leave empty — labels are optional per torrent.</span>
+          </div>
+        </div>
+      </div>
       <div class="scard">
       <div class="scard-header">🚫 File Filters</div>
       <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Skip unwanted files by extension, keyword, or minimum file size.</p>
@@ -1864,6 +1884,9 @@ function renderSettings() {
           <div id="backup-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
         </div>
       </div>
+    </div>
+
+    <div class="stab-panel" id="tab-reporting">
       <div class="scard" style="border-color:rgba(59,130,246,.3)">
       <div class="scard-header">ℹ️ About Reporting</div>
       <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Periodic statistics snapshots and optional Discord-based statistics reports.</p>
@@ -1928,6 +1951,9 @@ function renderSettings() {
         <div id="comprehensive-stats" style="margin-top:14px"></div>
       </div>
     </div>
+    </div>
+
+    <div class="stab-panel" id="tab-database">
       <div class="scard">
       <div class="scard-header">🗄️ Database</div>
       <div class="scard-body">
@@ -2034,6 +2060,7 @@ function renderSettings() {
           </div>
         </div>
       </div>
+    </div>
     </div>`);
   renderFlexgetTaskSchedules();
 }
@@ -2070,6 +2097,8 @@ function getFormSettings() {
     aria2_download_path: t('aria2_download_path'),
     aria2_builtin_auto_start: c('aria2_builtin_auto_start'),
     aria2_builtin_port: n('aria2_builtin_port', 6800),
+    aria2_builtin_log_max_mb: n('aria2_builtin_log_max_mb', 25),
+    aria2_builtin_log_backups: n('aria2_builtin_log_backups', 3),
     aria2_operation_timeout_seconds: n('aria2_operation_timeout_seconds', 15),
     aria2_max_active_downloads: n('aria2_max_active_downloads', n('max_concurrent_downloads', 3)),
     aria2_start_paused: c('aria2_start_paused'),
@@ -3481,6 +3510,21 @@ async function testJackett() {
     if (el) { el.style.color='var(--green)'; el.textContent='Connected - Jackett '+(r.version||''); }
   } catch(e) {
     if (el) { el.style.color='var(--red)'; el.textContent='Error: '+e.message; }
+  }
+}
+
+async function testJackettWebhook() {
+  try {
+    const activeTab = getActiveSettingsTab();
+    const current = getFormSettings();
+    await api('PUT','/settings', current);
+    settingsData = await api('GET','/settings');
+    renderSettings();
+    switchSettingsTab(activeTab);
+    await api('POST', '/settings/test-jackett-webhook');
+    toast('Jackett webhook test sent', 'success');
+  } catch(e) {
+    toast('Jackett webhook test failed: ' + sanitizeErrorMsg(e.message), 'error');
   }
 }
 

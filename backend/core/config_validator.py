@@ -81,6 +81,8 @@ def _validate(cfg) -> List[Tuple[str, str, Any, Any]]:
         "aria2_poll_interval_seconds":    (1, 300),
         "aria2_operation_timeout_seconds":(5, 300),
         "aria2_builtin_port":             (1, 65535),
+        "aria2_builtin_log_max_mb":        (1, 1024),
+        "aria2_builtin_log_backups":       (0, 20),
         "aria2_purge_interval_minutes":   (0, 1440),
         "aria2_max_download_result":      (10, 5000),
         "aria2_waiting_window":           (10, 1000),

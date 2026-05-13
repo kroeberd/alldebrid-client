@@ -51,6 +51,8 @@ class AppSettings(BaseModel):
     aria2_builtin_auto_start: bool = True
     aria2_builtin_port: int = 6800
     aria2_builtin_log_file: str = "/app/data/aria2/aria2.log"
+    aria2_builtin_log_max_mb: int = 25
+    aria2_builtin_log_backups: int = 3
     aria2_builtin_session_file: str = "/app/data/aria2/aria2.session"
     aria2_operation_timeout_seconds: int = 15
     aria2_start_paused: bool = False

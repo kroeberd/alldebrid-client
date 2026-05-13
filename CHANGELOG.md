@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.8.9] - 2026-05-13
+
+### Fixed - Settings layout, reporting export, and aria2 log rotation
+
+Fixed the topbar labels for Search and Downloads, corrected the Analytics
+window default to show 24h as the selected view, and split Settings into clearer
+FlexGet, Reporting, and Database tabs.
+
+Settings inputs now use a more readable max width across tabs, FlexGet scheduled
+task rows are more compact, remove buttons are easier to see, and enabled
+switches update visually immediately after being toggled.
+
+Statistics export now serializes date values safely for JSON responses and
+snapshot storage handles date-like values as well.
+
+Built-in aria2 now supports configurable log rotation size and backup count to
+prevent the aria2 log file from growing without bound. The scheduler checks the
+log periodically and restarts built-in aria2 only when rotation requires a fresh
+log handle.
+
+Added a Jackett webhook test endpoint and Settings button, and made the Sonarr
+and Radarr test buttons easier to find.
+
 ## [1.8.8] - 2026-05-12
 
 ### Added - Read-only duplicate preview and safer saved-search adding

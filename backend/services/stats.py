@@ -62,7 +62,7 @@ async def take_stats_snapshot() -> None:
         async with get_db() as db:
             await db.execute(
                 "INSERT INTO stats_snapshots (snapshot_json, created_at) VALUES (?, CURRENT_TIMESTAMP)",
-                (json.dumps(metrics),),
+                (json.dumps(metrics, default=str),),
             )
             # Prune snapshots older than stats_snapshot_keep_days (default 30)
             keep_days = max(1, int(getattr(get_settings(), "stats_snapshot_keep_days", 30) or 30))
@@ -97,12 +97,11 @@ async def collect_all_metrics(
     p: tuple = ()   # query params (only used when since= is given)
 
     if since:
-        iso = since.isoformat()
         tf_t  = "AND created_at >= ?"
         tf_f  = "AND updated_at >= ?"
         tf_ev = "AND created_at >= ?"
         tf_fg = "AND ran_at >= ?"
-        p = (iso,)
+        p = (since,)
     elif hours:
         h = int(hours)
         tf_t  = f"AND created_at >= datetime('now', '-{h} hours')"
