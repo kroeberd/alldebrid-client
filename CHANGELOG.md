@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.13] - 2026-05-13
+
+### Added - Duplicate checks against completed files
+
+Duplicate Intelligence now compares incoming candidates against completed file
+names and local paths from `download_files`, not only torrent names. This lets
+the central duplicate gate catch files that were downloaded inside large packs,
+including same-episode matches with similar size or quality, before another
+AllDebrid upload is attempted.
+
 ## [1.8.12] - 2026-05-13
 
 ### Fixed - Live download slot changes

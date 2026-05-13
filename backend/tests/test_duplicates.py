@@ -337,6 +337,34 @@ class TestCheckBeforeAdd:
         assert decision.reason == "same_movie_year"
         assert decision.matches[0].torrent_id == 45
 
+    @pytest.mark.asyncio
+    async def test_skip_on_existing_completed_download_file(self):
+        fake_rows = [{
+            "id": 46,
+            "name": "Example Pack",
+            "status": "completed",
+            "hash": "packhash",
+            "size_bytes": 0,
+            "file_name": "Example.Show.S02E03.1080p.WEB-DL-GROUP.mkv",
+            "file_local_path": "/download/Example Pack/Example.Show.S02E03.1080p.WEB-DL-GROUP.mkv",
+            "file_size_bytes": 2_000_000_000,
+        }]
+        mock_ctx = MagicMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_ctx)
+        mock_ctx.__aexit__  = AsyncMock(return_value=False)
+        mock_ctx.fetchall   = AsyncMock(return_value=fake_rows)
+
+        with patch("services.duplicates.get_db", return_value=mock_ctx):
+            decision = await check_before_add(DuplicateCandidate(
+                source="jackett",
+                title="Example Show S02E03 1080p WEB DL OTHER",
+                size_bytes=2_010_000_000,
+            ))
+
+        assert decision.action == "skip"
+        assert decision.reason == "same_episode"
+        assert decision.matches[0].name.endswith(".mkv")
+
 
 # ── Regression: search must NEVER upload ────────────────────────────────────
 

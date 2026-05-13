@@ -205,6 +205,16 @@ def _quality_matches(a: str, b: str) -> bool:
     return bool(a and b and a.lower() == b.lower())
 
 
+def _row_get(row, key: str, default=None):
+    try:
+        return row[key]
+    except Exception:
+        try:
+            return row.get(key, default)
+        except Exception:
+            return default
+
+
 # ── Core check functions ───────────────────────────────────────────────────────
 
 async def find_hash_duplicate(infohash: str) -> Optional[DuplicateMatch]:
@@ -283,50 +293,89 @@ async def find_semantic_duplicates(candidate: DuplicateCandidate) -> list[Duplic
             # Pull active/completed torrents with a name for semantic comparison.
             # Limit to recent 2000 to keep the hot path cheap.
             rows = await db.fetchall(
-                """SELECT id, name, status, hash, size_bytes
-                   FROM torrents
-                   WHERE status IN ('uploading','processing','ready','queued',
-                                    'downloading','paused','completed','error')
-                     AND name IS NOT NULL AND name != ''
-                   ORDER BY id DESC LIMIT 500""",
+                """SELECT t.id, t.name, t.status, t.hash, t.size_bytes,
+                          df.filename AS file_name,
+                          df.local_path AS file_local_path,
+                          df.size_bytes AS file_size_bytes
+                   FROM torrents t
+                   LEFT JOIN download_files df ON df.torrent_id = t.id
+                   WHERE t.status IN ('uploading','processing','ready','queued',
+                                      'downloading','paused','completed','error')
+                     AND (
+                        (t.name IS NOT NULL AND t.name != '')
+                        OR (df.filename IS NOT NULL AND df.filename != '')
+                        OR (df.local_path IS NOT NULL AND df.local_path != '')
+                     )
+                   ORDER BY t.id DESC LIMIT 1000""",
             )
     except Exception as exc:
         logger.debug("find_semantic_duplicates DB error: %s", exc)
         return matches
 
     for row in rows:
-        norm_row = normalize_title(row["name"])
-        if not norm_row:
-            continue
+        row_titles = [
+            str(_row_get(row, "name") or ""),
+            str(_row_get(row, "file_name") or ""),
+            str(_row_get(row, "file_local_path") or "").replace("\\", "/").rsplit("/", 1)[-1],
+        ]
+        row_titles = [title for title in row_titles if title.strip()]
 
-        # Title similarity — simple word-overlap ratio
+        best_title = ""
+        best_norm = ""
+        best_overlap = 0.0
+        best_exact = False
         words_c = set(norm_candidate.split())
-        words_r = set(norm_row.split())
-        if not words_c or not words_r:
+        if not words_c:
             continue
-        overlap = len(words_c & words_r) / max(len(words_c), len(words_r))
-        exact_normalized = norm_candidate == norm_row
-        if overlap < 0.60 and not exact_normalized:
-            continue
+        for row_title in row_titles:
+            norm_row = normalize_title(row_title)
+            if not norm_row:
+                continue
+            words_r = set(norm_row.split())
+            if not words_r:
+                continue
+            overlap = len(words_c & words_r) / max(len(words_c), len(words_r))
+            exact_normalized = norm_candidate == norm_row
+            if exact_normalized or overlap > best_overlap:
+                best_title = row_title
+                best_norm = norm_row
+                best_overlap = overlap
+                best_exact = exact_normalized
 
-        row_tokens = extract_release_tokens(row["name"])
+        row_tokens = extract_release_tokens(best_title)
+        token_same_episode = (
+            candidate.season is not None
+            and candidate.episode is not None
+            and row_tokens["season"] == candidate.season
+            and row_tokens["episode"] == candidate.episode
+        )
+        token_same_movie_year = (
+            candidate.season is None
+            and cand_tokens["year"] is not None
+            and row_tokens["year"] == cand_tokens["year"]
+        )
+
+        if not best_norm or (best_overlap < 0.60 and not best_exact and not token_same_episode and not token_same_movie_year):
+            continue
+        overlap = best_overlap
+        exact_normalized = best_exact
+
         row_quality = row_tokens["quality"]
-        similar_size = _size_similar(candidate.size_bytes, row["size_bytes"] or 0)
+        row_size = int(_row_get(row, "file_size_bytes") or _row_get(row, "size_bytes") or 0)
+        similar_size = _size_similar(candidate.size_bytes, row_size)
         same_quality = _quality_matches(candidate.quality, row_quality)
         confidence = overlap * 0.6  # base
         reason = "similar_title"
 
         # Same episode?
-        if (candidate.season is not None and row_tokens["season"] == candidate.season
-                and candidate.episode is not None and row_tokens["episode"] == candidate.episode):
+        if token_same_episode:
             reason = "same_episode"
             confidence += 0.3
             if same_quality or similar_size:
                 confidence += 0.1
                 confidence = max(confidence, 0.97)
         # Same year for films?
-        elif (candidate.season is None and row_tokens["year"] is not None
-              and cand_tokens["year"] == row_tokens["year"]):
+        elif token_same_movie_year:
             reason = "same_movie_year"
             confidence += 0.2
             if same_quality or similar_size:
@@ -346,9 +395,9 @@ async def find_semantic_duplicates(candidate: DuplicateCandidate) -> list[Duplic
 
         matches.append(DuplicateMatch(
             torrent_id=row["id"],
-            name=row["name"],
-            status=row["status"],
-            hash=row["hash"] or "",
+            name=best_title or _row_get(row, "name") or "",
+            status=_row_get(row, "status") or "",
+            hash=_row_get(row, "hash") or "",
             reason=reason,
             confidence=round(confidence, 2),
         ))
