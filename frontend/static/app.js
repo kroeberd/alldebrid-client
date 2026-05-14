@@ -2353,6 +2353,8 @@ function getFormSettings() {
     jackett_webhook_url: t('jackett_webhook_url'),
     stats_report_window_hours: reportWindowHours,
     stats_report_webhook_url: t('stats_report_webhook_url'),
+    // Extraction: filter empty entries on save, join with newline for backend
+    extraction_password: _extractionPasswords.filter(function(p){ return p.trim(); }).join('\n'),
   };
 }
 
@@ -2450,7 +2452,7 @@ function switchSettingsTab(id) {
     loadDownloadProfiles();
   }
   if (id === 'tab-extract') {
-    renderExtractionPasswordList();
+    initExtractionPasswordList();
   }
   if (id === 'tab-services') {
     flexgetListTasks();
@@ -3943,26 +3945,31 @@ async function aria2QueueAction(gid, action) {
 }
 
 
-function removeExtractionPassword(idx) {
+// ── Extraction Password List ─────────────────────────────────────────────────
+// Internal state: real array, may contain empty strings during editing.
+// Only filtered on save (saveSettings reads the hidden field which is kept in sync).
+var _extractionPasswords = [];
+
+function _extractionPasswordsFromHidden() {
   var hidden = document.getElementById('s-extraction_password');
-  if (!hidden) return;
-  var pws = (hidden.value || '').split('\n').map(function(p) { return p.trim(); }).filter(Boolean);
-  pws.splice(idx, 1);
-  hidden.value = pws.join('\n');
-  renderExtractionPasswordList();
+  if (!hidden || !hidden.value.trim()) return [];
+  return hidden.value.split('\n').map(function(p) { return p.trim(); });
+}
+
+function _extractionPasswordsSyncToHidden() {
+  var hidden = document.getElementById('s-extraction_password');
+  if (hidden) hidden.value = _extractionPasswords.join('\n');
 }
 
 function renderExtractionPasswordList() {
-  var hidden = document.getElementById('s-extraction_password');
-  var list   = document.getElementById('extraction-pw-list');
+  var list = document.getElementById('extraction-pw-list');
   if (!list) return;
-  var passwords = hidden ? (hidden.value || '').split('\n').map(function(p) { return p.trim(); }).filter(Boolean) : [];
-  if (!passwords.length) {
+  if (!_extractionPasswords.length) {
     list.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">No passwords configured.</div>';
     return;
   }
-  list.innerHTML = passwords.map(function(pw, i) {
-    return '<div style="display:flex;gap:6px;align-items:center">' +
+  list.innerHTML = _extractionPasswords.map(function(pw, i) {
+    return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">' +
       '<input class="input" style="flex:1;font-size:13px" value="' + esc(pw) + '" ' +
         'oninput="updateExtractionPassword(' + i + ',this.value)" placeholder="password"/>' +
       '<button class="btn btn-danger btn-sm" onclick="removeExtractionPassword(' + i + ')" ' +
@@ -3972,26 +3979,32 @@ function renderExtractionPasswordList() {
 }
 
 function addExtractionPassword() {
-  var hidden = document.getElementById('s-extraction_password');
-  if (!hidden) return;
-  var pws = (hidden.value || '').split('\n').map(function(p) { return p.trim(); }).filter(Boolean);
-  pws.push('');
-  hidden.value = pws.join('\n');
+  _extractionPasswords.push('');
+  _extractionPasswordsSyncToHidden();
   renderExtractionPasswordList();
-  // Focus the new input after DOM update
+  // Focus the new (last) input after DOM update
   setTimeout(function() {
-    var inputs = document.querySelectorAll('#extraction-pw-list input[type!="hidden"]');
+    var inputs = document.querySelectorAll('#extraction-pw-list input');
     if (inputs.length) inputs[inputs.length - 1].focus();
-  }, 50);
+  }, 30);
+}
+
+function removeExtractionPassword(idx) {
+  _extractionPasswords.splice(idx, 1);
+  _extractionPasswordsSyncToHidden();
+  renderExtractionPasswordList();
 }
 
 function updateExtractionPassword(idx, val) {
-  var hidden = document.getElementById('s-extraction_password');
-  if (!hidden) return;
-  var pws = (hidden.value || '').split('\n').map(function(p) { return p.trim(); }).filter(Boolean);
-  while (pws.length <= idx) pws.push('');
-  pws[idx] = val;
-  hidden.value = pws.join('\n');
+  _extractionPasswords[idx] = val;
+  _extractionPasswordsSyncToHidden();
+}
+
+function initExtractionPasswordList() {
+  // Called when the Extract tab is activated or settings are loaded.
+  // Loads existing passwords from the hidden field into the array state.
+  _extractionPasswords = _extractionPasswordsFromHidden();
+  renderExtractionPasswordList();
 }
 
 async function deleteSavedSearch2(id) {

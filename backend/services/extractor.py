@@ -177,20 +177,32 @@ def _extract_xz_single(archive: Path, dest: Path) -> None:
         shutil.copyfileobj(xz_in, f_out)
 
 
+def _get_extraction_passwords() -> list[str]:
+    """Return list of extraction passwords from config (newline-separated field)."""
+    try:
+        from core.config import get_settings
+        raw = str(getattr(get_settings(), "extraction_password", "") or "").strip()
+        return [p.strip() for p in raw.split("\n") if p.strip()]
+    except Exception:
+        return []
+
+
 def _extract_7z(archive: Path, dest: Path) -> None:
-    """Use system `7z` binary (p7zip-full). Supports optional archive password via config."""
-    from core.config import get_settings
-    cfg = get_settings()
-    password = str(getattr(cfg, "extraction_password", "") or "").strip()
+    """Use system `7z` binary (p7zip-full). Tries each configured password in order."""
+    passwords = _get_extraction_passwords()
+    # Always try without password first, then each configured password
+    candidates = [""] + passwords if passwords else [""]
     for binary in ("7z", "7za", "7zz"):
-        if _tool_available(binary):
+        if not _tool_available(binary):
+            continue
+        for pw in candidates:
             cmd = [binary, "x", "-mmt=1", str(archive), f"-o{dest}", "-y"]
-            if password:
-                cmd.insert(-1, f"-p{password}")
+            if pw:
+                cmd.insert(-1, f"-p{pw}")
             rc, out = _run_tool(cmd)
             if rc == 0:
                 return
-            raise RuntimeError(f"{binary} exited {rc}: {out}")
+        raise RuntimeError(f"{binary} failed to extract {archive.name}")
     raise RuntimeError("No 7z binary found (install p7zip-full in the container)")
 
 
@@ -198,34 +210,33 @@ def _extract_rar(archive: Path, dest: Path) -> None:
     """Extract RAR archives using 7z (primary) or unrar-free/unrar (fallback).
 
     7z from p7zip-full handles both RAR3 and RAR5 and is always present in
-    the Docker image.  unrar-free (LGPL) is a last-resort fallback for RAR3.
-    Note: unrar-free uses '-x' flag, not 'x' like the non-free unrar.
-    Supports optional archive password via the `extraction_password` config field.
+    the Docker image.  Tries each configured password in order.
     """
-    from core.config import get_settings
-    cfg = get_settings()
-    password = str(getattr(cfg, "extraction_password", "") or "").strip()
+    passwords = _get_extraction_passwords()
+    candidates = [""] + passwords if passwords else [""]
 
     # Primary: 7z handles RAR3 and RAR5
     for binary in ("7z", "7za", "7zz"):
         if _tool_available(binary):
-            cmd = [binary, "x", "-mmt=1", str(archive), f"-o{dest}", "-y"]
-            if password:
-                cmd.insert(-1, f"-p{password}")
-            rc, out = _run_tool(cmd)
-            if rc == 0:
-                return
-            # 7z present but failed — try unrar tools before giving up
+            for pw in candidates:
+                cmd = [binary, "x", "-mmt=1", str(archive), f"-o{dest}", "-y"]
+                if pw:
+                    cmd.insert(-1, f"-p{pw}")
+                rc, out = _run_tool(cmd)
+                if rc == 0:
+                    return
+            # 7z present but all passwords failed — try unrar tools
             break
 
     # Fallback: unrar (non-free, 'x' subcommand)
     if _tool_available("unrar"):
-        cmd = ["unrar", "x", "-y", str(archive), str(dest) + "/"]
-        if password:
-            cmd.insert(2, f"-p{password}")
-        rc, out = _run_tool(cmd)
-        if rc == 0:
-            return
+        for pw in candidates:
+            cmd = ["unrar", "x", "-y", str(archive), str(dest) + "/"]
+            if pw:
+                cmd.insert(2, f"-p{pw}")
+            rc, out = _run_tool(cmd)
+            if rc == 0:
+                return
 
     # Last resort: unrar-free (LGPL, uses '-x' flag — different from non-free unrar)
     if _tool_available("unrar-free"):
