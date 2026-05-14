@@ -573,14 +573,20 @@ td { padding: 11px 16px; vertical-align: middle; }
   display: flex; align-items: center; gap: 8px; }
 .scard-body { padding: 16px; display: flex; flex-direction: column; gap: 13px; }
 /* Settings tabs */
-.stabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:18px; overflow-x:auto; }
+.stabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:18px; overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.stabs::-webkit-scrollbar { display:none; }
 .stab  { padding:9px 18px; font-size:13px; font-weight:500; color:var(--text2); cursor:pointer;
-         border-bottom:2px solid transparent; white-space:nowrap; transition:all .15s; }
+         border-bottom:2px solid transparent; white-space:nowrap; transition:all .15s; flex-shrink:0; }
 .stab:hover { color:var(--text); }
 .stab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
 .stab-panel { display:none; flex-direction:column; gap:14px; }
   .help-panel { display:none; }
   .help-panel.active { display:block; }
+/* Help view: tabs must not wrap, content must not overflow */
+#help-tabs { margin-bottom:0; position:sticky; top:0; z-index:10; background:var(--bg); }
+#view-help { display:none !important; flex-direction:column; overflow:hidden; }
+#view-help.active { display:flex !important; }
+#view-help .help-panel.active { overflow-y:auto; flex:1; }
 .stab-panel.active { display:flex; }
 #settings-form .stab-panel.active { max-width: 1180px; }
 #settings-form .scard-body { gap: 14px; }

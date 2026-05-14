@@ -54,15 +54,8 @@
     <div class="nav-item" data-view="changelog" onclick="nav(this)">
       <span class="icon">&#128214;</span><span class="nav-label">Changelog</span>
     </div>
-    <div class="nav-group">&#10084;&#65039; Support</div>
-    <div class="nav-item" data-view="github" onclick="nav(this)">
-      <span class="icon">&#128279;</span><span class="nav-label">GitHub</span>
-    </div>
-    <div class="nav-item" onclick="window.open('https://discord.gg/8Vb9cj4ksv','_blank')">
-      <span class="icon">&#128172;</span><span class="nav-label">Discord</span>
-    </div>
-    <div class="nav-item" data-view="coffee" onclick="nav(this)">
-      <span class="icon">&#9749;</span><span class="nav-label">Coffee</span>
+    <div class="nav-item" data-view="support" onclick="nav(this)">
+      <span class="icon">&#10084;&#65039;</span><span class="nav-label">Support</span>
     </div>
     <div class="nav-item" data-view="help" onclick="nav(this)">
       <span class="icon">&#10067;</span><span class="nav-label">Help</span>
@@ -786,37 +779,52 @@
     </div>
 
     <!-- GitHub -->
-    <div class="view" id="view-github">
-      <div class="split-grid">
-        <a class="link-card" href="https://github.com/kroeberd/alldebrid-client" target="_blank" rel="noreferrer">
-          <div class="link-card-title">Repository</div>
-          <div class="link-card-copy">Browse source code, release tags, issues, and project automation on GitHub.</div>
-        </a>
-        <a class="link-card" href="https://github.com/kroeberd/alldebrid-client/issues" target="_blank" rel="noreferrer">
-          <div class="link-card-title">Issues</div>
-          <div class="link-card-copy">Report bugs, request features, or follow existing discussions around the client.</div>
-        </a>
-      </div>
-    </div>
+    <div class="view" id="view-support">
+      <div class="card" style="max-width:560px">
+        <div class="card-header">
+          <span class="card-title">&#10084;&#65039; Support</span>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:10px;padding:16px">
 
-    <!-- Coffee -->
-    <div class="view" id="view-coffee">
-      <div class="split-grid">
-        <a class="link-card" href="https://buymeacoffee.com/kroeberd" target="_blank" rel="noreferrer">
-          <div class="link-card-title">Buy Me a Coffee</div>
-          <div class="link-card-copy">Support ongoing development, maintenance, and polish for AllDebrid-Client.</div>
-        </a>
-        <div class="list-card">
-          <div class="card-header">
-            <span class="card-title">Why Support Helps</span>
-          </div>
-          <div class="card-body">
-            <div class="kv-list">
-              <div class="kv-row"><span>Feature work</span><strong>UI, workflows, releases</strong></div>
-              <div class="kv-row"><span>Operations</span><strong>Container builds and registry upkeep</strong></div>
-              <div class="kv-row"><span>Community</span><strong>Issue triage and Discord support</strong></div>
+          <a href="https://github.com/kroeberd/alldebrid-client" target="_blank" rel="noreferrer"
+             style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:var(--radius);
+                    border:1px solid var(--border);background:var(--surface2);text-decoration:none;
+                    color:var(--text);transition:border-color .15s"
+             onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <span style="font-size:22px">&#128279;</span>
+            <div>
+              <div style="font-weight:600;font-size:14px">GitHub</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px">Source code, issues, releases and changelogs</div>
             </div>
-          </div>
+            <span style="margin-left:auto;color:var(--text3);font-size:12px">&#8599;</span>
+          </a>
+
+          <a href="https://discord.gg/8Vb9cj4ksv" target="_blank" rel="noreferrer"
+             style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:var(--radius);
+                    border:1px solid var(--border);background:var(--surface2);text-decoration:none;
+                    color:var(--text);transition:border-color .15s"
+             onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <span style="font-size:22px">&#128172;</span>
+            <div>
+              <div style="font-weight:600;font-size:14px">Discord</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px">Community chat, help and feature discussion</div>
+            </div>
+            <span style="margin-left:auto;color:var(--text3);font-size:12px">&#8599;</span>
+          </a>
+
+          <a href="https://buymeacoffee.com/kroeberd" target="_blank" rel="noreferrer"
+             style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:var(--radius);
+                    border:1px solid var(--border);background:var(--surface2);text-decoration:none;
+                    color:var(--text);transition:border-color .15s"
+             onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <span style="font-size:22px">&#9749;</span>
+            <div>
+              <div style="font-weight:600;font-size:14px">Buy Me a Coffee</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px">Support ongoing development and maintenance</div>
+            </div>
+            <span style="margin-left:auto;color:var(--text3);font-size:12px">&#8599;</span>
+          </a>
+
         </div>
       </div>
     </div>

@@ -55,8 +55,7 @@ function nav(el) {
     'saved-searches':'Saved Searches',
     learning:'Learning',
     changelog:'Changelog',
-    github:'GitHub',
-    coffee:'Coffee',
+    support:'Support',
     settings:'Settings',
     help:'Help'
   };
@@ -3951,6 +3950,39 @@ function removeExtractionPassword(idx) {
   pws.splice(idx, 1);
   hidden.value = pws.join('\n');
   renderExtractionPasswordList();
+}
+
+function renderExtractionPasswordList() {
+  var hidden = document.getElementById('s-extraction_password');
+  var list   = document.getElementById('extraction-pw-list');
+  if (!list) return;
+  var passwords = hidden ? (hidden.value || '').split('\n').map(function(p) { return p.trim(); }).filter(Boolean) : [];
+  if (!passwords.length) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">No passwords configured.</div>';
+    return;
+  }
+  list.innerHTML = passwords.map(function(pw, i) {
+    return '<div style="display:flex;gap:6px;align-items:center">' +
+      '<input class="input" style="flex:1;font-size:13px" value="' + esc(pw) + '" ' +
+        'oninput="updateExtractionPassword(' + i + ',this.value)" placeholder="password"/>' +
+      '<button class="btn btn-danger btn-sm" onclick="removeExtractionPassword(' + i + ')" ' +
+        'type="button" title="Remove" style="flex-shrink:0">✕</button>' +
+    '</div>';
+  }).join('');
+}
+
+function addExtractionPassword() {
+  var hidden = document.getElementById('s-extraction_password');
+  if (!hidden) return;
+  var pws = (hidden.value || '').split('\n').map(function(p) { return p.trim(); }).filter(Boolean);
+  pws.push('');
+  hidden.value = pws.join('\n');
+  renderExtractionPasswordList();
+  // Focus the new input after DOM update
+  setTimeout(function() {
+    var inputs = document.querySelectorAll('#extraction-pw-list input[type!="hidden"]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  }, 50);
 }
 
 function updateExtractionPassword(idx, val) {
