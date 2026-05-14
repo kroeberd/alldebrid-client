@@ -34,6 +34,7 @@ logger = logging.getLogger("alldebrid.manager")
 READY_CODE = 4
 ERROR_CODES = set(range(5, 16))
 UPLOAD_FAILED_CODE = 5  # AllDebrid statusCode 5 = "Upload failed"
+EXPIRED_CODE = 3        # AllDebrid statusCode 3 = "Expired — files removed from cache"
 
 
 class _TokenBucketRateLimiter:
@@ -211,6 +212,9 @@ def normalize_provider_state(magnet: Dict) -> Dict[str, object]:
     if code == READY_CODE:
         provider_status = "ready"
         local_status = "ready"
+    elif code == EXPIRED_CODE:
+        provider_status = "expired"
+        local_status = "error"
     elif code in ERROR_CODES:
         provider_status = "error"
         local_status = "error"
@@ -1297,6 +1301,62 @@ class TorrentManager:
                     )
                     await _db.commit()
             asyncio.create_task(self._start_download(row["id"], str(row["alldebrid_id"]), str(name)))
+        elif provider_status == "ready" and current_status not in ("downloading", "queued", "completed", "deleted"):
+            # AllDebrid reports the torrent as ready — start the download.
+            logger.info(
+                "sync: torrent %s (id=%s) is ready on AllDebrid → starting download",
+                row["id"], str(row.get("alldebrid_id", "?")),
+            )
+            async with get_db() as _db:
+                await _db.execute(
+                    "UPDATE torrents SET status='ready', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (row["id"],),
+                )
+                await _db.commit()
+            asyncio.create_task(self._start_download(row["id"], str(row["alldebrid_id"]), str(name)))
+
+        elif provider_status == "expired":
+            # AllDebrid statusCode 3: "Expired — files removed from cache".
+            # The AllDebrid entry is no longer usable.  If we have the original
+            # magnet, silently re-upload it so the user does not need to intervene.
+            magnet_link = str(row.get("magnet") or "").strip()
+            torrent_name = str(row.get("name") or f"torrent {row['id']}")
+            if magnet_link:
+                logger.warning(
+                    "Magnet expired on AllDebrid (torrent %s '%s') — reimporting",
+                    row["id"], torrent_name[:60],
+                )
+                # Clear the stale AllDebrid ID so duplicate detection allows re-add
+                async with get_db() as _db:
+                    await _db.execute(
+                        """UPDATE torrents
+                              SET alldebrid_id = NULL,
+                                  status = 'pending',
+                                  provider_status = NULL,
+                                  provider_status_code = NULL,
+                                  error_message = 'AllDebrid expired — reimporting',
+                                  updated_at = CURRENT_TIMESTAMP
+                            WHERE id = ?""",
+                        (row["id"],),
+                    )
+                    await _db.commit()
+                asyncio.create_task(self._handle_expired_reimport(row, magnet_link))
+            else:
+                logger.warning(
+                    "Magnet expired on AllDebrid (torrent %s '%s') — no magnet stored, marking error",
+                    row["id"], torrent_name[:60],
+                )
+                async with get_db() as _db:
+                    await _db.execute(
+                        """UPDATE torrents
+                              SET status = 'error',
+                                  error_message = 'AllDebrid: expired — files removed from cache. Add magnet again to retry.',
+                                  updated_at = CURRENT_TIMESTAMP
+                            WHERE id = ?""",
+                        (row["id"],),
+                    )
+                    await _db.commit()
+
         elif provider_status == "error" and current_status != "error":
             error_message = f"AllDebrid error code {status_code}: {provider_message}".strip()
             # statusCode 8 = "No peer after 30 minutes" — re-upload if magnet stored,
@@ -2898,6 +2958,73 @@ class TorrentManager:
             await _sse_broadcast("stats_changed", {})
         except Exception:
             pass
+
+    async def _handle_expired_reimport(self, row: dict, magnet_link: str) -> None:
+        """Re-upload a magnet whose AllDebrid entry expired (statusCode 3).
+
+        Steps:
+          1. Upload the magnet to AllDebrid fresh (bypassing duplicate detection
+             because the local alldebrid_id was already cleared).
+          2. Update the torrent row with the new AllDebrid ID.
+          3. Let the normal sync cycle pick it up from 'pending'.
+
+        Guards:
+          - Checks that the torrent is still in 'pending' before uploading
+            (avoids double-reimport if the loop fires twice).
+          - A single reimport attempt; if it fails the torrent stays in error.
+        """
+        torrent_id = int(row.get("id") or 0)
+        name = str(row.get("name") or f"torrent {torrent_id}")
+        try:
+            # Guard: verify the row is still pending (not already being handled)
+            async with get_db() as db:
+                current = await db.fetchone(
+                    "SELECT status, alldebrid_id FROM torrents WHERE id=?", (torrent_id,)
+                )
+            if not current or current["status"] != "pending" or current.get("alldebrid_id"):
+                logger.debug("expired_reimport: torrent %s no longer pending — skip", torrent_id)
+                return
+
+            async with self._upload_sem:
+                result = await self.ad().upload_magnet(magnet_link)
+            new_ad_id = str(result.get("id", ""))
+            new_hash  = str(result.get("hash", row.get("hash", "")) or "").lower()
+            if not new_ad_id:
+                raise ValueError("AllDebrid returned no ID for re-uploaded magnet")
+
+            async with get_db() as db:
+                await db.execute(
+                    """UPDATE torrents
+                          SET alldebrid_id = ?,
+                              hash = COALESCE(NULLIF(?, ''), hash),
+                              status = 'uploading',
+                              error_message = NULL,
+                              provider_status = NULL,
+                              provider_status_code = NULL,
+                              updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?""",
+                    (new_ad_id, new_hash, torrent_id),
+                )
+                await db.commit()
+            logger.info(
+                "expired_reimport: torrent %s '%s' re-uploaded → new ad_id=%s",
+                torrent_id, name[:60], new_ad_id,
+            )
+        except Exception as exc:
+            logger.error(
+                "expired_reimport: torrent %s '%s' re-upload failed: %s",
+                torrent_id, name[:60], exc,
+            )
+            async with get_db() as db:
+                await db.execute(
+                    """UPDATE torrents
+                          SET status = 'error',
+                              error_message = 'Expired reimport failed: ' || ?,
+                              updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?""",
+                    (str(exc)[:200], torrent_id),
+                )
+                await db.commit()
 
     async def _handle_upload_failed(self, row: dict, error_message: str) -> None:
         """Handle AllDebrid statusCode 5 (Upload failed) with automatic re-queue.

@@ -50,10 +50,11 @@
     <div class="nav-item" data-view="saved-searches" onclick="nav(this)">
       <span class="icon">&#128270;</span><span class="nav-label">Saved Searches</span>
     </div>
+    <div class="nav-group">Project</div>
     <div class="nav-item" data-view="changelog" onclick="nav(this)">
       <span class="icon">&#128214;</span><span class="nav-label">Changelog</span>
     </div>
-    <div class="nav-group">Project</div>
+    <div class="nav-group">&#10084;&#65039; Support</div>
     <div class="nav-item" data-view="github" onclick="nav(this)">
       <span class="icon">&#128279;</span><span class="nav-label">GitHub</span>
     </div>
@@ -411,6 +412,66 @@
       </div>
     </div>
 
+      <!-- ── Automation ────────────────────────────────────────────────── -->
+      <div class="help-panel" id="htab-automation">
+        <div class="card" style="margin-top:0;border-radius:0 0 var(--radius) var(--radius)">
+          <div class="card-body" style="max-width:760px;display:flex;flex-direction:column;gap:24px;padding:20px 24px">
+
+            <div>
+              <h3 style="margin:0 0 10px;color:var(--accent);font-size:15px">&#129504; Rule Engine</h3>
+              <p style="margin:0 0 10px;color:var(--text2);font-size:13px">
+                The Rule Engine automatically applies actions to new torrents before they are uploaded to AllDebrid.
+                Enable it in <b>Settings → Automation → Rule Engine</b>.
+              </p>
+              <p style="margin:0 0 6px;font-size:12px;font-weight:600">Example rules (JSON):</p>
+              <pre style="background:var(--surface2);padding:14px;border-radius:var(--radius);font-size:11px;overflow-x:auto;line-height:1.6;margin:0 0 10px">[
+  {"if": {"label_contains": "anime"},   "then": {"download_path": "/media/anime"}},
+  {"if": {"title_contains": "REMUX"},   "then": {"priority": -10}},
+  {"if": {"size_gb_gt": 80},            "then": {"pause": true}},
+  {"if": {"title_matches": ".*FLUX.*"}, "then": {"priority": 5}},
+  {"if": {"title_contains": "sample"},  "then": {"block": true}},
+  {"if": {"source_is": "jackett"},      "then": {"label": "auto"}}
+]</pre>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+                <div style="background:var(--surface2);padding:10px;border-radius:var(--radius)">
+                  <div style="font-weight:600;margin-bottom:6px;color:var(--text2)">Conditions</div>
+                  <div><code>title_contains</code> — substring match</div>
+                  <div><code>title_matches</code> — regex (re.search)</div>
+                  <div><code>size_gb_gt / size_gb_lt</code> — size in GB</div>
+                  <div><code>label_contains</code> — label/category</div>
+                  <div><code>source_is</code> — manual, jackett, watch…</div>
+                </div>
+                <div style="background:var(--surface2);padding:10px;border-radius:var(--radius)">
+                  <div style="font-weight:600;margin-bottom:6px;color:var(--text2)">Actions</div>
+                  <div><code>priority</code> — int, added to current</div>
+                  <div><code>pause</code> — true = start paused</div>
+                  <div><code>download_path</code> — override folder</div>
+                  <div><code>label</code> — set/override label</div>
+                  <div><code>block</code> — true = skip upload</div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 style="margin:0 0 10px;color:var(--accent);font-size:15px">&#127919; Download Profiles</h3>
+              <p style="margin:0 0 10px;color:var(--text2);font-size:13px">
+                Named presets that bundle download path, priority, and label.
+                Only one profile can be active at a time.
+                Configure in <b>Settings → Automation → Download Profiles</b>.
+              </p>
+              <p style="margin:0 0 6px;font-size:12px;font-weight:600">Example profiles (JSON):</p>
+              <pre style="background:var(--surface2);padding:14px;border-radius:var(--radius);font-size:11px;overflow-x:auto;line-height:1.6;margin:0">[
+  {"name": "Streaming",     "download_path": "/media/stream",   "priority": 10, "label": "stream"},
+  {"name": "Archive",       "download_path": "/media/archive",  "priority": -5, "label": "archive"},
+  {"name": "Anime",         "download_path": "/media/anime",    "priority": 5,  "label": "anime"},
+  {"name": "Low Bandwidth", "download_path": "/media/lowbw",    "priority": -10,"label": "low-bw"},
+  {"name": "High Quality",  "download_path": "/media/remux",    "priority": 0,  "label": "remux"}
+]</pre>
+            </div>
+
+          </div>
+        </div>
+      </div>
     <div class="view" id="view-learning">
       <div class="card">
         <div class="card-header">
@@ -772,6 +833,7 @@
         <div class="stab"         data-htab="qbit"         onclick="switchHelpTab(this)">&#128279; Sonarr/Radarr</div>
         <div class="stab"         data-htab="aria2"        onclick="switchHelpTab(this)">&#11015;&#65038; aria2</div>
         <div class="stab"         data-htab="integrations" onclick="switchHelpTab(this)">&#128268; Integrations</div>
+        <div class="stab"         data-htab="automation"   onclick="switchHelpTab(this)">&#129504; Automation</div>
         <div class="stab"         data-htab="settings"     onclick="switchHelpTab(this)">&#9881;&#65039; Settings</div>
         <div class="stab"         data-htab="trouble"      onclick="switchHelpTab(this)">&#128295; Troubleshooting</div>
       </div>

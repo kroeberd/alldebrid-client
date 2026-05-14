@@ -1,5 +1,78 @@
 # Changelog
 
+## [1.8.20] - 2026-05-13
+
+### Changed — DB optimizations, Settings restructure, Help improvements, Nav cleanup, Expired fix
+
+#### 1. Database Optimizations
+
+**SQLite — additional pragmas:**
+
+| Pragma | Value | Effect |
+|--------|-------|--------|
+| `synchronous` | `NORMAL` | Fewer fsync calls; safe with WAL mode |
+| `busy_timeout` | `10000` | Wait up to 10 s before OperationalError (was 5 s) |
+| `temp_store` | `MEMORY` | Temp tables in RAM — avoids disk I/O for small ops |
+| `cache_size` | `-65536` | 64 MiB page cache — keeps hot queue pages in RAM |
+| `mmap_size` | `268435456` | 256 MiB memory-mapped I/O for sequential scans |
+| `foreign_keys` | `ON` | Enforce FK constraints; catches orphaned download_files |
+
+**New indexes (SQLite + PostgreSQL, idempotent):**
+
+| Index | Column(s) | Benefit |
+|-------|-----------|---------|
+| `idx_torrents_priority` | `(priority DESC, id ASC)` | Dispatch ORDER BY without full scan |
+| `idx_torrents_hash` | `(hash)` | Duplicate detection and magnet lookup |
+| `idx_torrents_created_at` | `(created_at)` | Analytics/learning 90-day window queries |
+| `idx_dlfiles_local_path` | `(local_path)` | MediaInfo and file-existence checks |
+
+#### 2. Settings — restructured tabs
+
+**New `🔎 Search / Indexers` tab** — Jackett and Prowlarr configuration moved here from
+Services. Services tab now only contains Sonarr, Radarr, and Media Servers.
+
+**Reporting merged into Notifications** — Webhook Actions, Statistics Reporting, and About
+Reporting are now part of `🔔 Notifications`. The tab-list no longer shows a separate
+Reporting entry.
+
+**Archive passwords → Add/Remove list** — the single-line password input in the Extract
+tab is replaced with a per-line list with `+` Add and `✕` Remove buttons.
+The hidden `s-extraction_password` field stores values as newline-separated strings.
+
+**Rule Engine enable toggle** was already present; confirmed visible in `🤖 Automation`.
+
+#### 3. Help — Automation tab
+
+New `🧠 Automation` help tab with:
+
+- **Rule Engine** — six practical examples (anime paths, REMUX low priority, large files
+  pause, release group boost, sample block, auto label), condition/action reference table
+- **Download Profiles** — five example profiles (Streaming, Archive, Anime, Low Bandwidth,
+  High Quality) as JSON with explanation of how active profiles interact with rules
+- **Saved Searches** — brief explanation of the scheduling and auto-add behaviour
+
+#### 4. Navigation
+
+- `Changelog` moved under **Project** nav-group (was floating above it)
+- **GitHub / Discord / Coffee** grouped under `❤️ Support` nav-section
+
+#### 5. AllDebrid — "Expired — Files removed" auto-reimport
+
+AllDebrid `statusCode 3` (Expired) was previously falling through to the
+`else: processing` branch and never resolved. Fix:
+
+- New constant `EXPIRED_CODE = 3`
+- Status mapping: `code == EXPIRED_CODE` → `provider_status = "expired"`
+- `sync_alldebrid_status()`: when `provider_status == "expired"`:
+  - **Magnet stored** → clears `alldebrid_id`, sets `status = 'pending'`, fires
+    `asyncio.create_task(_handle_expired_reimport(row, magnet_link))`
+    Log: `WARN | alldebrid.manager | Magnet expired on AllDebrid (torrent N 'name') — reimporting`
+  - **No magnet** → sets `status = 'error'` with message "Add magnet again to retry"
+- `_handle_expired_reimport()`:
+  - Guards against double-reimport (checks status == 'pending' and alldebrid_id is NULL)
+  - Re-uploads magnet via `upload_magnet`, updates row with new `alldebrid_id`
+  - On failure: marks `status = 'error'` with error message
+
 ## [1.8.19] - 2026-05-13
 
 ### Fixed - UI stability, Saved Searches, and PostgreSQL Learning

@@ -1075,9 +1075,9 @@ function renderSettings() {
     { id:'tab-extract',       label:'📦 Extract' },
     { id:'tab-notifications', label:'🔔 Notifications' },
     { id:'tab-services',      label:'🔌 Services' },
+    { id:'tab-indexers',      label:'🔎 Search / Indexers' },
     { id:'tab-flexget',       label:'🤖 FlexGet' },
     { id:'tab-automation',    label:'🤖 Automation' },
-    { id:'tab-reporting',     label:'📊 Reporting' },
     { id:'tab-database',      label:'🗄 Database' },
     { id:'tab-advanced',      label:'🛠️ Advanced' },
   ];
@@ -1548,6 +1548,101 @@ function renderSettings() {
           </div>
         </div>
       </div>
+      <div class="scard">
+        <div class="scard-header">🪝 Webhook Actions</div>
+        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">
+          Send an HTTP POST with JSON payload to external services (Home Assistant, n8n, Node-RED, …) on torrent lifecycle events.
+          Separate from Discord notifications.
+        </p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">On torrent added</label>
+            <input class="input" id="s-webhook_on_added" value="${esc(s.webhook_on_added||'')}" placeholder="https://…"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">On download completed</label>
+            <input class="input" id="s-webhook_on_complete" value="${esc(s.webhook_on_complete||'')}" placeholder="https://…"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">On torrent error</label>
+            <input class="input" id="s-webhook_on_error" value="${esc(s.webhook_on_error||'')}" placeholder="https://…"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Webhook secret (Bearer token)</label>
+            <input class="input" id="s-webhook_secret" value="${esc(s.webhook_secret||'')}" placeholder="optional"/>
+            <span class="form-hint">Sent as <code>Authorization: Bearer &lt;secret&gt;</code> header. Leave empty to disable.</span>
+          </div>
+          <div style="margin-top:8px">
+            <button class="btn btn-ghost btn-sm" onclick="testWebhookFromSettings()">▷ Test webhook</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="scard" style="border-color:rgba(59,130,246,.3)">
+      <div class="scard-header">ℹ️ About Reporting</div>
+      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Periodic statistics snapshots and optional Discord-based statistics reports.</p>
+      <div class="scard-body">
+        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+          The reporting module captures <b>comprehensive metrics</b> across all client activity automatically.<br><br>
+          <b>Snapshots</b> are periodic point-in-time captures stored in the database for trend analysis.
+          Set an interval to enable automatic snapshots (recommended: 60 min).<br><br>
+          <b>Export</b> downloads a full JSON report for the selected time window — useful for external analysis or archiving.<br><br>
+          <b>Time windows</b>: select the period in the dropdown below, then click <i>Load Report</i>.
+        </div>
+      </div>
+    </div>
+
+    <div class="scard">
+      <div class="scard-header">📊 Statistics Reporting</div>
+      <div class="scard-body">
+        <div class="form-group">
+          <label class="form-label">Snapshot Interval (minutes, 0 = disabled)</label>
+          <input class="input" type="number" id="s-stats_snapshot_interval_minutes" value="${s.stats_snapshot_interval_minutes??60}" min="0"/>
+          <span class="form-hint">How often to capture a statistics snapshot. Default: 60.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Keep Snapshots (days)</label>
+          <input class="input" type="number" id="s-stats_snapshot_keep_days" value="${s.stats_snapshot_keep_days??30}" min="1"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Event Log Retention (days, 0 = keep forever)</label>
+          <input class="input" type="number" id="s-events_keep_days" value="${s.events_keep_days??30}" min="0"/>
+          <span class="form-hint">Events older than this are deleted daily. Torrent rows are never deleted — duplicate download prevention is not affected.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reporting Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
+          <input class="input" id="s-stats_report_webhook_url" value="${s.stats_report_webhook_url||''}" placeholder="Leave empty to use main Discord webhook"/>
+          <span class="form-hint">Receives structured reporting payloads as Discord embeds. Falls back to Settings → Discord → Webhook URL when empty.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Automatic Report Interval (hours, 0 = disabled)</label>
+          <input class="input" type="number" id="s-stats_report_interval_hours" value="${s.stats_report_interval_hours??0}" min="0" max="168"/>
+          <span class="form-hint">How often the report is sent automatically. 0 = disabled.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Report Window (hours)</label>
+          <input class="input" type="number" id="s-stats_report_window_hours" value="${s.stats_report_window_hours??24}" min="1" max="8760"/>
+          <span class="form-hint">Time window covered by each automatic report (default: 24h).</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time Window</label>
+          <select class="input" id="stats-report-hours" onchange="loadComprehensiveStats()">
+            <option value="24"${Number(s.stats_report_window_hours ?? 24)===24?' selected':''}>Last 24 hours</option>
+            <option value="168"${Number(s.stats_report_window_hours ?? 24)===168?' selected':''}>Last 7 days</option>
+            <option value="720"${Number(s.stats_report_window_hours ?? 24)===720?' selected':''}>Last 30 days</option>
+            <option value="8760"${Number(s.stats_report_window_hours ?? 24)===8760?' selected':''}>All time (~1 year)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn btn-blue btn-sm" onclick="loadComprehensiveStats()">📊 Load Report</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportStats()">⬇ Export JSON</button>
+          <button class="btn btn-ghost btn-sm" onclick="triggerStatsSnapshot()">📸 Snapshot Now</button>
+          <button class="btn btn-ghost btn-sm" onclick="sendStatsReport()">📨 Send Webhook Now</button>
+        </div>
+        <div id="comprehensive-stats" style="margin-top:14px"></div>
+      </div>
+    </div>
+
     </div>`);
   _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-services">
       <div class="scard">
@@ -1592,18 +1687,6 @@ function renderSettings() {
         </div>
       </div>
       
-      <div class="scard" style="border-color:rgba(59,130,246,.3)">
-        <div class="scard-header">&#8505;&#65039; Jackett Setup</div>
-        <div class="scard-body">
-          <div style="font-size:12px;line-height:1.6;color:var(--text2)">
-            <b>Jackett</b> is a torrent-indexer proxy that lets you search dozens of trackers from one place.<br><br>
-            Set the <b>Jackett URL</b> (e.g. <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">http://jackett:9117</code>)
-            and paste your <b>API Key</b> from the Jackett dashboard (<em>Dashboard &rarr; API Key</em> button).
-          </div>
-        </div>
-      </div>
-
-      <!-- Plex + Jellyfin -->
       <div class="scard">
         <div class="scard-header">🎬 Media Servers</div>
         <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">
@@ -1634,6 +1717,22 @@ function renderSettings() {
         </div>
       </div>
 
+
+    </div>
+
+    <div class="stab-panel" id="tab-indexers">
+      <div class="scard" style="border-color:rgba(59,130,246,.3)">
+        <div class="scard-header">&#8505;&#65039; Jackett Setup</div>
+        <div class="scard-body">
+          <div style="font-size:12px;line-height:1.6;color:var(--text2)">
+            <b>Jackett</b> is a torrent-indexer proxy that lets you search dozens of trackers from one place.<br><br>
+            Set the <b>Jackett URL</b> (e.g. <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">http://jackett:9117</code>)
+            and paste your <b>API Key</b> from the Jackett dashboard (<em>Dashboard &rarr; API Key</em> button).
+          </div>
+        </div>
+      </div>
+
+      <!-- Plex + Jellyfin -->
       <div class="scard">
         <div class="scard-header">&#128269; Jackett Integration</div>
         <div class="scard-body">
@@ -1696,6 +1795,10 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    
+
+    </div>
+
     <div class="stab-panel" id="tab-flexget">
       <div class="scard" style="border-color:rgba(59,130,246,.3)">
       <div class="scard-header">ℹ️ FlexGet Setup</div>
@@ -1972,9 +2075,14 @@ function renderSettings() {
       <div class="scard-header">🔐 Extraction</div>
       <div class="scard-body">
         <div class="form-group">
-          <label class="form-label">Archive password (optional)</label>
-          <input class="input" id="s-extraction_password" value="${esc(s.extraction_password||'')}" placeholder="Leave empty if archives are not password-protected"/>
-          <span class="form-hint">Applied to all 7z and RAR extractions (<code>-p&lt;password&gt;</code> flag). Leave empty if not needed.</span>
+          <label class="form-label">Archive passwords</label>
+          <div id="extraction-pw-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+          <button class="btn btn-ghost btn-sm" onclick="addExtractionPassword()" type="button">+ Add password</button>
+          <span class="form-hint" style="display:block;margin-top:6px">
+            Applied to all 7z and RAR extractions (<code>-p&lt;password&gt;</code> flag).
+            Each password is tried in order. Leave empty if archives are not password-protected.
+          </span>
+          <input type="hidden" id="s-extraction_password" value="${esc(s.extraction_password||'')}"/>
         </div>
       </div>
       </div>
@@ -2025,101 +2133,6 @@ function renderSettings() {
     </div>
 
     <div class="stab-panel" id="tab-reporting">
-      <!-- Generic Webhook Actions (shown at top of Reporting tab for discoverability) -->
-      <div class="scard">
-        <div class="scard-header">🪝 Webhook Actions</div>
-        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">
-          Send an HTTP POST with JSON payload to external services (Home Assistant, n8n, Node-RED, …) on torrent lifecycle events.
-          Separate from Discord notifications.
-        </p>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">On torrent added</label>
-            <input class="input" id="s-webhook_on_added" value="${esc(s.webhook_on_added||'')}" placeholder="https://…"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">On download completed</label>
-            <input class="input" id="s-webhook_on_complete" value="${esc(s.webhook_on_complete||'')}" placeholder="https://…"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">On torrent error</label>
-            <input class="input" id="s-webhook_on_error" value="${esc(s.webhook_on_error||'')}" placeholder="https://…"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Webhook secret (Bearer token)</label>
-            <input class="input" id="s-webhook_secret" value="${esc(s.webhook_secret||'')}" placeholder="optional"/>
-            <span class="form-hint">Sent as <code>Authorization: Bearer &lt;secret&gt;</code> header. Leave empty to disable.</span>
-          </div>
-          <div style="margin-top:8px">
-            <button class="btn btn-ghost btn-sm" onclick="testWebhookFromSettings()">▷ Test webhook</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard" style="border-color:rgba(59,130,246,.3)">
-      <div class="scard-header">ℹ️ About Reporting</div>
-      <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Periodic statistics snapshots and optional Discord-based statistics reports.</p>
-      <div class="scard-body">
-        <div style="font-size:12px;line-height:1.6;color:var(--text2)">
-          The reporting module captures <b>comprehensive metrics</b> across all client activity automatically.<br><br>
-          <b>Snapshots</b> are periodic point-in-time captures stored in the database for trend analysis.
-          Set an interval to enable automatic snapshots (recommended: 60 min).<br><br>
-          <b>Export</b> downloads a full JSON report for the selected time window — useful for external analysis or archiving.<br><br>
-          <b>Time windows</b>: select the period in the dropdown below, then click <i>Load Report</i>.
-        </div>
-      </div>
-    </div>
-
-    <div class="scard">
-      <div class="scard-header">📊 Statistics Reporting</div>
-      <div class="scard-body">
-        <div class="form-group">
-          <label class="form-label">Snapshot Interval (minutes, 0 = disabled)</label>
-          <input class="input" type="number" id="s-stats_snapshot_interval_minutes" value="${s.stats_snapshot_interval_minutes??60}" min="0"/>
-          <span class="form-hint">How often to capture a statistics snapshot. Default: 60.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Keep Snapshots (days)</label>
-          <input class="input" type="number" id="s-stats_snapshot_keep_days" value="${s.stats_snapshot_keep_days??30}" min="1"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Event Log Retention (days, 0 = keep forever)</label>
-          <input class="input" type="number" id="s-events_keep_days" value="${s.events_keep_days??30}" min="0"/>
-          <span class="form-hint">Events older than this are deleted daily. Torrent rows are never deleted — duplicate download prevention is not affected.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Reporting Webhook URL <span style="font-weight:400;color:var(--text2)">(optional — uses main Discord webhook if empty)</span></label>
-          <input class="input" id="s-stats_report_webhook_url" value="${s.stats_report_webhook_url||''}" placeholder="Leave empty to use main Discord webhook"/>
-          <span class="form-hint">Receives structured reporting payloads as Discord embeds. Falls back to Settings → Discord → Webhook URL when empty.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Automatic Report Interval (hours, 0 = disabled)</label>
-          <input class="input" type="number" id="s-stats_report_interval_hours" value="${s.stats_report_interval_hours??0}" min="0" max="168"/>
-          <span class="form-hint">How often the report is sent automatically. 0 = disabled.</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Report Window (hours)</label>
-          <input class="input" type="number" id="s-stats_report_window_hours" value="${s.stats_report_window_hours??24}" min="1" max="8760"/>
-          <span class="form-hint">Time window covered by each automatic report (default: 24h).</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Time Window</label>
-          <select class="input" id="stats-report-hours" onchange="loadComprehensiveStats()">
-            <option value="24"${Number(s.stats_report_window_hours ?? 24)===24?' selected':''}>Last 24 hours</option>
-            <option value="168"${Number(s.stats_report_window_hours ?? 24)===168?' selected':''}>Last 7 days</option>
-            <option value="720"${Number(s.stats_report_window_hours ?? 24)===720?' selected':''}>Last 30 days</option>
-            <option value="8760"${Number(s.stats_report_window_hours ?? 24)===8760?' selected':''}>All time (~1 year)</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-          <button class="btn btn-blue btn-sm" onclick="loadComprehensiveStats()">📊 Load Report</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportStats()">⬇ Export JSON</button>
-          <button class="btn btn-ghost btn-sm" onclick="triggerStatsSnapshot()">📸 Snapshot Now</button>
-          <button class="btn btn-ghost btn-sm" onclick="sendStatsReport()">📨 Send Webhook Now</button>
-        </div>
-        <div id="comprehensive-stats" style="margin-top:14px"></div>
-      </div>
-    </div>
     </div>
 
     <div class="stab-panel" id="tab-database">
@@ -2436,6 +2449,9 @@ function switchSettingsTab(id) {
   if (id === 'tab-automation') {
     loadSavedSearches();
     loadDownloadProfiles();
+  }
+  if (id === 'tab-extract') {
+    renderExtractionPasswordList();
   }
   if (id === 'tab-services') {
     flexgetListTasks();
@@ -3925,6 +3941,34 @@ async function aria2QueueAction(gid, action) {
   } catch(e) {
     toast('aria2 ' + action + ': ' + e.message, 'error');
   }
+}
+
+
+function removeExtractionPassword(idx) {
+  var hidden = document.getElementById('s-extraction_password');
+  if (!hidden) return;
+  var pws = (hidden.value || '').split('\n').map(function(p) { return p.trim(); }).filter(Boolean);
+  pws.splice(idx, 1);
+  hidden.value = pws.join('\n');
+  renderExtractionPasswordList();
+}
+
+function updateExtractionPassword(idx, val) {
+  var hidden = document.getElementById('s-extraction_password');
+  if (!hidden) return;
+  var pws = (hidden.value || '').split('\n').map(function(p) { return p.trim(); }).filter(Boolean);
+  while (pws.length <= idx) pws.push('');
+  pws[idx] = val;
+  hidden.value = pws.join('\n');
+}
+
+async function deleteSavedSearch2(id) {
+  if (!confirm('Delete this saved search?')) return;
+  try {
+    await api('DELETE', '/saved-searches/' + id);
+    toast('Deleted', 'success');
+    loadSavedSearchesView();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 // ── Automation (Rule Engine + Saved Searches) ─────────────────────────────

@@ -315,9 +315,22 @@ async def init_db():
 async def _init_db_sqlite():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(DB_PATH, timeout=30) as db:
-        # Enable WAL mode and busy timeout — prevents "database is locked" under concurrent load
+        # ── SQLite performance & reliability pragmas ──────────────────────────
+        # WAL mode: allows concurrent reads while a write is in progress,
+        # critical for the SSE + scheduler + API combination.
         await db.execute("PRAGMA journal_mode=WAL")
-        await db.execute("PRAGMA busy_timeout=5000")
+        # Reduce fsync calls — safe because WAL already protects against corruption.
+        await db.execute("PRAGMA synchronous=NORMAL")
+        # Wait up to 10 s for a locked DB before raising OperationalError.
+        await db.execute("PRAGMA busy_timeout=10000")
+        # Store temp tables / indices in memory — avoids disk I/O for small ops.
+        await db.execute("PRAGMA temp_store=MEMORY")
+        # 64 MiB page cache — keeps hot pages for the queue queries in RAM.
+        await db.execute("PRAGMA cache_size=-65536")
+        # Memory-mapped I/O: up to 256 MiB — speeds up large sequential scans.
+        await db.execute("PRAGMA mmap_size=268435456")
+        # Enforce FK constraints so orphaned download_files are caught early.
+        await db.execute("PRAGMA foreign_keys=ON")
         await db.commit()
         await db.execute("""
             CREATE TABLE IF NOT EXISTS torrents (
@@ -431,6 +444,14 @@ async def _init_db_sqlite():
             "CREATE INDEX IF NOT EXISTS idx_torrents_status_updated ON torrents (status, updated_at)",
             # torrents: completed_at — stats queries filter heavily on this column
             "CREATE INDEX IF NOT EXISTS idx_torrents_completed_at ON torrents (completed_at)",
+            # torrents: priority — dispatch ORDER BY priority DESC, id ASC needs this
+            "CREATE INDEX IF NOT EXISTS idx_torrents_priority ON torrents (priority DESC, id ASC)",
+            # torrents: hash — duplicate detection and magnet lookup
+            "CREATE INDEX IF NOT EXISTS idx_torrents_hash ON torrents (hash)",
+            # torrents: created_at — analytics, learning stats window queries
+            "CREATE INDEX IF NOT EXISTS idx_torrents_created_at ON torrents (created_at)",
+            # download_files: local_path — MediaInfo and file-existence checks
+            "CREATE INDEX IF NOT EXISTS idx_dlfiles_local_path ON download_files (local_path)",
             # events: lookup by torrent_id (detail view, event log)
             "CREATE INDEX IF NOT EXISTS idx_events_torrent_id ON events (torrent_id)",
             # events: TTL cleanup — pruning old events scans created_at
@@ -564,6 +585,14 @@ async def _init_db_postgres():
                 "CREATE INDEX IF NOT EXISTS idx_torrents_status_updated ON torrents (status, updated_at)",
                 # stats queries filter heavily on completed_at
                 "CREATE INDEX IF NOT EXISTS idx_torrents_completed_at ON torrents (completed_at)",
+                # dispatch: ORDER BY priority DESC, id ASC
+                "CREATE INDEX IF NOT EXISTS idx_torrents_priority ON torrents (priority DESC NULLS LAST, id ASC)",
+                # duplicate detection and magnet lookup
+                "CREATE INDEX IF NOT EXISTS idx_torrents_hash ON torrents (hash)",
+                # analytics window queries
+                "CREATE INDEX IF NOT EXISTS idx_torrents_created_at ON torrents (created_at)",
+                # MediaInfo and file-existence checks
+                "CREATE INDEX IF NOT EXISTS idx_dlfiles_local_path ON download_files (local_path)",
                 "CREATE INDEX IF NOT EXISTS idx_events_torrent_id ON events (torrent_id)",
                 # TTL cleanup scans created_at
                 "CREATE INDEX IF NOT EXISTS idx_events_created_at ON events (created_at)",
