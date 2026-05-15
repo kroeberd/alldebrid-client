@@ -1487,8 +1487,25 @@ function renderSettings() {
         </div>
       </div>
     </div>
-    </div>`);
-  _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-notifications">
+
+      <div class="scard">
+        <div class="scard-header">🔐 Archive Passwords</div>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Extraction passwords</label>
+            <div id="extraction-pw-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+            <button class="btn btn-ghost btn-sm" onclick="addExtractionPassword()" type="button" style="margin-top:2px">+ Add password</button>
+            <span class="form-hint" style="display:block;margin-top:8px">
+              Applied to all 7z and RAR extractions (<code>-p</code> flag). Each password is tried in order.
+              Leave empty if archives are not password-protected.
+            </span>
+            <input type="hidden" id="s-extraction_password" value="${esc(s.extraction_password||'')}"/>
+          </div>
+        </div>
+      </div>
+
+    </div>\`);
+  _sf.insertAdjacentHTML('beforeend', \`<div class="stab-panel" id="tab-notifications">
       <div class="scard">
         <div class="scard-header">🔔 Discord Notifications</div>
         <div class="scard-body">
@@ -2070,21 +2087,7 @@ function renderSettings() {
         </div>
       </div>
     </div>
-      <div class="scard">
-      <div class="scard-header">🔐 Extraction</div>
-      <div class="scard-body">
-        <div class="form-group">
-          <label class="form-label">Archive passwords</label>
-          <div id="extraction-pw-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
-          <button class="btn btn-ghost btn-sm" onclick="addExtractionPassword()" type="button">+ Add password</button>
-          <span class="form-hint" style="display:block;margin-top:6px">
-            Applied to all 7z and RAR extractions (<code>-p&lt;password&gt;</code> flag).
-            Each password is tried in order. Leave empty if archives are not password-protected.
-          </span>
-          <input type="hidden" id="s-extraction_password" value="${esc(s.extraction_password||'')}"/>
-        </div>
-      </div>
-      </div>
+
       <div class="scard">
       <div class="scard-header">⏱ Polling Intervals</div>
       <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">How often AllDebrid and your watch folder are checked for new activity.</p>

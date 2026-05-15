@@ -582,11 +582,25 @@ td { padding: 11px 16px; vertical-align: middle; }
 .stab-panel { display:none; flex-direction:column; gap:14px; }
   .help-panel { display:none; }
   .help-panel.active { display:block; }
-/* Help view: tabs must not wrap, content must not overflow */
-#help-tabs { margin-bottom:0; position:sticky; top:0; z-index:10; background:var(--bg); }
-#view-help { display:none !important; flex-direction:column; overflow:hidden; }
-#view-help.active { display:flex !important; }
-#view-help .help-panel.active { overflow-y:auto; flex:1; }
+/* Help view: tabs always visible, content scrolls below */
+#view-help { overflow: hidden; display: none !important; flex-direction: column; }
+#view-help.active { display: flex !important; }
+#view-help .view-header { flex-shrink: 0; }
+#help-tabs {
+  flex-shrink: 0;           /* tabs never compress */
+  margin-bottom: 0;
+  overflow-x: auto;         /* horizontal scroll on tiny screens */
+  scrollbar-width: none;    /* Firefox */
+  -webkit-overflow-scrolling: touch;
+}
+#help-tabs::-webkit-scrollbar { display: none; }
+#view-help .help-panels-wrap {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;            /* critical: allows flex child to shrink */
+}
+#view-help .help-panel { display: none; }
+#view-help .help-panel.active { display: block; }
 .stab-panel.active { display:flex; }
 #settings-form .stab-panel.active { max-width: 1180px; }
 #settings-form .scard-body { gap: 14px; }
