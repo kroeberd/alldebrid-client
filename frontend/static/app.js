@@ -1504,8 +1504,8 @@ function renderSettings() {
         </div>
       </div>
 
-    </div>\`);
-  _sf.insertAdjacentHTML('beforeend', \`<div class="stab-panel" id="tab-notifications">
+    </div>`);
+  _sf.insertAdjacentHTML('beforeend', `<div class="stab-panel" id="tab-notifications">
       <div class="scard">
         <div class="scard-header">🔔 Discord Notifications</div>
         <div class="scard-body">
