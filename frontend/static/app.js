@@ -1487,7 +1487,6 @@ function renderSettings() {
           </div>
         </div>
       </div>
-    </div>
 
       <div class="scard">
         <div class="scard-header">🔐 Archive Passwords</div>
