@@ -1262,6 +1262,87 @@ class TorrentManager:
                 status_code=8,
             )
 
+    async def cleanup_alldebrid_orphans(self) -> int:
+        """
+        Delete from AllDebrid any magnets with error/no-peer status that are
+        either:
+          (a) not in the local DB at all (orphans from outside the client), or
+          (b) already in the DB as 'error' but cleanup_no_peer_errors missed them.
+
+        Targets statusCode 7 (virus), 8 (no peer) and any 5-15 error codes plus
+        the "File not available" / "no peer" message variants.
+
+        Returns the number of magnets deleted from AllDebrid.
+        """
+        try:
+            all_magnets = await self.ad().get_magnet_status()
+        except Exception as exc:
+            logger.debug("cleanup_alldebrid_orphans: could not fetch magnets: %s", exc)
+            return 0
+
+        if not all_magnets:
+            return 0
+
+        _ERROR_CODES_AD = set(range(5, 16))
+        deleted = 0
+
+        async with get_db() as db:
+            # Build set of alldebrid_ids we know about locally
+            known_rows = await db.fetchall(
+                "SELECT alldebrid_id, status FROM torrents WHERE alldebrid_id IS NOT NULL"
+            )
+        known: dict[str, str] = {
+            str(r["alldebrid_id"]): str(r["status"])
+            for r in (known_rows or [])
+        }
+
+        for m in all_magnets:
+            ad_id   = str(m.get("id") or "").strip()
+            code    = int(m.get("statusCode") or 0)
+            msg     = str(m.get("status") or m.get("statusText") or "").lower()
+            name    = str(m.get("filename") or m.get("name") or ad_id)
+
+            is_error = (
+                code in _ERROR_CODES_AD
+                or "no peer" in msg
+                or "file not available" in msg
+                or "virus" in msg
+            )
+            if not is_error:
+                continue
+
+            local_status = known.get(ad_id)
+
+            if local_status is None:
+                # Orphan: exists on AllDebrid but not in our DB
+                logger.info(
+                    "cleanup_alldebrid_orphans: deleting orphan AD magnet %s "
+                    "'%s' (code=%s msg='%s')",
+                    ad_id, name[:60], code, msg[:40],
+                )
+            elif local_status == "deleted":
+                # Already deleted locally but still on AllDebrid
+                logger.debug(
+                    "cleanup_alldebrid_orphans: deleting already-local-deleted "
+                    "AD magnet %s '%s'",
+                    ad_id, name[:60],
+                )
+            else:
+                # Known to us and not yet deleted — let cleanup_no_peer_errors handle it
+                continue
+
+            try:
+                await self.ad().delete_magnet(ad_id)
+                deleted += 1
+            except Exception as exc:
+                logger.debug(
+                    "cleanup_alldebrid_orphans: could not delete %s: %s", ad_id, exc
+                )
+
+        if deleted:
+            logger.info("cleanup_alldebrid_orphans: deleted %d orphan magnet(s) from AllDebrid", deleted)
+        return deleted
+
     async def _apply_provider_update(self, row: Dict, magnet: Dict, normalized: Dict[str, object]):
         provider_status = str(normalized["provider_status"])
         local_status = str(normalized["local_status"])

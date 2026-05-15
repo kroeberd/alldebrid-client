@@ -226,7 +226,7 @@ class TorrentListingRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("LIMIT ? OFFSET ?", sql)
         self.assertEqual(
             params,
-            ["completed", "%example%", "%example%", "%example%", "%example%"],
+            ["completed", "%example%", "%example%", "%example%", "%example%", "%example%", "%example%"],
         )
         total_sql, total_params = db.fetchone_calls[0]
         self.assertIn("SELECT COUNT(*) AS cnt FROM torrents t WHERE", total_sql)

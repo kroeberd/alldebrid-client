@@ -552,6 +552,7 @@ async function loadRecent() {
         <td>
           <div class="t-name" title="${esc(t.name)||''}">${esc(t.name)||'(unnamed)'}</div>
           ${is_active ? `<div class="dash-row-bar"><div class="dash-row-bar-fill" style="width:${pct_val}%;background:var(--blue)"></div></div>` : ''}
+          ${t.alldebrid_id ? `<div class="t-hash" style="font-size:10px;color:var(--text3)" title="AllDebrid ID">AD: ${esc(t.alldebrid_id)}</div>` : ''}
         </td>
         <td>${badge(t.status)}</td>
         <td>${progress(t.progress,t.status)}</td>
@@ -4248,6 +4249,27 @@ function renderHourlyChart(hourlyData) {
       '<text x="' + (pad-4) + '" y="' + (h-pad) + '" text-anchor="end" font-size="9" fill="var(--text3)">0</text>' +
       '<text x="' + (pad-4) + '" y="' + pad + '" text-anchor="end" font-size="9" fill="var(--text3)">' + maxCount + '</text>' +
     '</svg></div>';
+}
+
+
+// ── AllDebrid Orphan Cleanup ───────────────────────────────────────────────────
+
+async function cleanupAlldebridOrphans() {
+  var btn = document.getElementById('btn-cleanup-orphans');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cleaning…'; }
+  try {
+    var res = await api('POST', '/admin/cleanup-alldebrid-orphans', {}, 60000);
+    toast(
+      res.deleted > 0
+        ? res.deleted + ' orphan magnet(s) removed from AllDebrid'
+        : 'No orphaned magnets found on AllDebrid',
+      res.deleted > 0 ? 'success' : 'info'
+    );
+    loadTorrents();
+  } catch(e) { toast(sanitizeErrorMsg(e.message), 'error'); }
+  finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🧹 Clean AD Orphans'; }
+  }
 }
 
 // ── Download Now / Priority Queue ────────────────────────────────────────────

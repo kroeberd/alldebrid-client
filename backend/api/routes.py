@@ -576,10 +576,12 @@ async def list_torrents(
                     OR LOWER(COALESCE(t.hash, '')) LIKE ?
                     OR LOWER(COALESCE(t.source, '')) LIKE ?
                     OR LOWER(COALESCE(t.label, '')) LIKE ?
+                    OR LOWER(COALESCE(t.alldebrid_id, '')) LIKE ?
+                    OR LOWER(COALESCE(t.error_message, '')) LIKE ?
                 )"""
             )
             needle = f"%{search.strip().lower()}%"
-            params.extend([needle, needle, needle, needle])
+            params.extend([needle, needle, needle, needle, needle, needle])
 
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         query = f"""SELECT t.*,
@@ -2396,3 +2398,15 @@ async def get_learning():
     """Return indexer + release-group performance stats from the last 90 days."""
     from services.learning import get_learning_stats
     return await get_learning_stats()
+
+# ── AllDebrid orphan cleanup ───────────────────────────────────────────────────
+
+@router.post("/admin/cleanup-alldebrid-orphans")
+async def cleanup_alldebrid_orphans_endpoint():
+    """
+    Delete from AllDebrid any magnets with error/no-peer status that are not
+    tracked by the local DB (or already marked deleted locally).
+    Returns the number of magnets removed.
+    """
+    deleted = await manager.cleanup_alldebrid_orphans()
+    return {"ok": True, "deleted": deleted}

@@ -68,6 +68,10 @@ async def sync_status_loop():
         except Exception as e:
             logger.error(f"No-peer cleanup error: {e}")
         try:
+            await manager.cleanup_alldebrid_orphans()
+        except Exception as e:
+            logger.debug(f"AllDebrid orphan cleanup error: {e}")
+        try:
             await manager.cleanup_stuck_downloads()
         except Exception as e:
             logger.error(f"Stuck download cleanup error: {e}")

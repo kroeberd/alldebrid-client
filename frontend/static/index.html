@@ -279,6 +279,7 @@
             <button class="btn btn-ghost btn-sm" onclick="importExisting()" title="Import all AllDebrid magnets not yet in the local database">⬇ Import from AllDebrid</button>
             <button class="btn btn-warn btn-sm" onclick="recoverAll()" title="Reset stuck or errored torrents — re-dispatches from AllDebrid">⟳ Recover All</button>
           </div>
+            <button class="btn btn-ghost btn-sm" id="btn-cleanup-orphans" onclick="cleanupAlldebridOrphans()" title="Delete no-peer/error magnets from AllDebrid that are not tracked locally">&#129529; Clean AD Orphans</button>
         </div>
       </div>
 
@@ -306,7 +307,7 @@
         </div>
         <div style="padding:10px 14px 0">
           <div class="ev-search-row">
-            <input class="input" id="torrent-search" placeholder="Search by torrent name, hash, source, or label..." oninput="onTorrentSearchInput()"/>
+            <input class="input" id="torrent-search" placeholder="Search by name, hash, AllDebrid ID, source, label, or error…" oninput="onTorrentSearchInput()"/>
           </div>
         </div>
         <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
