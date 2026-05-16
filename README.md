@@ -317,6 +317,22 @@ See [CHANGELOG.md](CHANGELOG.md) for full release history.
 
 ---
 
+## Performance Tuning
+
+### aria2 Connections
+The default `split=16` and `max-connection-per-server=16` are optimized for AllDebrid CDN links.
+If you are on a very slow NAS or constrained hardware, reduce these in **Settings → Download → aria2 Live Downloads**.
+
+### Search Speed
+Jackett searches return results as soon as Jackett responds. The client does a bulk hash-lookup
+against your existing queue — no per-result DB calls. Large Jackett indexer lists (20+) may still
+be slow due to Jackett itself; reduce active indexers or increase the Jackett search timeout in Settings.
+
+### Memory Usage
+- `aria2_disk_cache=64M` is the default. Reduce to `0` or `16M` on constrained systems.
+- `aria2_max_download_result=20` keeps aria2's in-memory result history small.
+- `MALLOC_ARENA_MAX=1` is set automatically for the built-in aria2 to prevent glibc arena growth.
+
 ## Troubleshooting
 
 ### Jackett is slow or times out

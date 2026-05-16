@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.9.0] - 2026-05-16
+
+### v1.9.0 — Production-ready release
+
+This release focuses entirely on stability, performance, correctness, and polish.
+No major new features — every change makes the existing system more reliable.
+
+#### Highlights
+
+**Search**
+- Jackett search no longer times out: removed per-result `check_before_add()` (up to 240 sequential DB connections per search), reduced to a single bulk lookup
+- `get_learning_stats()` cached for 60 s — no repeated 4-query DB round-trips on every search
+
+**Downloads**
+- aria2 defaults corrected: `split` and `max-connection-per-server` were `4` (a memory optimisation that capped speed to ~10% of link capacity) — now `16`
+- `file-allocation` corrected: `none` → `falloc` (better write performance on ext4/XFS)
+- Startup config migration: old low-performance values (4 or 8) are auto-upgraded to 16 on first start
+- Cached AllDebrid torrents (statusCode=4 at upload) now start downloading immediately without waiting for the next poll cycle
+- Jackett add: parallel batches of 3 instead of serial; 90 s timeout for torrent-URL path
+
+**Status display**
+- `TorrentStatus.PROCESSING` was written to the DB as the Enum repr (`"TorrentStatus.PROCESSING"`) instead of the plain value `"processing"` — fixed at source (`normalize_provider_state()`) and repaired at startup for existing rows
+
+**Orphan cleanup**
+- New `cleanup_alldebrid_orphans()`: deletes no-peer/error magnets from AllDebrid that have no local DB row; runs automatically every poll cycle; manual trigger via 🧹 Clean AD Orphans button
+
+**Search**
+- AllDebrid ID (`alldebrid_id`) now searchable in torrents list
+- AD ID displayed below torrent name in the queue table
+- Search placeholder updated accordingly
+
+#### Fixes in v1.8.x (now consolidated)
+- `v1.8.21` — Extract password list Add/Remove, Help tabs layout, Support nav card
+- `v1.8.22` — Extraction password list root cause: `filter(Boolean)` removed empty entries before render
+- `v1.8.23` — Password card was in `tab-advanced` not `tab-extract`; Help panels wrap for sticky tabs
+- `v1.8.24` — Escaped backtick in Extract tab template; `htab-automation` outside `view-help`
+- `v1.8.25` — AllDebrid orphan cleanup, AD-ID search, AD-ID display in table
+- `v1.8.26` — Archive Passwords in wrong Settings tab (premature `</div>`), button order
+- `v1.8.27` — Jackett add fast-path + parallel batches + 90 s timeout
+- `v1.8.28` — Jackett search timeout: N×DB sequential calls replaced with bulk lookup
+- `v1.8.29` — `TorrentStatus.PROCESSING` stored as Enum repr; startup DB repair migration
+- `v1.8.30` — aria2 `split=4`/`max-connection=4` defaults throttled downloads to ~10% speed
+
 ## [1.8.20] - 2026-05-13
 
 ### Changed — DB optimizations, Settings restructure, Help improvements, Nav cleanup, Expired fix

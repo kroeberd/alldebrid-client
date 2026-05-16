@@ -66,7 +66,7 @@ class AppSettings(BaseModel):
     aria2_split: int = 16             # segments per file — more = faster on fast connections
     aria2_min_split_size: str = "10M"  # split files >40 MB with split=16 (aria2 default)
     aria2_max_connection_per_server: int = 16  # parallel connections per server
-    aria2_disk_cache: str = "0"    # 0 = disabled; per aria2 docs: 4 MiB total for HTTP/FTP downloads
+    aria2_disk_cache: str = "64M"  # 64 MiB write buffer; reduces FUSE/NFS round-trips and syscall overhead
     aria2_file_allocation: str = "falloc"  # prealloc disk space for fewer write syscalls; use 'none' on FUSE/NFSa2
     aria2_continue_downloads: bool = True
     aria2_lowest_speed_limit: str = "0"

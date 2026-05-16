@@ -1399,6 +1399,12 @@ function renderSettings() {
         <div class="form-group">
           <label class="form-label">aria2 Lowest Speed Limit</label>
           <input class="input" id="s-aria2_lowest_speed_limit" value="${s.aria2_lowest_speed_limit||'0'}" placeholder="0"/>
+          <span class="form-hint">Drop downloads below this speed (e.g. <code>100K</code>). 0 = disabled.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">aria2 Max Upload Limit (0 = unlimited, bytes/s)</label>
+          <input class="input" type="number" id="s-aria2_max_upload_limit" value="${s.aria2_max_upload_limit??0}" min="0"/>
+          <span class="form-hint">Caps aria2 upload bandwidth. 0 = unlimited.</span>
         </div>
         <div class="toggle-row">
           <div class="toggle-info">
@@ -2292,13 +2298,14 @@ function getFormSettings() {
     aria2_waiting_window: n('aria2_waiting_window', 100),
     aria2_stopped_window: n('aria2_stopped_window', 100),
     aria2_keep_unfinished_download_result: c('aria2_keep_unfinished_download_result'),
-    aria2_split: n('aria2_split', 8),
+    aria2_split: n('aria2_split', 16),
     aria2_min_split_size: t('aria2_min_split_size') || '10M',
-    aria2_max_connection_per_server: n('aria2_max_connection_per_server', 8),
+    aria2_max_connection_per_server: n('aria2_max_connection_per_server', 16),
     aria2_disk_cache: t('aria2_disk_cache') || '64M',
     aria2_file_allocation: t('aria2_file_allocation') || 'falloc',
     aria2_continue_downloads: c('aria2_continue_downloads'),
     aria2_lowest_speed_limit: t('aria2_lowest_speed_limit') || '0',
+    aria2_max_upload_limit: n('aria2_max_upload_limit', 0),
     db_type: t('db_type'),
     postgres_host: t('postgres_host'), postgres_port: n('postgres_port'),
     postgres_db: t('postgres_db'), postgres_user: t('postgres_user'),
