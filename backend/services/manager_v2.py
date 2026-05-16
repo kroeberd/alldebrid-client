@@ -209,21 +209,23 @@ def normalize_provider_state(magnet: Dict) -> Dict[str, object]:
     downloaded = int(magnet.get("downloaded", 0) or 0)
     progress = (downloaded / size * 100) if size > 0 else 0.0
 
+    # Return plain string values so callers never accidentally write
+    # "TorrentStatus.PROCESSING" (the Enum repr) into the database.
     if code == READY_CODE:
         provider_status = "ready"
-        local_status = TorrentStatus.READY
+        local_status = TorrentStatus.READY.value
     elif code == EXPIRED_CODE:
         provider_status = "expired"
-        local_status = TorrentStatus.ERROR
+        local_status = TorrentStatus.ERROR.value
     elif code in ERROR_CODES:
         provider_status = "error"
-        local_status = TorrentStatus.ERROR
+        local_status = TorrentStatus.ERROR.value
     elif code <= 0:
         provider_status = "queued"
-        local_status = TorrentStatus.UPLOADING
+        local_status = TorrentStatus.UPLOADING.value
     else:
         provider_status = "processing"
-        local_status = TorrentStatus.PROCESSING
+        local_status = TorrentStatus.PROCESSING.value
 
     return {
         "provider_status": provider_status,
@@ -1372,7 +1374,7 @@ class TorrentManager:
 
     async def _apply_provider_update(self, row: Dict, magnet: Dict, normalized: Dict[str, object]):
         provider_status = str(normalized["provider_status"])
-        local_status = str(normalized["local_status"])
+        local_status    = str(normalized["local_status"])   # always a plain string from normalize_provider_state
         status_code = int(normalized["status_code"])
         progress = float(normalized["progress"])
         size_bytes = int(normalized["size_bytes"])
