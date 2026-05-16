@@ -179,6 +179,18 @@ async def get_settings_ep():
     return data
 
 
+@router.get("/health")
+async def health_check():
+    """
+    Lightweight liveness probe for Docker HEALTHCHECK and uptime monitors.
+
+    Returns HTTP 200 as long as the process is running. Does not check
+    AllDebrid or aria2 — those are external and their absence should not
+    restart the container. Use GET /api/stats for full service health.
+    """
+    return {"status": "ok", "version": read_version()}
+
+
 @router.get("/version")
 async def get_version_ep():
     return {"version": read_version()}

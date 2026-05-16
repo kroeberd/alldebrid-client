@@ -3639,7 +3639,11 @@ async function jackettSearch() {
   } catch(e) {
     if (_jackettSearchReqId !== myReqId) return;  // aborted — ignore
     if (e && e.name === 'AbortError') return;      // intentional abort
-    if (state) { state.style.display = 'block'; state.textContent = 'Search error: ' + (e.message || 'Unknown error'); }
+    var errMsg = e.message || 'Unknown error';
+    var userMsg = errMsg.toLowerCase().includes('timeout')
+      ? 'Search timed out. Try fewer indexers or increase the timeout in Settings → Search / Indexers.'
+      : 'Search error: ' + sanitizeErrorMsg(errMsg);
+    if (state) { state.style.display = 'block'; state.textContent = userMsg; }
     // Leave existing results visible on error
   } finally {
     // Always reset — even on abort or error

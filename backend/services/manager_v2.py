@@ -523,8 +523,8 @@ class TorrentManager:
             try:
                 from services.alldebrid import extract_hash_from_torrent
                 local_hash = extract_hash_from_torrent(file_bytes) or ""
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to extract hash from torrent file: %s", exc)
 
         # ── Duplicate gate ──────────────────────────────────────────────────
         from services.duplicates import DuplicateCandidate, check_before_add
@@ -566,8 +566,8 @@ class TorrentManager:
             import asyncio as _asyncio
             from services.webhook_actions import fire_from_config, EVENT_ADDED
             _asyncio.create_task(fire_from_config(EVENT_ADDED, row))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Webhook on_added task creation failed: %s", exc)
 
         # Fast-path: if AllDebrid already reports ready (cached torrent) start immediately.
         status_code = int(result.get("statusCode") or result.get("status_code") or 0)
@@ -634,8 +634,8 @@ class TorrentManager:
                     logger.info("Rule engine: blocking torrent '%s' (rules_list match)", name[:60])
                     try:
                         await self.ad().delete_magnet(ad_id)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Could not delete blocked magnet %s from AllDebrid: %s", ad_id, exc)
                     return {"_blocked_by_rule": True, "name": name}
             except Exception as exc:
                 logger.debug("Rule engine evaluation error: %s", exc)
@@ -2706,15 +2706,15 @@ class TorrentManager:
         try:
             from services.webhook_actions import fire_from_config, EVENT_COMPLETE
             asyncio.create_task(fire_from_config(EVENT_COMPLETE, torrent_dict))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Webhook on_complete task creation failed: %s", exc)
 
         # Plex / Jellyfin library scan — fire-and-forget
         try:
             from services.media_server import trigger_from_config as _media_trigger
             asyncio.create_task(_media_trigger())
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Media server trigger task creation failed: %s", exc)
 
         # Purge completed download metadata from aria2's in-memory result list
         # immediately after finalisation instead of waiting for the housekeeping

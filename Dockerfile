@@ -36,7 +36,7 @@ RUN mkdir -p /app/data/watch /app/data/processed /app/data/downloads /app/config
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD curl -f http://localhost:8080/api/stats || exit 1
+  CMD curl -f http://localhost:8080/api/health || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
