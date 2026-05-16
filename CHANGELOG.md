@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.9.1] — Missed v1.9.0 items: health endpoint, silent failures, error UX
+## [1.9.1] — 2026-05-16
 
 ### Added: `GET /api/health`
 Lightweight liveness probe for Docker `HEALTHCHECK` and uptime monitors. Returns `{"status":"ok","version":"..."}` without any DB access.
