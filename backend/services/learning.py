@@ -22,6 +22,11 @@ _W_RECENCY = 0.2
 _WINDOW_DAYS = 90
 
 
+# Simple in-process TTL cache for learning stats — these change slowly (O(minutes)).
+_learning_stats_cache: dict[str, Any] = {}
+_learning_stats_cache_ts: float = 0.0
+_LEARNING_STATS_TTL_S: float = 60.0  # seconds
+
 async def get_learning_stats() -> dict[str, Any]:
     """
     Return aggregated learning stats:
@@ -29,7 +34,15 @@ async def get_learning_stats() -> dict[str, Any]:
       release_groups - [{group, total, completed, success_rate}]
       no_peer_rate - float (fraction of uploads that got no-peer errors)
       top_labels - [{label, count}]
+
+    Results are cached for 60 seconds to avoid hammering the DB on every Jackett search.
     """
+    import time as _time
+    global _learning_stats_cache, _learning_stats_cache_ts
+    now = _time.monotonic()
+    if _learning_stats_cache and (now - _learning_stats_cache_ts) < _LEARNING_STATS_TTL_S:
+        return _learning_stats_cache
+
     try:
         from db.database import get_db
 
@@ -142,13 +155,16 @@ async def get_learning_stats() -> dict[str, Any]:
             for r in label_rows or []
         ]
 
-        return {
+        result_stats = {
             "window_days": _WINDOW_DAYS,
             "indexers": indexers,
             "release_groups": release_groups,
             "no_peer_rate": no_peer_rate,
             "top_labels": top_labels,
         }
+        _learning_stats_cache = result_stats
+        _learning_stats_cache_ts = now
+        return result_stats
     except Exception as exc:
         logger.debug("get_learning_stats: %s", exc)
         return {"error": str(exc), "indexers": [], "release_groups": [], "top_labels": []}

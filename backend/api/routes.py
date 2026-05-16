@@ -1712,18 +1712,10 @@ async def jackett_search(body: dict):
                     "confidence": 1.0,
                 }],
             }
-        else:
-            try:
-                from services.duplicates import check_before_add
-                decision = await check_before_add(_duplicate_candidate_from_payload(item, source="jackett_search"))
-                item["duplicate"] = decision.as_dict()
-                if decision.action == "skip" and decision.matches:
-                    match = decision.matches[0]
-                    item["already_added"] = True
-                    item["existing_torrent_id"] = match.torrent_id
-                    item["existing_status"] = match.status
-            except Exception as exc:
-                logger.debug("Jackett duplicate preview failed: %s", sanitize_exception(exc))
+        # NOTE: per-item check_before_add() (semantic duplicate check) is intentionally
+        # omitted here. Calling it for every search result would open hundreds of
+        # sequential DB connections and is the primary cause of search timeouts.
+        # Duplicate detection runs at add-time (POST /jackett/add) where it matters.
 
     # ── Learning Score: annotate results with indexer trust score ─────────────
     try:
