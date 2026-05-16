@@ -63,11 +63,11 @@ class AppSettings(BaseModel):
     aria2_keep_unfinished_download_result: bool = False
     aria2_waiting_window: int = 100
     aria2_stopped_window: int = 100
-    aria2_split: int = 4  # fewer segments = fewer recv-buffers in aria2 heap
-    aria2_min_split_size: str = "20M"  # aria2 default; splits only files >80MB with split=4
-    aria2_max_connection_per_server: int = 4  # fewer connections = less buffer RAM
+    aria2_split: int = 16             # segments per file — more = faster on fast connections
+    aria2_min_split_size: str = "10M"  # split files >40 MB with split=16 (aria2 default)
+    aria2_max_connection_per_server: int = 16  # parallel connections per server
     aria2_disk_cache: str = "0"    # 0 = disabled; per aria2 docs: 4 MiB total for HTTP/FTP downloads
-    aria2_file_allocation: str = "none"   # no prealloc: instant start, no blocking; prealloc/falloc block aria2
+    aria2_file_allocation: str = "falloc"  # prealloc disk space for fewer write syscalls; use 'none' on FUSE/NFSa2
     aria2_continue_downloads: bool = True
     aria2_lowest_speed_limit: str = "0"
 
@@ -323,6 +323,25 @@ def load_settings() -> AppSettings:
             logging.getLogger("alldebrid.config").warning(
                 "Config file could not be read (%s) — using defaults", exc
             )
+
+    # ── Performance migration: upgrade old low-performance aria2 defaults ──
+    # Versions < 1.8.30 shipped split=4 and max-connection-per-server=4 as a
+    # memory-saving measure which unintentionally capped download speed to ~10%
+    # of what AllDebrid links support.  If the config still has those values
+    # (or 8, the intermediate UI default), bump them to 16 on first load.
+    _PERF_UPGRADES = {
+        "aria2_split":                    (4, 8, 16),   # old→mid→new
+        "aria2_max_connection_per_server": (4, 8, 16),
+    }
+    for field, (old_low, old_mid, new_val) in _PERF_UPGRADES.items():
+        stored = loaded.get(field)
+        if stored in (old_low, old_mid):
+            import logging
+            logging.getLogger("alldebrid.config").info(
+                "Config migration: %s %s → %s (performance upgrade)", field, stored, new_val
+            )
+            loaded[field] = new_val
+
     return _build_effective_settings(loaded)
 
 

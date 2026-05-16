@@ -1374,7 +1374,7 @@ function renderSettings() {
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Split Connections</label>
-          <input class="input" type="number" id="s-aria2_split" value="${s.aria2_split??8}" min="1" max="64"/>
+          <input class="input" type="number" id="s-aria2_split" value="${s.aria2_split??16}" min="1" max="64"/>
           <span class="form-hint">Parallel connections per file. Default: 8. Higher = faster single-file downloads. Capped by <em>Max connections per server</em>.</span>
         </div>
         <div class="form-group">
@@ -1383,7 +1383,7 @@ function renderSettings() {
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Max Connections per Server</label>
-          <input class="input" type="number" id="s-aria2_max_connection_per_server" value="${s.aria2_max_connection_per_server??8}" min="1" max="32"/>
+          <input class="input" type="number" id="s-aria2_max_connection_per_server" value="${s.aria2_max_connection_per_server??16}" min="1" max="32"/>
         </div>
         <div class="form-group">
           <label class="form-label">aria2 Disk Cache</label>
