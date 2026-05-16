@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.9.1] — Missed v1.9.0 items: health endpoint, silent failures, error UX
+
+### Added: `GET /api/health`
+Lightweight liveness probe for Docker `HEALTHCHECK` and uptime monitors. Returns `{"status":"ok","version":"..."}` without any DB access.
+
+The Dockerfile `HEALTHCHECK` now uses `/api/health` instead of `/api/stats` — no full DB + AllDebrid query every 30 seconds just to confirm the process is alive.
+
+### Fixed: Silent failures → logged
+Five `except ... pass` blocks in `manager_v2` now log at `DEBUG` level:
+- Hash extraction from torrent file
+- Webhook `on_added` task creation
+- Webhook `on_complete` task creation
+- Rule-engine magnet delete after block
+- Plex/Jellyfin library scan task creation
+
+### Fixed: Jackett timeout error message
+Previously showed the raw exception. Now shows:
+> _"Search timed out. Try fewer indexers or increase the timeout in Settings → Search / Indexers."_
+
+### Fixed: JS syntax error in search error handler (unreachable code corrected)
+
+**292/292 tests passing**
+
 ## [1.9.0] - 2026-05-16
 
 ### v1.9.0 — Production-ready release
