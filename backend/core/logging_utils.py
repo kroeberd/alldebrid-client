@@ -75,10 +75,10 @@ def log_startup_banner(
     auth: str,
 ) -> None:
     """Emit a compact startup summary through the normal logger."""
-    sep = "-" * 48
+    sep = "-" * 56
     lines = [
         sep,
-        f" AllDebrid Client v{version}",
+        f" AllDebrid-Client  v{version}",
         sep,
         f" Mode:            {mode}",
         f" Database:        {database}",
@@ -86,6 +86,7 @@ def log_startup_banner(
         f" Web UI:          {web_ui}",
         f" Auth:            {auth}",
         " GitHub:          https://github.com/kroeberd/alldebrid-client",
+        " Discord:         https://discord.gg/8Vb9cj4ksv",
         " Support:         https://buymeacoffee.com/kroeberd",
         sep,
     ]

@@ -8,7 +8,7 @@
   [![Docker Pulls](https://img.shields.io/docker/pulls/kroeberd/alldebrid-client?style=flat-square&color=3b82f6)](https://hub.docker.com/r/kroeberd/alldebrid-client)
   [![Discord](https://img.shields.io/badge/Discord-Join-5865f2?logo=discord&logoColor=white)](https://discord.gg/8Vb9cj4ksv)
   [![License](https://img.shields.io/github/license/kroeberd/alldebrid-client?style=flat-square)](LICENSE)
-  [![Tests](https://img.shields.io/badge/tests-228%20passing-22c55e?style=flat-square)](https://github.com/kroeberd/alldebrid-client/actions/workflows/tests.yml)
+  [![Tests](https://img.shields.io/badge/tests-292%20passing-22c55e?style=flat-square)](https://github.com/kroeberd/alldebrid-client/actions/workflows/tests.yml)
   [![CI](https://img.shields.io/github/actions/workflow/status/kroeberd/alldebrid-client/tests.yml?style=flat-square&label=CI)](https://github.com/kroeberd/alldebrid-client/actions/workflows/tests.yml)
   [![Docker Build](https://github.com/kroeberd/alldebrid-client/actions/workflows/Docker_Build.yml/badge.svg)](https://github.com/kroeberd/alldebrid-client/actions/workflows/Docker_Build.yml)
 </div>
@@ -53,6 +53,17 @@ AllDebrid-Client automates the full torrent lifecycle via your AllDebrid account
 | **Event log TTL** | Automatic pruning of old event log entries (default: 30 days); torrent rows never deleted |
 | **Diagnostics** | `GET /api/torrents/diagnose` — status breakdown; `POST /api/torrents/recover-all` — one-click recovery |
 | **State machine** | Formal torrent lifecycle with validated transitions (`services/torrent_state.py`) |
+| **Rule Engine** | JSON-based pre-upload rules: set download path, priority, label, block or pause torrents by title/size/source |
+| **Download Profiles** | Named preset bundles (path + priority + label); one active at a time, overrideable by rules |
+| **Saved Searches** | Scheduled Jackett/Prowlarr queries with auto-add and configurable intervals |
+| **Priority Queue** | Integer priority field; `ORDER BY priority DESC` dispatch; drag-and-drop reordering in UI |
+| **Historical Learning** | Tracks indexer success/failure rates; annotates Jackett results with trust score (0–100) |
+| **Webhook Actions** | Generic HTTP POST webhooks on torrent lifecycle events (added, complete, error); separate from Discord |
+| **Plex / Jellyfin** | Automatic library refresh after each completed download via Plex token or Jellyfin API key |
+| **AllDebrid orphan cleanup** | Auto-deletes error/no-peer magnets on AllDebrid that have no local DB row; manual trigger button |
+| **Extraction passwords** | Per-archive password list (newline-separated); each tried in order for 7z and RAR |
+| **Analytics** | Queue analytics with hourly chart and configurable time windows (1h / 24h / 7d / 30d) |
+| **Smart Scheduler** | Time-window enforcement for download slots; configurable active hours |
 
 ---
 
@@ -303,6 +314,51 @@ docs/
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for full release history.
+
+---
+
+## Troubleshooting
+
+### Jackett is slow or times out
+- Increase the search timeout in Settings → Search / Indexers → Jackett
+- Check Jackett logs for indexer-specific errors (`docker logs jackett`)
+- Disable dead indexers in Jackett admin to reduce concurrent requests
+
+### aria2 is not reachable
+- If using built-in aria2: check Settings → Download → aria2 mode is set to **Built-in**
+- If using external aria2: verify the JSON-RPC URL (e.g. `http://aria2:6800/jsonrpc`) and secret
+- Run `POST /api/settings/test-aria2` or use the **Test aria2** button in Settings
+
+### Duplicate detection blocks a re-add
+- The same infohash cannot be added twice while the torrent is active
+- To force a re-add: delete the existing torrent, then add the magnet again
+- Check Settings → General → Duplicate Detection level
+
+### Expired magnets ("Expired — files removed")
+- AllDebrid removes cached files after ~30 days of inactivity
+- The client detects `statusCode 3` and automatically re-uploads the magnet if stored
+- If no magnet is stored, the torrent moves to error state — add the magnet again manually
+
+### No-peer torrents not cleaning up
+- Use **🧹 Clean AD Orphans** in the Torrents view to purge error magnets from AllDebrid
+- These are magnets added directly on AllDebrid outside the client
+- The client also runs `cleanup_alldebrid_orphans()` automatically every sync cycle
+
+### PostgreSQL connection issues
+- Ensure `DB_TYPE=postgres` and all `POSTGRES_*` env vars are set correctly
+- Run `POST /api/settings/test-postgres` or use **Test PostgreSQL** in Settings → Database
+- Check container logs: `docker logs alldebrid-client`
+
+### Permission errors (download folder, extraction)
+- Set `PUID` and `PGID` to match your host user (`id -u` / `id -g`)
+- Ensure the volume mounts exist and are writable by the PUID/PGID user
+- Example: `-e PUID=1000 -e PGID=1000`
+
+### Docker networking (Jackett/aria2 unreachable)
+- All services should be on the same Docker network, or use host IPs
+- Use the container name as hostname: `http://jackett:9117` (if on same bridge)
+- With `network_mode: host`, use `127.0.0.1` as the host
+
 
 ---
 

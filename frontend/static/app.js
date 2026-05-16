@@ -1054,7 +1054,7 @@ async function loadSettings() {
   if (avatarUrl && !avatarUrl.includes('github') && !avatarUrl.includes('_DEFAULT')) {
     showAvatarPreview(avatarUrl, 'Custom avatar', 0);
   }
-  // Initialer Zustand: Test-PostgreSQL Button und pg-settings Sichtbarkeit
+  // Initial state: show/hide Test-PostgreSQL button and pg-settings based on DB type
   const dbTypeEl = document.getElementById('s-db_type');
   if (dbTypeEl) {
     const isPg = dbTypeEl.value === 'postgres';
@@ -3057,7 +3057,7 @@ async function testPostgres() {
       if (statsAttempt >= 10) { dbg('Aufgegeben nach 10 Versuchen'); break; }
     }
   }
-  // Hintergrund-Tasks sofort starten — nicht auf Stats warten
+  // Start background tasks immediately — do not wait for stats
   loadRecent().catch(() => {});
   checkConnections().catch(() => {});   // setzt aria2-Dot
   checkPremiumStatus().catch(() => {});
@@ -3418,8 +3418,15 @@ async function jackettAddSelected() {
   var results = jackettSortResults(window._jackettResults || []);
   var indices = Array.from(window._jackettSelected || []).sort(function(a,b){return a-b;});
   if (!indices.length) return;
-  for (var i = 0; i < indices.length; i++) {
-    await jackettAdd(indices[i]);
+  if (indices.length === 1) {
+    await jackettAdd(indices[0]);
+  } else {
+    // Add up to 3 in parallel to stay within AllDebrid rate limits
+    var BATCH = 3;
+    for (var i = 0; i < indices.length; i += BATCH) {
+      var batch = indices.slice(i, i + BATCH);
+      await Promise.all(batch.map(function(idx) { return jackettAdd(idx); }));
+    }
   }
   jackettClearSelection();
 }
@@ -3432,8 +3439,11 @@ async function jackettAddAll() {
   });
   if (!addable.length) { toast('Nothing new to add', 'warn'); return; }
   toast('Adding ' + addable.length + ' result(s)…', 'info');
-  for (var i = 0; i < addable.length; i++) {
-    await jackettAdd(addable[i]);
+  // Add in parallel batches of 3 to respect AllDebrid rate limits
+  var BATCH = 3;
+  for (var i = 0; i < addable.length; i += BATCH) {
+    var batch = addable.slice(i, i + BATCH);
+    await Promise.all(batch.map(function(idx) { return jackettAdd(idx); }));
   }
   toast('Added ' + addable.length + ' result(s)', 'success');
 }
@@ -3642,12 +3652,14 @@ async function jackettAdd(idx) {
   if (window._jackettAddInFlight && window._jackettAddInFlight[key]) return;
   window._jackettAddInFlight[key] = true;
   var btn=document.getElementById('jbtn-'+idx);
-  if (btn) { btn.disabled=true; btn.textContent='Adding...'; }
+  if (btn) { btn.disabled=true; btn.textContent='Adding…'; }
   try {
-      var row=await api('POST', '/jackett/add', {
-        hash:r.hash, magnet:r.magnet, torrent_url:r.torrent_url,
-        title:r.title, indexer:r.indexer, size_bytes:r.size_bytes
-      }, 60000);
+    // Torrent-URL downloads can take up to 30s; give 90s total for the full chain
+    var timeout = r.torrent_url ? 90000 : 60000;
+    var row=await api('POST', '/jackett/add', {
+      hash:r.hash, magnet:r.magnet, torrent_url:r.torrent_url,
+      title:r.title, indexer:r.indexer, size_bytes:r.size_bytes
+    }, timeout);
     (window._jackettResults || []).forEach(function(item) {
       if ((item.hash && item.hash === r.hash) || (item.title === r.title && item.indexer === r.indexer)) {
         item.already_added = true;
@@ -3656,25 +3668,26 @@ async function jackettAdd(idx) {
       }
     });
     if (btn) {
-      btn.textContent='\u2705 Added';
+      btn.textContent='✅ Added';
       btn.style.background='var(--green)';
       btn.style.color='#fff';
-      }
-      delete window._jackettAddInFlight[key];
-      renderJackettResults();
-    var label = row && row.added_via ? row.added_via.replace(/_/g, ' ') : (r.torrent_url ? 'torrent file' : 'magnet');
-    var adId = (row && row.alldebrid_id) ? ' (ID: '+row.alldebrid_id+')' : '';
-    toast('\u2714 Queued via '+label+adId+'\n'+r.title.slice(0,50), 'success');
-    // Badge aktualisieren
-    if (typeof loadStats === 'function') loadStats().catch(function(){});
-    } catch(e) {
-      delete window._jackettAddInFlight[key];
-      if (btn) { btn.disabled=false; btn.textContent='Add'; }
-      renderJackettResults();
-      var _errMsg = e.message || 'Unknown error';
-      toast('\u274c Failed to add: ' + sanitizeErrorMsg(_errMsg), 'error');
     }
+    delete window._jackettAddInFlight[key];
+    renderJackettResults();
+    var label = row && row.added_via ? row.added_via.replace(/_/g, ' ') : (r.torrent_url ? 'torrent file' : 'magnet');
+    var adId = (row && row.alldebrid_id) ? ' · AD ' + row.alldebrid_id : '';
+    // Show status: cached torrents start immediately
+    var statusHint = (row && row.status === 'ready') ? ' · Starting download…' : '';
+    toast('✔ Queued via ' + label + adId + statusHint + '\n' + r.title.slice(0,50), 'success');
+    if (typeof loadStats === 'function') loadStats().catch(function(){});
+  } catch(e) {
+    delete window._jackettAddInFlight[key];
+    if (btn) { btn.disabled=false; btn.textContent='Add'; }
+    renderJackettResults();
+    var _errMsg = e.message || 'Unknown error';
+    toast('❌ Failed: ' + sanitizeErrorMsg(_errMsg), 'error');
   }
+}
 
 async function testProwlarr() {
   var el = document.getElementById('prowlarr-test-result');

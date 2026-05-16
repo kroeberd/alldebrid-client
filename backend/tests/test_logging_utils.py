@@ -51,6 +51,6 @@ def test_startup_banner_uses_logger_and_expected_links(caplog):
             auth="disabled",
         )
 
-    assert "AllDebrid Client v1.8.7" in caplog.text
+    assert "AllDebrid-Client  v1.8.7" in caplog.text or "AllDebrid-Client v1.8.7" in caplog.text
     assert "https://github.com/kroeberd/alldebrid-client" in caplog.text
     assert "https://buymeacoffee.com/kroeberd" in caplog.text

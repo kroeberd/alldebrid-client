@@ -211,19 +211,19 @@ def normalize_provider_state(magnet: Dict) -> Dict[str, object]:
 
     if code == READY_CODE:
         provider_status = "ready"
-        local_status = "ready"
+        local_status = TorrentStatus.READY
     elif code == EXPIRED_CODE:
         provider_status = "expired"
-        local_status = "error"
+        local_status = TorrentStatus.ERROR
     elif code in ERROR_CODES:
         provider_status = "error"
-        local_status = "error"
+        local_status = TorrentStatus.ERROR
     elif code <= 0:
         provider_status = "queued"
-        local_status = "uploading"
+        local_status = TorrentStatus.UPLOADING
     else:
         provider_status = "processing"
-        local_status = "processing"
+        local_status = TorrentStatus.PROCESSING
 
     return {
         "provider_status": provider_status,
@@ -566,6 +566,18 @@ class TorrentManager:
             _asyncio.create_task(fire_from_config(EVENT_ADDED, row))
         except Exception:
             pass
+
+        # Fast-path: if AllDebrid already reports ready (cached torrent) start immediately.
+        status_code = int(result.get("statusCode") or result.get("status_code") or 0)
+        if status_code == READY_CODE:
+            logger.info(
+                "Fast-path: %s already ready on AllDebrid (cached torrent file) — starting immediately",
+                name[:60],
+            )
+            torrent_id = row.get("id")
+            if torrent_id:
+                asyncio.create_task(self._start_download(int(torrent_id), ad_id, name))
+
         return row
 
     async def _add_magnet(self, magnet: str, hash_value: str, source: str) -> dict:
@@ -631,6 +643,19 @@ class TorrentManager:
             row["_duplicate"] = decision.as_dict()
         if get_settings().discord_notify_added:
             await self.notify().send_added(name, source=source, alldebrid_id=ad_id)
+
+        # ── Fast-path: if AllDebrid already reports ready (cached torrent),
+        # fire _start_download immediately instead of waiting for the next poll.
+        status_code = int(result.get("statusCode") or result.get("status_code") or 0)
+        if status_code == READY_CODE:
+            logger.info(
+                "Fast-path: %s already ready on AllDebrid (cached) — starting download immediately",
+                name[:60],
+            )
+            torrent_id = row.get("id")
+            if torrent_id:
+                asyncio.create_task(self._start_download(int(torrent_id), ad_id, name))
+
         return row
 
     async def _upsert(self, hash_value: str, magnet: Optional[str], name: str, ad_id: str, source: str) -> dict:
@@ -1340,7 +1365,9 @@ class TorrentManager:
                 )
 
         if deleted:
-            logger.info("cleanup_alldebrid_orphans: deleted %d orphan magnet(s) from AllDebrid", deleted)
+            logger.info("cleanup_alldebrid_orphans: removed %d orphan magnet(s) from AllDebrid (no-peer/error)", deleted)
+        else:
+            logger.debug("cleanup_alldebrid_orphans: no orphaned error magnets found on AllDebrid")
         return deleted
 
     async def _apply_provider_update(self, row: Dict, magnet: Dict, normalized: Dict[str, object]):
@@ -1373,7 +1400,7 @@ class TorrentManager:
             # Also restart if local status is 'error' but AllDebrid reports ready —
             # the torrent may have recovered or been re-uploaded
             name = magnet.get("filename") or magnet.get("name") or row["name"]
-            if current_status == "error":
+            if current_status == TorrentStatus.ERROR:
                 logger.info("Torrent %s recovered on AllDebrid (was error, now ready) — restarting download", row["id"])
                 async with get_db() as _db:
                     await _db.execute(
@@ -1382,7 +1409,7 @@ class TorrentManager:
                     )
                     await _db.commit()
             asyncio.create_task(self._start_download(row["id"], str(row["alldebrid_id"]), str(name)))
-        elif provider_status == "ready" and current_status not in ("downloading", "queued", "completed", "deleted"):
+        elif provider_status == "ready" and current_status not in (TorrentStatus.DOWNLOADING, TorrentStatus.QUEUED, TorrentStatus.COMPLETED, TorrentStatus.DELETED):
             # AllDebrid reports the torrent as ready — start the download.
             logger.info(
                 "sync: torrent %s (id=%s) is ready on AllDebrid → starting download",
@@ -1438,7 +1465,7 @@ class TorrentManager:
                     )
                     await _db.commit()
 
-        elif provider_status == "error" and current_status != "error":
+        elif provider_status == "error" and current_status != TorrentStatus.ERROR:
             error_message = f"AllDebrid error code {status_code}: {provider_message}".strip()
             # statusCode 8 = "No peer after 30 minutes" — re-upload if magnet stored,
             # otherwise delete and notify.
@@ -1473,7 +1500,7 @@ class TorrentManager:
                 asyncio.create_task(self._handle_upload_failed(row, error_message))
             else:
                 await self._fail_torrent(row["id"], error_message, notify=True)
-        elif provider_status == "error" and current_status == "error" and status_code in (7, 8):
+        elif provider_status == "error" and current_status == TorrentStatus.ERROR and status_code in (7, 8):
             # Already in error state but code=8/7 — ensure cleanup runs.
             # This covers torrents that were already error before the no-peer handler ran
             # or that arrived via import_existing_magnets without going through
@@ -1489,7 +1516,7 @@ class TorrentManager:
                     (f"AllDebrid error code {status_code}: {provider_message}".strip(), row["id"]),
                 )
                 await _edb.commit()
-        elif provider_status == "error" and current_status == "error" and provider_state_changed:
+        elif provider_status == "error" and current_status == TorrentStatus.ERROR and provider_state_changed:
             await self._notify_provider_error(
                 str(row["name"] or magnet.get("filename") or magnet.get("name") or f"torrent {row['id']}"),
                 reason=f"AllDebrid reported magnet error {status_code}",
@@ -3014,6 +3041,7 @@ class TorrentManager:
                 "SELECT name, alldebrid_id, provider_status_code FROM torrents WHERE id=?",
                 (torrent_id,),
             )).fetchone()
+            logger.warning("fail_torrent: id=%s msg=%r", torrent_id, message[:120])
             await db.execute(
                 "UPDATE torrents SET status='error', error_message=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                 (message, torrent_id),
