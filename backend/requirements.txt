@@ -69,7 +69,7 @@ python-dotenv==1.2.2
     # via
     #   pydantic-settings
     #   uvicorn
-python-multipart==0.0.28
+python-multipart==0.0.29
     # via -r requirements.in
 pyyaml==6.0.3
     # via uvicorn
@@ -89,10 +89,12 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
     #   pydantic-settings
-uvicorn==0.46.0
+uvicorn==0.47.0
     # via -r requirements.in
 uvloop==0.22.1 ; sys_platform != "win32"
-    # via uvicorn
+    # via
+    #   -r requirements.in
+    #   uvicorn
 watchfiles==1.1.1
     # via uvicorn
 websockets==16.0
