@@ -3134,14 +3134,19 @@ class TorrentManager:
                     "min_free_gb": min_gb, "error": "stat failed"}
 
         if not self._disk_guard_active and free_gb < min_gb:
-            # Threshold crossed — activate guard
+            # Threshold crossed — activate guard.
+            # We do NOT pause currently active aria2 downloads: they are already
+            # consuming the space, interrupting them creates half-finished files
+            # and blocks finalization (Sonarr/Radarr import, webhooks, cleanup).
+            # Instead we only block NEW dispatches via _dispatch_pending_aria2_queue.
+            # Automations (Sonarr, Radarr, webhooks, post-processing) continue to
+            # run for torrents that complete while the guard is active.
             self._disk_guard_active = True
             logger.warning(
                 "disk_guard: ACTIVATED — %.2f GB free < %.2f GB required on %s; "
-                "pausing active downloads",
+                "new downloads blocked, active downloads will finish normally",
                 free_gb, min_gb, folder,
             )
-            await self._disk_guard_pause_all()
 
         elif self._disk_guard_active and free_gb >= (min_gb + hyst_gb):
             # Space recovered — deactivate guard
@@ -3190,21 +3195,18 @@ class TorrentManager:
             logger.info("disk_guard: paused %d active aria2 download(s)", paused_count)
 
     async def _disk_guard_resume_all(self) -> None:
-        """Resume all aria2 GIDs paused by the disk guard and trigger a dispatch cycle."""
-        gids = list(self._disk_guard_paused)
-        self._disk_guard_paused.clear()
-        for gid in gids:
-            try:
-                await self.aria2().unpause(gid)
-                logger.debug("disk_guard: resumed aria2 GID %s", gid)
-            except Exception as exc:
-                logger.debug("disk_guard: could not resume GID %s: %s", gid, exc)
-        # Trigger an immediate download dispatch so 'ready' torrents
-        # that were deferred by the guard start without waiting for the next poll.
+        """Trigger an immediate dispatch cycle when the disk guard deactivates.
+
+        Active downloads were never paused (they were allowed to finish normally),
+        so no aria2 unpause is needed.  We only need to kick the dispatch loop so
+        'ready' torrents that were deferred by the guard start without waiting
+        for the next sync cycle.
+        """
+        self._disk_guard_paused.clear()  # defensive — should already be empty
         try:
             await self.sync_download_clients()
         except Exception as exc:
-            logger.debug("disk_guard: dispatch after resume failed: %s", exc)
+            logger.debug("disk_guard: dispatch after deactivation failed: %s", exc)
 
     async def _fail_torrent(self, torrent_id: int, message: str, notify: bool = False):
         async with get_db() as db:
