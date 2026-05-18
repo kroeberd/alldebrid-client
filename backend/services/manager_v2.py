@@ -1657,26 +1657,38 @@ class TorrentManager:
         initial_status = "queued"  # aria2 is the only non-symlink client
 
         # ── Disk-space guard ─────────────────────────────────────────────────
-        # If the guard is already active (triggered by disk_guard_loop), block
-        # new dispatches.  Also do a direct check so we catch the threshold even
-        # before the loop fires (e.g. at startup or after a manual add).
+        # If the guard is active, defer this dispatch.  Set status back to
+        # 'ready' so the torrent is visible to polling and is not mistaken for
+        # a stuck download by cleanup_stuck_downloads.
         min_free_gb = float(getattr(cfg, "min_free_disk_gb", 0) or 0)
         if min_free_gb > 0:
             if self._disk_guard_active:
                 logger.info(
-                    "disk_guard: blocking torrent %s dispatch — guard is active (low disk)", torrent_id
+                    "disk_guard: deferring torrent %s dispatch — guard is active (low disk), "
+                    "resetting to 'ready'", torrent_id
                 )
-                return  # defer; disk_guard_loop will resume when space recovers
+                async with get_db() as _gd_db:
+                    await _gd_db.execute(
+                        "UPDATE torrents SET status='ready', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                        (torrent_id,),
+                    )
+                    await _gd_db.commit()
+                return  # disk_guard_loop will call _start_download when space recovers
             free_gb = self._get_free_gb(str(cfg.download_folder or "/download"))
             if free_gb >= 0 and free_gb < min_free_gb:
                 msg = (
                     f"Not enough disk space: {free_gb:.1f} GB free, "
-                    f"{min_free_gb:.1f} GB required — downloads paused until space recovers"
+                    f"{min_free_gb:.1f} GB required — download deferred until space recovers"
                 )
-                logger.warning("Disk-space guard blocked torrent %s: %s", torrent_id, msg)
-                # Activate guard so disk_guard_loop resumes when space returns
+                logger.info("Disk-space guard: torrent %s uploaded to AllDebrid but aria2 download deferred (low disk) — will resume automatically", torrent_id)
                 self._disk_guard_active = True
-                return  # defer, not fail — disk_guard_loop will resume
+                async with get_db() as _gd_db:
+                    await _gd_db.execute(
+                        "UPDATE torrents SET status='ready', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                        (torrent_id,),
+                    )
+                    await _gd_db.commit()
+                return  # disk_guard_loop will resume when space recovers
 
         # Cancel any existing aria2 jobs for this torrent before clearing the DB rows.
         # Without this, the old aria2 entries become orphans that download in parallel.
@@ -3144,12 +3156,19 @@ class TorrentManager:
         }
 
     async def _disk_guard_pause_all(self) -> None:
-        """Pause all active aria2 GIDs and record them for later resume."""
+        """Pause all active aria2 GIDs and record them for later resume.
+
+        Only pauses aria2 — does not change DB statuses.  The sync loop will
+        detect the paused state from aria2 on the next cycle.  Torrents that
+        are in 'ready' state but not yet dispatched stay in 'ready' and will
+        be picked up by _disk_guard_resume_all → sync_download_clients.
+        """
         try:
             active = await self.aria2().tell_active()
         except Exception as exc:
             logger.debug("disk_guard: could not list active downloads: %s", exc)
             return
+        paused_count = 0
         for item in active or []:
             gid = str(item.get("gid") or "")
             if not gid:
@@ -3157,21 +3176,15 @@ class TorrentManager:
             try:
                 await self.aria2().pause(gid)
                 self._disk_guard_paused.add(gid)
+                paused_count += 1
                 logger.debug("disk_guard: paused aria2 GID %s", gid)
             except Exception as exc:
                 logger.debug("disk_guard: could not pause GID %s: %s", gid, exc)
-        # Also mark DB rows as paused-by-guard so they are not re-dispatched
-        if self._disk_guard_paused:
-            async with get_db() as db:
-                await db.execute(
-                    "UPDATE download_files SET status='paused' WHERE download_id IN ({}) "
-                    "AND status='downloading'".format(",".join("?" * len(self._disk_guard_paused))),
-                    list(self._disk_guard_paused),
-                )
-                await db.commit()
+        if paused_count:
+            logger.info("disk_guard: paused %d active aria2 download(s)", paused_count)
 
     async def _disk_guard_resume_all(self) -> None:
-        """Resume all GIDs that were paused by the disk guard."""
+        """Resume all aria2 GIDs paused by the disk guard and trigger a dispatch cycle."""
         gids = list(self._disk_guard_paused)
         self._disk_guard_paused.clear()
         for gid in gids:
@@ -3180,6 +3193,12 @@ class TorrentManager:
                 logger.debug("disk_guard: resumed aria2 GID %s", gid)
             except Exception as exc:
                 logger.debug("disk_guard: could not resume GID %s: %s", gid, exc)
+        # Trigger an immediate download dispatch so 'ready' torrents
+        # that were deferred by the guard start without waiting for the next poll.
+        try:
+            await self.sync_download_clients()
+        except Exception as exc:
+            logger.debug("disk_guard: dispatch after resume failed: %s", exc)
 
     async def _fail_torrent(self, torrent_id: int, message: str, notify: bool = False):
         async with get_db() as db:
