@@ -17,7 +17,7 @@ from db.database import _is_postgres, get_db
 from services.alldebrid import AllDebridService, flatten_files
 from services.aria2 import Aria2Service
 from services.aria2_runtime import aria2_global_options, effective_rpc_config, is_builtin_mode
-from services.extractor import archive_paths_from_downloads, get_extractor, init_extractor
+from services.extractor import archive_paths_from_downloads, get_extractor
 from services.notifications import NotificationService
 from services.torrent_state import (
     TorrentStatus,
@@ -577,7 +577,7 @@ class TorrentManager:
         if status_code == READY_CODE:
             logger.info(
                 "Fast-path: %s already ready on AllDebrid (cached torrent file) — starting immediately",
-                name[:60],
+                sanitize_log_value(name[:60]),
             )
             torrent_id = row.get("id")
             if torrent_id:
@@ -619,7 +619,7 @@ class TorrentManager:
         ad_id = str(result.get("id", ""))
         name = result.get("name") or result.get("filename") or hash_value[:16]
         normalized_hash = result.get("hash", hash_value).lower()
-        logger.info("Magnet uploaded %s (ad_id=%s)", name, ad_id)
+        logger.info("Magnet uploaded %s (ad_id=%s)", sanitize_log_value(name[:80]), ad_id)
 
         # ── Rule Engine ────────────────────────────────────────────────────
         rule_actions: dict = {}
@@ -634,7 +634,7 @@ class TorrentManager:
                     "priority":   0,
                 })
                 if rule_actions.get("block"):
-                    logger.info("Rule engine: blocking torrent '%s' (rules_list match)", name[:60])
+                    logger.info("Rule engine: blocking torrent '%s' (rules_list match)", sanitize_log_value(name[:60]))
                     try:
                         await self.ad().delete_magnet(ad_id)
                     except Exception as exc:
@@ -655,7 +655,7 @@ class TorrentManager:
         if status_code == READY_CODE:
             logger.info(
                 "Fast-path: %s already ready on AllDebrid (cached) — starting download immediately",
-                name[:60],
+                sanitize_log_value(name[:60]),
             )
             torrent_id = row.get("id")
             if torrent_id:
@@ -2955,9 +2955,9 @@ class TorrentManager:
                 try:
                     url_file.write_text(unlocked_url, encoding="utf-8")
                     created += 1
-                    logger.info("_download_symlink: created %s", url_file)
+                    logger.debug("_download_symlink: created %s", str(url_file))
                 except Exception as exc:
-                    logger.warning("_download_symlink: cannot write %s: %s", url_file, exc)
+                    logger.warning("_download_symlink: cannot write file: %s", exc)
                     errors += 1
             else:
                 errors += 1
@@ -2981,7 +2981,7 @@ class TorrentManager:
                 )
             await db.commit()
 
-        logger.info("_download_symlink: %d URL file(s) created for torrent %s → %s", created, torrent_id, torrent_dir)
+        logger.info("_download_symlink: %d URL file(s) created for torrent %s", created, torrent_id)
         await self._delete_magnet_after_completion(torrent_id, ad_id)
         await self._mark_finished(torrent_id, name)
 
@@ -3013,7 +3013,12 @@ class TorrentManager:
                        .replace("{path}", local_path.replace('"', '\\"'))
                        .replace("{torrent_id}", str(torrent_id))
                        .replace("{status}", "completed"))
-                logger.info("Running post-processing script for torrent %s: %s", torrent_id, cmd)
+                # Security note: cmd originates from cfg.on_torrent_complete which is
+                # administrator-configured only (not user input). We log a sanitized
+                # representation and use shell=True intentionally to support pipes and
+                # shell features in the post-processing script.
+                logger.info("Running post-processing script for torrent %s", torrent_id)
+                logger.debug("Post-processing cmd (truncated): %s", sanitize_log_value(cmd[:120]))
                 proc = await asyncio.create_subprocess_shell(
                     cmd,
                     stdout=asyncio.subprocess.PIPE,

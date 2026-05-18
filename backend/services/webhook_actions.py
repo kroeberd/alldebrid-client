@@ -70,6 +70,7 @@ async def fire(
             ok = resp.is_success
             log_url = _sanitize_url(url)
             if ok:
+                # log_url sanitized via _sanitize_url(); event is a module constant
                 logger.debug("webhook %s → %s HTTP %s", event, log_url, resp.status_code)
             else:
                 logger.warning(

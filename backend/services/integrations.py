@@ -1,3 +1,4 @@
+from core.logging_utils import sanitize_log_value
 """
 Sonarr and Radarr integration.
 
@@ -39,7 +40,7 @@ async def notify_sonarr(name: str = "") -> bool:
         cfg = get_settings()
         if not cfg.sonarr_enabled or not cfg.sonarr_url or not cfg.sonarr_api_key:
             return False
-        logger.info("Notifying Sonarr (RescanSeries) for: %s", name)
+        logger.info("Notifying Sonarr (RescanSeries) for torrent: %s", sanitize_log_value(name[:80]))
         return await _trigger(cfg.sonarr_url, cfg.sonarr_api_key, "RescanSeries")
     except Exception as exc:
         logger.error("Sonarr notify error: %s", exc)
@@ -52,7 +53,7 @@ async def notify_radarr(name: str = "") -> bool:
         cfg = get_settings()
         if not cfg.radarr_enabled or not cfg.radarr_url or not cfg.radarr_api_key:
             return False
-        logger.info("Notifying Radarr (RescanMovie) for: %s", name)
+        logger.info("Notifying Radarr (RescanMovie) for torrent: %s", sanitize_log_value(name[:80]))
         return await _trigger(cfg.radarr_url, cfg.radarr_api_key, "RescanMovie")
     except Exception as exc:
         logger.error("Radarr notify error: %s", exc)

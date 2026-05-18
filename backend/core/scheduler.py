@@ -403,7 +403,6 @@ async def saved_searches_loop():
                     )
                 for search in (searches or []):
                     try:
-                        cfg_now = get_settings()
                         intvl = int(search.get("interval_minutes") or 60)
                         last_run = search.get("last_run_at")
                         if last_run:

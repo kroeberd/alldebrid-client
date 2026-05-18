@@ -120,6 +120,8 @@ class AppSettings(BaseModel):
     # Trigger a library scan after a torrent is completed, so the media server
     # picks up the new files without manual intervention.
     plex_url:            str = ""   # e.g. http://192.168.1.10:32400
+    plex_verify_ssl:     bool = False  # set True if Plex uses a valid CA-signed certificate
+    jellyfin_verify_ssl: bool = False  # set True if Jellyfin uses a valid CA-signed certificate
     plex_token:          str = ""   # Plex X-Plex-Token
     plex_library_id:     str = ""   # Library section ID (empty = all libs)
     jellyfin_url:        str = ""   # e.g. http://192.168.1.10:8096

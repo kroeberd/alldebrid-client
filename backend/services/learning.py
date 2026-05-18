@@ -18,7 +18,6 @@ logger = logging.getLogger("alldebrid.learning")
 # Score weights
 _W_SUCCESS = 0.6
 _W_SPEED = 0.2
-_W_RECENCY = 0.2
 _WINDOW_DAYS = 90
 
 

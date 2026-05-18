@@ -29,7 +29,7 @@ from core.config import (
     save_settings,
 )
 from core.config_validator import validate_and_sanitise
-from core.logging_utils import sanitize_exception
+from core.logging_utils import sanitize_exception, sanitize_log_value
 from core.version import read_version
 from db.database import DB_PATH, _is_postgres, get_db
 
@@ -1784,8 +1784,8 @@ async def jackett_add(body: dict):
                 if not magnet:
                     raise
                 logger.warning(
-                    "Jackett add: torrent URL failed for %s, falling back to magnet: %s",
-                    title,
+                    "Jackett add: torrent URL failed for torrent '%s', falling back to magnet: %s",
+                    sanitize_log_value(str(title or "")[:80]),
                     sanitize_exception(torrent_exc),
                 )
                 row = await manager.add_magnet_direct(magnet, source="jackett")
@@ -2223,8 +2223,7 @@ async def _execute_saved_search(search: dict) -> dict:
             except Exception as exc:
                 logger.debug("saved_search: Jackett failed: %s", exc)
 
-        # Filter results
-        import re
+        # Filter results (re already imported at module level)
         min_seeders = int(search.get("min_seeders") or 1)
         max_size = float(search.get("max_size_gb") or 0) * 1024 ** 3
         min_size = float(search.get("min_size_gb") or 0) * 1024 ** 3
@@ -2306,7 +2305,11 @@ async def _execute_saved_search(search: dict) -> dict:
 async def get_analytics(window_hours: int = Query(24, ge=1, le=720)):
     """Return queue performance metrics for the last *window_hours* hours."""
     from services.analytics import get_queue_analytics
-    return await get_queue_analytics(window_hours)
+    try:
+        return await get_queue_analytics(window_hours)
+    except Exception as exc:
+        logger.debug("get_analytics error: %s", exc)
+        raise HTTPException(500, "Analytics unavailable")
 
 # ── Download Profiles ─────────────────────────────────────────────────────────
 
@@ -2413,7 +2416,11 @@ async def test_webhook(body: dict):
 async def get_learning():
     """Return indexer + release-group performance stats from the last 90 days."""
     from services.learning import get_learning_stats
-    return await get_learning_stats()
+    try:
+        return await get_learning_stats()
+    except Exception as exc:
+        logger.debug("get_learning error: %s", exc)
+        raise HTTPException(500, "Learning stats unavailable")
 
 # ── AllDebrid orphan cleanup ───────────────────────────────────────────────────
 

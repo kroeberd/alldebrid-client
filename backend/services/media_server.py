@@ -34,7 +34,11 @@ async def trigger_plex_scan(url: str, token: str, library_id: str = "") -> bool:
             endpoint = f"{base}/library/sections/{library_id}/refresh"
         else:
             endpoint = f"{base}/library/sections/all/refresh"
-        async with httpx.AsyncClient(timeout=10, verify=False) as client:
+        # verify=False is intentional: Plex and Jellyfin are commonly run with
+        # self-signed certificates on home networks. The token authenticates the
+        # request; TLS verification is opt-out via the plex_verify_ssl config field.
+        ssl_verify = bool(getattr(get_settings(), "plex_verify_ssl", False))
+        async with httpx.AsyncClient(timeout=10, verify=ssl_verify) as client:
             resp = await client.get(endpoint, headers=headers)
             ok = resp.status_code in (200, 201, 204)
             logger.info(
@@ -62,7 +66,8 @@ async def trigger_jellyfin_scan(url: str, api_key: str) -> bool:
             "X-MediaBrowser-Token": api_key,
             "Content-Type": "application/json",
         }
-        async with httpx.AsyncClient(timeout=10, verify=False) as client:
+        ssl_verify = bool(getattr(get_settings(), "jellyfin_verify_ssl", False))
+        async with httpx.AsyncClient(timeout=10, verify=ssl_verify) as client:
             resp = await client.post(endpoint, headers=headers)
             ok = resp.status_code in (200, 201, 204)
             logger.info("Jellyfin scan → HTTP %s", resp.status_code)

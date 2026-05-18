@@ -130,7 +130,7 @@ def evaluate(ctx: dict) -> dict:
             continue
 
         logger.debug("rules: matched condition=%s → actions=%s for '%s'",
-                     condition, actions, ctx.get("name", "?")[:40])
+                     condition, actions, sanitize_log_value(ctx.get("name", "?")[:40]))
 
         # Apply actions
         for action_key, action_val in actions.items():
@@ -149,5 +149,5 @@ def evaluate(ctx: dict) -> dict:
 
     if result:
         logger.info("rules: applied %d action(s) to '%s': %s",
-                    len(result), ctx.get("name", "?")[:40], result)
+                    len(result), sanitize_log_value(ctx.get("name", "?")[:40]), result)
     return result
