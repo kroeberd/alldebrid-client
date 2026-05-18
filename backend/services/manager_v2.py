@@ -1980,6 +1980,12 @@ class TorrentManager:
         """
         if self.download_client_name() != "aria2" or self.is_paused():
             return
+        # Disk-space guard: block ALL new dispatches while active.
+        # This is the authoritative gate for aria2 dispatching — it runs on
+        # every sync cycle, so every code path that would start an aria2
+        # download is blocked here, regardless of how the torrent got ready.
+        if self._disk_guard_active:
+            return
 
         async with self._aria2_dispatch_lock:
             current_downloads = (
