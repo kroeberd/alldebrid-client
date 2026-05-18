@@ -246,10 +246,30 @@ class AppSettings(BaseModel):
     auth_password: str = ""
 
     # ── Disk space guard ─────────────────────────────────────────────────────
-    # Minimum free disk space required before a download starts (GB).
-    # 0 = disabled. When the download folder has less free space than this
-    # value the download is deferred and an error event is logged.
+    # Minimum free disk space required (GB) on the download folder's filesystem.
+    # 0 = disabled.
+    #
+    # When free space drops below this threshold:
+    #   - New downloads are blocked (deferred, not errored)
+    #   - Active aria2 downloads are PAUSED automatically
+    #
+    # When free space rises back above threshold + 0.5 GB hysteresis:
+    #   - Paused-by-guard downloads are RESUMED automatically
+    #
+    # Checked every disk_guard_interval_seconds (default 60 s) — not on every
+    # poll cycle — to avoid excessive stat() calls on FUSE/NFS mounts.
+    #
+    # Compatible with all filesystems: ext4, XFS, ZFS, Btrfs, FUSE, NFS,
+    # Unraid's FUSE/shfs, and Windows (shutil fallback).
     min_free_disk_gb: float = 0
+
+    # How often (seconds) to check free disk space. 30–120 is sensible.
+    # Lower values = more responsive but more stat() calls on FUSE/NFS.
+    disk_guard_interval_seconds: int = 60
+
+    # Hysteresis: resume paused downloads only when free space exceeds
+    # min_free_disk_gb + disk_guard_resume_hysteresis_gb to prevent flapping.
+    disk_guard_resume_hysteresis_gb: float = 0.5
 
     # ── Post-processing script ────────────────────────────────────────────────
     # Shell command to run after a torrent is fully downloaded and imported.

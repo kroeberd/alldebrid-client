@@ -292,6 +292,9 @@ class TorrentManager:
         self._processing_files: Set[str] = set()
         self._failed_files: Set[str] = set()
         self._aria2_dispatch_lock = asyncio.Lock()
+        # Disk-space guard state
+        self._disk_guard_active: bool = False          # True = guard triggered, downloads paused
+        self._disk_guard_paused: set[str] = set()     # aria2 GIDs paused by the guard
 
     def is_paused(self) -> bool:
         return bool(get_settings().paused)
@@ -1654,21 +1657,26 @@ class TorrentManager:
         initial_status = "queued"  # aria2 is the only non-symlink client
 
         # ── Disk-space guard ─────────────────────────────────────────────────
+        # If the guard is already active (triggered by disk_guard_loop), block
+        # new dispatches.  Also do a direct check so we catch the threshold even
+        # before the loop fires (e.g. at startup or after a manual add).
         min_free_gb = float(getattr(cfg, "min_free_disk_gb", 0) or 0)
         if min_free_gb > 0:
-            try:
-                usage = shutil.disk_usage(cfg.download_folder)
-                free_gb = usage.free / (1024 ** 3)
-                if free_gb < min_free_gb:
-                    msg = (
-                        f"Not enough disk space: {free_gb:.1f} GB free, "
-                        f"{min_free_gb:.1f} GB required (download_folder={cfg.download_folder})"
-                    )
-                    logger.warning("Disk-space guard blocked torrent %s: %s", torrent_id, msg)
-                    await self._fail_torrent(torrent_id, msg, notify=True)
-                    return
-            except Exception as exc:
-                logger.warning("Disk-space check failed (skipping): %s", exc)
+            if self._disk_guard_active:
+                logger.info(
+                    "disk_guard: blocking torrent %s dispatch — guard is active (low disk)", torrent_id
+                )
+                return  # defer; disk_guard_loop will resume when space recovers
+            free_gb = self._get_free_gb(str(cfg.download_folder or "/download"))
+            if free_gb >= 0 and free_gb < min_free_gb:
+                msg = (
+                    f"Not enough disk space: {free_gb:.1f} GB free, "
+                    f"{min_free_gb:.1f} GB required — downloads paused until space recovers"
+                )
+                logger.warning("Disk-space guard blocked torrent %s: %s", torrent_id, msg)
+                # Activate guard so disk_guard_loop resumes when space returns
+                self._disk_guard_active = True
+                return  # defer, not fail — disk_guard_loop will resume
 
         # Cancel any existing aria2 jobs for this torrent before clearing the DB rows.
         # Without this, the old aria2 entries become orphans that download in parallel.
@@ -3036,6 +3044,137 @@ class TorrentManager:
             await _sse_broadcast("stats_changed", {})
         except Exception:
             pass
+
+
+    # ── Disk-space guard ─────────────────────────────────────────────────────
+
+    @staticmethod
+    def _get_free_gb(path: str) -> float:
+        """
+        Return free disk space in GB for the filesystem containing *path*.
+
+        Uses os.statvfs() on POSIX (Linux, macOS, Unraid, NFS, FUSE, ZFS, XFS)
+        which queries the mount point directly and works on any filesystem the
+        kernel exposes via VFS.  Falls back to shutil.disk_usage() elsewhere
+        (Windows).  Never raises — returns -1.0 on any error so callers can
+        distinguish "unknown" from "zero".
+        """
+        try:
+            import os
+            st = os.statvfs(path)
+            # f_bavail = blocks available to unprivileged users (respects reserved blocks)
+            return (st.f_bavail * st.f_frsize) / (1024 ** 3)
+        except (AttributeError, OSError):
+            pass
+        try:
+            import shutil
+            usage = shutil.disk_usage(path)
+            return usage.free / (1024 ** 3)
+        except Exception:
+            return -1.0
+
+    async def check_disk_space_guard(self) -> dict:
+        """
+        Periodic disk-space guard check.
+
+        Called by disk_guard_loop every disk_guard_interval_seconds (default 60 s).
+
+        When free space < min_free_disk_gb:
+          - Pauses all active aria2 downloads (stores GIDs in _disk_guard_paused)
+          - Blocks new downloads until space recovers
+          - Logs a WARNING once per guard activation
+
+        When free space >= min_free_disk_gb + hysteresis:
+          - Resumes all previously paused GIDs
+          - Clears the guard state
+
+        Returns a dict with current guard state for the /api/disk-guard endpoint.
+        """
+        cfg = get_settings()
+        min_gb  = float(getattr(cfg, "min_free_disk_gb", 0) or 0)
+        hyst_gb = float(getattr(cfg, "disk_guard_resume_hysteresis_gb", 0.5) or 0.5)
+        folder  = str(cfg.download_folder or "").strip() or "/download"
+
+        if min_gb <= 0:
+            # Guard disabled — ensure any previously paused downloads are resumed
+            if self._disk_guard_active:
+                await self._disk_guard_resume_all()
+                self._disk_guard_active = False
+            return {"enabled": False, "active": False, "free_gb": -1.0, "min_free_gb": 0}
+
+        free_gb = self._get_free_gb(folder)
+        if free_gb < 0:
+            logger.warning(
+                "disk_guard: could not determine free space for %s — guard skipped", folder
+            )
+            return {"enabled": True, "active": self._disk_guard_active, "free_gb": -1.0,
+                    "min_free_gb": min_gb, "error": "stat failed"}
+
+        if not self._disk_guard_active and free_gb < min_gb:
+            # Threshold crossed — activate guard
+            self._disk_guard_active = True
+            logger.warning(
+                "disk_guard: ACTIVATED — %.2f GB free < %.2f GB required on %s; "
+                "pausing active downloads",
+                free_gb, min_gb, folder,
+            )
+            await self._disk_guard_pause_all()
+
+        elif self._disk_guard_active and free_gb >= (min_gb + hyst_gb):
+            # Space recovered — deactivate guard
+            self._disk_guard_active = False
+            logger.info(
+                "disk_guard: DEACTIVATED — %.2f GB free >= %.2f GB (threshold + hysteresis); "
+                "resuming downloads",
+                free_gb, min_gb + hyst_gb,
+            )
+            await self._disk_guard_resume_all()
+
+        return {
+            "enabled": True,
+            "active": self._disk_guard_active,
+            "free_gb": round(free_gb, 2),
+            "min_free_gb": min_gb,
+            "folder": folder,
+        }
+
+    async def _disk_guard_pause_all(self) -> None:
+        """Pause all active aria2 GIDs and record them for later resume."""
+        try:
+            active = await self.aria2().tell_active()
+        except Exception as exc:
+            logger.debug("disk_guard: could not list active downloads: %s", exc)
+            return
+        for item in active or []:
+            gid = str(item.get("gid") or "")
+            if not gid:
+                continue
+            try:
+                await self.aria2().pause(gid)
+                self._disk_guard_paused.add(gid)
+                logger.debug("disk_guard: paused aria2 GID %s", gid)
+            except Exception as exc:
+                logger.debug("disk_guard: could not pause GID %s: %s", gid, exc)
+        # Also mark DB rows as paused-by-guard so they are not re-dispatched
+        if self._disk_guard_paused:
+            async with get_db() as db:
+                await db.execute(
+                    "UPDATE download_files SET status='paused' WHERE download_id IN ({}) "
+                    "AND status='downloading'".format(",".join("?" * len(self._disk_guard_paused))),
+                    list(self._disk_guard_paused),
+                )
+                await db.commit()
+
+    async def _disk_guard_resume_all(self) -> None:
+        """Resume all GIDs that were paused by the disk guard."""
+        gids = list(self._disk_guard_paused)
+        self._disk_guard_paused.clear()
+        for gid in gids:
+            try:
+                await self.aria2().unpause(gid)
+                logger.debug("disk_guard: resumed aria2 GID %s", gid)
+            except Exception as exc:
+                logger.debug("disk_guard: could not resume GID %s: %s", gid, exc)
 
     async def _fail_torrent(self, torrent_id: int, message: str, notify: bool = False):
         async with get_db() as db:

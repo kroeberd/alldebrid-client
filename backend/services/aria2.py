@@ -357,8 +357,25 @@ class Aria2Service:
     async def pause(self, gid: str):
         await self._best_effort("aria2.pause", [gid])
 
+    async def unpause(self, gid: str):
+        """Alias for resume() — used by disk_guard to resume paused downloads."""
+        await self._best_effort("aria2.unpause", [gid])
+
     async def resume(self, gid: str):
         await self._best_effort("aria2.unpause", [gid])
+
+    async def tell_active(self) -> list[dict]:
+        """
+        Return all active downloads from aria2 (aria2.tellActive).
+
+        Returns a list of dicts with at least 'gid' and 'status'.
+        Returns [] on any error so callers can safely iterate.
+        """
+        try:
+            result = await self._call("aria2.tellActive", [["gid", "status"]])
+            return result if isinstance(result, list) else []
+        except Exception:
+            return []
 
     async def remove(self, gid: str):
         await self._best_effort("aria2.forceRemove", [gid])

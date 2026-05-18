@@ -1148,7 +1148,32 @@ function renderSettings() {
 
       <div class="scard">
         <div class="scard-header">💾 Disk Space Guard</div>
-        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Abort a download before it starts if the download folder has less than this amount of free space. 0 = disabled.</p>
+        <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">
+          Automatically <b>pauses</b> active downloads and blocks new ones when free space drops below
+          the threshold. Resumes automatically when space recovers (with hysteresis to prevent flapping).
+          Works on all filesystems: ext4, XFS, ZFS, Btrfs, <b>Unraid (FUSE/shfs)</b>, NFS.
+        </p>
+        <div class="scard-body">
+          <div class="form-group">
+            <label class="form-label">Minimum Free Disk Space (GB, 0 = disabled)</label>
+            <input class="input" type="number" id="s-min_free_disk_gb" value="${s.min_free_disk_gb??0}" min="0" step="0.5"/>
+            <span class="form-hint">Downloads are <b>paused</b> (not errored) when free space drops below this. They resume automatically when space recovers.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Resume Hysteresis (GB above threshold)</label>
+            <input class="input" type="number" id="s-disk_guard_resume_hysteresis_gb" value="${s.disk_guard_resume_hysteresis_gb??0.5}" min="0" step="0.1"/>
+            <span class="form-hint">Downloads only resume when free space exceeds threshold + this value. Prevents rapid pause/resume cycles.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Disk Check Interval (seconds)</label>
+            <input class="input" type="number" id="s-disk_guard_interval_seconds" value="${s.disk_guard_interval_seconds??60}" min="10" max="3600"/>
+            <span class="form-hint">How often to check free disk space. 30–120 s is recommended. Lower values increase FUSE/NFS stat() calls.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scard">
+        <div class="scard-header">⚙️ Post-Processing Script</div>ownload before it starts if the download folder has less than this amount of free space. 0 = disabled.</p>
         <div class="scard-body">
           <div class="form-group">
             <label class="form-label">Minimum Free Disk Space (GB, 0 = disabled)</label>
@@ -2363,6 +2388,10 @@ function getFormSettings() {
     jackett_webhook_url: t('jackett_webhook_url'),
     stats_report_window_hours: reportWindowHours,
     stats_report_webhook_url: t('stats_report_webhook_url'),
+    // Disk space guard
+    min_free_disk_gb: parseFloat(g('min_free_disk_gb')?.value || '0') || 0,
+    disk_guard_interval_seconds: n('disk_guard_interval_seconds', 60),
+    disk_guard_resume_hysteresis_gb: parseFloat(g('disk_guard_resume_hysteresis_gb')?.value || '0.5') || 0.5,
     // Extraction: filter empty entries on save, join with newline for backend
     extraction_password: _extractionPasswords.filter(function(p){ return p.trim(); }).join('\n'),
   };

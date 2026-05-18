@@ -475,6 +475,30 @@ async def recovery_loop():
         await asyncio.sleep(300)
 
 
+
+async def disk_guard_loop():
+    """
+    Periodic disk-space guard: checks free space every disk_guard_interval_seconds.
+
+    Runs independently of sync_status_loop so disk checks never pile up on the
+    main poll cycle (which may be as fast as 1 s) — the default interval is 60 s.
+
+    Compatible with all filesystems: ext4, XFS, ZFS, Btrfs, FUSE/shfs (Unraid),
+    NFS, and Windows (via shutil fallback).
+    """
+    await asyncio.sleep(10)  # brief startup delay
+    while True:
+        cfg = get_settings()
+        min_gb = float(getattr(cfg, "min_free_disk_gb", 0) or 0)
+        interval = max(10, int(getattr(cfg, "disk_guard_interval_seconds", 60) or 60))
+        if min_gb > 0:
+            try:
+                await manager.check_disk_space_guard()
+            except Exception as e:
+                logger.debug(f"disk_guard check error: {e}")
+        await asyncio.sleep(interval)
+
+
 async def start_scheduler():
     _tasks.append(asyncio.create_task(watch_folder_loop()))
     _tasks.append(asyncio.create_task(sync_status_loop()))
@@ -493,6 +517,7 @@ async def start_scheduler():
     _tasks.append(asyncio.create_task(saved_searches_loop()))
     _tasks.append(asyncio.create_task(priority_aging_loop()))
     _tasks.append(asyncio.create_task(recovery_loop()))
+    _tasks.append(asyncio.create_task(disk_guard_loop()))
     logger.info("Scheduler started")
 
 

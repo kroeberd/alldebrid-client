@@ -1973,6 +1973,18 @@ async def sse_subscriber_count():
 
 # ── Prometheus metrics ────────────────────────────────────────────────────────
 
+
+@router.get("/disk-guard")
+async def disk_guard_status():
+    """
+    Current disk-space guard state.
+
+    Returns free_gb, min_free_gb, and whether the guard is active
+    (downloads currently paused due to low disk space).
+    """
+    return await manager.check_disk_space_guard()
+
+
 @router.get("/metrics")
 async def prometheus_metrics():
     """Prometheus-compatible metrics endpoint.
