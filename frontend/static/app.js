@@ -1173,17 +1173,6 @@ function renderSettings() {
       </div>
 
       <div class="scard">
-        <div class="scard-header">⚙️ Post-Processing Script</div>ownload before it starts if the download folder has less than this amount of free space. 0 = disabled.</p>
-        <div class="scard-body">
-          <div class="form-group">
-            <label class="form-label">Minimum Free Disk Space (GB, 0 = disabled)</label>
-            <input class="input" type="number" id="s-min_free_disk_gb" value="${s.min_free_disk_gb??0}" min="0" step="0.5"/>
-            <span class="form-hint">When free space on the download folder falls below this value, the torrent is marked error instead of downloading. The torrent row is kept — no duplicate download will occur after space is freed and you retry.</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="scard">
         <div class="scard-header">⚙️ Post-Processing Script</div>
         <p class="form-hint" style="padding:4px 14px 6px;margin:0;font-size:11px;color:var(--text3)">Optional shell command executed after a torrent is fully downloaded and imported into Sonarr/Radarr. Leave empty to disable.</p>
         <div class="scard-body">
