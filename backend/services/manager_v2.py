@@ -1434,6 +1434,24 @@ class TorrentManager:
             # magnet, silently re-upload it so the user does not need to intervene.
             magnet_link = str(row.get("magnet") or "").strip()
             torrent_name = str(row.get("name") or f"torrent {row['id']}")
+
+            # If no magnet was stored (e.g. added via .torrent file or torrent URL),
+            # synthesize a bare magnet from the infohash.  AllDebrid accepts
+            # magnet:?xt=urn:btih:<hash> identically to full magnet links.
+            if not magnet_link:
+                stored_hash = str(row.get("hash") or "").strip().lower()
+                if stored_hash and len(stored_hash) in (40, 64):  # SHA-1 or SHA-256 btih
+                    import urllib.parse as _up
+                    magnet_link = (
+                        f"magnet:?xt=urn:btih:{stored_hash}"
+                        f"&dn={_up.quote(torrent_name[:120])}"
+                    )
+                    logger.info(
+                        "expired_reimport: no magnet stored for torrent %s — "
+                        "synthesized from hash %s",
+                        row["id"], stored_hash[:16],
+                    )
+
             if magnet_link:
                 logger.warning(
                     "Magnet expired on AllDebrid (torrent %s '%s') — reimporting",
